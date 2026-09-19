@@ -1,0 +1,74 @@
+# --- Archivos locales del equipo (no se versionan) ---
+CLAUDE.md
+preguntas.md
+.claude/settings.local.json
+
+# --- Variables de entorno / secretos ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.jks
+client_secret*.json
+credentials*.json
+
+# --- Backend: Java / Maven / Spring Boot ---
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+*.class
+*.log
+hs_err_pid*
+replay_pid*
+HELP.md
+backend/src/main/resources/application-local.*
+
+# --- Frontend (Node / Vite / Angular / Apps Script) ---
+node_modules/
+dist/
+build/
+.angular/
+.vite/
+coverage/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.clasprc.json
+
+# --- Docker / datos locales de PostgreSQL ---
+postgres-data/
+pgdata/
+.docker-data/
+
+# --- IDEs ---
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.classpath
+.project
+.settings/
+.factorypath
+.sts4-cache/
+nbproject/
+nbbuild/
+nbdist/
+.nb-gradle/
+
+# --- Sistema operativo ---
+.DS_Store
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# --- Archivos temporales de Office (bloqueos de .xlsx/.docx abiertos) ---
+~$*
