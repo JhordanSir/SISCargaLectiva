@@ -1,0 +1,1722 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prototipo CU-001 · Registrar Plan de Ciclo</title>
+<style>
+:root{
+  --ground:#eaeef2; --surface:#fff; --surface-2:#f6f8fa; --surface-3:#eef2f6;
+  --ink:#15212c; --ink-soft:#5b6b7b; --ink-faint:#8697a6;
+  --line:#ccd7e0; --line-soft:#e2e9ef;
+  --acento:#1b5a78; --acento-viva:#24789e; --acento-tenue:#e2eef3;
+  --aviso:#8a5a00; --aviso-fondo:#fbf0d5; --aviso-linea:#e0c37a;
+  --error:#96242a; --error-fondo:#fae6e6; --error-linea:#dba3a3;
+  --ok:#1d6644; --ok-fondo:#e2f0e8; --ok-linea:#9ac7b0;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  --r:4px;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --ground:#0e151c; --surface:#161f29; --surface-2:#1b2732; --surface-3:#22303d;
+    --ink:#e4ecf3; --ink-soft:#9aabbb; --ink-faint:#71879a;
+    --line:#2e3f4f; --line-soft:#24323f;
+    --acento:#5aa8c8; --acento-viva:#7cc0dc; --acento-tenue:#17303c;
+    --aviso:#e0b45c; --aviso-fondo:#33290f; --aviso-linea:#6b551f;
+    --error:#e89a9a; --error-fondo:#38191a; --error-linea:#6e3234;
+    --ok:#83c9a5; --ok-fondo:#13301f; --ok-linea:#32603f;
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--ground); color:var(--ink);
+  font:14px/1.5 var(--sans);
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3{margin:0;font-weight:600;text-wrap:balance}
+p{margin:0}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--acento-viva);outline-offset:2px}
+
+/* ---------- barra superior ---------- */
+.barra{
+  position:sticky;top:0;z-index:30;
+  display:flex;flex-wrap:wrap;gap:12px;align-items:center;
+  padding:10px 16px;
+  background:var(--surface);border-bottom:1px solid var(--line);
+}
+.marca{display:flex;flex-direction:column;line-height:1.2;margin-right:auto}
+.marca b{font-size:15px;letter-spacing:-.01em}
+.marca span{font-size:11px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.08em}
+.indicador{
+  display:flex;align-items:center;gap:8px;
+  background:var(--acento-tenue);color:var(--acento);
+  border:1px solid color-mix(in srgb,var(--acento) 30%,transparent);
+  border-radius:100px;padding:4px 12px;
+  font-size:12px;font-weight:600;
+}
+.indicador .num{font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums}
+.sesion{font-size:12px;color:var(--ink-soft);font-family:var(--mono)}
+
+/* ---------- estructura ---------- */
+.lienzo{
+  display:grid;grid-template-columns:minmax(0,1fr) 340px;
+  gap:16px;align-items:start;
+  max-width:1400px;margin:0 auto;padding:16px;
+}
+@media (max-width:1000px){ .lienzo{grid-template-columns:minmax(0,1fr)} }
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
+.panel-cab{
+  display:flex;flex-wrap:wrap;gap:8px;align-items:baseline;
+  padding:12px 16px;border-bottom:1px solid var(--line-soft);
+}
+.panel-cab h2{font-size:15px}
+.panel-cab .pasos{
+  margin-left:auto;font-family:var(--mono);font-size:11px;
+  color:var(--ink-faint);letter-spacing:.02em;
+}
+.panel-cuerpo{padding:16px}
+
+.etq{
+  font-size:10px;text-transform:uppercase;letter-spacing:.1em;
+  color:var(--ink-faint);font-weight:600;
+}
+
+/* ---------- botones ---------- */
+.btn{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:7px 13px;border:1px solid var(--line);border-radius:var(--r);
+  background:var(--surface-2);cursor:pointer;
+  font-size:13px;font-weight:500;
+  transition:background .12s,border-color .12s;
+}
+.btn:hover:not(:disabled){background:var(--surface-3);border-color:var(--ink-faint)}
+.btn:disabled{opacity:.42;cursor:not-allowed}
+.btn.primario{background:var(--acento);border-color:var(--acento);color:#fff}
+.btn.primario:hover:not(:disabled){background:var(--acento-viva);border-color:var(--acento-viva)}
+.btn.peligro{color:var(--error);border-color:var(--error-linea)}
+.btn.peligro:hover:not(:disabled){background:var(--error-fondo)}
+.btn .fa{
+  font-family:var(--mono);font-size:10px;font-weight:600;
+  color:var(--ink-faint);letter-spacing:-.02em;
+}
+.btn.primario .fa{color:#fff;opacity:.72}
+.barra-acciones{display:flex;flex-wrap:wrap;gap:8px}
+
+/* ---------- login ---------- */
+.centro{display:flex;justify-content:center;padding:40px 16px}
+.acceso{width:100%;max-width:420px;text-align:center}
+.acceso .sello{
+  width:52px;height:52px;margin:0 auto 14px;
+  display:grid;place-items:center;border-radius:50%;
+  background:var(--acento);color:#fff;
+  font-family:var(--mono);font-size:15px;font-weight:700;letter-spacing:-.04em;
+}
+.acceso h2{font-size:19px;margin-bottom:4px}
+.acceso p{color:var(--ink-soft);margin-bottom:20px;font-size:13px}
+.cuentas{display:flex;flex-direction:column;gap:8px;margin-bottom:18px;text-align:left}
+.cuenta{
+  display:flex;gap:10px;align-items:flex-start;
+  padding:10px 12px;border:1px solid var(--line);border-radius:var(--r);
+  background:var(--surface-2);cursor:pointer;
+}
+.cuenta:has(input:checked){border-color:var(--acento);background:var(--acento-tenue)}
+.cuenta input{margin:3px 0 0}
+.cuenta b{display:block;font-family:var(--mono);font-size:12px;font-weight:600}
+.cuenta small{color:var(--ink-soft);font-size:12px}
+
+/* ---------- menú ---------- */
+.menu{display:grid;gap:8px}
+.menu-op{
+  display:flex;gap:12px;align-items:center;width:100%;text-align:left;
+  padding:14px 16px;border:1px solid var(--line);border-radius:var(--r);
+  background:var(--surface-2);cursor:pointer;
+}
+.menu-op:hover:not(:disabled){border-color:var(--acento);background:var(--acento-tenue)}
+.menu-op:disabled{opacity:.45;cursor:not-allowed}
+.menu-op b{font-size:14px}
+.menu-op small{display:block;color:var(--ink-soft);font-size:12px}
+.menu-op .ord{
+  font-family:var(--mono);font-size:11px;color:var(--ink-faint);
+  min-width:22px;font-variant-numeric:tabular-nums;
+}
+
+/* ---------- campos ---------- */
+.campo{display:flex;flex-direction:column;gap:5px;margin-bottom:14px}
+.campo label{font-size:12px;font-weight:600;color:var(--ink-soft)}
+select,input[type=text],input[type=number],textarea{
+  font:inherit;padding:7px 10px;border:1px solid var(--line);border-radius:var(--r);
+  background:var(--surface);color:var(--ink);width:100%;
+}
+textarea{font-family:var(--mono);font-size:12px;resize:vertical;min-height:110px}
+.fila-campos{display:flex;flex-wrap:wrap;gap:12px}
+.fila-campos .campo{flex:1 1 150px;margin-bottom:0}
+
+/* ---------- tablas ---------- */
+.tabla-caja{overflow-x:auto;border:1px solid var(--line-soft);border-radius:var(--r)}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th{
+  text-align:left;padding:8px 10px;background:var(--surface-3);
+  border-bottom:1px solid var(--line);
+  font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-soft);
+  white-space:nowrap;font-weight:600;
+}
+td{padding:7px 10px;border-bottom:1px solid var(--line-soft);vertical-align:top}
+tbody tr:last-child td{border-bottom:none}
+.num,.cod{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:12px}
+.num{text-align:right;white-space:nowrap}
+tr.pulsable{cursor:pointer}
+tr.pulsable:hover td{background:var(--surface-2)}
+tr.sel td{background:var(--acento-tenue)}
+tr.sel td:first-child{box-shadow:inset 3px 0 0 var(--acento)}
+
+/* ---------- distintivos ---------- */
+.pill{
+  display:inline-block;padding:2px 8px;border-radius:100px;
+  font-size:11px;font-weight:600;white-space:nowrap;border:1px solid transparent;
+}
+.pill.sin{background:var(--surface-3);color:var(--ink-soft);border-color:var(--line)}
+.pill.borrador{background:var(--aviso-fondo);color:var(--aviso);border-color:var(--aviso-linea)}
+.pill.registrado{background:var(--ok-fondo);color:var(--ok);border-color:var(--ok-linea)}
+.pill.bloqueado{background:var(--error-fondo);color:var(--error);border-color:var(--error-linea)}
+.marca-c{
+  display:inline-block;margin-left:5px;padding:1px 5px;border-radius:3px;
+  font-family:var(--mono);font-size:10px;font-weight:700;
+}
+.marca-c.intl{background:var(--acento-tenue);color:var(--acento);border:1px solid var(--acento)}
+.marca-c.fus{background:var(--ok-fondo);color:var(--ok);border:1px solid var(--ok-linea)}
+.marca-c.des{background:var(--surface-3);color:var(--ink-soft);border:1px solid var(--line)}
+
+/* advertencias localizadas en fila y celda (RE-04) */
+tr.adv td{background:var(--aviso-fondo)}
+tr.adv.sel td{background:color-mix(in srgb,var(--aviso-fondo) 55%,var(--acento-tenue))}
+td.adv-celda{box-shadow:inset 0 0 0 2px var(--aviso-linea)}
+tr.adv-detalle td{
+  background:var(--aviso-fondo);color:var(--aviso);
+  font-size:11.5px;font-weight:600;padding-top:0;
+  border-bottom:1px solid var(--aviso-linea);
+}
+
+/* columnas alineadas entre todos los bloques semestrales */
+.bloque table{table-layout:fixed;min-width:760px}
+.bloque td{overflow-wrap:anywhere}
+.bloque th:nth-child(1),.bloque td:nth-child(1){width:74px}
+.bloque th:nth-child(2),.bloque td:nth-child(2){width:98px}
+.bloque th:nth-child(4),.bloque td:nth-child(4){width:64px}
+.bloque th:nth-child(5),.bloque td:nth-child(5){width:52px}
+.bloque th:nth-child(6),.bloque td:nth-child(6){width:52px}
+.bloque th:nth-child(7),.bloque td:nth-child(7){width:64px}
+.bloque th:nth-child(8),.bloque td:nth-child(8){width:74px}
+.bloque th:nth-child(9),.bloque td:nth-child(9){width:148px}
+
+/* ---------- resumen global ---------- */
+.resumen{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));
+  gap:1px;background:var(--line-soft);
+  border:1px solid var(--line-soft);border-radius:var(--r);overflow:hidden;
+}
+.resumen div{background:var(--surface);padding:9px 11px}
+.resumen dt{
+  font-size:10px;text-transform:uppercase;letter-spacing:.06em;
+  color:var(--ink-faint);font-weight:600;margin-bottom:2px;
+}
+.resumen dd{
+  margin:0;font-family:var(--mono);font-size:17px;font-weight:600;
+  font-variant-numeric:tabular-nums;
+}
+.resumen div.alerta dd{color:var(--aviso)}
+
+/* ---------- bloques semestrales ---------- */
+.bloque{border:1px solid var(--line-soft);border-radius:var(--r);margin-bottom:10px;overflow:hidden}
+.bloque-cab{
+  display:flex;flex-wrap:wrap;gap:10px;align-items:center;width:100%;
+  padding:9px 12px;background:var(--surface-2);border:0;border-bottom:1px solid var(--line-soft);
+  cursor:pointer;text-align:left;
+}
+.bloque-cab:hover{background:var(--surface-3)}
+.bloque-cab b{font-size:13px}
+.bloque-cab .tot{
+  margin-left:auto;font-family:var(--mono);font-size:11px;
+  color:var(--ink-soft);font-variant-numeric:tabular-nums;
+}
+.bloque-cab .chev{font-size:10px;color:var(--ink-faint);width:11px}
+.bloque[data-abierto=no] .bloque-cab{border-bottom:0}
+.bloque[data-abierto=no] .tabla-caja{display:none}
+.bloque .tabla-caja{border:0;border-radius:0}
+
+/* ---------- proceso de validación ---------- */
+.checklist{list-style:none;margin:0;padding:0;display:grid;gap:5px}
+.checklist li{
+  display:flex;gap:9px;align-items:flex-start;
+  padding:7px 10px;background:var(--surface-2);
+  border:1px solid var(--line-soft);border-radius:var(--r);
+  font-size:13px;opacity:.35;transition:opacity .2s;
+}
+.checklist li.listo{opacity:1}
+.checklist li .tic{color:var(--ok);font-weight:700;width:14px}
+.checklist li .np{font-family:var(--mono);font-size:11px;color:var(--ink-faint);min-width:20px}
+@media (prefers-reduced-motion:reduce){ .checklist li{transition:none} }
+
+/* ---------- traza ---------- */
+.traza{position:sticky;top:64px;max-height:calc(100vh - 88px);display:flex;flex-direction:column}
+.traza .panel-cuerpo{overflow-y:auto;padding:10px 12px}
+.reg{display:grid;gap:4px;margin:0;padding:0;list-style:none}
+.reg li{
+  display:flex;gap:8px;align-items:flex-start;
+  font-size:12px;padding:5px 7px;border-radius:3px;border-left:2px solid var(--line);
+  background:var(--surface-2);
+}
+.reg li .et{
+  font-family:var(--mono);font-size:10px;font-weight:700;
+  color:var(--ink-faint);white-space:nowrap;min-width:46px;
+}
+.reg li.tipo-fa{border-left-color:var(--acento);background:var(--acento-tenue)}
+.reg li.tipo-fa .et{color:var(--acento)}
+.reg li.tipo-aviso{border-left-color:var(--aviso-linea);background:var(--aviso-fondo)}
+.reg li.tipo-aviso .et{color:var(--aviso)}
+.reg li.tipo-error{border-left-color:var(--error-linea);background:var(--error-fondo)}
+.reg li.tipo-error .et{color:var(--error)}
+.reg li.tipo-fin{border-left-color:var(--ok-linea);background:var(--ok-fondo)}
+.reg li.tipo-fin .et{color:var(--ok)}
+.traza-pie{
+  padding:8px 12px;border-top:1px solid var(--line-soft);
+  display:flex;gap:8px;align-items:center;
+}
+.traza-pie small{color:var(--ink-faint);font-size:11px;margin-right:auto}
+
+/* ---------- diálogos ---------- */
+dialog{
+  border:1px solid var(--line);border-radius:6px;padding:0;
+  background:var(--surface);color:var(--ink);
+  width:min(560px,calc(100vw - 32px));
+}
+dialog::backdrop{background:rgba(8,16,24,.55)}
+.dlg-cab{padding:14px 18px;border-bottom:1px solid var(--line-soft)}
+.dlg-cab .fa-id{
+  font-family:var(--mono);font-size:11px;font-weight:700;color:var(--acento);
+  letter-spacing:.02em;
+}
+.dlg-cab h3{font-size:16px;margin-top:2px}
+.dlg-cab .ancla{font-size:11px;color:var(--ink-faint);margin-top:4px}
+.dlg-cuerpo{padding:14px 18px;max-height:min(50vh,420px);overflow-y:auto}
+.dlg-pie{
+  display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;
+  padding:12px 18px;border-top:1px solid var(--line-soft);background:var(--surface-2);
+}
+.pasos-fa{list-style:none;margin:0 0 4px;padding:0;display:grid;gap:3px}
+.pasos-fa li{display:flex;gap:9px;font-size:12.5px;line-height:1.45}
+.pasos-fa .np{
+  font-family:var(--mono);font-size:11px;color:var(--ink-faint);
+  min-width:18px;text-align:right;padding-top:1px;
+}
+.pasos-fa .rol{
+  font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.04em;
+  padding:1px 4px;border-radius:2px;height:fit-content;margin-top:2px;
+  background:var(--surface-3);color:var(--ink-faint);border:1px solid var(--line-soft);
+}
+.pasos-fa .rol.A{background:var(--acento-tenue);color:var(--acento);border-color:var(--acento)}
+.nota{
+  padding:9px 11px;border-radius:var(--r);font-size:12.5px;
+  background:var(--surface-2);border:1px solid var(--line-soft);margin-top:10px;
+}
+.nota.aviso{background:var(--aviso-fondo);border-color:var(--aviso-linea);color:var(--aviso)}
+.nota.error{background:var(--error-fondo);border-color:var(--error-linea);color:var(--error)}
+.nota.ok{background:var(--ok-fondo);border-color:var(--ok-linea);color:var(--ok)}
+.cita{
+  font-size:12.5px;line-height:1.55;padding:10px 12px;
+  border-left:3px solid var(--acento);background:var(--surface-2);border-radius:0 var(--r) var(--r) 0;
+}
+.lista-err{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:4px;font-size:12px}
+.lista-err li{
+  display:flex;gap:8px;padding:5px 8px;border-radius:3px;
+  background:var(--error-fondo);border:1px solid var(--error-linea);color:var(--error);
+}
+.lista-err .cod{font-weight:700;min-width:30px}
+
+/* ---------- avisos flotantes ---------- */
+.brindis{
+  position:fixed;left:50%;bottom:18px;transform:translateX(-50%);
+  z-index:60;display:flex;flex-direction:column;gap:6px;align-items:center;
+  pointer-events:none;width:min(520px,calc(100vw - 32px));
+}
+.brindis div{
+  background:var(--ink);color:var(--ground);
+  padding:8px 14px;border-radius:100px;font-size:12.5px;font-weight:500;
+  box-shadow:0 4px 14px rgba(0,0,0,.22);
+}
+.brindis div .fa{font-family:var(--mono);font-weight:700;opacity:.7;margin-right:5px}
+
+/* ---------- marca de pie, presente en todas las vistas ---------- */
+.pie-marca{
+  display:flex;align-items:center;gap:10px;justify-content:flex-end;
+  padding:9px 16px;border-top:1px solid var(--line-soft);
+  background:var(--surface-2);border-radius:0 0 var(--r) var(--r);
+}
+.pie-marca .txt{font-size:11.5px;color:var(--ink-faint)}
+.pie-marca .txt b{color:var(--ink-soft);font-weight:600}
+.logo-wayra{
+  width:70px;height:41px;flex:none;
+  background-image:url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAOEAAACECAMAAABRVLyhAAAAUVBMVEUeGiEjHCQoHiYgFh8iHCQZExsuJy9DPURkXWRybnNgWV+hnqH7+/vR0NGfnKCRjpJRTFOCfoNfWmHg3+Cxr7LBvL/Bv8G/vcB/e4E+OkGAen+bqDilAAAXkElEQVR42s1diXqbuBbWgmRjB0MCk9Z9/we9Z5M4EsLGadLvaiapd+vn7JtijLHWmsfL0ouOLkP/2/ot7u+X3qlv7NPvArBPH36KSd/ju12N8XsRNvCFsIdX3le9PX+crRE6+l8B2r0A7tsR7kD03hxZNv+qSVnut5OfF9e3kNDustxjWIkRG5SU3xuKFKt7QLrvRbi3Kg7dVSdCre1znezROndUHF9DGP+GR1+ipzU7rPqIiOYYZYsFemF3+T2Ae1IYDnNq4lLbYmFbE7DbVzDdCtw1EdrTeXf1F/sixAeGQhTJBilbtVX9IJ7OdbBwywqpeyif8pTbIgzXt/01MBErnN0XubSkmS3VTnqCKYYb7UpT8VAuBZ1r0TDcniN82SI+g2it2dOrssUOuc8594xLt+LYtRCOfWuNTYRxFVxjXwaYtOieaK5iWFCsO6Bd9piUEJ6aaiYSwurlNripH8fb+P4RX8Vo7VYoG8QseLJ7SMSabzsWoS3CyW5sRIzutKFh9OF0m1ce7u1LGO3Wk1HMKb5bUotPpa6FuetcWw4nS3Yw0mJ8MdotwhCXUk7n3gT7AkKbSGVrj1SYd6v4lSHsDqDstqqGEHp/mov1drY2Fgjh6oR3Jt3Yf1zO/W2gO9NxiHn7ezJYuKYFaV70TbsWwkqL9qFECAAdEnB+j+gJkKBOC7/yBYQSHuz7AzU5nkPrtp5qQw69nWDz/30uy/JrGD5n3LcvNY2NSLPRhYASYlAAASM+9vsoFVdB2/d2KoSVvrHugGy6lhx6FLobk8b70G9p6OwvAHMGPw5eFKcpWtSkwd/oUfsClxrTjEtsHRsCbTpaWbaOkbNrI0SCXYNoVER4rhAGsI5vUwBhjO8DqtN5mYCchh6P4aXwySphtJvQSTSNQMNNsx3vsryUFqwFX73CRvTaJh8EYUAmbCAMwMVvlxCtf1fWghDDFRrC8QDKKket/XxnS2NPGPcjhKYsFpfgfR6QhsM8ArhxucUWQg8CN4boSRjfPm/jdWAtA9dkqPn0EcI1eM5UrH2apnIJ4d6P14XWdbnKLbx9D8/iQ5UNcRYIVCCU14Yz3bYdaZtILttlYJUb0G4WJHxKPtu2FhtRZN0BVEx6u7Hml+Lf6Ia3GXRIhdC6sCCPUhwyo/iR++ZRBO/B4JNCxMcBfpkjK8RPqdqtLXTB7AdA5+CUEyTK9EHIWyOU6CnOIGssjKcgH8DaB0QQH17CQc/btrNtu7lEssQkG8P4cbqfZN1jhP8H/GK38XB8HMfxXda4Lrzbz4BwK4f4AEghEqsHYbT9stzAl7EoghNgg3e5cMwvbSuZ0o+rEHbAWW/zmTUN2DL4sXQHOSqabWRBlNhfgrCwh2RREtuKtgHIFj/qGoiHp/BMCvXuW0Gite2Md8dIgqgKicgtexv34NbYV7wD558hjAVC/Ez/Scx7JhIinnkg62iQq8G3eUeaP0eoxdA3njGtRBNTJCZps4aw+PiJez0F10oAgEcC63SaTuuC+/zg6eRKhHTBAAiL3RTwAg0R0S5AxAW/nKE/NxU6WSaatVaixnSVk+JYNhx7qbArNoCgGXAb2QpwYFgkazz+tJbdcKl1M7IncktSQ0jJAahH7BsuyLPHPG+bfbfVh7PZkNRyCP6LifTlvO/Qz2C2Mb+BV/UWEm8m99XZJK2EhIHirYRN/iGaeG3xB0J4I4RntoKDQvjx9vYezEvaVG4UqnWTD+1wt/R9gdyacBI3A59EpWicoiDqeBsj6NnTsxXfGeGc5VBxKQKfpzhqLu2PxlC5XiQRRplILBwaUBjBTv0VneB56V0QnU7eJRJxXG2huD3uvAzz29FVIBT+vCCpYk4/QnbHop3s8Msu4XCImLKHNiencgIu0xgQhNOotjuDw2ExPhAaOhYNt0bVwMFvr6y+tofwuRHtHnzYkpwJtpM2/DoaXlhl9G3lzJmi5hlO4qbNw7KIDwxkupD7zNpUm3sgMb1+Bpf1ltb1doVFv9S/shYIGeN1Gdn++LgsgND3n5+TR1M0XsE5hUBqJiYlj8e8oGnsTg4jpWNgvyPBW/oJwx1LXukZIeJzrC7hW39lhIGM9DLFRzWKKiZBzRVsSiGSlwZs4km02WszZkB9ZpmSL2QTleJsxvdgAmdK5UUKjjBDRBIYw5oGF09S9GiwA3nMnrNoKV2Ys2vlzTXjRjnF9R38mpw3pcs2WzL76IAfzwhb9btI4AhGgkNpPAl+UFB+M1Nmtsw0JIQLW0d84RdWJjxbmJQvJj6aQM/0Bx3vIglsW5lERkhpg+v63Z6Akg9sShougeuMuIUZzT/4zNO4fM8i4Qe+cJgdALVqXk4pqrxFdmismAGIQT8w3h0+lxsl10GF/0ZNvtbPGCGbe9QHmG8QZ/X71jUGcO0p+rcHC8HJp1GlNuXJwAPkrLDfu1oKkkj28guEn54QIgnxKX4vvQO0viR+8eetzAXP8lj1eL0W+FYTPUY2tSIN4bDWWTNvIoU+rlaN98NrmdxcBIPozX0GMteWgjhLoQ6oX/iJ37AsadNwH0gCyhRGeJZrK+qGZcI/sBmcl/cpousSp/PIBL2R3K2lX47KiZpouNENmskl0a97UMdJaTrXzoJIqoCUXizTUAwwPAqCzcYwJk7l4HXpORUED3vWakzKvPMcDmBkKN6NY5VH8uljMzX3zFj66gWxp+QCA7QVi1ZklfuFn210TiNZbgj7FnAHjVgJBgPs8s4IVc2bfGJvUyjE+cBIzuZiI7i0579ZUD+9sZM7NotPYXMn1JV8HVnkwAlIOExcN6j4i62v85mrxGV0fAO8Vk/pIueZhmH5Jm162hYQN8F+2JYudK+JNhbh12KCdZt2L6AkpfSuQZfbMH7yzJ0T5x4+GOE1fAvCefgd0amqWzGeJ2rKwqFyaoDxQxUiKvNgBrF6biUiyEhkhGgvB4xJIpHWXyi19ge47c+fd6ra//nT/+Ffsv784d/0z2/KzOkq/8RO40P+fJTGsI3A0ZBbbdoakBI2g1eUJV9tIn0Xua5CYQF7Bv65YnnqzL3ejVEE8UYVoaoMzh7EhUGk+50EFADuNkjgSJoVOcG5wqU+torXt+GFQwGUajHJqUWz3x2TbFTWLbnepKvu85kj457NP2WcDheNyeVesaVumi83t22EUeegVBRV4GPTng0Gb8T04t/NN044cj4CtNUyvLjmxaZAJrcLPe3gC8/anQv1uunNcylTmDNqVHTQ+J33E2YvII9jHCtgTOFaigdeXCzja3UybeEr/aVrlU0BbYmfQpg61KZMRC5nW04WmSKoAq200mZu0Es9S2sYBGEO+Nf1lb7L3JGhGr40h7raHCpBvIU1u+8oY7w+KHlUyuR43Vy1eqBl5VjdH3Lq1H7cVDlnfKHZpGwrXdtqbKsnSnUlKpq5eU3wJ1Gk4NAnL0HIvOk2fNguWyKsOv1u4bhJzFrU1hCLEHHHWqRgfgkKO+9nyX4AOzqPK4g5E4Upj9yoMOQEfxgLhGP4C43arrs9am4OnPxKFHOc8qASGxED7f0NfVTyTv787nfX+wne0f85J4SpdsAI++lywUJO/zpC2+h9tptG9t2eQwqQFwhIiQmBXW65DMwIqdBHF+J5RtipGrAlhC4hPK3di+OLfW2171L2JxYk1BFGNoIUQM5jNMhnkdLc/Vrnpn7K4PwRW3H2ondV8SnTcJK06fQqwrL8VHXy5WT/fpczSsmJorYBcthDSvcLwo70DKauI4Z4l8vlLP/KrTP049Hd6YYIXUZoNwjhqpkvIVQ00vfLTMbWZ1sL9UgnreuWqEps7JtTOEnhOpXSUvhe+OF9iRDePnBbxorQfIWGhZxVJbWqxE3WwpX+S2qNCfeR27KGEdPc+floh1UoW2YhfUKsEHKxTlprYkJoWHG1EO5NBulOmiJXU5VltiYxNXLJTQ9thVgn9MFr241b+w9j5EYOP+fy4adzK8JPLx8LNEwEHpPn5F6lodE575KOxm4cb6d1zZq1SXeB8UzRSZybYWD7D/OgQ2wjnFO2e86+oSC0xycuNkOGrerpkYbuUtVSn6bkpg8o0rWfRiEsi48Shu4gfKkjuh4QerWzu4z4F0zbnIdH5YhZ90StCN2QktAlwvnLCI91h5XQsB9z9yJQ1w3l4swm+6lulV1fM3ebkPYpxTW1M8NN8wPLFgqoDb/MV1HPxHxnHb+jS6P4nxsaSpSvejh83sAXgqdXA8kjjdUu+OVNhY6VpPKIGtUhKECuENYxWqEi7PezaD19se/AmhxNUvmkApgVL+jYG3h5No43UJ8rl16CTaWPpkJ7PLn8PXL4eGhjLTj6vuwAs0UfkXTl+Tv34FUIdRGnGEUyf5eKesakewDttq1IBga4A6zM8ch+ee7JU68+IyRr8RG4UL7XIr+NCb5VDHcpqHxzR2lfbh4eOVFj6qkLcp8ZIUWO4O+cohOE4rXtjP2ZH1yPh6izc5fLXzS447YKVnFpQoiYfY1wZx73RaX3Op8+i1FiKp0O0PbmtBExapIfFS03352Q0jq2CKoV4P8MoTG5lgr4ziY8cPUyQtQ0y0SpiYnjw42m+XdcavZnv5QOjxQ+nUJ4MuqdaBi3LfDSudf2CH8YoW2j0so29tTjZe1OQadE6MN905vopNlhfbf5V5pm+/k2JR1VUhUcKugCW8dlTBtn7lIfi3WDoUtA+B/SsOXs/qRHYzOc7UEaqmLCYtYV4JqpOtalmxSqc5pL9xTNT2Hc1WL1CSeqCX7vDAaxFo00+Oq1mX1FY39KldbdN4VLY46ej7HmzmDSGSMGcQIwehAaBrvv0fycV2Pb555YW/ulB44CMZQW5/rSIHWmXHZ6I4RdE19u/vkpLrUbTaqaNpVxN0+OP2GE+0XD8O+N4XML0iab2bFrwKVEuDofxQ/sWHzzT0HabZ3DFn3h5ok8urXG6vSoP3UmNKrreublZ2HVWVZbFFOZZ9Ng7SsnhB3Lb/00QmM3KqeOvBNQDc8Y+xJaRwjNjij+qKax1WBp47yenaO/2gQ1r5PV/GtxLL5QzU2VM/A1xFJqd6FupdH8OJc+Gucvzmaw9cyUeXqcxsHz/P5R9KTcnLKyak2RS8kMVuhEY83rTGrtz2URG0OzmxMzNq1wa9RRzBd9WQrhMpkfJ+KjPGLR11BmxzVxa8/mhRMnyzrgP1AvFVkrW9/ybrY69iVe/WkW3ekSU1lu0+rUrH25TkM1h+p1/84xVc2nG6tbNBk3tH1p1YykAF73eMyPWgtbe9l6ClNnVbYQXTVMsVpv8+gYSUOzD9vMsGlkG46sZxWrsiGQW7TSJZU7hSHAPjOeOPM0nAnlb5kv5BNuMrPKEEc97w9dAZBijNQDJlck5BbvdneienTzApy+GuZelf8dxDFXDakfhl8xJI19hWCVX06TW8MwcpUw5aPOEAhNRb8lrAW6NEKXeZVeDAMNsKKvfDMoTUn9d+HWfMxULvg1+J1hHIbrBmI4DfillJiml5ZPuzc9KiWpXT1ZNPPzHL5OEqcyHQKX0Wwx/oQ9+jSlXMa2U5AjfLo1m5FmhzNIma7N7Tkn/lAZ0DE8pdRvJteG9Gjgl1ZEvBKipPz5i9cPIUx0AW16MZXCZBoW9650Bz1/CmsOvJxlpgN9DKkbmRmbC2FLR2DkETLK8tNlUwjncsqZR0B5fJ02dK2uAI7vK0TcBTGUiCdGmLuZKRSnau/I+NOExkciC9FwlLR9z+fm4XUxdNwU/OZtcRtcdlVxkgjGVe/YgDPhmz5aCCsiyaZWGm4Qyvs1k2o2HTh7wtUJmifVnIlNtPkeXZ6ZG7QQ4ceaDb0SvdIpU0BFBIODoYPSNTSwOFhSFXjC17jYPCJIO0yzdPoQpS4/tkdDfpcgynmiRFRhUmogt97RV81UviVdQ/MUkj8y6/lcgvAcUqbCJwFKXRz0udOZLkOnj02hXGqaPPKrcBcI1ek0mRnOuzTklwgi0h23IRNVWmKDMGFPvHZLgpslr6feQTpFQnq8BWFyYfiECc4zdYQQj2QxfMXyCdM4KjdsHZ2KhnMBglhwfohQ6x+5tP0qzWHIJDLEWQOXjbIOpF3yNfA0TS5W46JaTRMDD4LQ88XoqWcNiJaIGOgDygiyUwilD2lkmVaK8mN+iNCsbMrpWnPPrE6Ie+mLITHp+YifNGghFwXHuGm7CZQgVGpy4FbMrkv7gkk3agm7rQcVLHRmoK9O2kwI02wVismcGJA0mntMQ82meBXBog6ZK0bFkXSJnWBixiTpYz7FmidfaXrtR+qHTi5rymgjhai2Ngbu5afBTObSD+rGxyE1o0BWXDqIxrZJ9c+ES2ua2u8UNrVCsgsxj7Cp0qRZ6SRuEiKS/oGXD3IxbL62jNDQZZj44na5wkacTdw6lkTEU7Z4FK/j8HeDUDTSasueIBT5dah4R5IkkRKbmFTYcZHrndg1CSLxwHgmDnNpyv3ypo9zCWTpSPOgpYhvmu2o/40vlk0uDc5WeyF5JYfgYEX2s5gXbqwZ+ocI+3QNBubiwGy6alIjmvIqEOaixJB68fVDpT08UZONN6p0MVERJslrxx4rHIM5qEN12VyIkVppaJOXInLzFGHSpnxJ6MySGxM1aVKTOItsuxi+S0jOWnITTiE7cMzS0weu88iUEcegox2nq5E0UFKc0Icy5oN7FqBut9U0wk+ntA1BuK9LM5vmkzPpyl6SXVhdULApAeffQ9TD6sby5E46gUf3Zqj1kU6NFM2GgQ5M8faZfeV/bMyZUuuKXzWNS12rIamORLAjCNm5YOakgGOmdpeezmBjEpItyA2fSzKCssj/WsffNwjnqwxIdSJ7uXf0rjlefDoEH8nJ/01nGSUaOuFSESz2Ec2WSxtBciRPLF8KZlNhUpMdtmqNISWj5dradbSPuGDmubuZ+8CyiDZOqJtCOgRW7H0nh+AAnG7DpcmuFZTTNGwkKuiyyrk6q28Ts93J3l95Wl5OLCmBFWfukr0Gb4cUnnSJhPVCHuTTX+k/w0ds0hkYfqtp0F7yQWPMcU+tRWLTaVFBxiwG4CSEGt7qM0lE8NgB30WY/NU5ne/KW6s+CWUB7YIUuQ2dBS6Oz9YemmwKozmIkNl0mVVMAZ8+CJNaCfzeg57qSoFSdtiTZ2BKzxvbL97z4KC4MZOaWqSX3gIpzd9hlUimYWdWGlqFED5qSdmX59Yi+aYq2E9ZiMSkS/JykhuWXL0SYc6z6dhCDCao9U60ILSReta5nbyZPZzb2yeOqbELR99wbWmaNelkDtMwyZlK2LBmuTNzTOIhq47hTMQEIStEY6wtfRr6YmQ4MaUfOjvDJ/WMciArnqRicQpnusr3rzH+qksb9vxRbFGkAor0DSOWIHAKqtIkHkA6VkIQqkNDEkIRS6aH2LZhzYRzzoZUSpeyNG+zKGBxDWuEfh+h2Uco2ndNXjCbSg4vueZF99b9LWsXQvgZVFZYy6FNnHjhU/PWuJEyNlYcW3jSj5vkVSt6+hINrVgf9dCQAk0rnGVN0TBDoitZt1XTSLFNIyRVdWc+TRYgsXOXXesZbsEOx0E7CaxZa8+7iVA0zbxLQ2PvcBZw8TY4P9Xy+Sh4SnB5+AJJ4glcEjGJ8OKoOxWNgyNYo5pmhI+7Q3+mvd9P0fOrOOmGf8PM43dxBgsk8KOHU03OcLyfd/LnmOD4TH6TSbdqUxBPLt2Ku0cq1vnwKlVeNn3yaYqcuCcy82Hla/t+0nS5P4PT/PJR6vhzZEN61Bsk6Nq0yNzAEXPait05c+BBVr/s+9krb6/VFH3I8E6lTNLjrjx3sqwIZv+lyzVe+KczXT5xutvU6x4Nfjz8ExZHJy6MHhjebVurR8G28HxXSLPaN/1dAmBZ3/r7Gborw4cfaPNq9uaZqv/ANDdunjUtdrqqKJK5aU9RrZA/UdhulDzLNpmKaHUz05MmBdVTnZxvXadUf0zlR+rBmz00KVLUu+sD341+xapm1lsFQmRV35gq22LzRyZkD9Tt9QlLuiHBmu1fsDSFPqjGplXjxtpxxEdqm0J5bf++pC62W3tQqfwPr6mVSBPkwikAAAAASUVORK5CYII=");
+  background-size:contain;background-repeat:no-repeat;background-position:center;
+  border:1px solid var(--line);border-radius:3px;
+}
+
+/* ---------- pie ---------- */
+.pie{
+  max-width:1400px;margin:0 auto;padding:4px 16px 28px;
+  font-size:11.5px;color:var(--ink-faint);line-height:1.6;
+}
+.pie code{font-family:var(--mono);font-size:11px}
+.aviso-cascaron{
+  max-width:1400px;margin:0 auto;padding:0 16px;
+}
+.aviso-cascaron div{
+  display:flex;gap:9px;align-items:flex-start;
+  padding:8px 12px;margin-top:12px;border-radius:var(--r);
+  background:var(--aviso-fondo);border:1px solid var(--aviso-linea);
+  color:var(--aviso);font-size:12px;
+}
+</style>
+</head>
+<body>
+
+<header class="barra">
+  <div class="marca">
+    <b>SISCargaLectiva</b>
+    <span>CU-001 · Registrar Plan de Ciclo · Prototipo</span>
+  </div>
+  <div class="sesion" id="sesion" hidden></div>
+  <div class="indicador" id="indicador">
+    <span>Flujo Básico</span><span class="num" id="indicador-num">paso 1</span>
+  </div>
+</header>
+
+<div class="aviso-cascaron">
+  <div>
+    <b>Cascarón de prueba.</b>&nbsp;Sin servidor ni validación real. Los datos son de ejemplo
+    y la navegación reproduce los 46 pasos del flujo básico y los 34 flujos alternativos del CU-001.
+  </div>
+</div>
+
+<div class="lienzo">
+  <div>
+    <!-- ================= LOGIN ================= -->
+    <section class="panel" id="v-login">
+      <div class="panel-cab"><h2>Acceso al sistema</h2><span class="pasos">pasos 1 – 5</span></div>
+      <div class="panel-cuerpo centro">
+        <div class="acceso">
+          <div class="sello">SCL</div>
+          <h2>Iniciar sesión</h2>
+          <p>Acceso restringido a cuentas del dominio <code>@ulasalle.edu.pe</code>.</p>
+          <div class="cuentas" id="cuentas"></div>
+          <button class="btn primario" id="btn-login" style="width:100%;justify-content:center">
+            Iniciar sesión con Google
+          </button>
+        </div>
+      </div>
+      <div class="pie-marca">
+        <span class="logo-wayra" role="img" aria-label="Wayrasimi S.A.C.S."></span>
+        <span class="txt">Powered by <b>Wayrasimi S.A.C.S.</b></span>
+      </div>
+    
+    </section>
+
+    <!-- ================= MENÚ ================= -->
+    <section class="panel" id="v-menu" hidden>
+      <div class="panel-cab"><h2>Menú principal</h2><span class="pasos">pasos 6 – 7</span></div>
+      <div class="panel-cuerpo">
+        <div class="menu">
+          <button class="menu-op" id="op-planes">
+            <span class="ord">01</span>
+            <span><b>Gestión de Planes de Ciclo</b><small>Registrar y editar la oferta académica por carrera</small></span>
+          </button>
+          <button class="menu-op" disabled>
+            <span class="ord">02</span>
+            <span><b>Asignar docentes al plan de ciclo</b><small>Otro caso de uso · fuera del alcance de CU-001</small></span>
+          </button>
+          <button class="menu-op" disabled>
+            <span class="ord">03</span>
+            <span><b>Reporte de carga lectiva</b><small>Fase posterior</small></span>
+          </button>
+        </div>
+      </div>
+      <div class="pie-marca">
+        <span class="logo-wayra" role="img" aria-label="Wayrasimi S.A.C.S."></span>
+        <span class="txt">Powered by <b>Wayrasimi S.A.C.S.</b></span>
+      </div>
+    
+    </section>
+
+    <!-- ================= PLANES / TABLERO ================= -->
+    <section class="panel" id="v-planes" hidden>
+      <div class="panel-cab"><h2>Planes de ciclo</h2><span class="pasos">pasos 8 – 15</span></div>
+      <div class="panel-cuerpo">
+        <div class="campo" style="max-width:260px">
+          <label for="sel-ciclo">Ciclo académico</label>
+          <select id="sel-ciclo">
+            <option value="2026-2">2026-2</option>
+            <option value="2027-1" selected>2027-1</option>
+            <option value="2027-2">2027-2</option>
+          </select>
+        </div>
+
+        <p class="etq" style="margin-bottom:7px">Tablero de Monitoreo General · paso 12</p>
+        <div class="tabla-caja" style="margin-bottom:8px">
+          <table>
+            <thead><tr>
+              <th>Carrera</th><th>Estado</th><th class="num">Sem.</th><th class="num">Asig.</th>
+              <th class="num">Grupos</th><th class="num">Horas</th><th>Versión</th><th>Editando</th>
+            </tr></thead>
+            <tbody id="tb-tablero"></tbody>
+          </table>
+        </div>
+        <p style="font-size:12px;color:var(--ink-faint);margin-bottom:18px">
+          Pulsa una carrera del tablero para consultarla en solo lectura (FA-009).
+        </p>
+
+        <p class="etq" style="margin-bottom:7px">Selector de carrera autorizada · pasos 13 – 15</p>
+        <div class="barra-acciones" id="sel-carreras"></div>
+      </div>
+      <div class="pie-marca">
+        <span class="logo-wayra" role="img" aria-label="Wayrasimi S.A.C.S."></span>
+        <span class="txt">Powered by <b>Wayrasimi S.A.C.S.</b></span>
+      </div>
+    
+    </section>
+
+    <!-- ================= CARGA MASIVA ================= -->
+    <section class="panel" id="v-carga" hidden>
+      <div class="panel-cab">
+        <h2>Carga masiva de la oferta</h2>
+        <span class="pasos">pasos 16 – 19</span>
+      </div>
+      <div class="panel-cuerpo">
+        <div class="nota ok" id="nota-bloqueo" style="margin-top:0;margin-bottom:14px"></div>
+        <p class="etq" style="margin-bottom:8px">Opciones de carga · paso 19</p>
+        <div class="barra-acciones">
+          <button class="btn primario" id="op-pegar">Pegar desde Google Sheets</button>
+          <button class="btn" id="op-archivo">Subir archivo (.xlsx o .csv) <span class="fa">FA-001</span></button>
+          <button class="btn" id="op-plantilla">Descargar plantilla oficial <span class="fa">FA-004</span></button>
+        </div>
+        <div class="nota" style="margin-top:16px">
+          <b>Plantilla oficial (11 columnas):</b>
+          <code style="font-family:var(--mono);font-size:11.5px">CARRERA · MALLA · SEMESTRE · CÓDIGO · ASIGNATURA · GRUPO · HT · HP · TOTAL HORAS · DPTO · OBSERVACIONES</code>
+        </div>
+        <div class="barra-acciones" style="margin-top:16px">
+          <button class="btn peligro" id="op-expirar">Simular inactividad <span class="fa">FA-033</span></button>
+        </div>
+      </div>
+      <div class="pie-marca">
+        <span class="logo-wayra" role="img" aria-label="Wayrasimi S.A.C.S."></span>
+        <span class="txt">Powered by <b>Wayrasimi S.A.C.S.</b></span>
+      </div>
+    
+    </section>
+
+    <!-- ================= PEGADO ================= -->
+    <section class="panel" id="v-pegado" hidden>
+      <div class="panel-cab"><h2>Pegar desde Google Sheets</h2><span class="pasos">pasos 20 – 25</span></div>
+      <div class="panel-cuerpo">
+        <div class="campo">
+          <label for="area-pegado">Área de pegado · copia el rango completo, incluida la fila de cabeceras</label>
+          <textarea id="area-pegado" placeholder="Pega aquí el rango copiado desde Google Sheets…"></textarea>
+        </div>
+        <p class="etq" style="margin-bottom:8px">Contenidos de ejemplo para recorrer cada rama</p>
+        <div class="barra-acciones">
+          <button class="btn primario" data-pegar="ok">Oferta válida</button>
+          <button class="btn" data-pegar="cabeceras">Sin cabeceras <span class="fa">FA-005</span></button>
+          <button class="btn" data-pegar="vacio">Solo cabeceras <span class="fa">FA-006</span></button>
+          <button class="btn" data-pegar="errores">Con errores <span class="fa">FA-007</span></button>
+        </div>
+        <div class="barra-acciones" style="margin-top:16px">
+          <button class="btn" id="pegar-volver">Volver a las opciones de carga</button>
+        </div>
+      </div>
+      <div class="pie-marca">
+        <span class="logo-wayra" role="img" aria-label="Wayrasimi S.A.C.S."></span>
+        <span class="txt">Powered by <b>Wayrasimi S.A.C.S.</b></span>
+      </div>
+    
+    </section>
+
+    <!-- ================= PROCESO ================= -->
+    <section class="panel" id="v-proceso" hidden>
+      <div class="panel-cab"><h2>Procesamiento del contenido</h2><span class="pasos">pasos 26 – 31</span></div>
+      <div class="panel-cuerpo">
+        <ul class="checklist" id="checklist"></ul>
+        <div class="barra-acciones" style="margin-top:16px">
+          <button class="btn primario" id="ir-grilla" disabled>Ver la Grilla de Vista Previa</button>
+        </div>
+      </div>
+      <div class="pie-marca">
+        <span class="logo-wayra" role="img" aria-label="Wayrasimi S.A.C.S."></span>
+        <span class="txt">Powered by <b>Wayrasimi S.A.C.S.</b></span>
+      </div>
+    
+    </section>
+
+    <!-- ================= GRILLA ================= -->
+    <section class="panel" id="v-grilla" hidden>
+      <div class="panel-cab">
+        <h2 id="grilla-titulo">Grilla de Vista Previa</h2>
+        <span class="pasos">pasos 32 – 37</span>
+      </div>
+      <div class="panel-cuerpo">
+        <p class="etq" style="margin-bottom:7px">Panel de Resumen Global · paso 35</p>
+        <dl class="resumen" id="resumen"></dl>
+
+        <div class="barra-acciones" style="margin:16px 0 12px">
+          <button class="btn" data-fa="FA-030" id="btn-colapsar">Colapsar todo <span class="fa">FA-030</span></button>
+          <button class="btn" data-fa="FA-017">Agregar Asignatura <span class="fa">FA-017</span></button>
+          <button class="btn" data-fa="FA-020">Agregar Grupo al Semestre <span class="fa">FA-020</span></button>
+          <button class="btn" data-fa="FA-025">Fusionar Grupos <span class="fa">FA-025</span></button>
+          <button class="btn" data-fa="FA-028">Historial de Versiones <span class="fa">FA-028</span></button>
+        </div>
+
+        <div id="bloques"></div>
+
+        <p class="etq" style="margin:18px 0 7px">Acciones sobre la fila seleccionada</p>
+        <div class="barra-acciones" id="acciones-fila">
+          <button class="btn" data-fa="FA-015" data-req="sel">Editar celda <span class="fa">FA-015</span></button>
+          <button class="btn" data-fa="FA-019" data-req="sel">Agregar Grupo <span class="fa">FA-019</span></button>
+          <button class="btn" data-fa="FA-022" data-req="sel">Desdoblar <span class="fa">FA-022</span></button>
+          <button class="btn" data-fa="FA-027" data-req="fus">Deshacer Fusión <span class="fa">FA-027</span></button>
+          <button class="btn peligro" data-fa="FA-021" data-req="sel">Eliminar Grupo <span class="fa">FA-021</span></button>
+          <button class="btn peligro" data-fa="FA-018" data-req="sel">Eliminar Asignatura <span class="fa">FA-018</span></button>
+        </div>
+
+        <p class="etq" style="margin:18px 0 7px">Guardado y registro · paso 38</p>
+        <div class="barra-acciones">
+          <button class="btn primario" id="btn-registrar"></button>
+          <button class="btn" data-fa="FA-010" id="btn-borrador">Guardar Borrador <span class="fa">FA-010</span></button>
+          <button class="btn" data-fa="FA-014">Reemplazar contenido <span class="fa">FA-014</span></button>
+          <button class="btn" data-fa="FA-032">Salir de la edición <span class="fa">FA-032</span></button>
+          <button class="btn peligro" id="op-expirar-2">Simular inactividad <span class="fa">FA-033</span></button>
+        </div>
+      </div>
+      <div class="pie-marca">
+        <span class="logo-wayra" role="img" aria-label="Wayrasimi S.A.C.S."></span>
+        <span class="txt">Powered by <b>Wayrasimi S.A.C.S.</b></span>
+      </div>
+    
+    </section>
+
+    <!-- ================= ÉXITO ================= -->
+    <section class="panel" id="v-exito" hidden>
+      <div class="panel-cab"><h2>Registro completado</h2><span class="pasos">pasos 41 – 46</span></div>
+      <div class="panel-cuerpo">
+        <div class="nota ok" style="margin-top:0" id="exito-nota"></div>
+        <ul class="checklist" id="exito-lista" style="margin-top:14px"></ul>
+        <div class="barra-acciones" style="margin-top:16px">
+          <button class="btn primario" id="exito-tablero">Volver al Tablero de Monitoreo</button>
+        </div>
+      </div>
+      <div class="pie-marca">
+        <span class="logo-wayra" role="img" aria-label="Wayrasimi S.A.C.S."></span>
+        <span class="txt">Powered by <b>Wayrasimi S.A.C.S.</b></span>
+      </div>
+    
+    </section>
+
+    <!-- ================= FIN ================= -->
+    <section class="panel" id="v-fin" hidden>
+      <div class="panel-cab"><h2>Fin del caso de uso</h2><span class="pasos">—</span></div>
+      <div class="panel-cuerpo">
+        <div class="nota" id="fin-nota" style="margin-top:0"></div>
+        <div class="barra-acciones" style="margin-top:16px">
+          <button class="btn primario" id="fin-reiniciar">Reiniciar el recorrido</button>
+        </div>
+      </div>
+      <div class="pie-marca">
+        <span class="logo-wayra" role="img" aria-label="Wayrasimi S.A.C.S."></span>
+        <span class="txt">Powered by <b>Wayrasimi S.A.C.S.</b></span>
+      </div>
+    
+    </section>
+  </div>
+
+  <!-- ================= TRAZA ================= -->
+  <aside class="panel traza">
+    <div class="panel-cab"><h2>Traza del recorrido</h2></div>
+    <div class="panel-cuerpo"><ul class="reg" id="reg"></ul></div>
+    <div class="traza-pie">
+      <small id="reg-cuenta">0 entradas</small>
+      <button class="btn" id="reg-limpiar" style="padding:4px 9px;font-size:12px">Limpiar</button>
+    </div>
+  </aside>
+</div>
+
+<p class="pie">
+  Prototipo de pantallas de <b>CU-001 Registrar Plan de Ciclo</b>, fiel a
+  <code>docs/CU/CU - 001 - Registrar Plan de Ciclo.docx</code> (v2.0): 46 pasos de flujo básico
+  y 34 flujos alternativos. Cada diálogo reproduce los pasos del flujo alternativo tal como
+  están redactados en el documento e indica el paso de retorno.
+  Las reglas de validación (E01–E12, A01–A06) viven en el backend; aquí solo se simulan.
+</p>
+
+<dialog id="dlg">
+  <form method="dialog" id="dlg-form">
+    <div class="dlg-cab">
+      <div class="fa-id" id="dlg-id"></div>
+      <h3 id="dlg-titulo"></h3>
+      <div class="ancla" id="dlg-ancla"></div>
+    </div>
+    <div class="dlg-cuerpo" id="dlg-cuerpo"></div>
+    <div class="dlg-pie" id="dlg-pie"></div>
+  </form>
+</dialog>
+
+<div class="brindis" id="brindis"></div>
+
+<script>
+"use strict";
+const DATOS = {"basico":[{"n":1,"rol":"A","texto":"El Responsable del Plan de Ciclo accede a la URL del sistema y presiona el botón “Iniciar sesión con Google”."},{"n":2,"rol":"S","texto":"El sistema redirige al proveedor de identidad Google OAuth 2.0."},{"n":3,"rol":"A","texto":"El Responsable del Plan de Ciclo se autentica con su cuenta de correo institucional."},{"n":4,"rol":"S","texto":"El sistema valida que el correo autenticado pertenezca al dominio @ulasalle.edu.pe."},{"n":5,"rol":"S","texto":"El sistema verifica que el usuario posea el rol de Coordinador de carrera o de Director de departamento."},{"n":6,"rol":"S","texto":"El sistema despliega el menú principal con las opciones autorizadas."},{"n":7,"rol":"A","texto":"El Responsable del Plan de Ciclo selecciona “Gestión de Planes de Ciclo”."},{"n":8,"rol":"S","texto":"El sistema consulta los ciclos académicos registrados."},{"n":9,"rol":"S","texto":"El sistema muestra la pantalla de planes de ciclo con el selector de ciclo académico."},{"n":10,"rol":"A","texto":"El Responsable del Plan de Ciclo selecciona el ciclo académico objetivo."},{"n":11,"rol":"S","texto":"El sistema consulta el estado del plan de cada carrera en el ciclo seleccionado."},{"n":12,"rol":"S","texto":"El sistema muestra el Tablero de Monitoreo General con el estado, la cantidad de semestres, asignaturas, grupos y horas semanales, la versión vigente y el usuario que edita el plan de cada carrera."},{"n":13,"rol":"S","texto":"El sistema consulta las carreras que el usuario tiene autorizadas para edición."},{"n":14,"rol":"S","texto":"El sistema carga las carreras autorizadas en el selector de carrera."},{"n":15,"rol":"A","texto":"El Responsable del Plan de Ciclo selecciona una carrera cuyo plan se encuentra en estado 'Sin Iniciar'."},{"n":16,"rol":"S","texto":"El sistema verifica que ningún otro usuario tenga bloqueado el plan de la carrera."},{"n":17,"rol":"S","texto":"El sistema bloquea el plan de la carrera para edición exclusiva del Responsable."},{"n":18,"rol":"S","texto":"El sistema habilita la sección de carga masiva."},{"n":19,"rol":"S","texto":"El sistema muestra las opciones “Pegar desde Google Sheets”, “Subir archivo (.xlsx o .csv)” y “Descargar plantilla oficial”."},{"n":20,"rol":"A","texto":"El Responsable del Plan de Ciclo selecciona “Pegar desde Google Sheets”."},{"n":21,"rol":"S","texto":"El sistema muestra el área de pegado con las instrucciones de uso."},{"n":22,"rol":"A","texto":"El Responsable del Plan de Ciclo copia el rango de celdas desde Google Sheets."},{"n":23,"rol":"A","texto":"El Responsable del Plan de Ciclo pega el rango en el área de pegado."},{"n":24,"rol":"S","texto":"El sistema recibe el contenido pegado."},{"n":25,"rol":"S","texto":"El sistema reconstruye la matriz de filas y columnas a partir del texto tabulado."},{"n":26,"rol":"S","texto":"El sistema normaliza las cabeceras y los valores sin distinguir mayúsculas, tildes ni espacios al inicio y al final."},{"n":27,"rol":"S","texto":"El sistema ubica la primera fila que contiene todas las cabeceras de la plantilla oficial."},{"n":28,"rol":"S","texto":"El sistema verifica que existan filas de datos debajo de la fila de cabeceras."},{"n":29,"rol":"S","texto":"El sistema valida cada fila de datos con las reglas de error de carga."},{"n":30,"rol":"S","texto":"El sistema identifica en cada fila las advertencias de carga."},{"n":31,"rol":"S","texto":"El sistema clasifica como internacional o virtual cada asignatura cuyas OBSERVACIONES contienen “INTERNACIONAL” o “VIRTUAL”."},{"n":32,"rol":"S","texto":"El sistema organiza las asignaturas por semestre y malla curricular."},{"n":33,"rol":"S","texto":"El sistema muestra la Grilla de Vista Previa en bloques semestrales colapsables con la cantidad de asignaturas, grupos y horas de cada bloque."},{"n":34,"rol":"S","texto":"El sistema señala cada advertencia en la fila y la celda donde ocurre."},{"n":35,"rol":"S","texto":"El sistema muestra el Panel de Resumen Global."},{"n":36,"rol":"S","texto":"El sistema habilita los controles de edición, gestión de grupos, guardado y registro."},{"n":37,"rol":"A","texto":"El Responsable del Plan de Ciclo revisa el plan en la Grilla de Vista Previa."},{"n":38,"rol":"A","texto":"El Responsable del Plan de Ciclo presiona el botón “Registrar Plan”."},{"n":39,"rol":"S","texto":"El sistema muestra una ventana modal de confirmación con el resumen consolidado y las advertencias vigentes, con el mensaje informativo: “¿Desea registrar el Plan de Ciclo de {Carrera} para el periodo {Ciclo}? Al confirmar, el estado cambiará a 'REGISTRADO' y se habilitará la asignación docente para los Departamentos Académicos (DIMA, DAHU, DACJ, DACTE). El plan podrá seguir editándose y cada guardado generará una nueva versión. Advertencias vigentes: {N}.”"},{"n":40,"rol":"A","texto":"El Responsable del Plan de Ciclo presiona el botón “Confirmar y Registrar”."},{"n":41,"rol":"S","texto":"El sistema almacena el plan con estado 'Registrado' como una nueva versión."},{"n":42,"rol":"S","texto":"El sistema registra la operación en la bitácora de auditoría."},{"n":43,"rol":"S","texto":"El sistema libera el bloqueo de edición del plan."},{"n":44,"rol":"S","texto":"El sistema actualiza el estado de la carrera en el Tablero de Monitoreo General."},{"n":45,"rol":"S","texto":"El sistema muestra la confirmación de registro exitoso."},{"n":46,"rol":"T","texto":"Fin del caso de uso."}],"fa":[{"id":"FA-001","nombre":"Carga masiva mediante archivo .xlsx o .csv","ancla":{"paso":20,"destino":"Flujo Básico"},"retorno":{"paso":26,"destino":"Flujo Básico"},"pasos":[{"n":1,"rol":"A","texto":"En el paso 20 del Flujo Básico, el Responsable del Plan de Ciclo selecciona “Subir archivo (.xlsx o .csv)”."},{"n":2,"rol":"S","texto":"El sistema muestra la sección de importación de archivos."},{"n":3,"rol":"A","texto":"El Responsable del Plan de Ciclo selecciona el archivo."},{"n":4,"rol":"S","texto":"El sistema recibe el archivo."},{"n":5,"rol":"S","texto":"El sistema valida que la extensión del archivo sea .xlsx o .csv."},{"n":6,"rol":"S","texto":"El sistema lee el contenido del archivo."},{"n":7,"rol":"S","texto":"El sistema reconstruye la matriz de filas y columnas."},{"n":8,"rol":"T","texto":"El flujo continúa en el paso 26 del Flujo Básico."}]},{"id":"FA-002","nombre":"Selección de hoja en un libro .xlsx con varias hojas","ancla":{"paso":6,"destino":"FA-001"},"retorno":{"paso":7,"destino":"FA-001"},"pasos":[{"n":1,"rol":"S","texto":"En el paso 6 del Flujo Alternativo FA-001, el sistema detecta que el libro contiene más de una hoja."},{"n":2,"rol":"S","texto":"El sistema muestra la lista de hojas del libro."},{"n":3,"rol":"A","texto":"El Responsable del Plan de Ciclo selecciona la hoja que desea importar."},{"n":4,"rol":"S","texto":"El sistema lee el contenido de la hoja seleccionada."},{"n":5,"rol":"T","texto":"El flujo continúa en el paso 7 del Flujo Alternativo FA-001."}]},{"id":"FA-003","nombre":"Archivo con formato no admitido","ancla":{"paso":5,"destino":"FA-001"},"retorno":{"paso":3,"destino":"FA-001"},"pasos":[{"n":1,"rol":"S","texto":"En el paso 5 del Flujo Alternativo FA-001, el sistema detecta una extensión distinta de .xlsx y .csv."},{"n":2,"rol":"S","texto":"El sistema informa que solo se admiten archivos .xlsx y .csv."},{"n":3,"rol":"S","texto":"El sistema rechaza el archivo."},{"n":4,"rol":"T","texto":"El flujo regresa al paso 3 del Flujo Alternativo FA-001."}]},{"id":"FA-004","nombre":"Descarga de la plantilla oficial","ancla":{"paso":19,"destino":"Flujo Básico"},"retorno":{"paso":19,"destino":"Flujo Básico"},"pasos":[{"n":1,"rol":"A","texto":"En el paso 19 del Flujo Básico, el Responsable del Plan de Ciclo selecciona “Descargar plantilla oficial”."},{"n":2,"rol":"S","texto":"El sistema genera la plantilla con las cabeceras oficiales."},{"n":3,"rol":"S","texto":"El sistema entrega la plantilla al Responsable."},{"n":4,"rol":"T","texto":"El flujo regresa al paso 19 del Flujo Básico."}]},{"id":"FA-005","nombre":"Estructura inválida por cabeceras ausentes o repetidas","ancla":{"paso":27,"destino":"Flujo Básico"},"retorno":{"paso":19,"destino":"Flujo Básico"},"pasos":[{"n":1,"rol":"S","texto":"En el paso 27 del Flujo Básico, el sistema no encuentra una fila con todas las cabeceras de la plantilla oficial o encuentra una cabecera repetida."},{"n":2,"rol":"S","texto":"El sistema muestra una ventana modal de estructura no válida con las cabeceras requeridas y las cabeceras ausentes o repetidas."},{"n":3,"rol":"S","texto":"El sistema descarta el contenido."},{"n":4,"rol":"T","texto":"El flujo regresa al paso 19 del Flujo Básico."}]},{"id":"FA-006","nombre":"Matriz sin filas de datos","ancla":{"paso":28,"destino":"Flujo Básico"},"retorno":{"paso":19,"destino":"Flujo Básico"},"pasos":[{"n":1,"rol":"S","texto":"En el paso 28 del Flujo Básico, el sistema detecta que no existen filas de datos debajo de la fila de cabeceras."},{"n":2,"rol":"S","texto":"El sistema informa que no hay asignaturas que procesar."},{"n":3,"rol":"S","texto":"El sistema descarta el contenido."},{"n":4,"rol":"T","texto":"El flujo regresa al paso 19 del Flujo Básico."}]},{"id":"FA-007","nombre":"Rechazo de la carga por errores de validación","ancla":{"paso":29,"destino":"Flujo Básico"},"retorno":{"paso":19,"destino":"Flujo Básico"},"pasos":[{"n":1,"rol":"S","texto":"En el paso 29 del Flujo Básico, el sistema detecta al menos una fila que incumple una regla de error."},{"n":2,"rol":"S","texto":"El sistema consolida todos los errores del contenido."},{"n":3,"rol":"S","texto":"El sistema muestra la lista completa de errores con la fila, la columna, el valor y el motivo de cada uno."},{"n":4,"rol":"S","texto":"El sistema rechaza la totalidad del contenido."},{"n":5,"rol":"T","texto":"El flujo regresa al paso 19 del Flujo Básico."}]},{"id":"FA-008","nombre":"Plan bloqueado por otro usuario","ancla":{"paso":16,"destino":"Flujo Básico"},"retorno":{"paso":2,"destino":"FA-009"},"pasos":[{"n":1,"rol":"S","texto":"En el paso 16 del Flujo Básico, el sistema detecta que otro usuario tiene bloqueado el plan de la carrera."},{"n":2,"rol":"S","texto":"El sistema informa el nombre del usuario que edita el plan y la hora de inicio del bloqueo."},{"n":3,"rol":"T","texto":"El flujo continúa en el paso 2 del Flujo Alternativo FA-009."}]},{"id":"FA-009","nombre":"Consulta de un plan en solo lectura","ancla":{"paso":12,"destino":"Flujo Básico"},"retorno":{"paso":12,"destino":"Flujo Básico"},"pasos":[{"n":1,"rol":"A","texto":"En el paso 12 del Flujo Básico, el Responsable del Plan de Ciclo selecciona una carrera en el Tablero de Monitoreo General."},{"n":2,"rol":"S","texto":"El sistema recupera la versión vigente del plan de la carrera."},{"n":3,"rol":"S","texto":"El sistema muestra el plan en la Grilla de Vista Previa en modo de solo lectura."},{"n":4,"rol":"A","texto":"El Responsable del Plan de Ciclo cierra la consulta."},{"n":5,"rol":"T","texto":"El flujo regresa al paso 12 del Flujo Básico."}]},{"id":"FA-010","nombre":"Guardado del plan como Borrador","ancla":{"paso":37,"destino":"Flujo Básico"},"retorno":{"paso":37,"destino":"Flujo Básico"},"pasos":[{"n":1,"rol":"A","texto":"En el paso 37 del Flujo Básico, el Responsable del Plan de Ciclo presiona el botón “Guardar Borrador” sobre un plan que no está Registrado."},{"n":2,"rol":"S","texto":"El sistema solicita confirmación."},{"n":3,"rol":"A","texto":"El Responsable del Plan de Ciclo confirma el guardado."},{"n":4,"rol":"S","texto":"El sistema almacena el plan con estado 'Borrador' como una nueva versión."},{"n":5,"rol":"S","texto":"El sistema registra la operación en la bitácora de auditoría."},{"n":6,"rol":"T","texto":"El flujo regresa al paso 37 del Flujo Básico."}]},{"id":"FA-011","nombre":"Reanudación de un plan en estado Borrador","ancla":{"paso":15,"destino":"Flujo Básico"},"retorno":{"paso":36,"destino":"Flujo Básico"},"pasos":[{"n":1,"rol":"A","texto":"En el paso 15 del Flujo Básico, el Responsable del Plan de Ciclo selecciona una carrera cuyo plan está en estado 'Borrador'."},{"n":2,"rol":"S","texto":"El sistema ejecuta los pasos 16 y 17 del Flujo Básico."},{"n":3,"rol":"S","texto":"El sistema recupera la última versión del plan."},{"n":4,"rol":"S","texto":"El sistema muestra el plan en la Grilla de Vista Previa."},{"n":5,"rol":"S","texto":"El sistema informa que el plan se encuentra en estado 'Borrador'."},{"n":6,"rol":"T","texto":"El flujo continúa en el paso 36 del Flujo Básico."}]},{"id":"FA-012","nombre":"Edición de un plan en estado Registrado","ancla":{"paso":15,"destino":"Flujo Básico"},"retorno":{"paso":36,"destino":"Flujo Básico"},"pasos":[{"n":1,"rol":"A","texto":"En el paso 15 del Flujo Básico, el Responsable del Plan de Ciclo selecciona una carrera cuyo plan está en estado 'Registrado'."},{"n":2,"rol":"S","texto":"El sistema ejecuta los pasos 16 y 17 del Flujo Básico."},{"n":3,"rol":"S","texto":"El sistema recupera la versión vigente del plan."},{"n":4,"rol":"S","texto":"El sistema muestra el plan en la Grilla de Vista Previa."},{"n":5,"rol":"S","texto":"El sistema informa que el plan está Registrado y que cada guardado generará una nueva versión."},{"n":6,"rol":"S","texto":"El sistema reemplaza la acción “Registrar Plan” por “Guardar Cambios”."},{"n":7,"rol":"T","texto":"El flujo continúa en el paso 36 del Flujo Básico."}]},{"id":"FA-013","nombre":"Guardado de cambios de un plan Registrado","ancla":{"paso":38,"destino":"Flujo Básico"},"retorno":{"paso":42,"destino":"Flujo Básico"},"pasos":[{"n":1,"rol":"A","texto":"En el paso 38 del Flujo Básico, el Responsable del Plan de Ciclo presiona el botón “Guardar Cambios” sobre un plan Registrado."},{"n":2,"rol":"S","texto":"El sistema muestra una ventana modal con el resumen de los cambios respecto de la versión vigente y las advertencias vigentes."},{"n":3,"rol":"A","texto":"El Responsable del Plan de Ciclo registra, de forma opcional, el motivo del cambio."},{"n":4,"rol":"A","texto":"El Responsable del Plan de Ciclo presiona el botón “Confirmar”."},{"n":5,"rol":"S","texto":"El sistema almacena el plan con estado 'Registrado' como una nueva versión."},{"n":6,"rol":"T","texto":"El flujo continúa en el paso 42 del Flujo Básico."}]},{"id":"FA-014","nombre":"Reemplazo del contenido mediante una nueva carga masiva","ancla":{"paso":37,"destino":"Flujo Básico"},"retorno":{"paso":18,"destino":"Flujo Básico"},"pasos":[{"n":1,"rol":"A","texto":"En el paso 37 del Flujo Básico, el Responsable del Plan de Ciclo presiona el botón “Reemplazar contenido” sobre un plan que ya tiene asignaturas."},{"n":2,"rol":"S","texto":"El sistema muestra una ventana modal que advierte que se reemplazará todo el contenido del plan y que se perderán los desdobles, los ajustes manuales y las fusiones, incluidas las fusiones con grupos de otras carreras."},{"n":3,"rol":"A","texto":"El Responsable del Plan de Ciclo confirma el reemplazo."},{"n":4,"rol":"T","texto":"El flujo continúa en el paso 18 del Flujo Básico."}]},{"id":"FA-015","nombre":"Edición directa de una celda","ancla":{"paso":37,"destino":"Flujo Básico"},"retorno":{"paso":37,"destino":"Flujo Básico"},"pasos":[{"n":1,"rol":"A","texto":"En el paso 37 del Flujo Básico, el Responsable del Plan de Ciclo selecciona una celda editable de la Grilla de Vista Previa."},{"n":2,"rol":"S","texto":"El sistema habilita la edición de la celda."},{"n":3,"rol":"A","texto":"El Responsable del Plan de Ciclo modifica el valor."},{"n":4,"rol":"S","texto":"El sistema valida el valor con las reglas de error de carga."},{"n":5,"rol":"S","texto":"El sistema aplica el valor en la Grilla de Vista Previa."},{"n":6,"rol":"S","texto":"El sistema recalcula TOTAL HORAS cuando el valor modificado corresponde a HT o HP."},{"n":7,"rol":"S","texto":"El sistema actualiza las advertencias y el Panel de Resumen Global."},{"n":8,"rol":"T","texto":"El flujo regresa al paso 37 del Flujo Básico."}]},{"id":"FA-016","nombre":"Valor no válido en la edición","ancla":{"paso":4,"destino":"FA-015"},"retorno":{"paso":37,"destino":"Flujo Básico"},"pasos":[{"n":1,"rol":"S","texto":"En el paso 4 del Flujo Alternativo FA-015 o en el paso 5 del Flujo Alternativo FA-017, el sistema detecta un valor que incumple una regla de error."},{"n":2,"rol":"S","texto":"El sistema muestra un mensaje con la regla incumplida."},{"n":3,"rol":"S","texto":"El sistema conserva el valor anterior."},{"n":4,"rol":"T","texto":"El flujo regresa al paso 37 del Flujo Básico."}]},{"id":"FA-017","nombre":"Agregar una asignatura","ancla":{"paso":37,"destino":"Flujo Básico"},"retorno":{"paso":37,"destino":"Flujo Básico"},"pasos":[{"n":1,"rol":"A","texto":"En el paso 37 del Flujo Básico, el Responsable del Plan de Ciclo presiona el botón “Agregar Asignatura”."},{"n":2,"rol":"S","texto":"El sistema muestra un formulario con los campos de la plantilla oficial."},{"n":3,"rol":"A","texto":"El Responsable del Plan de Ciclo completa el formulario."},{"n":4,"rol":"A","texto":"El Responsable del Plan de Ciclo presiona el botón “Agregar”."},{"n":5,"rol":"S","texto":"El sistema valida los datos con las reglas de error de carga."},{"n":6,"rol":"S","texto":"El sistema agrega la asignatura en su bloque semestral de la Grilla de Vista Previa."},{"n":7,"rol":"S","texto":"El sistema actualiza las advertencias y el Panel de Resumen Global."},{"n":8,"rol":"T","texto":"El flujo regresa al paso 37 del Flujo Básico."}]},{"id":"FA-018","nombre":"Eliminar una asignatura","ancla":{"paso":37,"destino":"Flujo Básico"},"retorno":{"paso":37,"destino":"Flujo Básico"},"pasos":[{"n":1,"rol":"A","texto":"En el paso 37 del Flujo Básico, el Responsable del Plan de Ciclo selecciona “Eliminar Asignatura” sobre una asignatura."},{"n":2,"rol":"S","texto":"El sistema muestra una ventana modal de confirmación con las advertencias aplicables: cantidad de grupos, fusiones y docentes asignados."},{"n":3,"rol":"A","texto":"El Responsable del Plan de Ciclo confirma la eliminación."},{"n":4,"rol":"S","texto":"El sistema elimina la asignatura y sus grupos."},{"n":5,"rol":"S","texto":"El sistema retira los grupos eliminados de las fusiones en las que participaban."},{"n":6,"rol":"S","texto":"El sistema actualiza el Panel de Resumen Global."},{"n":7,"rol":"T","texto":"El flujo regresa al paso 37 del Flujo Básico."}]},{"id":"FA-019","nombre":"Agregar un grupo a una asignatura","ancla":{"paso":37,"destino":"Flujo Básico"},"retorno":{"paso":37,"destino":"Flujo Básico"},"pasos":[{"n":1,"rol":"A","texto":"En el paso 37 del Flujo Básico, el Responsable del Plan de Ciclo selecciona “Agregar Grupo” sobre una asignatura."},{"n":2,"rol":"S","texto":"El sistema crea un grupo con el número correlativo siguiente y las mismas HT y HP de la asignatura."},{"n":3,"rol":"S","texto":"El sistema actualiza el Panel de Resumen Global."},{"n":4,"rol":"T","texto":"El flujo regresa al paso 37 del Flujo Básico."}]},{"id":"FA-020","nombre":"Agregar un grupo a un semestre","ancla":{"paso":37,"destino":"Flujo Básico"},"retorno":{"paso":37,"destino":"Flujo Básico"},"pasos":[{"n":1,"rol":"A","texto":"En el paso 37 del Flujo Básico, el Responsable del Plan de Ciclo selecciona “Agregar Grupo al Semestre” en la cabecera de un bloque semestral."},{"n":2,"rol":"S","texto":"El sistema solicita confirmación e indica la cantidad de asignaturas del semestre."},{"n":3,"rol":"A","texto":"El Responsable del Plan de Ciclo confirma la acción."},{"n":4,"rol":"S","texto":"El sistema crea, para cada asignatura del semestre, un grupo con el número correlativo siguiente."},{"n":5,"rol":"S","texto":"El sistema actualiza el Panel de Resumen Global."},{"n":6,"rol":"T","texto":"El flujo regresa al paso 37 del Flujo Básico."}]},{"id":"FA-021","nombre":"Eliminar un grupo","ancla":{"paso":37,"destino":"Flujo Básico"},"retorno":{"paso":37,"destino":"Flujo Básico"},"pasos":[{"n":1,"rol":"A","texto":"En el paso 37 del Flujo Básico, el Responsable del Plan de Ciclo selecciona “Eliminar Grupo” sobre un grupo."},{"n":2,"rol":"S","texto":"El sistema muestra una ventana modal de confirmación con las advertencias aplicables: único grupo de la asignatura, grupo fusionado y grupo con docente asignado."},{"n":3,"rol":"A","texto":"El Responsable del Plan de Ciclo confirma la eliminación."},{"n":4,"rol":"S","texto":"El sistema elimina el grupo."},{"n":5,"rol":"S","texto":"El sistema retira el grupo de la fusión en la que participaba."},{"n":6,"rol":"S","texto":"El sistema actualiza el Panel de Resumen Global."},{"n":7,"rol":"T","texto":"El flujo regresa al paso 37 del Flujo Básico."}]},{"id":"FA-022","nombre":"Desdoble parcial de práctica o de teoría","ancla":{"paso":37,"destino":"Flujo Básico"},"retorno":{"paso":37,"destino":"Flujo Básico"},"pasos":[{"n":1,"rol":"A","texto":"En el paso 37 del Flujo Básico, el Responsable del Plan de Ciclo selecciona “Desdoblar” sobre un grupo."},{"n":2,"rol":"S","texto":"El sistema muestra el formulario de desdoble con el tipo (Práctica o Teoría) y la cantidad de subgrupos."},{"n":3,"rol":"A","texto":"El Responsable del Plan de Ciclo selecciona el tipo de desdoble."},{"n":4,"rol":"A","texto":"El Responsable del Plan de Ciclo indica la cantidad de subgrupos."},{"n":5,"rol":"S","texto":"El sistema verifica que el grupo tenga horas del tipo seleccionado."},{"n":6,"rol":"S","texto":"El sistema verifica que la cantidad de subgrupos esté entre 2 y el máximo configurado."},{"n":7,"rol":"S","texto":"El sistema genera los subgrupos con identificadores correlativos, cada uno con las horas del tipo desdoblado."},{"n":8,"rol":"S","texto":"El sistema mantiene las horas del otro tipo en una sección común."},{"n":9,"rol":"S","texto":"El sistema recalcula el Panel de Resumen Global."},{"n":10,"rol":"T","texto":"El flujo regresa al paso 37 del Flujo Básico."}]},{"id":"FA-023","nombre":"Desdoble no aplicable por ausencia de horas del tipo seleccionado","ancla":{"paso":5,"destino":"FA-022"},"retorno":{"paso":37,"destino":"Flujo Básico"},"pasos":[{"n":1,"rol":"S","texto":"En el paso 5 del Flujo Alternativo FA-022, el sistema detecta que el grupo no tiene horas del tipo seleccionado."},{"n":2,"rol":"S","texto":"El sistema informa que el desdoble no aplica."},{"n":3,"rol":"S","texto":"El sistema no genera subgrupos."},{"n":4,"rol":"T","texto":"El flujo regresa al paso 37 del Flujo Básico."}]},{"id":"FA-024","nombre":"Cantidad de subgrupos no válida","ancla":{"paso":6,"destino":"FA-022"},"retorno":{"paso":4,"destino":"FA-022"},"pasos":[{"n":1,"rol":"S","texto":"En el paso 6 del Flujo Alternativo FA-022, el sistema detecta una cantidad de subgrupos fuera del rango permitido."},{"n":2,"rol":"S","texto":"El sistema muestra el rango permitido."},{"n":3,"rol":"S","texto":"El sistema no genera subgrupos."},{"n":4,"rol":"T","texto":"El flujo regresa al paso 4 del Flujo Alternativo FA-022."}]},{"id":"FA-025","nombre":"Fusión de grupos","ancla":{"paso":37,"destino":"Flujo Básico"},"retorno":{"paso":37,"destino":"Flujo Básico"},"pasos":[{"n":1,"rol":"A","texto":"En el paso 37 del Flujo Básico, el Responsable del Plan de Ciclo selecciona “Fusionar Grupos”."},{"n":2,"rol":"S","texto":"El sistema muestra el panel de fusión."},{"n":3,"rol":"S","texto":"El sistema sugiere los grupos del ciclo, de cualquier carrera, con el mismo nombre de asignatura normalizado o las mismas horas."},{"n":4,"rol":"A","texto":"El Responsable del Plan de Ciclo selecciona dos o más grupos de su plan o de otras carreras."},{"n":5,"rol":"S","texto":"El sistema compara el nombre, el código, HT, HP y TH de los grupos seleccionados."},{"n":6,"rol":"S","texto":"El sistema muestra las diferencias encontradas como advertencias."},{"n":7,"rol":"A","texto":"El Responsable del Plan de Ciclo selecciona el grupo principal."},{"n":8,"rol":"A","texto":"El Responsable del Plan de Ciclo confirma la fusión."},{"n":9,"rol":"S","texto":"El sistema crea la sección fusionada con las HT y HP del grupo principal."},{"n":10,"rol":"S","texto":"El sistema marca los grupos fusionados en la Grilla de Vista Previa."},{"n":11,"rol":"S","texto":"El sistema recalcula el Panel de Resumen Global."},{"n":12,"rol":"T","texto":"El flujo regresa al paso 37 del Flujo Básico."}]},{"id":"FA-026","nombre":"Selección insuficiente para la fusión","ancla":{"paso":4,"destino":"FA-025"},"retorno":{"paso":4,"destino":"FA-025"},"pasos":[{"n":1,"rol":"A","texto":"En el paso 4 del Flujo Alternativo FA-025, el Responsable del Plan de Ciclo selecciona un solo grupo."},{"n":2,"rol":"S","texto":"El sistema informa que la fusión requiere al menos dos grupos."},{"n":3,"rol":"S","texto":"El sistema mantiene abierto el panel de fusión."},{"n":4,"rol":"T","texto":"El flujo regresa al paso 4 del Flujo Alternativo FA-025."}]},{"id":"FA-027","nombre":"Deshacer una fusión","ancla":{"paso":37,"destino":"Flujo Básico"},"retorno":{"paso":37,"destino":"Flujo Básico"},"pasos":[{"n":1,"rol":"A","texto":"En el paso 37 del Flujo Básico, el Responsable del Plan de Ciclo selecciona “Deshacer Fusión” sobre una sección fusionada."},{"n":2,"rol":"S","texto":"El sistema solicita confirmación."},{"n":3,"rol":"A","texto":"El Responsable del Plan de Ciclo confirma la acción."},{"n":4,"rol":"S","texto":"El sistema disuelve la sección fusionada."},{"n":5,"rol":"S","texto":"El sistema restituye los grupos originales con sus HT y HP."},{"n":6,"rol":"S","texto":"El sistema recalcula el Panel de Resumen Global."},{"n":7,"rol":"T","texto":"El flujo regresa al paso 37 del Flujo Básico."}]},{"id":"FA-028","nombre":"Consulta y comparación de versiones","ancla":{"paso":37,"destino":"Flujo Básico"},"retorno":{"paso":37,"destino":"Flujo Básico"},"pasos":[{"n":1,"rol":"A","texto":"En el paso 37 del Flujo Básico, el Responsable del Plan de Ciclo selecciona “Historial de Versiones”."},{"n":2,"rol":"S","texto":"El sistema muestra las versiones del plan con el número, el estado, el tipo de guardado, el usuario, la fecha y hora y el motivo."},{"n":3,"rol":"A","texto":"El Responsable del Plan de Ciclo selecciona una versión."},{"n":4,"rol":"S","texto":"El sistema muestra la versión seleccionada en modo de solo lectura."},{"n":5,"rol":"S","texto":"El sistema muestra las diferencias de la versión seleccionada respecto de la versión anterior."},{"n":6,"rol":"A","texto":"El Responsable del Plan de Ciclo cierra el historial."},{"n":7,"rol":"T","texto":"El flujo regresa al paso 37 del Flujo Básico."}]},{"id":"FA-029","nombre":"Restauración de una versión anterior","ancla":{"paso":4,"destino":"FA-028"},"retorno":{"paso":37,"destino":"Flujo Básico"},"pasos":[{"n":1,"rol":"A","texto":"En el paso 4 del Flujo Alternativo FA-028, el Responsable del Plan de Ciclo presiona el botón “Restaurar esta versión”."},{"n":2,"rol":"S","texto":"El sistema solicita confirmación e informa que la restauración generará una nueva versión."},{"n":3,"rol":"A","texto":"El Responsable del Plan de Ciclo confirma la restauración."},{"n":4,"rol":"S","texto":"El sistema carga el contenido de la versión seleccionada en la Grilla de Vista Previa."},{"n":5,"rol":"S","texto":"El sistema almacena el contenido como una nueva versión con el estado vigente del plan."},{"n":6,"rol":"S","texto":"El sistema registra la operación en la bitácora de auditoría."},{"n":7,"rol":"T","texto":"El flujo regresa al paso 37 del Flujo Básico."}]},{"id":"FA-030","nombre":"Colapso y expansión de los bloques semestrales","ancla":{"paso":37,"destino":"Flujo Básico"},"retorno":{"paso":37,"destino":"Flujo Básico"},"pasos":[{"n":1,"rol":"A","texto":"En el paso 37 del Flujo Básico, el Responsable del Plan de Ciclo selecciona la cabecera de un bloque semestral, “Colapsar todo” o “Expandir todo”."},{"n":2,"rol":"S","texto":"El sistema actualiza el estado de expansión de los bloques."},{"n":3,"rol":"S","texto":"El sistema mantiene visibles los totales en la cabecera de cada bloque."},{"n":4,"rol":"T","texto":"El flujo regresa al paso 37 del Flujo Básico."}]},{"id":"FA-031","nombre":"Cancelación de una ventana de confirmación","ancla":null,"retorno":{"paso":37,"destino":"Flujo Básico"},"pasos":[{"n":1,"rol":"A","texto":"En cualquier ventana de confirmación de este caso de uso, el Responsable del Plan de Ciclo presiona el botón “Cancelar”."},{"n":2,"rol":"S","texto":"El sistema cierra la ventana sin aplicar la acción."},{"n":3,"rol":"S","texto":"El sistema conserva la Grilla de Vista Previa sin cambios."},{"n":4,"rol":"T","texto":"El flujo regresa al paso 37 del Flujo Básico."}]},{"id":"FA-032","nombre":"Salida de la edición sin guardar","ancla":{"paso":37,"destino":"Flujo Básico"},"retorno":{"paso":12,"destino":"Flujo Básico"},"pasos":[{"n":1,"rol":"A","texto":"En el paso 37 del Flujo Básico, el Responsable del Plan de Ciclo presiona el botón “Salir de la edición”."},{"n":2,"rol":"S","texto":"El sistema advierte que existen cambios sin guardar."},{"n":3,"rol":"A","texto":"El Responsable del Plan de Ciclo confirma la salida."},{"n":4,"rol":"S","texto":"El sistema descarta los cambios sin guardar."},{"n":5,"rol":"S","texto":"El sistema libera el bloqueo de edición del plan."},{"n":6,"rol":"T","texto":"El flujo regresa al paso 12 del Flujo Básico."}]},{"id":"FA-033","nombre":"Expiración del bloqueo por inactividad","ancla":{"paso":37,"destino":"Flujo Básico"},"retorno":{"paso":null,"destino":"Fin del caso de uso"},"pasos":[{"n":1,"rol":"S","texto":"Durante el paso 37 del Flujo Básico, transcurre el tiempo de inactividad configurado."},{"n":2,"rol":"S","texto":"El sistema almacena los cambios sin guardar como una nueva versión: con estado 'Borrador' si el plan no está Registrado, o con estado 'Registrado' si ya lo está."},{"n":3,"rol":"S","texto":"El sistema registra el autoguardado en la bitácora de auditoría."},{"n":4,"rol":"S","texto":"El sistema libera el bloqueo de edición del plan."},{"n":5,"rol":"S","texto":"El sistema informa que la sesión de edición expiró."},{"n":6,"rol":"S","texto":"El sistema muestra el plan en modo de solo lectura."},{"n":7,"rol":"T","texto":"Fin del caso de uso."}]},{"id":"FA-034","nombre":"Acceso denegado","ancla":{"paso":4,"destino":"Flujo Básico"},"retorno":{"paso":null,"destino":"Fin del caso de uso"},"pasos":[{"n":1,"rol":"S","texto":"En el paso 4 o 5 del Flujo Básico, el sistema detecta que el correo no pertenece al dominio @ulasalle.edu.pe o que el usuario no posee un rol autorizado."},{"n":2,"rol":"S","texto":"El sistema muestra el mensaje: “Acceso denegado. La cuenta no cuenta con permisos de Responsable del Plan de Ciclo. Contacte con la administración del sistema.”"},{"n":3,"rol":"S","texto":"El sistema destruye la sesión temporal."},{"n":4,"rol":"S","texto":"El sistema redirige a la pantalla de inicio de sesión."},{"n":5,"rol":"T","texto":"Fin del caso de uso."}]}]};
+
+/* ============================================================
+   Referencias al documento
+   ============================================================ */
+const FA = Object.fromEntries(DATOS.fa.map(f => [f.id, f]));
+const pasoBasico = n => DATOS.basico.find(p => p.n === n);
+const MAX_SUBGRUPOS = 5;
+const MIN_INACTIVIDAD = 30;
+
+/* ============================================================
+   Estado
+   ============================================================ */
+const estado = {
+  vista: "login",
+  paso: 1,
+  cuenta: null,
+  ciclo: "2027-1",
+  carrera: null,
+  plan: null,
+  seleccion: null,      // {ci, gi}
+  colapsados: new Set(),
+  versiones: [],
+  registrado: false
+};
+
+const CUENTAS = [
+  { id:"coord",  correo:"m.quispe@ulasalle.edu.pe", rol:"Coordinador de carrera",
+    detalle:"Carrera asignada: Ingeniería de Software", autorizado:true },
+  { id:"dir",    correo:"r.delgado@ulasalle.edu.pe", rol:"Director de departamento",
+    detalle:"DIMA · edita el plan de cualquier carrera", autorizado:true },
+  { id:"ajeno",  correo:"invitado@gmail.com", rol:"Cuenta externa",
+    detalle:"Fuera del dominio institucional", autorizado:false }
+];
+
+const CARRERAS = [
+  { sig:"ING", nombre:"Ingeniería de Software", estado:"Sin Iniciar", sem:0, asig:0, grupos:0, horas:0, version:"—", edita:null },
+  { sig:"IND", nombre:"Ingeniería Industrial",  estado:"Borrador",    sem:6, asig:31, grupos:38, horas:142, version:"v3", edita:null },
+  { sig:"ADM", nombre:"Administración de Empresas", estado:"Registrado", sem:10, asig:52, grupos:61, horas:228, version:"v7", edita:null },
+  { sig:"DER", nombre:"Derecho",                estado:"Registrado", sem:10, asig:48, grupos:55, horas:205, version:"v4", edita:null },
+  { sig:"ARQ", nombre:"Arquitectura",           estado:"Borrador",    sem:4, asig:19, grupos:24, horas:96,  version:"v2", edita:"l.paredes@ulasalle.edu.pe" },
+  { sig:"PSI", nombre:"Psicología",             estado:"Sin Iniciar", sem:0, asig:0, grupos:0, horas:0, version:"—", edita:null },
+  { sig:"COM", nombre:"Comunicación",           estado:"Sin Iniciar", sem:0, asig:0, grupos:0, horas:0, version:"—", edita:null },
+  { sig:"ICO", nombre:"Ingeniería Comercial",   estado:"Registrado",  sem:10, asig:44, grupos:50, horas:189, version:"v5", edita:null }
+];
+
+/* Oferta de ejemplo: Ingeniería de Software, malla 2024.
+   Incluye una fila con malla declarada 2024 y sufijo .21 en el código (advertencia A01)
+   y una asignatura marcada como INTERNACIONAL. */
+function planEjemplo(){
+  let id = 0;
+  const g = (n, ht, hp) => ({ id:"g" + (++id), n, ht, hp, desdoble:null, fusion:null });
+  return {
+    carrera: "Ingeniería de Software",
+    asignaturas: [
+      { sem:1, malla:2024, codigo:"3.1.1.24", nombre:"Cálculo I",                dpto:"DIMA",  obs:"",              grupos:[g(1,3,2), g(2,3,2)] },
+      { sem:1, malla:2024, codigo:"3.1.2.24", nombre:"Algorítmica I",            dpto:"DIMA",  obs:"",              grupos:[g(1,2,2)] },
+      { sem:1, malla:2024, codigo:"3.1.3.24", nombre:"Comunicación Oral",        dpto:"DAHU",  obs:"",              grupos:[g(1,3,0)] },
+      { sem:3, malla:2024, codigo:"3.3.1.24", nombre:"Base de Datos I",          dpto:"DIMA",  obs:"",              grupos:[g(1,3,2)] },
+      { sem:3, malla:2024, codigo:"3.3.2.24", nombre:"Redes y Comunicaciones",   dpto:"DIMA",  obs:"",              grupos:[g(1,2,2)] },
+      { sem:3, malla:2024, codigo:"3.3.3.24", nombre:"Estructura de Datos",      dpto:"DIMA",  obs:"",              grupos:[g(1,3,2), g(2,3,2)] },
+      { sem:3, malla:2024, codigo:"3.3.4.21", nombre:"Contabilidad General",     dpto:"DACTE", obs:"",              grupos:[g(1,2,1)] },
+      { sem:5, malla:2024, codigo:"3.5.1.24", nombre:"Ingeniería de Software I", dpto:"DIMA",  obs:"",              grupos:[g(1,3,2)] },
+      { sem:5, malla:2024, codigo:"3.5.2.24", nombre:"Sistemas Operativos",      dpto:"DIMA",  obs:"",              grupos:[g(1,2,2)] },
+      { sem:5, malla:2024, codigo:"3.5.3.24", nombre:"Legislación Informática",  dpto:"DACJ",  obs:"",              grupos:[g(1,2,0)] },
+      { sem:5, malla:2024, codigo:"3.5.4.24", nombre:"Inglés Técnico",           dpto:"DAHU",  obs:"INTERNACIONAL", grupos:[g(1,0,3)] }
+    ]
+  };
+}
+
+/* ============================================================
+   Utilidades
+   ============================================================ */
+const $  = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const esc = t => String(t).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+
+const VISTAS = ["login","menu","planes","carga","pegado","proceso","grilla","exito","fin"];
+function vistaDePaso(n){
+  if (n <= 5)  return "login";
+  if (n <= 7)  return "menu";
+  if (n <= 15) return "planes";
+  if (n <= 19) return "carga";
+  if (n <= 25) return "pegado";
+  if (n <= 31) return "proceso";
+  if (n <= 40) return "grilla";
+  return "exito";
+}
+
+function mostrar(vista){
+  estado.vista = vista;
+  VISTAS.forEach(v => { $("#v-" + v).hidden = (v !== vista); });
+  window.scrollTo({ top:0, behavior:"instant" });
+}
+
+function indicador(texto, num){
+  $("#indicador").firstElementChild.textContent = texto;
+  $("#indicador-num").textContent = num;
+}
+
+/* Registra en la traza. tipo: paso | fa | aviso | error | fin */
+function trazar(tipo, etiqueta, texto){
+  const li = document.createElement("li");
+  li.className = "tipo-" + tipo;
+  li.innerHTML = '<span class="et">' + esc(etiqueta) + "</span><span>" + esc(texto) + "</span>";
+  $("#reg").appendChild(li);
+  const n = $("#reg").children.length;
+  $("#reg-cuenta").textContent = n + (n === 1 ? " entrada" : " entradas");
+  const caja = $(".traza .panel-cuerpo");
+  caja.scrollTop = caja.scrollHeight;
+}
+
+/* Avanza por el flujo básico registrando cada paso recorrido. */
+function irAPaso(n, { silencioso = false } = {}){
+  const desde = estado.paso;
+  if (!silencioso) {
+    const ini = n > desde ? desde + 1 : n;
+    for (let i = ini; i <= n; i++) {
+      const p = pasoBasico(i);
+      if (p) trazar("paso", "paso " + i, p.texto);
+    }
+  }
+  estado.paso = n;
+  indicador("Flujo Básico", "paso " + n);
+  const v = vistaDePaso(n);
+  if (v !== estado.vista) mostrar(v);
+}
+
+function aviso(texto, fa){
+  const d = document.createElement("div");
+  d.innerHTML = (fa ? '<span class="fa">' + esc(fa) + "</span>" : "") + esc(texto);
+  $("#brindis").appendChild(d);
+  setTimeout(() => d.remove(), 3600);
+}
+
+/* ============================================================
+   Diálogos de flujo alternativo
+   ============================================================ */
+function textoRetorno(f){
+  if (!f.retorno) return "";
+  if (f.retorno.paso === null) return "Fin del caso de uso.";
+  return "Retorno: paso " + f.retorno.paso + " del " + f.retorno.destino + ".";
+}
+
+/**
+ * Abre el diálogo de un flujo alternativo.
+ * op.cuerpo        HTML extra bajo los pasos
+ * op.confirmar     etiqueta del botón principal (null = solo cerrar)
+ * op.alConfirmar   () => false para impedir el retorno (rama anidada)
+ * op.cancelable    muestra «Cancelar (FA-031)»
+ */
+function abrirFA(id, op = {}){
+  const f = FA[id];
+  $("#dlg-id").textContent = f.id;
+  $("#dlg-titulo").textContent = f.nombre;
+  $("#dlg-ancla").textContent = f.ancla
+    ? "Se activa en el paso " + f.ancla.paso + " del " + f.ancla.destino + ". " + textoRetorno(f)
+    : textoRetorno(f);
+
+  const pasos = f.pasos.map(p =>
+    '<li><span class="np">' + p.n + '.</span>' +
+    '<span class="rol ' + (p.rol === "A" ? "A" : "S") + '">' +
+      (p.rol === "A" ? "ACT" : p.rol === "S" ? "SIS" : "→") +
+    "</span><span>" + esc(p.texto) + "</span></li>"
+  ).join("");
+
+  $("#dlg-cuerpo").innerHTML =
+    '<p class="etq" style="margin-bottom:6px">Pasos según el documento</p>' +
+    '<ul class="pasos-fa">' + pasos + "</ul>" +
+    (op.cuerpo || "");
+
+  const pie = $("#dlg-pie");
+  pie.innerHTML = "";
+
+  if (op.cancelable !== false) {
+    const bc = document.createElement("button");
+    bc.type = "button";
+    bc.className = "btn";
+    bc.innerHTML = 'Cancelar <span class="fa">FA-031</span>';
+    bc.onclick = () => {
+      dlg.close();
+      trazar("fa", "FA-031", FA["FA-031"].pasos[1].texto);
+      aviso("Ventana cerrada sin aplicar la acción", "FA-031");
+      if (estado.vista === "grilla") irAPaso(37, { silencioso:true });
+    };
+    pie.appendChild(bc);
+  }
+
+  const bp = document.createElement("button");
+  bp.type = "button";
+  bp.className = "btn primario";
+  bp.textContent = op.confirmar || "Entendido";
+  bp.onclick = () => {
+    if (op.alConfirmar && op.alConfirmar() === false) return;   // rama anidada: el diálogo se reemplaza
+    dlg.close();
+    trazar("fa", f.id, f.nombre + ". " + textoRetorno(f));
+    aviso(f.nombre, f.id);
+    if (f.retorno) {
+      if (f.retorno.paso === null) { irAFin(f.nombre); return; }
+      if (f.retorno.destino === "Flujo Básico") irAPaso(f.retorno.paso, { silencioso:true });
+    }
+    if (op.despues) op.despues();
+    pintarGrilla();
+  };
+  pie.appendChild(bp);
+
+  dlg.showModal();
+}
+
+const dlg = $("#dlg");
+
+function irAFin(motivo){
+  mostrar("fin");
+  indicador("Caso de uso", "fin");
+  $("#fin-nota").innerHTML = "<b>Fin del caso de uso.</b> " + esc(motivo);
+  trazar("fin", "fin", motivo);
+}
+
+/* ============================================================
+   Pantalla 1 · Acceso
+   ============================================================ */
+$("#cuentas").innerHTML = CUENTAS.map((c, i) =>
+  '<label class="cuenta"><input type="radio" name="cuenta" value="' + c.id + '"' +
+  (i === 0 ? " checked" : "") + ">" +
+  "<span><b>" + esc(c.correo) + "</b><small>" + esc(c.rol) + " · " + esc(c.detalle) + "</small></span></label>"
+).join("");
+
+$("#btn-login").onclick = () => {
+  const id = $('input[name=cuenta]:checked').value;
+  const c = CUENTAS.find(x => x.id === id);
+  estado.cuenta = c;
+  irAPaso(3);
+  if (!c.autorizado) {
+    trazar("error", "paso 4", pasoBasico(4).texto);
+    abrirFA("FA-034", { confirmar:"Volver al inicio de sesión", cancelable:false });
+    return;
+  }
+  $("#sesion").hidden = false;
+  $("#sesion").textContent = c.correo;
+  irAPaso(7);
+};
+
+/* ============================================================
+   Pantalla 2 · Menú
+   ============================================================ */
+$("#op-planes").onclick = () => { irAPaso(9); pintarTablero(); irAPaso(14); };
+
+/* ============================================================
+   Pantalla 3 · Tablero y selector de carrera
+   ============================================================ */
+$("#sel-ciclo").onchange = e => {
+  estado.ciclo = e.target.value;
+  trazar("paso", "paso 10", "El Responsable selecciona el ciclo académico " + estado.ciclo + ".");
+  pintarTablero();
+};
+
+function pintarTablero(){
+  $("#tb-tablero").innerHTML = CARRERAS.map(c => {
+    const cls = c.edita ? "bloqueado" : c.estado === "Registrado" ? "registrado"
+              : c.estado === "Borrador" ? "borrador" : "sin";
+    return '<tr class="pulsable" data-carrera="' + c.sig + '">' +
+      "<td><b>" + esc(c.nombre) + '</b> <span class="cod" style="color:var(--ink-faint)">' + c.sig + "</span></td>" +
+      '<td><span class="pill ' + cls + '">' + (c.edita ? "Bloqueado" : c.estado) + "</span></td>" +
+      '<td class="num">' + (c.sem || "—") + '</td><td class="num">' + (c.asig || "—") + "</td>" +
+      '<td class="num">' + (c.grupos || "—") + '</td><td class="num">' + (c.horas || "—") + "</td>" +
+      '<td class="cod">' + c.version + "</td>" +
+      '<td class="cod" style="font-size:11px;color:var(--ink-faint)">' + (c.edita || "—") + "</td></tr>";
+  }).join("");
+
+  $$("#tb-tablero tr").forEach(tr => {
+    tr.onclick = () => {
+      irAPaso(12, { silencioso:true });
+      const c = CARRERAS.find(x => x.sig === tr.dataset.carrera);
+      abrirFA("FA-009", {
+        cuerpo: '<div class="nota">Plan de <b>' + esc(c.nombre) + "</b> · " + esc(estado.ciclo) +
+                " · estado " + esc(c.estado) + " · versión " + esc(c.version) +
+                ". La Grilla de Vista Previa se abre sin controles de edición.</div>",
+        confirmar: "Cerrar la consulta"
+      });
+    };
+  });
+
+  $("#sel-carreras").innerHTML = CARRERAS
+    .filter(c => estado.cuenta && (estado.cuenta.id === "dir" || c.sig === "ING"))
+    .map(c => '<button class="btn" data-abrir="' + c.sig + '">' + esc(c.nombre) +
+              ' <span class="fa">' + (c.edita ? "FA-008" : c.estado === "Borrador" ? "FA-011"
+                : c.estado === "Registrado" ? "FA-012" : "paso 15") + "</span></button>")
+    .join("");
+
+  $$("#sel-carreras [data-abrir]").forEach(b => {
+    b.onclick = () => seleccionarCarrera(CARRERAS.find(c => c.sig === b.dataset.abrir));
+  });
+}
+
+function seleccionarCarrera(c){
+  estado.carrera = c;
+  irAPaso(15);
+
+  if (c.edita) {                                   // FA-008 → continúa en FA-009
+    trazar("aviso", "paso 16", pasoBasico(16).texto);
+    abrirFA("FA-008", {
+      cuerpo: '<div class="nota aviso">Editando: <b>' + esc(c.edita) +
+              "</b> · bloqueo iniciado a las 09:14.</div>",
+      confirmar: "Consultar en solo lectura",
+      alConfirmar(){
+        dlg.close();
+        trazar("fa", "FA-008", FA["FA-008"].nombre + ". Continúa en el paso 2 del FA-009.");
+        abrirFA("FA-009", { confirmar:"Cerrar la consulta" });
+        return false;
+      }
+    });
+    return;
+  }
+
+  if (c.estado === "Borrador")   { abrirReanudacion("FA-011", c); return; }
+  if (c.estado === "Registrado") { abrirReanudacion("FA-012", c); return; }
+
+  irAPaso(19);                                     // pasos 16-19: bloqueo y carga masiva
+  estado.plan = null;
+  estado.registrado = false;
+  pintarBloqueo();
+}
+
+function abrirReanudacion(id, c){
+  abrirFA(id, {
+    cuerpo: '<div class="nota">Se recupera el plan de <b>' + esc(c.nombre) + "</b> (" + esc(c.version) + ").</div>",
+    confirmar: "Abrir la Grilla de Vista Previa",
+    despues(){
+      estado.plan = planEjemplo();
+      estado.plan.carrera = c.nombre;
+      estado.registrado = (id === "FA-012");
+      estado.versiones = [{ v:c.version, estado:c.estado, tipo:"guardado previo", usuario:"m.quispe", fecha:"14/09/2026 10:22", motivo:"—" }];
+      irAPaso(37, { silencioso:true });
+      pintarGrilla();
+    }
+  });
+}
+
+function pintarBloqueo(){
+  $("#nota-bloqueo").innerHTML =
+    "<b>Bloqueo de edición activo</b> sobre " + esc(estado.carrera.nombre) + " · " + esc(estado.ciclo) +
+    ". Expira tras " + MIN_INACTIVIDAD + " minutos de inactividad (configurable). " +
+    "Los demás usuarios ven el plan en solo lectura.";
+}
+
+/* ============================================================
+   Pantalla 4 · Opciones de carga
+   ============================================================ */
+$("#op-pegar").onclick = () => { irAPaso(21); $("#area-pegado").value = ""; };
+
+$("#op-archivo").onclick = () => {
+  irAPaso(20, { silencioso:true });
+  abrirFA("FA-001", {
+    cuerpo: '<div class="campo" style="margin:12px 0 0"><label for="sel-archivo">Archivo a importar</label>' +
+            '<select id="sel-archivo">' +
+            '<option value="xlsx-1">Plan-ING-2027-1.xlsx (1 hoja)</option>' +
+            '<option value="xlsx-n">Oferta-Consolidada.xlsx (3 hojas) → FA-002</option>' +
+            '<option value="pdf">Oferta-ING.pdf → FA-003</option>' +
+            "</select></div>",
+    confirmar: "Importar",
+    alConfirmar(){
+      const v = $("#sel-archivo").value;
+      if (v === "pdf") {
+        dlg.close();
+        abrirFA("FA-003", { confirmar:"Elegir otro archivo", cancelable:false,
+          despues(){ $("#op-archivo").click(); } });
+        return false;
+      }
+      if (v === "xlsx-n") {
+        dlg.close();
+        abrirFA("FA-002", {
+          cuerpo: '<div class="campo" style="margin:12px 0 0"><label for="sel-hoja">Hoja del libro</label>' +
+                  '<select id="sel-hoja"><option>Ing. Software</option><option>Ing. Industrial</option>' +
+                  "<option>Resumen</option></select></div>",
+          confirmar: "Importar la hoja",
+          despues(){ cargarContenido("ok"); }
+        });
+        return false;
+      }
+      return true;
+    },
+    despues(){ cargarContenido("ok"); }
+  });
+};
+
+$("#op-plantilla").onclick = () => {
+  irAPaso(19, { silencioso:true });
+  abrirFA("FA-004", {
+    cuerpo: '<div class="nota">Se genera <code>Plantilla_Plan_Ciclo</code> con las 11 cabeceras oficiales. ' +
+            "En este cascarón la descarga no se realiza.</div>",
+    confirmar: "Descargar"
+  });
+};
+
+$("#op-expirar").onclick = $("#op-expirar-2").onclick = () => expirarBloqueo();
+
+function expirarBloqueo(){
+  abrirFA("FA-033", {
+    cuerpo: '<div class="nota aviso">Transcurrieron ' + MIN_INACTIVIDAD +
+            " minutos sin actividad. Los cambios sin guardar se almacenan como una nueva versión con estado <b>" +
+            (estado.registrado ? "Registrado" : "Borrador") + "</b>.</div>",
+    confirmar: "Aceptar",
+    cancelable: false
+  });
+}
+
+/* ============================================================
+   Pantalla 5 · Pegado
+   ============================================================ */
+const MUESTRAS = {
+  ok:        "CARRERA\tMALLA\tSEMESTRE\tCÓDIGO\tASIGNATURA\tGRUPO\tHT\tHP\tTOTAL HORAS\tDPTO\tOBSERVACIONES\n" +
+             "Ingeniería de Software\t2024\t1\t3.1.1.24\tCálculo I\t1\t3\t2\t5\tDIMA\t\n" +
+             "Ingeniería de Software\t2024\t1\t3.1.1.24\tCálculo I\t2\t3\t2\t5\tDIMA\t\n" +
+             "Ingeniería de Software\t2024\t3\t3.3.4.21\tContabilidad General\t1\t2\t1\t3\tDACTE\t\n" +
+             "Ingeniería de Software\t2024\t5\t3.5.4.24\tInglés Técnico\t1\t0\t3\t3\tDAHU\tINTERNACIONAL\n…",
+  cabeceras: "Ingeniería de Software\t2024\t1\t3.1.1.24\tCálculo I\t1\t3\t2\t5\tDIMA\n" +
+             "Ingeniería de Software\t2024\t1\t3.1.2.24\tAlgorítmica I\t1\t2\t2\t4\tDIMA\n…",
+  vacio:     "CARRERA\tMALLA\tSEMESTRE\tCÓDIGO\tASIGNATURA\tGRUPO\tHT\tHP\tTOTAL HORAS\tDPTO\tOBSERVACIONES",
+  errores:   "CARRERA\tMALLA\tSEMESTRE\tCÓDIGO\tASIGNATURA\tGRUPO\tHT\tHP\tTOTAL HORAS\tDPTO\tOBSERVACIONES\n" +
+             "Ingeniería de Software\t2024\t1\t3.1.1.24\tCálculo I\t1\t3\t2\t6\tDIMA\t\n" +
+             "Ingeniería de Software\t2024\t3\t3.3.2.24\tRedes\t1\t2\t2\t4\tDAHUC\t\n" +
+             "Ingeniería de Software\t2024\t\t3.3.9.24\tTaller\t1\tx\t2\t2\tDIMA\t\n…"
+};
+
+$$("[data-pegar]").forEach(b => {
+  b.onclick = () => {
+    const tipo = b.dataset.pegar;
+    $("#area-pegado").value = MUESTRAS[tipo];
+    irAPaso(23);
+    cargarContenido(tipo);
+  };
+});
+
+$("#pegar-volver").onclick = () => irAPaso(19, { silencioso:true });
+
+/* Pasos 24-31: recepción, normalización y validación. */
+function cargarContenido(tipo){
+  irAPaso(26, { silencioso:true });
+  for (let i = 24; i <= 26; i++) trazar("paso", "paso " + i, pasoBasico(i).texto);
+
+  if (tipo === "cabeceras") {
+    trazar("error", "paso 27", pasoBasico(27).texto);
+    abrirFA("FA-005", {
+      cuerpo: '<div class="nota error"><b>Cabeceras ausentes:</b> CARRERA, MALLA, SEMESTRE, CÓDIGO, ' +
+              "ASIGNATURA, GRUPO, HT, HP, TOTAL HORAS, DPTO, OBSERVACIONES.</div>",
+      confirmar: "Volver a las opciones de carga", cancelable:false
+    });
+    return;
+  }
+  trazar("paso", "paso 27", pasoBasico(27).texto);
+
+  if (tipo === "vacio") {
+    trazar("error", "paso 28", pasoBasico(28).texto);
+    abrirFA("FA-006", { confirmar:"Volver a las opciones de carga", cancelable:false });
+    return;
+  }
+  trazar("paso", "paso 28", pasoBasico(28).texto);
+
+  if (tipo === "errores") {
+    trazar("error", "paso 29", pasoBasico(29).texto);
+    abrirFA("FA-007", {
+      cuerpo: '<p class="etq" style="margin:12px 0 4px">Errores consolidados</p><ul class="lista-err">' +
+        '<li><span class="cod">E08</span><span>Fila 2 · TOTAL HORAS = 6 y HT + HP = 5.</span></li>' +
+        '<li><span class="cod">E09</span><span>Fila 3 · DPTO «DAHUC» no es un código oficial (DIMA, DAHU, DACJ, DACTE).</span></li>' +
+        '<li><span class="cod">E05</span><span>Fila 4 · SEMESTRE vacío.</span></li>' +
+        '<li><span class="cod">E07</span><span>Fila 4 · HT = «x» no es numérico.</span></li>' +
+        "</ul>" +
+        '<div class="nota error">Se rechaza la totalidad del contenido importado.</div>',
+      confirmar: "Volver a las opciones de carga", cancelable:false
+    });
+    return;
+  }
+
+  /* Rama válida: pasos 29-36 */
+  estado.plan = planEjemplo();
+  estado.plan.carrera = estado.carrera.nombre;
+  estado.registrado = false;
+  estado.versiones = [];
+  estado.seleccion = null;
+  estado.colapsados.clear();
+  mostrar("proceso");
+  animarProceso();
+}
+
+function animarProceso(){
+  const nums = [29, 30, 31, 32, 33, 34, 35, 36];
+  $("#checklist").innerHTML = nums.map(n =>
+    '<li data-n="' + n + '"><span class="tic">✓</span><span class="np">' + n + "</span><span>" +
+    esc(pasoBasico(n).texto) + "</span></li>"
+  ).join("");
+  $("#ir-grilla").disabled = true;
+
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  nums.forEach((n, i) => {
+    const activar = () => {
+      $('#checklist li[data-n="' + n + '"]').classList.add("listo");
+      trazar("paso", "paso " + n, pasoBasico(n).texto);
+      if (i === nums.length - 1) { $("#ir-grilla").disabled = false; estado.paso = 36; indicador("Flujo Básico", "paso 36"); }
+    };
+    reduce ? activar() : setTimeout(activar, 110 * (i + 1));
+  });
+}
+
+$("#ir-grilla").onclick = () => { irAPaso(37, { silencioso:true }); trazar("paso", "paso 37", pasoBasico(37).texto); pintarGrilla(); };
+
+/* ============================================================
+   Pantalla 6 · Grilla de Vista Previa
+   ============================================================ */
+const th = g => g.ht + g.hp;
+const sufijoMalla = cod => { const m = cod.match(/\.(\d{2})$/); return m ? 2000 + parseInt(m[1], 10) : null; };
+const esInternacional = a => /INTERNACIONAL|VIRTUAL/i.test(a.obs || "");
+
+/* Advertencias del documento que este cascarón señala en fila y celda. */
+function advertenciasDe(a){
+  const w = [];
+  const suf = sufijoMalla(a.codigo);
+  if (suf && suf !== a.malla) w.push({ id:"A01", campo:"malla", texto:"A01 · MALLA " + a.malla + " no coincide con el sufijo del CÓDIGO (." + String(suf).slice(2) + ")." });
+  return w;
+}
+
+function totales(){
+  const p = estado.plan, t = { asig:0, grupos:0, ht:0, hp:0, th:0, dictado:0, intl:0, fus:0, des:0, adv:0 };
+  if (!p) return t;
+  const fusionesVistas = new Set();
+  p.asignaturas.forEach(a => {
+    t.asig++;
+    if (esInternacional(a)) t.intl++;
+    t.adv += advertenciasDe(a).length;
+    a.grupos.forEach(g => {
+      t.grupos++; t.ht += g.ht; t.hp += g.hp; t.th += th(g);
+      if (g.desdoble) t.des++;
+      if (g.fusion) {
+        if (!fusionesVistas.has(g.fusion)) { fusionesVistas.add(g.fusion); t.dictado += th(g); t.fus++; }
+      } else {
+        t.dictado += th(g);
+      }
+    });
+  });
+  return t;
+}
+
+function pintarResumen(){
+  const t = totales();
+  const celdas = [
+    ["Asignaturas", t.asig], ["Grupos", t.grupos],
+    ["Horas teóricas", t.ht], ["Horas prácticas", t.hp],
+    ["Total horas", t.th], ["Horas de dictado", t.dictado],
+    ["Intl. / virtual", t.intl], ["Fusiones", t.fus],
+    ["Desdobles", t.des], ["Advertencias", t.adv]
+  ];
+  $("#resumen").innerHTML = celdas.map(([k, v]) =>
+    "<div" + (k === "Advertencias" && v > 0 ? ' class="alerta"' : "") +
+    "><dt>" + esc(k) + "</dt><dd>" + v + "</dd></div>"
+  ).join("");
+}
+
+function pintarGrilla(){
+  if (!estado.plan) return;
+  mostrar("grilla");
+  $("#grilla-titulo").textContent = "Grilla de Vista Previa · " + estado.plan.carrera + " · " + estado.ciclo;
+  $("#btn-registrar").innerHTML = estado.registrado
+    ? 'Guardar Cambios <span class="fa">FA-013</span>' : "Registrar Plan";
+  $("#btn-borrador").disabled = estado.registrado;
+  pintarResumen();
+
+  const sems = [...new Set(estado.plan.asignaturas.map(a => a.sem))].sort((x, y) => x - y);
+  $("#bloques").innerHTML = sems.map(sem => {
+    const asigs = estado.plan.asignaturas.filter(a => a.sem === sem);
+    const nG = asigs.reduce((s, a) => s + a.grupos.length, 0);
+    const nH = asigs.reduce((s, a) => s + a.grupos.reduce((q, g) => q + th(g), 0), 0);
+    const abierto = !estado.colapsados.has(sem);
+
+    const filas = asigs.map(a => {
+      const ci = estado.plan.asignaturas.indexOf(a);
+      const adv = advertenciasDe(a);
+      const campos = new Set(adv.map(x => x.campo));
+      const filasGrupo = a.grupos.map((g, gi) => {
+        const sel = estado.seleccion && estado.seleccion.ci === ci && estado.seleccion.gi === gi;
+        return '<tr class="pulsable' + (adv.length ? " adv" : "") + (sel ? " sel" : "") +
+          '" data-ci="' + ci + '" data-gi="' + gi + '">' +
+          '<td class="cod' + (campos.has("malla") ? " adv-celda" : "") + '">' + a.malla + "</td>" +
+          '<td class="cod">' + esc(a.codigo) + "</td>" +
+          "<td>" + esc(a.nombre) +
+            (esInternacional(a) ? '<span class="marca-c intl">INTL</span>' : "") +
+            (g.fusion ? '<span class="marca-c fus">FUS</span>' : "") +
+            (g.desdoble ? '<span class="marca-c des">' + esc(g.desdoble) + "</span>" : "") + "</td>" +
+          '<td class="num">' + g.n + '</td>' +
+          '<td class="num">' + g.ht + '</td><td class="num">' + g.hp + "</td>" +
+          '<td class="num"><b>' + th(g) + "</b></td>" +
+          '<td class="cod">' + esc(a.dpto) + "</td>" +
+          '<td style="font-size:12px;color:var(--ink-soft)">' + esc(a.obs || "—") + "</td></tr>";
+      }).join("");
+
+      /* La advertencia se marca en la celda donde ocurre y se explica bajo la fila. */
+      const detalle = adv.length
+        ? '<tr class="adv-detalle"><td colspan="9">' + adv.map(x => esc(x.texto)).join(" · ") + "</td></tr>"
+        : "";
+      return filasGrupo + detalle;
+    }).join("");
+
+    return '<div class="bloque" data-sem="' + sem + '" data-abierto="' + (abierto ? "si" : "no") + '">' +
+      '<button type="button" class="bloque-cab" data-toggle="' + sem + '">' +
+        '<span class="chev">' + (abierto ? "▼" : "▶") + "</span>" +
+        "<b>Semestre " + sem + "</b>" +
+        '<span class="tot">' + asigs.length + " asignaturas · " + nG + " grupos · " + nH + " horas</span>" +
+      "</button>" +
+      '<div class="tabla-caja"><table><thead><tr>' +
+        "<th>Malla</th><th>Código</th><th>Asignatura</th>" +
+        '<th class="num">Grupo</th><th class="num">HT</th><th class="num">HP</th>' +
+        '<th class="num">Total</th><th>Dpto</th><th>Observaciones</th>' +
+      "</tr></thead><tbody>" + filas + "</tbody></table></div></div>";
+  }).join("");
+
+  $$("#bloques [data-toggle]").forEach(b => {
+    b.onclick = () => {
+      const s = +b.dataset.toggle;
+      estado.colapsados.has(s) ? estado.colapsados.delete(s) : estado.colapsados.add(s);
+      trazar("fa", "FA-030", "Se actualiza el estado de expansión del bloque del semestre " + s + ".");
+      pintarGrilla();
+    };
+  });
+
+  $$("#bloques tr[data-ci]").forEach(tr => {
+    tr.onclick = () => {
+      estado.seleccion = { ci:+tr.dataset.ci, gi:+tr.dataset.gi };
+      pintarGrilla();
+    };
+  });
+
+  actualizarAcciones();
+}
+
+function actualizarAcciones(){
+  const s = estado.seleccion;
+  const g = s ? estado.plan.asignaturas[s.ci].grupos[s.gi] : null;
+  $$("#acciones-fila [data-req]").forEach(b => {
+    b.disabled = b.dataset.req === "sel" ? !s : !(g && g.fusion);
+  });
+}
+
+function seleccionActual(){
+  const s = estado.seleccion;
+  if (!s) return null;
+  const a = estado.plan.asignaturas[s.ci];
+  return { a, g:a.grupos[s.gi], ci:s.ci, gi:s.gi };
+}
+
+const resumenSel = () => {
+  const s = seleccionActual();
+  return s ? '<div class="nota">Selección: <b>' + esc(s.a.codigo) + " " + esc(s.a.nombre) +
+             "</b> · grupo " + s.g.n + " · HT " + s.g.ht + " / HP " + s.g.hp + " / TH " + th(s.g) + ".</div>" : "";
+};
+
+/* ---------- despachador de flujos alternativos de la grilla ---------- */
+$$("[data-fa]").forEach(b => { b.onclick = () => despachar(b.dataset.fa); });
+
+function despachar(id){
+  if (estado.vista === "grilla") irAPaso(37, { silencioso:true });
+  const s = seleccionActual();
+
+  switch (id) {
+
+    case "FA-010":
+      abrirFA(id, { confirmar:"Confirmar el guardado", despues(){ guardarVersion("Borrador", "guardar borrador"); } });
+      break;
+
+    case "FA-014":
+      abrirFA(id, {
+        cuerpo: '<div class="nota aviso">Se reemplazará todo el contenido del plan. Se perderán los desdobles, ' +
+                "los ajustes manuales y las fusiones, incluidas las fusiones con grupos de otras carreras.</div>",
+        confirmar: "Reemplazar contenido",
+        despues(){ estado.plan = null; estado.seleccion = null; pintarBloqueo(); mostrar("carga"); }
+      });
+      break;
+
+    case "FA-015":
+      abrirFA(id, {
+        cuerpo: resumenSel() +
+          '<div class="fila-campos" style="margin-top:12px">' +
+          '<div class="campo"><label for="e-ht">HT</label><input type="text" id="e-ht" value="' + s.g.ht + '"></div>' +
+          '<div class="campo"><label for="e-hp">HP</label><input type="text" id="e-hp" value="' + s.g.hp + '"></div>' +
+          "</div>" +
+          '<div class="nota">TOTAL HORAS se recalcula automáticamente (paso 6).</div>',
+        confirmar: "Aplicar el valor",
+        alConfirmar(){
+          const ht = $("#e-ht").value.trim(), hp = $("#e-hp").value.trim();
+          const malo = v => !/^\d+$/.test(v);
+          if (malo(ht) || malo(hp)) {                       // FA-016
+            dlg.close();
+            abrirFA("FA-016", {
+              cuerpo: '<div class="nota error">E07 · HT, HP o TOTAL HORAS tiene un valor no numérico o negativo. ' +
+                      "Se conserva el valor anterior.</div>",
+              confirmar: "Volver a la grilla", cancelable:false
+            });
+            return false;
+          }
+          s.g.ht = +ht; s.g.hp = +hp;
+          return true;
+        }
+      });
+      break;
+
+    case "FA-017":
+      abrirFA(id, {
+        cuerpo: '<div class="fila-campos" style="margin-top:12px">' +
+          '<div class="campo"><label for="n-sem">Semestre</label><input type="text" id="n-sem" value="7"></div>' +
+          '<div class="campo"><label for="n-malla">Malla</label><input type="text" id="n-malla" value="2024"></div>' +
+          '<div class="campo"><label for="n-cod">Código</label><input type="text" id="n-cod" value="3.7.1.24"></div>' +
+          "</div>" +
+          '<div class="campo" style="margin-top:12px"><label for="n-nom">Asignatura</label>' +
+          '<input type="text" id="n-nom" value="Arquitectura de Software"></div>' +
+          '<div class="fila-campos">' +
+          '<div class="campo"><label for="n-ht">HT</label><input type="text" id="n-ht" value="3"></div>' +
+          '<div class="campo"><label for="n-hp">HP</label><input type="text" id="n-hp" value="2"></div>' +
+          '<div class="campo"><label for="n-dpto">DPTO</label><select id="n-dpto">' +
+            "<option>DIMA</option><option>DAHU</option><option>DACJ</option><option>DACTE</option></select></div>" +
+          "</div>",
+        confirmar: "Agregar",
+        alConfirmar(){
+          const ht = $("#n-ht").value.trim(), hp = $("#n-hp").value.trim();
+          if (!/^\d+$/.test(ht) || !/^\d+$/.test(hp)) {      // FA-016 desde el paso 5
+            dlg.close();
+            abrirFA("FA-016", {
+              cuerpo: '<div class="nota error">E07 · HT o HP no es un número entero no negativo.</div>',
+              confirmar: "Volver a la grilla", cancelable:false
+            });
+            return false;
+          }
+          estado.plan.asignaturas.push({
+            sem:+$("#n-sem").value || 1, malla:+$("#n-malla").value || 2024,
+            codigo:$("#n-cod").value.trim(), nombre:$("#n-nom").value.trim(),
+            dpto:$("#n-dpto").value, obs:"",
+            grupos:[{ id:"g" + Date.now(), n:1, ht:+ht, hp:+hp, desdoble:null, fusion:null }]
+          });
+          return true;
+        }
+      });
+      break;
+
+    case "FA-018":
+      abrirFA(id, {
+        cuerpo: resumenSel() + '<div class="nota aviso">Advertencias aplicables: ' +
+          s.a.grupos.length + " grupo(s)" +
+          (s.a.grupos.some(g => g.fusion) ? ", participa en una fusión" : "") +
+          ". La eliminación nunca se bloquea: el sistema advierte y el Responsable confirma.</div>",
+        confirmar: "Confirmar la eliminación",
+        despues(){ estado.plan.asignaturas.splice(s.ci, 1); estado.seleccion = null; }
+      });
+      break;
+
+    case "FA-019":
+      abrirFA(id, {
+        cuerpo: resumenSel(),
+        confirmar: "Agregar Grupo",
+        despues(){
+          const n = Math.max(...s.a.grupos.map(g => g.n)) + 1;
+          s.a.grupos.push({ id:"g" + Date.now(), n, ht:s.g.ht, hp:s.g.hp, desdoble:null, fusion:null });
+        }
+      });
+      break;
+
+    case "FA-020": {
+      const sem = s ? s.a.sem : estado.plan.asignaturas[0].sem;
+      const asigs = estado.plan.asignaturas.filter(a => a.sem === sem);
+      abrirFA(id, {
+        cuerpo: '<div class="nota">Semestre <b>' + sem + "</b> · " + asigs.length +
+                " asignaturas. Se creará un grupo correlativo en cada una.</div>",
+        confirmar: "Confirmar",
+        despues(){
+          asigs.forEach(a => {
+            const base = a.grupos[0];
+            a.grupos.push({ id:"g" + Date.now() + Math.random(), n:Math.max(...a.grupos.map(g => g.n)) + 1,
+                            ht:base.ht, hp:base.hp, desdoble:null, fusion:null });
+          });
+        }
+      });
+      break;
+    }
+
+    case "FA-021":
+      abrirFA(id, {
+        cuerpo: resumenSel() + '<div class="nota aviso">Advertencias aplicables: ' +
+          (s.a.grupos.length === 1 ? "es el único grupo de la asignatura; " : "") +
+          (s.g.fusion ? "el grupo participa en una fusión; " : "") +
+          "sin docente asignado en esta fase.</div>",
+        confirmar: "Confirmar la eliminación",
+        despues(){ s.a.grupos.splice(s.gi, 1); if (!s.a.grupos.length) estado.plan.asignaturas.splice(s.ci, 1); estado.seleccion = null; }
+      });
+      break;
+
+    case "FA-022":
+      abrirFA(id, {
+        cuerpo: resumenSel() +
+          '<div class="fila-campos" style="margin-top:12px">' +
+          '<div class="campo"><label for="d-tipo">Tipo de desdoble</label>' +
+            '<select id="d-tipo"><option value="Práctica">Práctica</option><option value="Teoría">Teoría</option></select></div>' +
+          '<div class="campo"><label for="d-cant">Subgrupos (2 – ' + MAX_SUBGRUPOS + ")</label>" +
+            '<input type="number" id="d-cant" value="2" min="1" max="9"></div>' +
+          "</div>",
+        confirmar: "Desdoblar",
+        alConfirmar(){
+          const tipo = $("#d-tipo").value, cant = parseInt($("#d-cant").value, 10);
+          const horas = tipo === "Práctica" ? s.g.hp : s.g.ht;
+          if (!horas) {                                      // FA-023
+            dlg.close();
+            abrirFA("FA-023", {
+              cuerpo: '<div class="nota aviso">El grupo no registra horas de ' + tipo.toLowerCase() +
+                      ". El desdoble no aplica y no se generan subgrupos.</div>",
+              confirmar: "Volver a la grilla", cancelable:false
+            });
+            return false;
+          }
+          if (!(cant >= 2 && cant <= MAX_SUBGRUPOS)) {       // FA-024
+            dlg.close();
+            abrirFA("FA-024", {
+              cuerpo: '<div class="nota aviso">La cantidad de subgrupos debe estar entre <b>2</b> y <b>' +
+                      MAX_SUBGRUPOS + "</b>. No se generan subgrupos.</div>",
+              confirmar: "Corregir la cantidad", cancelable:false,
+              despues(){ despachar("FA-022"); }
+            });
+            return false;
+          }
+          s.g.desdoble = tipo.slice(0, 4).toUpperCase() + "×" + cant;
+          return true;
+        }
+      });
+      break;
+
+    case "FA-025": {
+      const ops = [];
+      estado.plan.asignaturas.forEach((a, ci) => a.grupos.forEach((g, gi) => {
+        ops.push('<option value="' + ci + ":" + gi + '">' + esc(a.codigo) + " " + esc(a.nombre) +
+                 " · grupo " + g.n + " · " + g.ht + "/" + g.hp + "</option>");
+      }));
+      ops.push('<option value="ext">DER · 2.3.5.24 Ética Profesional · grupo 1 · 2/0 (otra carrera)</option>');
+      abrirFA(id, {
+        cuerpo: '<div class="campo" style="margin-top:12px"><label for="f-grupos">' +
+            "Grupos sugeridos del ciclo (cualquier carrera) · marca dos o más</label>" +
+            '<select id="f-grupos" multiple size="6">' + ops.join("") + "</select></div>" +
+          '<div class="campo"><label for="f-principal">Grupo principal</label>' +
+            '<select id="f-principal">' + ops.join("") + "</select></div>" +
+          '<div class="nota">Las diferencias de nombre, código, HT, HP o TH se muestran como advertencias (A05); ' +
+          "la fusión nunca se bloquea por ellas.</div>",
+        confirmar: "Confirmar la fusión",
+        alConfirmar(){
+          const sel = Array.from($("#f-grupos").selectedOptions).map(o => o.value);
+          if (sel.length < 2) {                              // FA-026
+            dlg.close();
+            abrirFA("FA-026", {
+              cuerpo: '<div class="nota aviso">La fusión requiere al menos dos grupos. El panel de fusión sigue abierto.</div>',
+              confirmar: "Volver a seleccionar", cancelable:false,
+              despues(){ despachar("FA-025"); }
+            });
+            return false;
+          }
+          const marca = "F" + (Date.now() % 97);
+          sel.filter(v => v !== "ext").forEach(v => {
+            const [ci, gi] = v.split(":").map(Number);
+            estado.plan.asignaturas[ci].grupos[gi].fusion = marca;
+          });
+          return true;
+        }
+      });
+      break;
+    }
+
+    case "FA-027":
+      abrirFA(id, {
+        cuerpo: resumenSel() + '<div class="nota">Se restituyen los grupos originales con sus HT y HP.</div>',
+        confirmar: "Deshacer la fusión",
+        despues(){
+          const marca = s.g.fusion;
+          estado.plan.asignaturas.forEach(a => a.grupos.forEach(g => { if (g.fusion === marca) g.fusion = null; }));
+        }
+      });
+      break;
+
+    case "FA-028": {
+      const vs = estado.versiones.length
+        ? estado.versiones
+        : [{ v:"v1", estado:"Borrador", tipo:"guardar borrador", usuario:"m.quispe", fecha:"18/09/2026 11:04", motivo:"—" }];
+      abrirFA(id, {
+        cuerpo: '<div class="tabla-caja" style="margin-top:12px"><table><thead><tr>' +
+          "<th>Versión</th><th>Estado</th><th>Tipo</th><th>Usuario</th><th>Fecha y hora</th><th>Motivo</th>" +
+          "</tr></thead><tbody>" + vs.map(v =>
+            '<tr><td class="cod">' + esc(v.v) + "</td><td>" + esc(v.estado) + "</td><td>" + esc(v.tipo) +
+            '</td><td class="cod" style="font-size:11px">' + esc(v.usuario) + '</td><td class="cod" style="font-size:11px">' +
+            esc(v.fecha) + "</td><td>" + esc(v.motivo) + "</td></tr>").join("") +
+          "</tbody></table></div>" +
+          '<div class="nota">Al seleccionar una versión se muestra en solo lectura, con sus diferencias ' +
+          "respecto de la versión anterior.</div>",
+        confirmar: "Restaurar la última versión",
+        alConfirmar(){
+          dlg.close();
+          abrirFA("FA-029", {
+            cuerpo: '<div class="nota aviso">La restauración generará una nueva versión con el estado vigente del plan.</div>',
+            confirmar: "Confirmar la restauración",
+            despues(){ guardarVersion(estado.registrado ? "Registrado" : "Borrador", "restauración"); }
+          });
+          return false;
+        }
+      });
+      break;
+    }
+
+    case "FA-030":
+      if (estado.colapsados.size) estado.colapsados.clear();
+      else [...new Set(estado.plan.asignaturas.map(a => a.sem))].forEach(s2 => estado.colapsados.add(s2));
+      $("#btn-colapsar").innerHTML = (estado.colapsados.size ? "Expandir todo" : "Colapsar todo") +
+        ' <span class="fa">FA-030</span>';
+      trazar("fa", "FA-030", FA["FA-030"].nombre + ". Retorno: paso 37 del Flujo Básico.");
+      pintarGrilla();
+      break;
+
+    case "FA-032":
+      abrirFA(id, {
+        cuerpo: '<div class="nota aviso">Existen cambios sin guardar. Al confirmar se descartan y se libera ' +
+                "el bloqueo de edición del plan.</div>",
+        confirmar: "Salir sin guardar",
+        despues(){ estado.plan = null; estado.seleccion = null; pintarTablero(); }
+      });
+      break;
+  }
+}
+
+function guardarVersion(est, tipo){
+  const v = "v" + (estado.versiones.length + 1);
+  estado.versiones.push({
+    v, estado:est, tipo,
+    usuario:(estado.cuenta && estado.cuenta.correo) || "—",
+    fecha:new Date().toLocaleString("es-PE", { dateStyle:"short", timeStyle:"short" }),
+    motivo:"—"
+  });
+  aviso("Versión " + v + " guardada con estado " + est);
+}
+
+/* ---------- registro / guardado de cambios (pasos 38-46) ---------- */
+$("#btn-registrar").onclick = () => {
+  irAPaso(38, { silencioso:true });
+  trazar("paso", "paso 38", pasoBasico(38).texto);
+
+  if (estado.registrado) {                                   // FA-013
+    despacharFA013();
+    return;
+  }
+
+  const t = totales();
+  const mensaje = "“¿Desea registrar el Plan de Ciclo de " + estado.plan.carrera +
+    " para el periodo " + estado.ciclo + "? Al confirmar, el estado cambiará a 'REGISTRADO' y se habilitará " +
+    "la asignación docente para los Departamentos Académicos (DIMA, DAHU, DACJ, DACTE). El plan podrá seguir " +
+    "editándose y cada guardado generará una nueva versión. Advertencias vigentes: " + t.adv + ".”";
+
+  $("#dlg-id").textContent = "Flujo Básico";
+  $("#dlg-titulo").textContent = "Confirmar el registro del plan";
+  $("#dlg-ancla").textContent = "Pasos 39 y 40 del Flujo Básico.";
+  $("#dlg-cuerpo").innerHTML =
+    '<p class="etq" style="margin-bottom:6px">Resumen consolidado</p>' +
+    '<div class="tabla-caja"><table><tbody>' +
+      "<tr><td>Asignaturas</td><td class='num'>" + t.asig + "</td><td>Grupos</td><td class='num'>" + t.grupos + "</td></tr>" +
+      "<tr><td>Horas teóricas</td><td class='num'>" + t.ht + "</td><td>Horas prácticas</td><td class='num'>" + t.hp + "</td></tr>" +
+      "<tr><td>Total horas</td><td class='num'>" + t.th + "</td><td>Horas de dictado</td><td class='num'>" + t.dictado + "</td></tr>" +
+      "<tr><td>Fusiones</td><td class='num'>" + t.fus + "</td><td>Desdobles</td><td class='num'>" + t.des + "</td></tr>" +
+    "</tbody></table></div>" +
+    '<p class="etq" style="margin:14px 0 6px">Mensaje de formalización · paso 39</p>' +
+    '<div class="cita">' + esc(mensaje) + "</div>";
+
+  const pie = $("#dlg-pie");
+  pie.innerHTML = "";
+  const bc = document.createElement("button");
+  bc.type = "button"; bc.className = "btn";
+  bc.innerHTML = 'Cancelar <span class="fa">FA-031</span>';
+  bc.onclick = () => { dlg.close(); trazar("fa", "FA-031", FA["FA-031"].pasos[1].texto); irAPaso(37, { silencioso:true }); };
+  const bp = document.createElement("button");
+  bp.type = "button"; bp.className = "btn primario";
+  bp.textContent = "Confirmar y Registrar";
+  bp.onclick = () => { dlg.close(); registrar(); };
+  pie.append(bc, bp);
+  dlg.showModal();
+};
+
+function despacharFA013(){
+  abrirFA("FA-013", {
+    cuerpo: '<div class="campo" style="margin-top:12px"><label for="motivo">Motivo del cambio (opcional)</label>' +
+            '<input type="text" id="motivo" placeholder="Matrícula extemporánea"></div>',
+    confirmar: "Confirmar",
+    despues(){
+      const m = ($("#motivo") && $("#motivo").value.trim()) || "—";
+      guardarVersion("Registrado", "guardar cambios");
+      estado.versiones[estado.versiones.length - 1].motivo = m;
+      for (let i = 42; i <= 45; i++) trazar("paso", "paso " + i, pasoBasico(i).texto);
+      mostrarExito();
+    }
+  });
+}
+
+function registrar(){
+  trazar("paso", "paso 40", pasoBasico(40).texto);
+  guardarVersion("Registrado", "registrar");
+  estado.registrado = true;
+  const c = CARRERAS.find(x => x.sig === estado.carrera.sig);
+  const t = totales();
+  Object.assign(c, {
+    estado:"Registrado",
+    sem:[...new Set(estado.plan.asignaturas.map(a => a.sem))].length,
+    asig:t.asig, grupos:t.grupos, horas:t.dictado,
+    version:"v" + estado.versiones.length
+  });
+  for (let i = 41; i <= 45; i++) trazar("paso", "paso " + i, pasoBasico(i).texto);
+  mostrarExito();
+}
+
+function mostrarExito(){
+  mostrar("exito");
+  estado.paso = 46;
+  indicador("Flujo Básico", "paso 46");
+  const v = estado.versiones[estado.versiones.length - 1];
+  $("#exito-nota").innerHTML =
+    "<b>Plan de Ciclo registrado.</b> " + esc(estado.plan.carrera) + " · " + esc(estado.ciclo) +
+    " · versión <b>" + esc(v.v) + "</b>. La asignación docente queda habilitada para DIMA, DAHU, DACJ y DACTE. " +
+    "El plan sigue siendo editable y cada guardado generará una nueva versión.";
+  $("#exito-lista").innerHTML = [41, 42, 43, 44, 45, 46].map(n =>
+    '<li class="listo"><span class="tic">✓</span><span class="np">' + n + "</span><span>" +
+    esc(pasoBasico(n).texto) + "</span></li>"
+  ).join("");
+  trazar("fin", "paso 46", pasoBasico(46).texto);
+}
+
+$("#exito-tablero").onclick = () => { pintarTablero(); irAPaso(12, { silencioso:true }); };
+
+/* ============================================================
+   Cierre
+   ============================================================ */
+$("#fin-reiniciar").onclick = () => location.reload();
+$("#reg-limpiar").onclick = () => { $("#reg").innerHTML = ""; $("#reg-cuenta").textContent = "0 entradas"; };
+
+/* Cerrar con Esc equivale a pulsar «Cancelar», de modo que el cierre pase por FA-031. */
+dlg.addEventListener("cancel", e => {
+  e.preventDefault();
+  const cancelar = $("#dlg-pie .btn:not(.primario)");
+  cancelar ? cancelar.click() : dlg.close();
+});
+
+trazar("paso", "inicio", "Prototipo listo. Flujo básico de 46 pasos y 34 flujos alternativos de CU-001 v2.0.");
+mostrar("login");
+</script>
+</body>
+</html>
