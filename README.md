@@ -49,7 +49,10 @@ El detalle está en [requirements.md](requirements.md) y en [CU-001](docs/CU/CU-
 │   ├── CU/                  # Casos de uso y diagrama de CU
 │   ├── QA/Checklist.md      # Checklist de calidad para casos de uso
 │   ├── archivos/            # Excel reales de ejemplo (carga por carrera, departamento y docentes)
-│   └── requerimientos/      # Transcripciones de la clase y de las revisiones del docente
+│   ├── requerimientos/      # Transcripciones de la clase y de las revisiones del docente
+│   └── prototipo/           # Prototipos de CU-001, previos al backend/frontend definitivos
+│       ├── CU-001-Registrar-Plan-de-Ciclo.html   # Cascarón: recorre el flujo básico y los 34 FA
+│       └── funcional/                            # Prototipo operativo con Google OAuth 2.0 real
 ├── requirements.md          # Requerimientos consolidados
 ├── compose.yml              # Servicios locales (por completar)
 └── .env.example             # Variables de entorno de ejemplo (por completar)
@@ -57,12 +60,32 @@ El detalle está en [requirements.md](requirements.md) y en [CU-001](docs/CU/CU-
 
 ## Puesta en marcha
 
-Aún no aplica: no hay código ejecutable. Esta sección se completará cuando se cree el backend (Spring Boot + PostgreSQL con Docker Compose).
+El backend y el frontend definitivos aún no existen: esta sección se completará cuando se
+cree el proyecto Spring Boot con Docker Compose.
 
-Hay que copiar `.env.example` a `.env` y completar los valores. `.env` no se versiona.
+Mientras tanto, hay un **prototipo funcional** de CU-001 en `docs/prototipo/funcional/`, con
+autenticación real por Google OAuth 2.0 e importación con las reglas de validación de la
+plantilla oficial. Para ejecutarlo:
+
+1. Copiar `.env.example` a `.env` y completar `GOOGLE_CLIENT_ID` (ver la guía en
+   [docs/prototipo/funcional/README.md](docs/prototipo/funcional/README.md)). `.env` no se
+   versiona.
+2. Arrancar el servidor local:
+
+   ```bash
+   cd docs/prototipo/funcional && python3 servir.py
+   ```
+
+3. Abrir <http://localhost:8000>.
+
+El otro prototipo, `docs/prototipo/CU-001-Registrar-Plan-de-Ciclo.html`, es un cascarón de
+solo pantallas —sin autenticación ni validación real— que sirve para recorrer visualmente
+el flujo básico y los 34 flujos alternativos del CU; se abre directamente en el navegador,
+sin servidor.
 
 ## Documentación
 
 - [requirements.md](requirements.md): requisitos funcionales y no funcionales, reglas de validación, plantilla de importación, hallazgos en los Excel, trazabilidad de las observaciones del docente y preguntas abiertas.
 - [docs/CU/CU-001-Registrar-Plan-de-Ciclo.md](docs/CU/CU-001-Registrar-Plan-de-Ciclo.md): caso de uso de la fase 1.
 - [docs/QA/Checklist.md](docs/QA/Checklist.md): criterios que debe cumplir cada caso de uso.
+- [docs/prototipo/funcional/README.md](docs/prototipo/funcional/README.md): cómo configurar y ejecutar el prototipo funcional de CU-001.
