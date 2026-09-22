@@ -286,6 +286,7 @@ Los códigos P## remiten a `preguntas.md` (archivo local).
 | Formatos | Pegar, `.xlsx` y `.csv` (P28). |
 | Fuera de fase 1 | Créditos y correo (P26, P30). |
 | Stack | Java 21, Maven, Spring Boot, PostgreSQL, Flyway; frontend por decidir (P22–P24). |
+| Redacción de CU | Tabla de flujo Paso\|Responsable\|Acción (no Actor\|Sistema); sin sección de Postcondiciones; en el flujo de eventos, un paso nunca une dos acciones ni enumera en línea lo que el sistema muestra (va en guiones o entre paréntesis); el resto del documento usa "y"/"o" con normalidad (P77–P81). |
 
 ---
 
@@ -387,7 +388,9 @@ Mallas vistas: 2016, 2021, 2022 y 2024. Turnos vistos: Mañana, Tarde y Noche (n
 | O18 | **Eliminar grupo genérico**, no solo por aforo mínimo. | **No atendida** (FA-005, FA-020). | RF-042; aforo fuera de alcance. |
 | O19 | AppSheet tiene limitaciones con `.xlsx`. | No aplica al CU. | Se tiene en cuenta al decidir el frontend. |
 
-**Observaciones del Checklist corregidas en CU-001:** la referencia a pasos en FA-003 y FA-016 a FA-018; la lógica duplicada entre FA-003 y FA-012 y entre las cancelaciones; la descripción del actor Director, que incluía asignar docentes (tarea de otro CU); la inconsistencia entre "Director" y "Director de departamento"; el término ambiguo "rango admitido"; la falta de las secciones *Postcondiciones* y *Requisitos especiales*; y un paso de actor que faltaba en la autenticación.
+**Observaciones del Checklist corregidas en CU-001 v2.0:** la referencia a pasos en FA-003 y FA-016 a FA-018; la lógica duplicada entre FA-003 y FA-012 y entre las cancelaciones; la descripción del actor Director, que incluía asignar docentes (tarea de otro CU); la inconsistencia entre "Director" y "Director de departamento"; el término ambiguo "rango admitido"; la falta de las secciones *Postcondiciones* y *Requisitos especiales*; y un paso de actor que faltaba en la autenticación.
+
+**Observaciones del Checklist corregidas en CU-001 v3.0 (P77–P81):** a partir de un CU de ejemplo del docente ("Vender Entradas"), se reescribieron el flujo básico y los 34 FA para que cada paso describa una sola acción (sin conjunciones que unan dos acciones distintas) y para que el sistema nunca enumere en línea, con "y"/"o", lo que muestra en pantalla — ahora en listas con guiones o entre paréntesis. Se retiró de nuevo la sección *Postcondiciones*, esta vez a propósito: su contenido ya queda cubierto por los últimos pasos del flujo básico (P78).
 
 ---
 

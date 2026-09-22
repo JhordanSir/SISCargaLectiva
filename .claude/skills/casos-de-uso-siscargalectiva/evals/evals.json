@@ -1,0 +1,23 @@
+{
+  "skill_name": "casos-de-uso-siscargalectiva",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Agrega a CU-001 el flujo alternativo de qué pasa cuando el Coordinador fusiona un grupo de su carrera con un grupo que ya pertenece a otra fusión activa de una tercera carrera.",
+      "expected_output": "No debería inventar el comportamiento: ese caso (fusión sobre un grupo que ya está fusionado con un tercero) no está resuelto en docs/feedback/, preguntas.md ni requirements.md. Se espera que la skill lo detecte como una ambigüedad real y pregunte con AskUserQuestion en vez de redactar un FA nuevo con una regla inventada.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "Escribe el CU-002 Asignar Docentes a Plan de Ciclo para el Director de departamento, con el mismo nivel de detalle que CU-001. Usa como base lo que ya dice requirements.md en la sección 11.2.",
+      "expected_output": "Un documento docs/CU/CU-002-... completo (datos generales, glosario, flujo básico, FA, reglas si aplica, requisitos especiales, resumen), cumpliendo el checklist, y marcando explícitamente como pregunta abierta cualquier dato de la sección 11.2 que no esté resuelto (p. ej. la fórmula de 40 h/semana en casos límite, qué pasa si ningún docente del departamento cubre el curso).",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "Antes de mostrarle este CU al profesor otra vez, revisa docs/CU/CU-001-Registrar-Plan-de-Ciclo.md contra el checklist y dime si algo no cumple.",
+      "expected_output": "Un reporte criterio por criterio (Fondo y Forma) con Cumple/Comentario, apoyado en el lint del script para lo mecánico y en lectura propia para lo de juicio (modularidad, duplicidad de lógica, nivel de detalle). Como CU-001 ya está aprobado, se espera que la mayoría de criterios cumplan, sin que la skill invente incumplimientos para tener algo que reportar.",
+      "files": []
+    }
+  ]
+}

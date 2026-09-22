@@ -3,7 +3,7 @@
 **Universidad La Salle**  
 **Sistema:** SISCargaLectiva  
 **Caso de Uso:** CU-001, Registrar Plan de Ciclo  
-**Versión del documento:** 2.0 (2026-09-19). Incorpora las observaciones del docente y las decisiones del equipo ([requirements.md](../../requirements.md), sección 10).  
+**Versión del documento:** 3.0 (2026-09-22). Reescribe el flujo básico y los 34 flujos alternativos para que cada paso describa una sola acción y para que el sistema nunca enumere en línea, con "y"/"o", lo que muestra en pantalla — ahora en listas con guiones o entre paréntesis, según corresponda ([requirements.md](../requerimientos/requirements.md), sección 10; preguntas.md P77–P81). Retira la sección Postcondiciones.  
 **Año:** 2026  
 **Clasificación:** Confidencial
 
@@ -47,17 +47,7 @@ El Responsable puede:
 
 ---
 
-### 1.4 Postcondiciones
-
-1. El plan de ciclo de la carrera queda almacenado en estado **Borrador** o **Registrado** como una nueva versión.
-2. La operación queda registrada en la bitácora de auditoría.
-3. El bloqueo de edición del plan de la carrera queda liberado.
-4. El Tablero de Monitoreo General muestra el estado vigente del plan de la carrera.
-5. Si el plan queda en estado **Registrado**, la asignación docente queda habilitada para los departamentos académicos.
-
----
-
-### 1.5 Glosario de términos
+### 1.4 Glosario de términos
 
 | Término | Descripción |
 |---|---|
@@ -101,54 +91,55 @@ El Responsable puede:
 
 | Paso | Responsable | Acción |
 |---:|---|---|
-| 1 | Actor | Accede a la URL del sistema y presiona **Iniciar sesión con Google**. |
-| 2 | Sistema | Redirige al proveedor de identidad Google OAuth 2.0. |
-| 3 | Actor | Se autentica con su cuenta de correo institucional. |
-| 4 | Sistema | Valida que el correo autenticado pertenezca al dominio `@ulasalle.edu.pe`. |
-| 5 | Sistema | Verifica que el usuario posea el rol de Coordinador de carrera o de Director de departamento. |
-| 6 | Sistema | Despliega el menú principal con las opciones autorizadas. |
-| 7 | Actor | Selecciona **Gestión de Planes de Ciclo**. |
-| 8 | Sistema | Consulta los ciclos académicos registrados. |
-| 9 | Sistema | Muestra la pantalla de planes de ciclo con el selector de ciclo académico. |
-| 10 | Actor | Selecciona el ciclo académico objetivo. |
-| 11 | Sistema | Consulta el estado del plan de cada carrera en el ciclo seleccionado. |
-| 12 | Sistema | Muestra el Tablero de Monitoreo General con el estado, la cantidad de semestres, asignaturas, grupos y horas semanales, la versión vigente y el usuario que edita el plan de cada carrera. |
-| 13 | Sistema | Consulta las carreras que el usuario tiene autorizadas para edición. |
-| 14 | Sistema | Carga las carreras autorizadas en el selector de carrera. |
-| 15 | Actor | Selecciona una carrera cuyo plan se encuentra en estado **Sin Iniciar**. |
-| 16 | Sistema | Verifica que ningún otro usuario tenga bloqueado el plan de la carrera. |
-| 17 | Sistema | Bloquea el plan de la carrera para edición exclusiva del Responsable. |
-| 18 | Sistema | Habilita la sección de carga masiva. |
-| 19 | Sistema | Muestra las opciones **Pegar desde Google Sheets**, **Subir archivo (.xlsx o .csv)** y **Descargar plantilla oficial**. |
-| 20 | Actor | Selecciona **Pegar desde Google Sheets**. |
-| 21 | Sistema | Muestra el área de pegado con las instrucciones de uso. |
-| 22 | Actor | Copia el rango de celdas desde Google Sheets. |
-| 23 | Actor | Pega el rango en el área de pegado. |
-| 24 | Sistema | Recibe el contenido pegado. |
-| 25 | Sistema | Reconstruye la matriz de filas y columnas a partir del texto tabulado. |
-| 26 | Sistema | Normaliza las cabeceras y los valores sin distinguir mayúsculas, tildes ni espacios al inicio y al final. |
-| 27 | Sistema | Ubica la primera fila que contiene todas las cabeceras de la plantilla oficial. |
-| 28 | Sistema | Verifica que existan filas de datos debajo de la fila de cabeceras. |
-| 29 | Sistema | Valida cada fila de datos con las reglas de error de la sección 3.2. |
-| 30 | Sistema | Identifica en cada fila las advertencias de la sección 3.3. |
-| 31 | Sistema | Clasifica como internacional o virtual cada asignatura cuyas OBSERVACIONES contienen "INTERNACIONAL" o "VIRTUAL". |
-| 32 | Sistema | Organiza las asignaturas por semestre y malla curricular. |
-| 33 | Sistema | Muestra la Grilla de Vista Previa en bloques semestrales colapsables con la cantidad de asignaturas, grupos y horas de cada bloque. |
-| 34 | Sistema | Señala cada advertencia en la fila y la celda donde ocurre. |
-| 35 | Sistema | Muestra el Panel de Resumen Global. |
-| 36 | Sistema | Habilita los controles de edición, gestión de grupos, guardado y registro. |
-| 37 | Actor | Revisa el plan en la Grilla de Vista Previa. |
-| 38 | Actor | Presiona **Registrar Plan**. |
-| 39 | Sistema | Muestra un modal de confirmación con el resumen consolidado y las advertencias vigentes. |
-| 40 | Actor | Presiona **Confirmar y Registrar**. |
-| 41 | Sistema | Almacena el plan con estado **Registrado** como una nueva versión. |
-| 42 | Sistema | Registra la operación en la bitácora de auditoría. |
-| 43 | Sistema | Libera el bloqueo de edición del plan. |
-| 44 | Sistema | Actualiza el estado de la carrera en el Tablero de Monitoreo General. |
-| 45 | Sistema | Muestra la confirmación de registro exitoso. |
-| 46 | — | Fin del caso de uso. |
+| 1 | Actor | Accede a la URL del sistema. |
+| 2 | Actor | Presiona **Iniciar sesión con Google**. |
+| 3 | Sistema | Redirige al proveedor de identidad Google OAuth 2.0. |
+| 4 | Actor | Se autentica con su cuenta de correo institucional. |
+| 5 | Sistema | Valida que el correo autenticado pertenezca al dominio `@ulasalle.edu.pe`. |
+| 6 | Sistema | Verifica que el usuario posea el rol de Coordinador de carrera o de Director de departamento. |
+| 7 | Sistema | Despliega el menú principal con las opciones autorizadas. |
+| 8 | Actor | Selecciona **Gestión de Planes de Ciclo**. |
+| 9 | Sistema | Consulta los ciclos académicos registrados. |
+| 10 | Sistema | Muestra la pantalla de planes de ciclo con el selector de ciclo académico. |
+| 11 | Actor | Selecciona el ciclo académico objetivo. |
+| 12 | Sistema | Consulta el estado del plan de cada carrera en el ciclo seleccionado. |
+| 13 | Sistema | Muestra el Tablero de Monitoreo General con los datos de cada carrera (estado, semestres, asignaturas, grupos, horas semanales, versión vigente, usuario que edita). |
+| 14 | Sistema | Consulta las carreras que el usuario tiene autorizadas para edición. |
+| 15 | Sistema | Carga las carreras autorizadas en el selector de carrera. |
+| 16 | Actor | Selecciona una carrera cuyo plan se encuentra en estado **Sin Iniciar**. |
+| 17 | Sistema | Verifica que ningún otro usuario tenga bloqueado el plan de la carrera. |
+| 18 | Sistema | Bloquea el plan de la carrera para edición exclusiva del Responsable. |
+| 19 | Sistema | Habilita la sección de carga masiva. |
+| 20 | Sistema | Muestra las opciones:<br>- **Pegar desde Google Sheets**.<br>- **Subir archivo (.xlsx o .csv)**.<br>- **Descargar plantilla oficial**. |
+| 21 | Actor | Selecciona **Pegar desde Google Sheets**. |
+| 22 | Sistema | Muestra el área de pegado con las instrucciones de uso. |
+| 23 | Actor | Copia el rango de celdas desde Google Sheets. |
+| 24 | Actor | Pega el rango en el área de pegado. |
+| 25 | Sistema | Recibe el contenido pegado. |
+| 26 | Sistema | Reconstruye la matriz de filas y columnas a partir del texto tabulado. |
+| 27 | Sistema | Normaliza las cabeceras y los valores sin distinguir mayúsculas, tildes ni espacios al inicio y al final. |
+| 28 | Sistema | Ubica la primera fila que contiene todas las cabeceras de la plantilla oficial. |
+| 29 | Sistema | Verifica que existan filas de datos debajo de la fila de cabeceras. |
+| 30 | Sistema | Valida cada fila de datos con las reglas de error de la sección 3.2. |
+| 31 | Sistema | Identifica en cada fila las advertencias de la sección 3.3. |
+| 32 | Sistema | Clasifica como internacional o virtual cada asignatura cuyas OBSERVACIONES contienen "INTERNACIONAL" o "VIRTUAL". |
+| 33 | Sistema | Organiza las asignaturas por semestre y malla curricular. |
+| 34 | Sistema | Muestra la Grilla de Vista Previa en bloques semestrales colapsables (cantidad de asignaturas, grupos, horas de cada bloque). |
+| 35 | Sistema | Señala cada advertencia en la fila y la celda donde ocurre. |
+| 36 | Sistema | Muestra el Panel de Resumen Global. |
+| 37 | Sistema | Habilita los controles de edición, gestión de grupos, guardado y registro. |
+| 38 | Actor | Revisa el plan en la Grilla de Vista Previa. |
+| 39 | Actor | Presiona **Registrar Plan**. |
+| 40 | Sistema | Muestra un modal de confirmación (resumen consolidado, advertencias vigentes). |
+| 41 | Actor | Presiona **Confirmar y Registrar**. |
+| 42 | Sistema | Almacena el plan con estado **Registrado** como una nueva versión. |
+| 43 | Sistema | Registra la operación en la bitácora de auditoría. |
+| 44 | Sistema | Libera el bloqueo de edición del plan. |
+| 45 | Sistema | Actualiza el estado de la carrera en el Tablero de Monitoreo General. |
+| 46 | Sistema | Muestra la confirmación de registro exitoso. |
+| 47 | — | Fin del caso de uso. |
 
-### Mensaje de formalización (paso 39)
+### Mensaje de formalización (paso 40)
 
 > ¿Desea registrar el Plan de Ciclo de {Carrera} para el periodo {Ciclo}? Al confirmar, el estado cambiará a 'REGISTRADO' y se habilitará la asignación docente para los Departamentos Académicos (DIMA, DAHU, DACJ, DACTE). El plan podrá seguir editándose y cada guardado generará una nueva versión. Advertencias vigentes: {N}.
 
@@ -158,14 +149,14 @@ El Responsable puede:
 
 ### FA-001: Carga masiva mediante archivo .xlsx o .csv
 
-1. En el paso 20 del flujo básico, el Responsable selecciona **Subir archivo (.xlsx o .csv)**.
+1. En el paso 21 del flujo básico, el Responsable selecciona **Subir archivo (.xlsx o .csv)**.
 2. El sistema muestra la sección de importación de archivos.
 3. El Responsable selecciona el archivo.
 4. El sistema recibe el archivo.
 5. El sistema valida que la extensión del archivo sea `.xlsx` o `.csv`.
 6. El sistema lee el contenido del archivo.
 7. El sistema reconstruye la matriz de filas y columnas.
-8. El flujo continúa en el paso 26 del flujo básico.
+8. El flujo continúa en el paso 27 del flujo básico.
 
 ### FA-002: Selección de hoja en un libro .xlsx con varias hojas
 
@@ -184,159 +175,160 @@ El Responsable puede:
 
 ### FA-004: Descarga de la plantilla oficial
 
-1. En el paso 19 del flujo básico, el Responsable selecciona **Descargar plantilla oficial**.
+1. En el paso 20 del flujo básico, el Responsable selecciona **Descargar plantilla oficial**.
 2. El sistema genera la plantilla con las cabeceras oficiales.
 3. El sistema entrega la plantilla al Responsable.
-4. El flujo regresa al paso 19 del flujo básico.
+4. El flujo regresa al paso 20 del flujo básico.
 
 ### FA-005: Estructura inválida por cabeceras ausentes o repetidas
 
-1. En el paso 27 del flujo básico, el sistema no encuentra una fila con todas las cabeceras de la plantilla oficial o encuentra una cabecera repetida.
+1. En el paso 28 del flujo básico, el sistema no encuentra una fila con todas las cabeceras de la plantilla oficial o encuentra una cabecera repetida.
 2. El sistema muestra un modal de estructura no válida con las cabeceras requeridas y las cabeceras ausentes o repetidas.
 3. El sistema descarta el contenido.
-4. El flujo regresa al paso 19 del flujo básico.
+4. El flujo regresa al paso 20 del flujo básico.
 
 ### FA-006: Matriz sin filas de datos
 
-1. En el paso 28 del flujo básico, el sistema detecta que no existen filas de datos debajo de la fila de cabeceras.
+1. En el paso 29 del flujo básico, el sistema detecta que no existen filas de datos debajo de la fila de cabeceras.
 2. El sistema informa que no hay asignaturas que procesar.
 3. El sistema descarta el contenido.
-4. El flujo regresa al paso 19 del flujo básico.
+4. El flujo regresa al paso 20 del flujo básico.
 
 ### FA-007: Rechazo de la carga por errores de validación
 
-1. En el paso 29 del flujo básico, el sistema detecta al menos una fila que incumple una regla de error.
+1. En el paso 30 del flujo básico, el sistema detecta al menos una fila que incumple una regla de error.
 2. El sistema consolida todos los errores del contenido.
-3. El sistema muestra la lista completa de errores con la fila, la columna, el valor y el motivo de cada uno.
+3. El sistema muestra la lista completa de errores (fila, columna, valor, motivo de cada uno).
 4. El sistema rechaza la totalidad del contenido.
-5. El flujo regresa al paso 19 del flujo básico.
+5. El flujo regresa al paso 20 del flujo básico.
 
 ### FA-008: Plan bloqueado por otro usuario
 
-1. En el paso 16 del flujo básico, el sistema detecta que otro usuario tiene bloqueado el plan de la carrera.
+1. En el paso 17 del flujo básico, el sistema detecta que otro usuario tiene bloqueado el plan de la carrera.
 2. El sistema informa el nombre del usuario que edita el plan y la hora de inicio del bloqueo.
 3. El flujo continúa en el paso 2 del FA-009.
 
 ### FA-009: Consulta de un plan en solo lectura
 
-1. En el paso 12 del flujo básico, el Responsable selecciona una carrera en el Tablero de Monitoreo General.
+1. En el paso 13 del flujo básico, el Responsable selecciona una carrera en el Tablero de Monitoreo General.
 2. El sistema recupera la versión vigente del plan de la carrera.
 3. El sistema muestra el plan en la Grilla de Vista Previa en modo de solo lectura.
 4. El Responsable cierra la consulta.
-5. El flujo regresa al paso 12 del flujo básico.
+5. El flujo regresa al paso 13 del flujo básico.
 
 ### FA-010: Guardado del plan como Borrador
 
-1. En el paso 37 del flujo básico, el Responsable presiona **Guardar Borrador** sobre un plan que no está Registrado.
+1. En el paso 38 del flujo básico, el Responsable presiona **Guardar Borrador** sobre un plan que no está Registrado.
 2. El sistema solicita confirmación.
 3. El Responsable confirma el guardado.
 4. El sistema almacena el plan con estado **Borrador** como una nueva versión.
 5. El sistema registra la operación en la bitácora de auditoría.
-6. El flujo regresa al paso 37 del flujo básico.
+6. El flujo regresa al paso 38 del flujo básico.
 
 ### FA-011: Reanudación de un plan en estado Borrador
 
-1. En el paso 15 del flujo básico, el Responsable selecciona una carrera cuyo plan está en estado **Borrador**.
-2. El sistema ejecuta los pasos 16 y 17 del flujo básico.
+1. En el paso 16 del flujo básico, el Responsable selecciona una carrera cuyo plan está en estado **Borrador**.
+2. El sistema ejecuta los pasos 17 y 18 del flujo básico.
 3. El sistema recupera la última versión del plan.
 4. El sistema muestra el plan en la Grilla de Vista Previa.
 5. El sistema informa que el plan se encuentra en estado Borrador.
-6. El flujo continúa en el paso 36 del flujo básico.
+6. El flujo continúa en el paso 37 del flujo básico.
 
 ### FA-012: Edición de un plan en estado Registrado
 
-1. En el paso 15 del flujo básico, el Responsable selecciona una carrera cuyo plan está en estado **Registrado**.
-2. El sistema ejecuta los pasos 16 y 17 del flujo básico.
+1. En el paso 16 del flujo básico, el Responsable selecciona una carrera cuyo plan está en estado **Registrado**.
+2. El sistema ejecuta los pasos 17 y 18 del flujo básico.
 3. El sistema recupera la versión vigente del plan.
 4. El sistema muestra el plan en la Grilla de Vista Previa.
 5. El sistema informa que el plan está Registrado y que cada guardado generará una nueva versión.
 6. El sistema reemplaza la acción **Registrar Plan** por **Guardar Cambios**.
-7. El flujo continúa en el paso 36 del flujo básico.
+7. El flujo continúa en el paso 37 del flujo básico.
 
 ### FA-013: Guardado de cambios de un plan Registrado
 
-1. En el paso 38 del flujo básico, el Responsable presiona **Guardar Cambios** sobre un plan Registrado.
+1. En el paso 39 del flujo básico, el Responsable presiona **Guardar Cambios** sobre un plan Registrado.
 2. El sistema muestra un modal con el resumen de los cambios respecto de la versión vigente y las advertencias vigentes.
 3. El Responsable registra, de forma opcional, el motivo del cambio.
 4. El Responsable presiona **Confirmar**.
 5. El sistema almacena el plan con estado **Registrado** como una nueva versión.
-6. El flujo continúa en el paso 42 del flujo básico.
+6. El flujo continúa en el paso 43 del flujo básico.
 
 ### FA-014: Reemplazo del contenido mediante una nueva carga masiva
 
-1. En el paso 37 del flujo básico, el Responsable presiona **Reemplazar contenido** sobre un plan que ya tiene asignaturas.
-2. El sistema muestra un modal que advierte que se reemplazará todo el contenido del plan y que se perderán los desdobles, los ajustes manuales y las fusiones, incluidas las fusiones con grupos de otras carreras.
+1. En el paso 38 del flujo básico, el Responsable presiona **Reemplazar contenido** sobre un plan que ya tiene asignaturas.
+2. El sistema muestra un modal de advertencia con lo que se perderá al reemplazar el contenido:<br>- Los desdobles.<br>- Los ajustes manuales.<br>- Las fusiones, incluidas las fusiones con grupos de otras carreras.
 3. El Responsable confirma el reemplazo.
-4. El flujo continúa en el paso 18 del flujo básico.
+4. El flujo continúa en el paso 19 del flujo básico.
 
 ### FA-015: Edición directa de una celda
 
-1. En el paso 37 del flujo básico, el Responsable selecciona una celda editable de la Grilla de Vista Previa.
+1. En el paso 38 del flujo básico, el Responsable selecciona una celda editable de la Grilla de Vista Previa.
 2. El sistema habilita la edición de la celda.
 3. El Responsable modifica el valor.
 4. El sistema valida el valor con las reglas de error de la sección 3.2.
 5. El sistema aplica el valor en la Grilla de Vista Previa.
 6. El sistema recalcula TOTAL HORAS cuando el valor modificado corresponde a HT o HP.
 7. El sistema actualiza las advertencias y el Panel de Resumen Global.
-8. El flujo regresa al paso 37 del flujo básico.
+8. El flujo regresa al paso 38 del flujo básico.
 
 ### FA-016: Valor no válido en la edición
 
 1. En el paso 4 del FA-015 o en el paso 5 del FA-017, el sistema detecta un valor que incumple una regla de error.
 2. El sistema muestra un mensaje con la regla incumplida.
 3. El sistema conserva el valor anterior.
-4. El flujo regresa al paso 37 del flujo básico.
+4. El flujo regresa al paso 38 del flujo básico.
 
 ### FA-017: Agregar una asignatura
 
-1. En el paso 37 del flujo básico, el Responsable presiona **Agregar Asignatura**.
+1. En el paso 38 del flujo básico, el Responsable presiona **Agregar Asignatura**.
 2. El sistema muestra un formulario con los campos de la plantilla oficial.
 3. El Responsable completa el formulario.
 4. El Responsable presiona **Agregar**.
 5. El sistema valida los datos con las reglas de error de la sección 3.2.
 6. El sistema agrega la asignatura en su bloque semestral de la Grilla de Vista Previa.
 7. El sistema actualiza las advertencias y el Panel de Resumen Global.
-8. El flujo regresa al paso 37 del flujo básico.
+8. El flujo regresa al paso 38 del flujo básico.
 
 ### FA-018: Eliminar una asignatura
 
-1. En el paso 37 del flujo básico, el Responsable selecciona **Eliminar Asignatura** sobre una asignatura.
-2. El sistema muestra un modal de confirmación con las advertencias aplicables: cantidad de grupos, fusiones y docentes asignados.
+1. En el paso 38 del flujo básico, el Responsable selecciona **Eliminar Asignatura** sobre una asignatura.
+2. El sistema muestra un modal de confirmación con las advertencias aplicables:<br>- Cantidad de grupos.<br>- Fusiones.<br>- Docentes asignados.
 3. El Responsable confirma la eliminación.
 4. El sistema elimina la asignatura y sus grupos.
 5. El sistema retira los grupos eliminados de las fusiones en las que participaban.
 6. El sistema actualiza el Panel de Resumen Global.
-7. El flujo regresa al paso 37 del flujo básico.
+7. El flujo regresa al paso 38 del flujo básico.
 
 ### FA-019: Agregar un grupo a una asignatura
 
-1. En el paso 37 del flujo básico, el Responsable selecciona **Agregar Grupo** sobre una asignatura.
+1. En el paso 38 del flujo básico, el Responsable selecciona **Agregar Grupo** sobre una asignatura.
 2. El sistema crea un grupo con el número correlativo siguiente y las mismas HT y HP de la asignatura.
 3. El sistema actualiza el Panel de Resumen Global.
-4. El flujo regresa al paso 37 del flujo básico.
+4. El flujo regresa al paso 38 del flujo básico.
 
 ### FA-020: Agregar un grupo a un semestre
 
-1. En el paso 37 del flujo básico, el Responsable selecciona **Agregar Grupo al Semestre** en la cabecera de un bloque semestral.
-2. El sistema solicita confirmación e indica la cantidad de asignaturas del semestre.
-3. El Responsable confirma la acción.
-4. El sistema crea, para cada asignatura del semestre, un grupo con el número correlativo siguiente.
-5. El sistema actualiza el Panel de Resumen Global.
-6. El flujo regresa al paso 37 del flujo básico.
+1. En el paso 38 del flujo básico, el Responsable selecciona **Agregar Grupo al Semestre** en la cabecera de un bloque semestral.
+2. El sistema solicita confirmación.
+3. El sistema indica la cantidad de asignaturas del semestre.
+4. El Responsable confirma la acción.
+5. El sistema crea, para cada asignatura del semestre, un grupo con el número correlativo siguiente.
+6. El sistema actualiza el Panel de Resumen Global.
+7. El flujo regresa al paso 38 del flujo básico.
 
 ### FA-021: Eliminar un grupo
 
-1. En el paso 37 del flujo básico, el Responsable selecciona **Eliminar Grupo** sobre un grupo.
-2. El sistema muestra un modal de confirmación con las advertencias aplicables: único grupo de la asignatura, grupo fusionado y grupo con docente asignado.
+1. En el paso 38 del flujo básico, el Responsable selecciona **Eliminar Grupo** sobre un grupo.
+2. El sistema muestra un modal de confirmación con las advertencias aplicables:<br>- Único grupo de la asignatura.<br>- Grupo fusionado.<br>- Grupo con docente asignado.
 3. El Responsable confirma la eliminación.
 4. El sistema elimina el grupo.
 5. El sistema retira el grupo de la fusión en la que participaba.
 6. El sistema actualiza el Panel de Resumen Global.
-7. El flujo regresa al paso 37 del flujo básico.
+7. El flujo regresa al paso 38 del flujo básico.
 
 ### FA-022: Desdoble parcial de práctica o de teoría
 
-1. En el paso 37 del flujo básico, el Responsable selecciona **Desdoblar** sobre un grupo.
+1. En el paso 38 del flujo básico, el Responsable selecciona **Desdoblar** sobre un grupo.
 2. El sistema muestra el formulario de desdoble con el tipo (Práctica o Teoría) y la cantidad de subgrupos.
 3. El Responsable selecciona el tipo de desdoble.
 4. El Responsable indica la cantidad de subgrupos.
@@ -345,14 +337,14 @@ El Responsable puede:
 7. El sistema genera los subgrupos con identificadores correlativos, cada uno con las horas del tipo desdoblado.
 8. El sistema mantiene las horas del otro tipo en una sección común.
 9. El sistema recalcula el Panel de Resumen Global.
-10. El flujo regresa al paso 37 del flujo básico.
+10. El flujo regresa al paso 38 del flujo básico.
 
 ### FA-023: Desdoble no aplicable por ausencia de horas del tipo seleccionado
 
 1. En el paso 5 del FA-022, el sistema detecta que el grupo no tiene horas del tipo seleccionado.
 2. El sistema informa que el desdoble no aplica.
 3. El sistema no genera subgrupos.
-4. El flujo regresa al paso 37 del flujo básico.
+4. El flujo regresa al paso 38 del flujo básico.
 
 ### FA-024: Cantidad de subgrupos no válida
 
@@ -363,7 +355,7 @@ El Responsable puede:
 
 ### FA-025: Fusión de grupos
 
-1. En el paso 37 del flujo básico, el Responsable selecciona **Fusionar Grupos**.
+1. En el paso 38 del flujo básico, el Responsable selecciona **Fusionar Grupos**.
 2. El sistema muestra el panel de fusión.
 3. El sistema sugiere los grupos del ciclo, de cualquier carrera, con el mismo nombre de asignatura normalizado o las mismas horas.
 4. El Responsable selecciona dos o más grupos de su plan o de otras carreras.
@@ -374,7 +366,7 @@ El Responsable puede:
 9. El sistema crea la sección fusionada con las HT y HP del grupo principal.
 10. El sistema marca los grupos fusionados en la Grilla de Vista Previa.
 11. El sistema recalcula el Panel de Resumen Global.
-12. El flujo regresa al paso 37 del flujo básico.
+12. El flujo regresa al paso 38 del flujo básico.
 
 ### FA-026: Selección insuficiente para la fusión
 
@@ -385,60 +377,61 @@ El Responsable puede:
 
 ### FA-027: Deshacer una fusión
 
-1. En el paso 37 del flujo básico, el Responsable selecciona **Deshacer Fusión** sobre una sección fusionada.
+1. En el paso 38 del flujo básico, el Responsable selecciona **Deshacer Fusión** sobre una sección fusionada.
 2. El sistema solicita confirmación.
 3. El Responsable confirma la acción.
 4. El sistema disuelve la sección fusionada.
 5. El sistema restituye los grupos originales con sus HT y HP.
 6. El sistema recalcula el Panel de Resumen Global.
-7. El flujo regresa al paso 37 del flujo básico.
+7. El flujo regresa al paso 38 del flujo básico.
 
 ### FA-028: Consulta y comparación de versiones
 
-1. En el paso 37 del flujo básico, el Responsable selecciona **Historial de Versiones**.
-2. El sistema muestra las versiones del plan con el número, el estado, el tipo de guardado, el usuario, la fecha y hora y el motivo.
+1. En el paso 38 del flujo básico, el Responsable selecciona **Historial de Versiones**.
+2. El sistema muestra las versiones del plan (número, estado, tipo de guardado, usuario, fecha y hora, motivo).
 3. El Responsable selecciona una versión.
 4. El sistema muestra la versión seleccionada en modo de solo lectura.
 5. El sistema muestra las diferencias de la versión seleccionada respecto de la versión anterior.
 6. El Responsable cierra el historial.
-7. El flujo regresa al paso 37 del flujo básico.
+7. El flujo regresa al paso 38 del flujo básico.
 
 ### FA-029: Restauración de una versión anterior
 
 1. En el paso 4 del FA-028, el Responsable presiona **Restaurar esta versión**.
-2. El sistema solicita confirmación e informa que la restauración generará una nueva versión.
-3. El Responsable confirma la restauración.
-4. El sistema carga el contenido de la versión seleccionada en la Grilla de Vista Previa.
-5. El sistema almacena el contenido como una nueva versión con el estado vigente del plan.
-6. El sistema registra la operación en la bitácora de auditoría.
-7. El flujo regresa al paso 37 del flujo básico.
+2. El sistema solicita confirmación.
+3. El sistema informa que la restauración generará una nueva versión.
+4. El Responsable confirma la restauración.
+5. El sistema carga el contenido de la versión seleccionada en la Grilla de Vista Previa.
+6. El sistema almacena el contenido como una nueva versión con el estado vigente del plan.
+7. El sistema registra la operación en la bitácora de auditoría.
+8. El flujo regresa al paso 38 del flujo básico.
 
 ### FA-030: Colapso y expansión de los bloques semestrales
 
-1. En el paso 37 del flujo básico, el Responsable selecciona la cabecera de un bloque semestral, **Colapsar todo** o **Expandir todo**.
+1. En el paso 38 del flujo básico, el Responsable selecciona la cabecera de un bloque semestral, **Colapsar todo** o **Expandir todo**.
 2. El sistema actualiza el estado de expansión de los bloques.
 3. El sistema mantiene visibles los totales en la cabecera de cada bloque.
-4. El flujo regresa al paso 37 del flujo básico.
+4. El flujo regresa al paso 38 del flujo básico.
 
 ### FA-031: Cancelación de una ventana de confirmación
 
 1. En cualquier ventana de confirmación de este caso de uso, el Responsable presiona **Cancelar**.
 2. El sistema cierra la ventana sin aplicar la acción.
 3. El sistema conserva la Grilla de Vista Previa sin cambios.
-4. El flujo regresa al paso 37 del flujo básico.
+4. El flujo regresa al paso 38 del flujo básico.
 
 ### FA-032: Salida de la edición sin guardar
 
-1. En el paso 37 del flujo básico, el Responsable presiona **Salir de la edición**.
+1. En el paso 38 del flujo básico, el Responsable presiona **Salir de la edición**.
 2. El sistema advierte que existen cambios sin guardar.
 3. El Responsable confirma la salida.
 4. El sistema descarta los cambios sin guardar.
 5. El sistema libera el bloqueo de edición del plan.
-6. El flujo regresa al paso 12 del flujo básico.
+6. El flujo regresa al paso 13 del flujo básico.
 
 ### FA-033: Expiración del bloqueo por inactividad
 
-1. Durante el paso 37 del flujo básico, transcurre el tiempo de inactividad configurado.
+1. Durante el paso 38 del flujo básico, transcurre el tiempo de inactividad configurado.
 2. El sistema almacena los cambios sin guardar como una nueva versión: con estado **Borrador** si el plan no está Registrado, o con estado **Registrado** si ya lo está.
 3. El sistema registra el autoguardado en la bitácora de auditoría.
 4. El sistema libera el bloqueo de edición del plan.
@@ -448,7 +441,7 @@ El Responsable puede:
 
 ### FA-034: Acceso denegado
 
-1. En el paso 4 o 5 del flujo básico, el sistema detecta que el correo no pertenece al dominio `@ulasalle.edu.pe` o que el usuario no posee un rol autorizado.
+1. En el paso 5 o 6 del flujo básico, el sistema detecta que el correo no pertenece al dominio `@ulasalle.edu.pe` o que el usuario no posee un rol autorizado.
 2. El sistema muestra el mensaje: *"Acceso denegado. La cuenta no cuenta con permisos de Responsable del Plan de Ciclo. Contacte con la administración del sistema."*
 3. El sistema destruye la sesión temporal.
 4. El sistema redirige a la pantalla de inicio de sesión.
@@ -553,3 +546,10 @@ El caso de uso CU-001 cubre la construcción y el mantenimiento de la oferta aca
 10. Versionado, comparación y restauración.
 
 El documento define **34 flujos alternativos**.
+
+---
+
+## 7. Historial de versiones del documento
+
+- **v2.0 (2026-09-19):** corrigió, respecto de la v1, la referencia a pasos en FA-003 y FA-016 a FA-018; la lógica duplicada entre FA-003 y FA-012 y entre las cancelaciones; la descripción del actor Director, que incluía asignar docentes (tarea de otro CU); la inconsistencia entre "Director" y "Director de departamento"; el término ambiguo "rango admitido"; la falta de las secciones Postcondiciones y Requisitos especiales; y un paso de actor que faltaba en la autenticación.
+- **v3.0 (2026-09-22):** reescribió el flujo básico y los 34 FA para que cada paso describa una sola acción (sin conjunciones que unan dos acciones distintas) y para que ninguna acción enumere en línea, con "y"/"o", lo que el sistema muestra en pantalla — ahora en listas con guiones (cuando son varias opciones) o entre paréntesis (cuando son los campos de un elemento ya nombrado). Retiró la sección 1.4 Postcondiciones: su contenido ya está cubierto por los pasos finales del flujo básico (bitácora, liberación del bloqueo, actualización del tablero, habilitación de la asignación docente). Decisiones en preguntas.md P77–P81.
