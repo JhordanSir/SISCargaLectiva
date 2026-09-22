@@ -90,19 +90,22 @@ propios del entorno:
 | `MINUTOS_BLOQUEO` | Inactividad antes de liberar el bloqueo de edición. Por defecto 30. Bájalo para probar la expiración sin esperar. |
 | `MAX_SUBGRUPOS` | Máximo de subgrupos de un desdoble parcial. |
 | `DIRECTORIO` | Roles por correo. En el sistema definitivo esto vive en la base de datos. |
-| `ROL_POR_DEFECTO` | Rol para una cuenta del dominio que no figure en `DIRECTORIO`. Ponlo en `null` para denegar el acceso a quien no esté listado. |
+| `ROL_POR_DEFECTO` | Rol para una cuenta del dominio que no figure en `DIRECTORIO`. De fábrica es `{ rol: "director" }`, para que cualquier cuenta institucional pueda recorrer todo el caso de uso. Ponlo en `null` para denegar el acceso a quien no esté listado. |
 
-Ejemplo de directorio:
+El **director** edita el plan de cualquier carrera; el **coordinador** solo el de las
+carreras que tenga asignadas y consulta el resto en solo lectura (RN-02). En el tablero,
+el botón **Editar** aparece únicamente en las carreras que la cuenta tenga autorizadas.
+
+Para probar la vista restringida de un coordinador, añade la cuenta al directorio:
 
 ```js
 DIRECTORIO: {
-  "m.quispe@ulasalle.edu.pe":  { rol: "coordinador", carreras: ["ING"] },
-  "r.delgado@ulasalle.edu.pe": { rol: "director", departamento: "DIMA" }
+  "mfloresl@ulasalle.edu.pe":  { rol: "coordinador", carreras: ["ING"] },
+  "r.delgado@ulasalle.edu.pe": { rol: "director" }
 }
 ```
 
-El coordinador solo edita las carreras que tenga asignadas; el director edita todas.
-Ambos consultan cualquier carrera en solo lectura.
+El directorio manda sobre `ROL_POR_DEFECTO`.
 
 ---
 
@@ -147,7 +150,7 @@ importador debe rechazar si alguien los carga tal cual:
 | Problema en el origen | Corrección | Veces |
 |---|---|---|
 | Cabecera en la fila 3, con un título encima | Se detecta la fila de cabeceras | 8 hojas |
-| `DPTO` con `DAHUC` | `DAHU`, el código oficial | 114 |
+| `DPTO` con `DAHUC` | *(ya no se corrige: `DAHUC` es el código oficial)* | — |
 | `SEMESTRE` como fecha serial: `1-1` se guardó como 1-ene | Día = semestre, mes = grupo | 38 |
 | `SEMESTRE` como texto `"3 - 1"` | Semestre 3, grupo 1 | 2 |
 | Columna H rotulada `HT` que en realidad es el total | Se usa como TOTAL HORAS | todas |
@@ -158,16 +161,33 @@ importador debe rechazar si alguien los carga tal cual:
 
 ## 5. Qué está realmente implementado
 
-**Importación.** Analiza rangos pegados desde Google Sheets (tabulaciones) y archivos
-`.csv` (coma o punto y coma, con comillas) y `.xlsx`. Normaliza las cabeceras
-—mayúsculas, tildes y espacios—, acepta los sinónimos `CODIGO`, `OBSERVACIÓN` y `TH`,
-localiza la fila de cabeceras aunque haya filas previas, y pide elegir la hoja cuando
-el libro tiene varias.
+**Pegado con forma de hoja de cálculo.** La opción *Pegar desde Google Sheets* no muestra
+un cuadro de texto, sino una rejilla: al pegar (Ctrl+V en cualquier punto de la vista, o
+soltando un archivo encima) el contenido se reparte en celdas con cabeceras de columna
+`A`, `B`, `C`… y numeración de filas, y al pie se indica cuántas filas y columnas se
+leyeron. Así se comprueba lo que el sistema ha interpretado antes de procesarlo.
 
-**Validación.** Aplica las doce reglas de error `E01`–`E12`. Un solo error rechaza la
-totalidad del contenido y muestra la lista completa con fila, columna y motivo. Las
-advertencias `A01`–`A04` no rechazan nada: se marcan en la fila y en la celda donde
-ocurren y se resumen en un panel aparte.
+**Importación sin restricciones.** No hay validación: **nada se rechaza nunca**. No existen
+las reglas de error `E01`–`E12` ni las advertencias `A01`–`A06`; el motor no valida, sólo
+interpreta. Cualquier contenido entra, y lo que no se entienda se conserva como texto.
+
+- **Cualquier archivo.** No se filtra por extensión. Si parece un libro de cálculo se lee
+  con SheetJS; si no, o si falla, se lee como texto plano.
+- **Cualquier separador.** Tabulaciones, comas o punto y coma, con o sin comillas.
+- **Con o sin cabeceras.** Si las hay, mandan. Lo que quede sin identificar se deduce del
+  contenido: un código por su forma `3.1.1.24`, la malla por el año, la carrera por su
+  sigla o alias, el departamento por su código, la asignatura por ser el texto más largo.
+  Lo que no se reconoce se ignora sin avisar.
+- **El texto del usuario se conserva intacto.** Si `HT` dice «muchas», la celda guarda y
+  muestra «muchas». Los cálculos extraen el número que puedan de cada celda y, si no hay
+  ninguno, usan cero; así los totales nunca fallan pero tampoco alteran lo escrito.
+- **El semestre admite cualquier cosa.** `5` es el semestre 5 grupo 1, `1-2` es el semestre 1
+  grupo 2, y cualquier otro texto da nombre a su propio bloque.
+- **Registrar siempre funciona**, esté el plan como esté.
+
+> Esto revierte el requisito de CU-001 §3.2, donde un solo error rechazaba todo el archivo.
+> Fue una decisión expresa; conviene registrarla con su `P##` en `preguntas.md` y reflejarla
+> en `requirements.md` y en el CU, que siguen describiendo el comportamiento estricto.
 
 **Edición.** Agregar y eliminar asignaturas, agregar y eliminar grupos, agregar un
 grupo a todo un semestre, editar HT y HP con recálculo del total, desdoble parcial de
@@ -199,8 +219,9 @@ está editando cada carrera del ciclo.
 - **Los roles salen de `CONFIG.DIRECTORIO`**, no de una base de datos.
 - **La oferta de ejemplo es de `2026-I`.** Está sembrada tal cual; si quieres
   demostrar la importación desde cero, usa una carrera en *Sin Iniciar*.
-- **Las reglas de validación están en el navegador.** Según `CLAUDE.md`, su fuente de
-  verdad debe ser el backend; aquí se replican para poder demostrar el flujo.
+- **No hay validación de ninguna clase.** El dato entra como venga, así que el plan puede
+  contener celdas sin sentido. Cuando exista el backend habrá que decidir qué se valida
+  ahí antes de habilitar la asignación docente.
 - Requiere conexión a internet: Google Identity Services y la biblioteca de lectura de
   `.xlsx` se cargan desde sus CDN.
 

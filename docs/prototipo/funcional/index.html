@@ -100,6 +100,54 @@ textarea{font-family:var(--mono);font-size:12px;resize:vertical;min-height:150px
 .fila-campos{display:flex;flex-wrap:wrap;gap:12px}
 .fila-campos .campo{flex:1 1 140px;margin-bottom:0}
 
+/* ---------- área de pegado con aspecto de hoja de cálculo ---------- */
+.hoja{
+  border:1px solid var(--line);border-radius:var(--r);background:var(--surface-2);
+  min-height:220px;position:relative;overflow:hidden;
+}
+.hoja:focus-visible{outline:2px solid var(--acento-viva);outline-offset:2px}
+.hoja.encima{border-color:var(--acento);background:var(--acento-tenue)}
+.hoja-vacia{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:4px;text-align:center;
+  color:var(--ink-faint);
+  background-image:linear-gradient(var(--line-soft) 1px,transparent 1px),
+                   linear-gradient(90deg,var(--line-soft) 1px,transparent 1px);
+  background-size:100% 30px,116px 100%;
+}
+.hoja-vacia b{font-size:14px;color:var(--ink-soft)}
+.hoja-vacia small{font-size:12px;font-family:var(--mono)}
+.hoja-scroll{max-height:420px;overflow:auto}
+.hoja table{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-size:12.5px}
+.hoja th,.hoja td{
+  border-right:1px solid var(--line-soft);border-bottom:1px solid var(--line-soft);
+  padding:4px 8px;white-space:nowrap;background:var(--surface);
+  max-width:260px;overflow:hidden;text-overflow:ellipsis;
+}
+/* Cabeceras de columna (A, B, C…) y de fila (1, 2, 3…), como en una hoja */
+.hoja thead th{
+  position:sticky;top:0;z-index:2;
+  background:var(--surface-3);color:var(--ink-faint);
+  font-family:var(--mono);font-size:11px;font-weight:600;text-align:center;
+  letter-spacing:0;text-transform:none;
+}
+.hoja tbody th{
+  position:sticky;left:0;z-index:1;
+  background:var(--surface-3);color:var(--ink-faint);
+  font-family:var(--mono);font-size:11px;font-weight:600;text-align:right;
+  width:44px;min-width:44px;
+}
+.hoja thead th:first-child{left:0;z-index:3;width:44px;min-width:44px}
+.hoja tr.fila-cabecera td{
+  background:var(--acento-tenue);color:var(--acento);font-weight:600;
+}
+.hoja td.vacia{color:var(--ink-faint)}
+.hoja-pie{
+  display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;
+  margin-top:7px;font-size:12px;color:var(--ink-soft);
+}
+.hoja-pie .dato{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--ink)}
+
 .tabla-caja{overflow-x:auto;border:1px solid var(--line-soft);border-radius:var(--r)}
 table{border-collapse:collapse;width:100%;font-size:13px}
 th{
@@ -125,10 +173,6 @@ tr.sel td:first-child{box-shadow:inset 3px 0 0 var(--acento)}
 .marca-c.fus{background:var(--ok-fondo);color:var(--ok);border:1px solid var(--ok-linea)}
 .marca-c.des{background:var(--surface-3);color:var(--ink-soft);border:1px solid var(--line)}
 
-tr.adv td{background:var(--aviso-fondo)}
-tr.adv.sel td{background:color-mix(in srgb,var(--aviso-fondo) 55%,var(--acento-tenue))}
-td.adv-celda{box-shadow:inset 0 0 0 2px var(--aviso-linea)}
-tr.adv-detalle td{background:var(--aviso-fondo);color:var(--aviso);font-size:11.5px;font-weight:600;padding-top:0;border-bottom:1px solid var(--aviso-linea)}
 
 .resumen{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:1px;background:var(--line-soft);border:1px solid var(--line-soft);border-radius:var(--r);overflow:hidden}
 .resumen div{background:var(--surface);padding:9px 11px}
@@ -341,10 +385,10 @@ code{font-family:var(--mono);font-size:12px;background:var(--surface-3);padding:
       <p class="etq" style="margin:18px 0 8px">Opciones de carga</p>
       <div class="barra-acciones">
         <button class="btn primario" id="op-pegar">Pegar desde Google Sheets</button>
-        <button class="btn" id="op-archivo">Subir archivo (.xlsx o .csv)</button>
+        <button class="btn" id="op-archivo">Subir archivo</button>
         <button class="btn" id="op-plantilla">Descargar plantilla oficial</button>
       </div>
-      <input type="file" id="input-archivo" accept=".xlsx,.csv" hidden>
+      <input type="file" id="input-archivo" hidden>
       <div class="nota" style="margin-top:16px">
         <b>Columnas de la plantilla oficial:</b>
         <code>CARRERA · MALLA · SEMESTRE · CÓDIGO · ASIGNATURA · GRUPO · HT · HP · TOTAL HORAS · DPTO · OBSERVACIONES</code>
@@ -360,13 +404,19 @@ code{font-family:var(--mono);font-size:12px;background:var(--surface-3);padding:
       <span class="reloj" id="reloj-pegado"></span>
     </div>
     <div class="panel-cuerpo">
-      <div class="campo">
-        <label for="area-pegado">Copia el rango completo, incluida la fila de cabeceras, y pégalo aquí</label>
-        <textarea id="area-pegado" placeholder="CARRERA	MALLA	SEMESTRE	CÓDIGO	ASIGNATURA	GRUPO	HT	HP	TOTAL HORAS	DPTO	OBSERVACIONES&#10;…"></textarea>
+      <p class="etq" style="margin-bottom:7px">Copia el rango completo en Google Sheets, incluida la fila de cabeceras, y pégalo aquí</p>
+      <div class="hoja" id="hoja-pegado" tabindex="0" role="group"
+           aria-label="Área de pegado. Pulsa Ctrl+V para pegar el rango copiado.">
+        <div class="hoja-vacia" id="hoja-vacia">
+          <b>Pega aquí el rango</b>
+          <small>Ctrl+V &nbsp;·&nbsp; Cmd+V en Mac</small>
+        </div>
+        <div class="hoja-scroll" id="hoja-scroll" hidden></div>
       </div>
-      <div class="barra-acciones">
-        <button class="btn primario" id="procesar-pegado">Procesar contenido</button>
-        <button class="btn" id="limpiar-pegado">Limpiar</button>
+      <div class="hoja-pie" id="hoja-pie" hidden></div>
+      <div class="barra-acciones" style="margin-top:14px">
+        <button class="btn primario" id="procesar-pegado" disabled>Procesar contenido</button>
+        <button class="btn" id="limpiar-pegado" disabled>Limpiar</button>
       </div>
     </div>
   </section>
@@ -389,7 +439,6 @@ code{font-family:var(--mono);font-size:12px;background:var(--surface-3);padding:
         <button class="btn" data-acc="grupo-semestre">Agregar grupo al semestre</button>
         <button class="btn" data-acc="fusionar">Fusionar grupos</button>
         <button class="btn" data-acc="historial">Historial de versiones</button>
-        <button class="btn" data-acc="advertencias" id="btn-advertencias">Ver advertencias</button>
       </div>
 
       <div id="bloques"></div>
@@ -483,31 +532,39 @@ const CONFIG = {
   MAX_SUBGRUPOS: 5,
 
   /* Roles por correo. En el sistema definitivo esto vive en la base de datos.
-     rol: "coordinador" (solo sus carreras) | "director" (todas las carreras). */
+       rol: "director"    → edita el plan de cualquier carrera.
+       rol: "coordinador" → edita solo las carreras de «carreras»; el resto las
+                            consulta en solo lectura (RN-02).
+     Descomenta una línea para probar la vista restringida de un coordinador. */
   DIRECTORIO: {
-    // "m.quispe@ulasalle.edu.pe": { rol: "coordinador", carreras: ["ING"] },
-    // "r.delgado@ulasalle.edu.pe": { rol: "director", departamento: "DIMA" }
+    // "mfloresl@ulasalle.edu.pe": { rol: "coordinador", carreras: ["ING"] },
+    // "r.delgado@ulasalle.edu.pe": { rol: "director" }
   },
 
   /* Rol asignado a una cuenta del dominio que no figure en DIRECTORIO.
      Ponlo en null para denegar el acceso a quien no esté listado. */
-  ROL_POR_DEFECTO: { rol: "coordinador", carreras: ["ING"] }
+  ROL_POR_DEFECTO: { rol: "director" }
 };
 
 /* ============================================================
    Datos maestros
    ============================================================ */
 const CICLOS = ["2026-1", "2026-2", "2027-1", "2027-2"];
-const DPTOS = ["DIMA", "DAHU", "DACJ", "DACTE"];
+const DPTOS = ["DIMA", "DAHUC", "DACJ", "DACTE"];
+/* «alias» recoge las formas con que cada carrera aparece en los Sheets y Excel reales
+   (las siglas de la columna CARRERA y los nombres de las hojas). La sigla y el nombre
+   se aceptan siempre, no hace falta repetirlos aquí. */
 const CARRERAS = [
-  { sig:"ING", nombre:"Ingeniería de Software" },
-  { sig:"IND", nombre:"Ingeniería Industrial" },
-  { sig:"ADM", nombre:"Administración de Empresas" },
-  { sig:"DER", nombre:"Derecho" },
-  { sig:"ARQ", nombre:"Arquitectura" },
-  { sig:"PSI", nombre:"Psicología" },
-  { sig:"COM", nombre:"Comunicación" },
-  { sig:"ICO", nombre:"Ingeniería Comercial" }
+  { sig:"ING", nombre:"Ingeniería de Software",   alias:["Ing. Software"] },
+  { sig:"IND", nombre:"Ingeniería Industrial",    alias:["Ing. Industrial"] },
+  { sig:"ADM", nombre:"Administración de Empresas",
+    alias:["Adm. Neg. Int.", "Administración de Negocios Internacionales"] },
+  { sig:"DER", nombre:"Derecho",                  alias:[] },
+  { sig:"ARQ", nombre:"Arquitectura",             alias:[] },
+  { sig:"PSI", nombre:"Psicología",               alias:[] },
+  { sig:"COM", nombre:"Comunicación",
+    alias:["Cs. de la Comunicación", "Ciencias de la Comunicación"] },
+  { sig:"ICO", nombre:"Ingeniería Comercial",     alias:["Ing. Comercial"] }
 ];
 const COLUMNAS = ["CARRERA","MALLA","SEMESTRE","CODIGO","ASIGNATURA","GRUPO","HT","HP","TOTAL HORAS","DPTO","OBSERVACIONES"];
 const OBLIGATORIAS = ["CARRERA","MALLA","SEMESTRE","CODIGO","ASIGNATURA","HT","HP","TOTAL HORAS","DPTO"];
@@ -523,7 +580,7 @@ const app = {
   carrera: null,          // sigla en edición
   seleccion: null,        // {ci, gi}
   colapsados: new Set(),
-  avisosCarga: [],        // advertencias A01–A04 de la última importación
+  matrizPegada: null,     // contenido pegado, ya dividido en filas y columnas
   vistaPrevia: null       // vista anterior, para el botón volver contextual
 };
 
@@ -536,7 +593,7 @@ const $  = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
 const esc = t => String(t == null ? "" : t).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
 const clave = (ciclo, sig) => ciclo + "|" + sig;
-const th = g => g.ht + g.hp;
+const th = g => num(g.ht) + num(g.hp);   // las celdas pueden traer texto libre
 const nombreCarrera = sig => (CARRERAS.find(c => c.sig === sig) || {}).nombre || sig;
 
 const VISTAS = ["config","login","denegado","menu","planes","carga","pegado","grilla","lectura","exito"];
@@ -755,12 +812,12 @@ function sembrar(){
 
 function totales(asignaturas){
   const t = { asig:0, grupos:0, ht:0, hp:0, th:0, dictado:0, intl:0, fus:0, des:0, sem:0 };
-  const fus = new Set(), sems = new Set();
+  const fus = new Set(), sems = new Set();   // «sem» puede ser un número o un texto
   (asignaturas || []).forEach(a => {
     t.asig++; sems.add(a.sem);
     if (/INTERNACIONAL|VIRTUAL/i.test(a.obs || "")) t.intl++;
     a.grupos.forEach(g => {
-      t.grupos++; t.ht += g.ht; t.hp += g.hp; t.th += th(g);
+      t.grupos++; t.ht += num(g.ht); t.hp += num(g.hp); t.th += th(g);
       if (g.desdoble) t.des++;
       if (g.fusion) { if (!fus.has(g.fusion)) { fus.add(g.fusion); t.dictado += th(g); } }
       else t.dictado += th(g);
@@ -807,7 +864,7 @@ function matrizDesdeTexto(txt){
 /**
  * Localiza la fila de cabeceras. Devuelve la primera fila completa y sin repeticiones;
  * si no existe, devuelve la mejor candidata para poder distinguir una cabecera
- * repetida (E03) de una cabecera ausente (E02).
+ * repetida de una cabecera ausente.
  */
 function ubicarCabeceras(matriz){
   let mejor = null;
@@ -834,116 +891,166 @@ const entero = v => /^-?\d+$/.test(String(v).trim());
 const numero = v => /^-?\d+([.,]\d+)?$/.test(String(v).trim());
 const aNum = v => parseFloat(String(v).trim().replace(",", "."));
 
+/* Compara nombres de carrera ignorando mayúsculas, tildes, puntos y espacios,
+   de modo que «Ing. Software», «ING SOFTWARE» e «ing software» sean lo mismo. */
+const claveCarrera = v => normalizar(v).replace(/[.\-\u2013\u2014]/g, " ").replace(/\s+/g, " ").trim();
+
+/** Formas admitidas para una carrera: su sigla, su nombre y sus alias. */
+function formasCarrera(sigla){
+  const c = CARRERAS.find(x => x.sig === sigla);
+  return c ? [c.sig, c.nombre].concat(c.alias || []) : [];
+}
+
+/** La columna CARRERA puede traer la sigla («ING»), el nombre o cualquier alias. */
+function coincideCarrera(valor, sigla){
+  const v = claveCarrera(valor);
+  return formasCarrera(sigla).some(f => claveCarrera(f) === v);
+}
+
 /**
- * Valida e importa. Devuelve {ok, errores[], avisos[], asignaturas[]}.
- * Un solo error rechaza la totalidad del contenido.
+ * SEMESTRE admite dos formas:
+ *   «5»    → semestre 5, grupo 1
+ *   «1-2»  → semestre 1, grupo 2   (notación «semestre-grupo» de los Sheets por carrera)
+ * Se acepta «/» como separador y espacios alrededor. Devuelve sem = NaN si no encaja
+ * en ninguna de las dos formas; entonces se conserva el texto original.
  */
-function importar(matriz, sigCarrera){
+function descomponerSemestre(bruto){
+  const t = String(bruto == null ? "" : bruto).trim();
+  if (entero(t)) return { sem: parseInt(t, 10), grupo: 1, compuesto: false };
+  const m = t.match(/^(\d+)\s*[-\/]\s*(\d+)$/);
+  if (m) return { sem: parseInt(m[1], 10), grupo: parseInt(m[2], 10), compuesto: true };
+  return { sem: NaN, grupo: NaN, compuesto: false };
+}
+
+/* ------------------------------------------------------------
+   Deducción de columnas.
+   No hay plantilla obligatoria: se intenta reconocer cada columna por su
+   cabecera y, si no la hay, por lo que contiene. Lo que no se reconoce
+   simplemente se ignora. Nunca se rechaza nada.
+   ------------------------------------------------------------ */
+
+/* Cada patrón puntúa una columna según sus valores. Gana la mejor puntuación. */
+const PISTAS = {
+  "CODIGO":      v => /^\s*\d+(\.\d+){2,3}\s*$/.test(v) ? 3 : 0,
+  "MALLA":       v => /^\s*(19|20)\d{2}(\.0+)?\s*$/.test(v) ? 3 : 0,
+  "SEMESTRE":    v => /^\s*\d{1,2}\s*[-\/]\s*\d{1,2}\s*$/.test(v) ? 3
+                    : /^\s*(1[0-2]|[1-9])(\.0+)?\s*$/.test(v) ? 1 : 0,
+  "DPTO":        v => DPTOS.includes(normalizar(v)) ? 3 : /^[A-Za-z]{3,6}$/.test(v.trim()) ? 1 : 0,
+  "CARRERA":     v => CARRERAS.some(c => coincideCarrera(v, c.sig)) ? 3 : 0,
+  "GRUPO":       v => /^\s*[1-9]\d?(\.0+)?\s*$/.test(v) ? 1 : 0,
+  "HT":          v => /^\s*\d{1,2}(\.\d+)?\s*$/.test(v) ? 1 : 0,
+  "HP":          v => /^\s*\d{1,2}(\.\d+)?\s*$/.test(v) ? 1 : 0,
+  "TOTAL HORAS": v => /^\s*\d{1,2}(\.\d+)?\s*$/.test(v) ? 1 : 0,
+  "ASIGNATURA":  v => /[A-Za-zÁÉÍÓÚÑáéíóúñ]{4,}/.test(v) && v.trim().length > 6 ? 2 : 0,
+  "OBSERVACIONES": v => /[A-Za-zÁÉÍÓÚÑáéíóúñ]/.test(v) ? 1 : 0
+};
+
+/** Puntúa la columna j de las filas de datos para una columna oficial. */
+function puntuar(nombre, filas, j){
+  const pista = PISTAS[nombre];
+  if (!pista) return 0;
+  let aciertos = 0, mirados = 0;
+  for (const f of filas) {
+    const v = f[j] == null ? "" : String(f[j]);
+    if (v.trim() === "") continue;
+    mirados++;
+    aciertos += pista(v);
+    if (mirados >= 25) break;
+  }
+  return mirados ? aciertos / mirados : 0;
+}
+
+/**
+ * Devuelve { filaCab, mapa } con la columna oficial → índice.
+ * Primero manda la cabecera; lo que quede suelto se deduce del contenido.
+ */
+function deducirColumnas(matriz){
   const cab = ubicarCabeceras(matriz);
-  if (!cab)
-    return { ok:false, errores:[{ cod:"E02", txt:"Ninguna fila contiene las cabeceras de la plantilla oficial. " +
-      "Se esperaban: " + COLUMNAS.join(", ") + "." }] };
-  if (cab.repetidas.length)
-    return { ok:false, errores:[{ cod:"E03", txt:"La cabecera " + cab.repetidas.join(", ") +
-      " está repetida en la fila " + (cab.fila + 1) + "." }] };
-  if (cab.faltan.length)
-    return { ok:false, errores:[{ cod:"E02", txt:"La fila de cabeceras no contiene todas las columnas de la " +
-      "plantilla oficial. Faltan: " + cab.faltan.join(", ") + "." }] };
+  const filaCab = cab ? cab.fila : -1;
+  const mapa = cab ? Object.assign({}, cab.mapa) : {};
+  const filas = matriz.slice(filaCab + 1).filter(f => f.some(c => String(c || "").trim() !== ""));
+  if (!filas.length) return { filaCab, mapa };
 
-  const filas = matriz.slice(cab.fila + 1).filter(f => f.some(c => c !== ""));
-  if (!filas.length)
-    return { ok:false, errores:[{ cod:"E04", txt:"No existen filas de datos debajo de la fila de cabeceras." }] };
+  const anchura = filas.reduce((n, f) => Math.max(n, f.length), 0);
+  const tomadas = new Set(Object.values(mapa));
 
-  const errores = [], avisos = [];
-  if (cab.extras.length)
-    avisos.push({ cod:"A04", txt:"Se ignoran las columnas que no pertenecen a la plantilla: " + cab.extras.join(", ") + "." });
+  /* Se resuelven primero las columnas de pista más específica. */
+  const orden = ["CODIGO","MALLA","CARRERA","DPTO","SEMESTRE","ASIGNATURA","HT","HP","TOTAL HORAS","GRUPO","OBSERVACIONES"];
+  orden.forEach(nombre => {
+    if (mapa[nombre] !== undefined) return;
+    let mejor = -1, mejorPunt = 0.34;          // por debajo de esto no se arriesga
+    for (let j = 0; j < anchura; j++) {
+      if (tomadas.has(j)) continue;
+      const pt = puntuar(nombre, filas, j);
+      if (pt > mejorPunt) { mejorPunt = pt; mejor = j; }
+    }
+    if (mejor >= 0) { mapa[nombre] = mejor; tomadas.add(mejor); }
+  });
 
-  const nom = nombreCarrera(sigCarrera);
-  const val = (f, c) => (f[cab.mapa[c]] || "").trim();
-  const filasOk = [];
+  return { filaCab, mapa };
+}
 
-  filas.forEach((f, i) => {
-    const nf = cab.fila + 2 + i;                       // número de fila tal como lo ve el usuario
-    const err = (cod, txt) => errores.push({ cod, txt:"Fila " + nf + " · " + txt });
+/* ------------------------------------------------------------
+   Interpretación del contenido.
+   No valida, no rechaza y no corrige: guarda lo que el usuario escribió.
+   Los números solo se interpretan para poder sumar; el texto original
+   se conserva intacto y es lo que se muestra.
+   ------------------------------------------------------------ */
 
-    OBLIGATORIAS.forEach(c => { if (val(f, c) === "") err("E05", "la celda " + c + " está vacía."); });
+/** Valor numérico de una celda para los cálculos; 0 si no hay número que sacar. */
+function num(v){
+  if (typeof v === "number") return isFinite(v) ? v : 0;
+  const m = String(v == null ? "" : v).replace(",", ".").match(/-?\d+(\.\d+)?/);
+  return m ? parseFloat(m[0]) : 0;
+}
 
-    const carrera = val(f, "CARRERA");
-    if (carrera && normalizar(carrera) !== normalizar(nom))
-      err("E06", "CARRERA «" + carrera + "» no coincide con la carrera seleccionada («" + nom + "»).");
+/**
+ * Convierte una matriz en asignaturas con sus grupos. Siempre devuelve algo:
+ * si no encuentra nada reconocible, devuelve una lista vacía.
+ */
+function interpretar(matriz){
+  const { filaCab, mapa } = deducirColumnas(matriz);
+  const filas = matriz.slice(filaCab + 1).filter(f => f.some(c => String(c || "").trim() !== ""));
+  const val = (f, c) => {
+    const j = mapa[c];
+    return (j !== undefined && j < f.length && f[j] != null) ? String(f[j]).trim() : "";
+  };
 
-    ["HT","HP","TOTAL HORAS"].forEach(c => {
-      const v = val(f, c);
-      if (v === "") return;
-      if (!numero(v)) err("E07", c + " = «" + v + "» no es un valor numérico.");
-      else if (aNum(v) < 0) err("E07", c + " no puede ser negativo.");
+  const porClave = new Map();
+  let sinCodigo = 0;
+
+  filas.forEach(f => {
+    const ds = descomponerSemestre(val(f, "SEMESTRE"));
+    const semBruto = val(f, "SEMESTRE");
+    /* El semestre se usa para agrupar en bloques: si no es un número, se respeta
+       el texto tal cual y el bloque se titula con él. */
+    const sem = !isNaN(ds.sem) ? ds.sem : (semBruto || "Sin semestre");
+
+    const grupoBruto = val(f, "GRUPO");
+    const grupo = grupoBruto !== "" ? grupoBruto : (!isNaN(ds.grupo) ? ds.grupo : 1);
+
+    /* Sin código, la asignatura se identifica por su nombre; sin ninguno de los
+       dos, cada fila vale por sí misma para no fundir cosas distintas. */
+    const codigo = val(f, "CODIGO");
+    const nombre = val(f, "ASIGNATURA");
+    const clave = codigo || nombre || ("fila-" + (++sinCodigo));
+
+    if (!porClave.has(clave)) porClave.set(clave, {
+      sem, malla: val(f, "MALLA"), codigo, nombre,
+      dpto: val(f, "DPTO"), obs: val(f, "OBSERVACIONES"), grupos: []
     });
-
-    const ht = aNum(val(f, "HT")), hp = aNum(val(f, "HP")), tot = aNum(val(f, "TOTAL HORAS"));
-    if ([ht, hp, tot].every(x => !isNaN(x)) && Math.abs(ht + hp - tot) > 1e-9)
-      err("E08", "TOTAL HORAS = " + tot + " y HT + HP = " + (ht + hp) + ".");
-
-    const dpto = normalizar(val(f, "DPTO"));
-    if (dpto && !DPTOS.includes(dpto))
-      err("E09", "DPTO «" + val(f, "DPTO") + "» no es un código oficial (" + DPTOS.join(", ") + ").");
-
-    const sem = val(f, "SEMESTRE");
-    if (sem && (!entero(sem) || parseInt(sem, 10) < 1))
-      err("E10", "SEMESTRE «" + sem + "» no es un número entero mayor o igual a 1.");
-
-    const malla = val(f, "MALLA");
-    if (malla && !/^\d{4}$/.test(malla))
-      err("E11", "MALLA «" + malla + "» no es un año de cuatro dígitos.");
-
-    const grupo = val(f, "GRUPO");
-    if (grupo !== "" && (!entero(grupo) || parseInt(grupo, 10) < 1))
-      err("E12", "GRUPO «" + grupo + "» no es un número entero mayor o igual a 1.");
-
-    filasOk.push({
-      nf,
-      sem: parseInt(sem, 10),
-      malla: parseInt(malla, 10),
-      codigo: val(f, "CODIGO"),
-      nombre: val(f, "ASIGNATURA"),
-      grupo: grupo === "" ? 1 : parseInt(grupo, 10),     // GRUPO vacío se toma como 1
-      ht, hp,
-      dpto,
-      obs: val(f, "OBSERVACIONES")
+    porClave.get(clave).grupos.push({
+      id: "g" + Math.random().toString(36).slice(2),
+      n: grupo, ht: val(f, "HT"), hp: val(f, "HP"),
+      desdoble: null, fusion: null
     });
   });
 
-  if (errores.length) return { ok:false, errores };
-
-  /* Advertencias: no rechazan el contenido. */
-  const vistos = new Map(), porCodigo = new Map();
-  filasOk.forEach(r => {
-    const k = r.codigo + "|" + r.grupo;
-    if (vistos.has(k)) avisos.push({ cod:"A02", txt:"Fila " + r.nf + " · la combinación " + r.codigo + " + grupo " + r.grupo + " está repetida." });
-    else vistos.set(k, r.nf);
-
-    const p = porCodigo.get(r.codigo);
-    if (!p) porCodigo.set(r.codigo, r);
-    else if (p.nombre !== r.nombre || p.ht !== r.ht || p.hp !== r.hp)
-      avisos.push({ cod:"A03", txt:"Fila " + r.nf + " · el código " + r.codigo + " aparece con distinta asignatura, HT o HP que en la fila " + p.nf + "." });
-
-    const suf = (r.codigo.match(/\.(\d{2})$/) || [])[1];
-    if (suf && r.malla && 2000 + parseInt(suf, 10) !== r.malla)
-      avisos.push({ cod:"A01", txt:"Fila " + r.nf + " · MALLA " + r.malla + " no coincide con el sufijo del código (." + suf + ").", codigo:r.codigo });
-  });
-
-  /* Agrupa las filas en asignaturas con sus grupos. */
-  const mapa = new Map();
-  filasOk.forEach(r => {
-    if (!mapa.has(r.codigo)) mapa.set(r.codigo, {
-      sem:r.sem, malla:r.malla, codigo:r.codigo, nombre:r.nombre, dpto:r.dpto, obs:r.obs, grupos:[]
-    });
-    mapa.get(r.codigo).grupos.push({ id:"g" + Math.random().toString(36).slice(2), n:r.grupo, ht:r.ht, hp:r.hp, desdoble:null, fusion:null });
-  });
-  const asignaturas = Array.from(mapa.values())
-    .sort((a, b) => a.sem - b.sem || a.codigo.localeCompare(b.codigo));
-  asignaturas.forEach(a => a.grupos.sort((x, y) => x.n - y.n));
-
-  return { ok:true, errores:[], avisos, asignaturas };
+  const asignaturas = Array.from(porClave.values());
+  asignaturas.forEach(a => a.grupos.sort((x, y) => num(x.n) - num(y.n)));
+  asignaturas.sort((a, b) =>
+    num(a.sem) - num(b.sem) || String(a.codigo).localeCompare(String(b.codigo)));
+  return asignaturas;
 }
 
 /* ============================================================
@@ -1084,88 +1191,158 @@ function irACarga(){
 $("#volver-carga").onclick = () => { liberarBloqueo(); app.carrera = null; pintarTablero(); mostrar("planes"); };
 
 /* ---------- pegado ---------- */
-$("#op-pegar").onclick = () => { mostrar("pegado"); $("#area-pegado").focus(); };
-$("#limpiar-pegado").onclick = () => { $("#area-pegado").value = ""; };
+$("#op-pegar").onclick = () => { mostrar("pegado"); limpiarHoja(); $("#hoja-pegado").focus(); };
+
+/* ---------- área de pegado con forma de hoja de cálculo ---------- */
+const MAX_FILAS_VISTA = 300;          // tope de filas dibujadas; se procesan todas
+const hoja = $("#hoja-pegado");
+
+/** Nombre de columna al estilo de una hoja: A, B, … Z, AA, AB… */
+function letraColumna(i){
+  let s = "";
+  for (i++; i > 0; i = Math.floor((i - 1) / 26)) s = String.fromCharCode(65 + (i - 1) % 26) + s;
+  return s;
+}
+
+function limpiarHoja(){
+  app.matrizPegada = null;
+  $("#hoja-scroll").hidden = true;
+  $("#hoja-scroll").innerHTML = "";
+  $("#hoja-vacia").hidden = false;
+  $("#hoja-pie").hidden = true;
+  $("#procesar-pegado").disabled = true;
+  $("#limpiar-pegado").disabled = true;
+}
+
+function pintarHoja(matriz){
+  app.matrizPegada = matriz;
+  const columnas = matriz.reduce((n, f) => Math.max(n, f.length), 0);
+  const cab = ubicarCabeceras(matriz);
+  const filaCab = cab && !cab.faltan.length && !cab.repetidas.length ? cab.fila : -1;
+  const visibles = matriz.slice(0, MAX_FILAS_VISTA);
+
+  const encabezado = "<thead><tr><th></th>" +
+    Array.from({ length: columnas }, (_, j) => "<th>" + letraColumna(j) + "</th>").join("") +
+    "</tr></thead>";
+
+  const cuerpo = "<tbody>" + visibles.map((f, i) => {
+    const celdas = Array.from({ length: columnas }, (_, j) => {
+      const v = f[j] == null ? "" : f[j];
+      return "<td" + (v === "" ? ' class="vacia"' : "") + ' title="' + esc(v) + '">' +
+             (v === "" ? "" : esc(v)) + "</td>";
+    }).join("");
+    return '<tr' + (i === filaCab ? ' class="fila-cabecera"' : "") + "><th>" + (i + 1) + "</th>" + celdas + "</tr>";
+  }).join("") + "</tbody>";
+
+  $("#hoja-scroll").innerHTML = "<table>" + encabezado + cuerpo + "</table>";
+  $("#hoja-scroll").hidden = false;
+  $("#hoja-vacia").hidden = true;
+
+  const partes = [
+    '<span><span class="dato">' + matriz.length + "</span> fila(s) × " +
+      '<span class="dato">' + columnas + "</span> columna(s)</span>"
+  ];
+  if (filaCab >= 0) partes.push("Cabeceras detectadas en la fila <span class=\"dato\">" + (filaCab + 1) + "</span>");
+  else partes.push('<span style="color:var(--aviso)">No se reconocen las cabeceras de la plantilla oficial</span>');
+  if (matriz.length > MAX_FILAS_VISTA)
+    partes.push("Se muestran las primeras " + MAX_FILAS_VISTA + "; se procesarán todas");
+  $("#hoja-pie").innerHTML = partes.join(" · ");
+  $("#hoja-pie").hidden = false;
+
+  $("#procesar-pegado").disabled = false;
+  $("#limpiar-pegado").disabled = false;
+}
+
+function recibirPegado(e){
+  if (app.vista !== "pegado") return;
+  const texto = (e.clipboardData || window.clipboardData).getData("text/plain");
+  if (!texto || !texto.trim()) return;
+  e.preventDefault();
+  const matriz = matrizDesdeTexto(texto);
+  if (!matriz.length) return aviso("El contenido pegado está vacío.");
+  pintarHoja(matriz);
+  reiniciarInactividad();
+  aviso("Pegadas " + matriz.length + " filas");
+}
+
+/* Se escucha en el documento para que el pegado funcione con o sin foco en la rejilla. */
+document.addEventListener("paste", recibirPegado);
+hoja.addEventListener("click", () => hoja.focus());
+
+/* Arrastrar y soltar un archivo de texto sobre la rejilla también rellena la hoja. */
+["dragenter","dragover"].forEach(ev => hoja.addEventListener(ev, e => {
+  e.preventDefault(); hoja.classList.add("encima");
+}));
+["dragleave","drop"].forEach(ev => hoja.addEventListener(ev, e => {
+  e.preventDefault(); hoja.classList.remove("encima");
+}));
+hoja.addEventListener("drop", async e => {
+  const f = e.dataTransfer && e.dataTransfer.files[0];
+  if (!f) return;
+  const m = matrizDesdeTexto(await f.text());
+  if (m.length) pintarHoja(m);
+});
+
+$("#limpiar-pegado").onclick = () => { limpiarHoja(); hoja.focus(); };
 $("#procesar-pegado").onclick = () => {
-  const txt = $("#area-pegado").value;
-  if (!txt.trim()) return aviso("Pega primero el rango copiado desde Google Sheets.");
-  procesar(matrizDesdeTexto(txt));
+  if (!app.matrizPegada) return aviso("Pega primero el rango copiado desde Google Sheets.");
+  procesar(app.matrizPegada);
 };
 
 /* ---------- archivo ---------- */
 $("#op-archivo").onclick = () => $("#input-archivo").click();
 $("#input-archivo").onchange = e => { const f = e.target.files[0]; if (f) leerArchivo(f); e.target.value = ""; };
 
+/* Acepta cualquier archivo. Intenta leerlo como libro de cálculo y, si no lo es,
+   como texto plano. No hay extensiones prohibidas ni formatos rechazados. */
 async function leerArchivo(file){
-  const ext = (file.name.match(/\.([^.]+)$/) || [])[1];
-  const e = (ext || "").toLowerCase();
-  if (e !== "xlsx" && e !== "csv") {
-    return await preguntar({
-      titulo: "Formato no admitido",
-      cuerpo: '<div class="nota error"><b>E01</b> · «' + esc(file.name) +
-              "» tiene una extensión distinta de .xlsx y .csv. Solo se admiten esos dos formatos.</div>",
-      acciones: [{ texto:"Elegir otro archivo", clase:"primario", valor:true }]
-    });
+  const ext = ((file.name.match(/\.([^.]+)$/) || [])[1] || "").toLowerCase();
+  const pareceLibro = ["xlsx","xlsm","xlsb","xls","ods"].includes(ext);
+
+  if (pareceLibro && typeof XLSX !== "undefined") {
+    try {
+      const libro = XLSX.read(await file.arrayBuffer(), { type:"array" });
+      let hoja = libro.SheetNames[0];
+
+      if (libro.SheetNames.length > 1) {
+        const elegida = await preguntar({
+          titulo: "El libro contiene varias hojas",
+          cuerpo: '<p style="font-size:13px;margin-bottom:10px">Elige la hoja que quieres importar.</p>' +
+            '<div class="campo"><select id="sel-hoja">' +
+            libro.SheetNames.map(n => "<option>" + esc(n) + "</option>").join("") + "</select></div>",
+          acciones: [
+            { texto:"Cancelar", valor:null },
+            { texto:"Importar la hoja", clase:"primario", valor:"ok" }
+          ]
+        });
+        if (elegida !== "ok") return;
+        hoja = $("#sel-hoja") ? $("#sel-hoja").value : hoja;
+      }
+
+      const matriz = XLSX.utils.sheet_to_json(libro.Sheets[hoja], { header:1, raw:false, defval:"" })
+        .map(f => f.map(c => String(c == null ? "" : c).trim()));
+      return procesar(matriz);
+    } catch (e) {
+      /* Si no se deja leer como libro, se intenta como texto. */
+    }
   }
 
-  if (e === "csv") {
-    const txt = await file.text();
-    return procesar(matrizDesdeTexto(txt));
+  let texto = "";
+  try { texto = await file.text(); } catch (e) { texto = ""; }
+  const matriz = matrizDesdeTexto(texto);
+  if (!matriz.length) {
+    aviso("No se pudo sacar nada de «" + file.name + "».");
+    return;
   }
-
-  if (typeof XLSX === "undefined") {
-    return await preguntar({
-      titulo: "No se pudo leer el archivo",
-      cuerpo: '<div class="nota error">No se pudo leer el archivo .xlsx. Comprueba la conexión a internet ' +
-              "e inténtalo de nuevo, o convierte el archivo a .csv.</div>",
-      acciones: [{ texto:"Entendido", clase:"primario", valor:true }]
-    });
-  }
-
-  const libro = XLSX.read(await file.arrayBuffer(), { type:"array" });
-  let hoja = libro.SheetNames[0];
-
-  if (libro.SheetNames.length > 1) {
-    const elegida = await preguntar({
-      titulo: "El libro contiene varias hojas",
-      cuerpo: '<p style="font-size:13px;margin-bottom:10px">Elige la hoja que quieres importar.</p>' +
-        '<div class="campo"><select id="sel-hoja">' +
-        libro.SheetNames.map(n => "<option>" + esc(n) + "</option>").join("") + "</select></div>",
-      acciones: [
-        { texto:"Cancelar", valor:null },
-        { texto:"Importar la hoja", clase:"primario", valor:"ok" }
-      ]
-    });
-    if (elegida !== "ok") return;
-    hoja = $("#sel-hoja") ? $("#sel-hoja").value : hoja;
-    // el diálogo ya se cerró: recuperamos el valor antes de que desaparezca
-  }
-
-  const matriz = XLSX.utils.sheet_to_json(libro.Sheets[hoja], { header:1, raw:false, defval:"" })
-    .map(f => f.map(c => String(c == null ? "" : c).trim()));
   procesar(matriz);
 }
 
 /* ---------- procesar ---------- */
+/* Nunca falla: lo que se pueda interpretar entra, y el resto se queda como texto. */
 async function procesar(matriz){
-  const r = importar(matriz, app.carrera);
-
-  if (!r.ok) {
-    await preguntar({
-      titulo: "No se pudo importar el contenido",
-      cuerpo:
-        '<div class="nota error">Se rechaza la totalidad del contenido. Corrige los ' + r.errores.length +
-        " error(es) en el origen y vuelve a cargarlo.</div>" +
-        '<p class="etq" style="margin:14px 0 4px">Errores encontrados</p>' +
-        '<ul class="lista-err">' + r.errores.map(e =>
-          '<li><span class="cod">' + esc(e.cod) + "</span><span>" + esc(e.txt) + "</span></li>").join("") + "</ul>",
-      acciones: [{ texto:"Volver a las opciones de carga", clase:"primario", valor:true }]
-    });
-    irACarga();
-    return;
-  }
-
+  const asignaturas = interpretar(matriz);
   const p = planActual();
+
   if (p.asignaturas.length) {
     const seguir = await preguntar({
       titulo: "Reemplazar el contenido del plan",
@@ -1176,15 +1353,18 @@ async function procesar(matriz){
     if (!seguir) return;
   }
 
-  p.asignaturas = r.asignaturas;
-  app.avisosCarga = r.avisos;
+  p.asignaturas = asignaturas;
   app.seleccion = null;
   reiniciarInactividad();
 
-  const t = totales(p.asignaturas);
+  if (!asignaturas.length) {
+    aviso("No se encontró ninguna fila con contenido.");
+    pintarGrilla();
+    return;
+  }
+  const t = totales(asignaturas);
   aviso("Importadas " + t.asig + " asignaturas y " + t.grupos + " grupos.");
   pintarGrilla();
-  if (r.avisos.length) setTimeout(() => verAdvertencias(), 350);
 }
 
 /* ---------- plantilla ---------- */
@@ -1203,64 +1383,53 @@ $("#op-plantilla").onclick = () => {
 /* ============================================================
    Grilla
    ============================================================ */
-function advertenciasDe(a){
-  const suf = (a.codigo.match(/\.(\d{2})$/) || [])[1];
-  const w = [];
-  if (suf && a.malla && 2000 + parseInt(suf, 10) !== a.malla)
-    w.push({ campo:"malla", txt:"MALLA " + a.malla + " no coincide con el sufijo del código (." + suf + ")." });
-  return w;
-}
-
 function pintarResumen(nodo, asignaturas){
   const t = totales(asignaturas);
-  const adv = (asignaturas || []).reduce((s, a) => s + advertenciasDe(a).length, 0);
   const celdas = [
     ["Asignaturas", t.asig], ["Grupos", t.grupos],
     ["Horas teóricas", t.ht], ["Horas prácticas", t.hp],
     ["Total horas", t.th], ["Horas de dictado", t.dictado],
     ["Intl. / virtual", t.intl], ["Fusiones", t.fus],
-    ["Desdobles", t.des], ["Advertencias", adv]
+    ["Desdobles", t.des]
   ];
   nodo.innerHTML = celdas.map(([k, v]) =>
-    "<div" + (k === "Advertencias" && v > 0 ? ' class="alerta"' : "") + "><dt>" + esc(k) + "</dt><dd>" + v + "</dd></div>").join("");
+    "<div><dt>" + esc(k) + "</dt><dd>" + esc(v) + "</dd></div>").join("");
 }
 
 function htmlBloques(asignaturas, editable){
   if (!asignaturas.length) return '<div class="nota">El plan no tiene asignaturas.</div>';
-  const sems = [...new Set(asignaturas.map(a => a.sem))].sort((x, y) => x - y);
+  const sems = [...new Set(asignaturas.map(a => a.sem))]
+    .sort((x, y) => num(x) - num(y) || String(x).localeCompare(String(y)));
+
   return sems.map(sem => {
     const asigs = asignaturas.filter(a => a.sem === sem);
     const nG = asigs.reduce((s, a) => s + a.grupos.length, 0);
     const nH = asigs.reduce((s, a) => s + a.grupos.reduce((q, g) => q + th(g), 0), 0);
-    const abierto = !app.colapsados.has(sem);
+    const abierto = !app.colapsados.has(String(sem));
 
     const filas = asigs.map(a => {
       const ci = asignaturas.indexOf(a);
-      const adv = advertenciasDe(a);
-      const campos = new Set(adv.map(x => x.campo));
-      const gs = a.grupos.map((g, gi) => {
+      return a.grupos.map((g, gi) => {
         const sel = editable && app.seleccion && app.seleccion.ci === ci && app.seleccion.gi === gi;
-        return "<tr class=\"" + (editable ? "pulsable " : "") + (adv.length ? "adv " : "") + (sel ? "sel" : "") +
+        return "<tr class=\"" + (editable ? "pulsable " : "") + (sel ? "sel" : "") +
           '" data-ci="' + ci + '" data-gi="' + gi + '">' +
-          '<td class="cod' + (campos.has("malla") ? " adv-celda" : "") + '">' + a.malla + "</td>" +
+          '<td class="cod">' + esc(a.malla) + "</td>" +
           '<td class="cod">' + esc(a.codigo) + "</td>" +
           "<td>" + esc(a.nombre) +
             (/INTERNACIONAL|VIRTUAL/i.test(a.obs || "") ? '<span class="marca-c intl">INTL</span>' : "") +
             (g.fusion ? '<span class="marca-c fus">FUS</span>' : "") +
             (g.desdoble ? '<span class="marca-c des">' + esc(g.desdoble) + "</span>" : "") + "</td>" +
-          '<td class="num">' + g.n + '</td><td class="num">' + g.ht + '</td><td class="num">' + g.hp + "</td>" +
+          '<td class="num">' + esc(g.n) + '</td><td class="num">' + esc(g.ht) +
+          '</td><td class="num">' + esc(g.hp) + "</td>" +
           '<td class="num"><b>' + th(g) + "</b></td>" +
           '<td class="cod">' + esc(a.dpto) + "</td>" +
           '<td style="font-size:12px;color:var(--ink-soft)">' + esc(a.obs || "—") + "</td></tr>";
       }).join("");
-      const detalle = adv.length
-        ? '<tr class="adv-detalle"><td colspan="9">' + adv.map(x => esc(x.txt)).join(" · ") + "</td></tr>" : "";
-      return gs + detalle;
     }).join("");
 
-    return '<div class="bloque" data-sem="' + sem + '" data-abierto="' + (abierto ? "si" : "no") + '">' +
-      '<button type="button" class="bloque-cab" data-toggle="' + sem + '">' +
-        '<span class="chev">' + (abierto ? "▼" : "▶") + '</span><b>Semestre ' + sem + "</b>" +
+    return '<div class="bloque" data-sem="' + esc(sem) + '" data-abierto="' + (abierto ? "si" : "no") + '">' +
+      '<button type="button" class="bloque-cab" data-toggle="' + esc(sem) + '">' +
+        '<span class="chev">' + (abierto ? "▼" : "▶") + '</span><b>Semestre ' + esc(sem) + "</b>" +
         '<span class="tot">' + asigs.length + " asignaturas · " + nG + " grupos · " + nH + " horas</span></button>" +
       '<div class="tabla-caja"><table><thead><tr>' +
         '<th>Malla</th><th>Código</th><th>Asignatura</th><th class="num">Grupo</th>' +
@@ -1292,13 +1461,10 @@ function pintarGrilla(){
   pintarResumen($("#resumen"), p.asignaturas);
   $("#bloques").innerHTML = htmlBloques(p.asignaturas, true);
 
-  const advTotal = p.asignaturas.reduce((s, a) => s + advertenciasDe(a).length, 0) + app.avisosCarga.length;
-  $("#btn-advertencias").textContent = advTotal ? "Ver advertencias (" + advTotal + ")" : "Ver advertencias";
-  $("#btn-advertencias").disabled = !advTotal;
   $("#btn-colapsar").textContent = app.colapsados.size ? "Expandir todo" : "Colapsar todo";
 
   $$("#bloques [data-toggle]").forEach(b => { b.onclick = () => {
-    const s = +b.dataset.toggle;
+    const s = b.dataset.toggle;
     app.colapsados.has(s) ? app.colapsados.delete(s) : app.colapsados.add(s);
     pintarGrilla();
   }; });
@@ -1328,27 +1494,9 @@ const resumenSel = s => '<div class="nota">Selección: <b>' + esc(s.a.codigo) + 
 $("#btn-colapsar").onclick = () => {
   const p = planActual();
   if (app.colapsados.size) app.colapsados.clear();
-  else [...new Set(p.asignaturas.map(a => a.sem))].forEach(s => app.colapsados.add(s));
+  else [...new Set(p.asignaturas.map(a => String(a.sem)))].forEach(s => app.colapsados.add(s));
   pintarGrilla();
 };
-
-async function verAdvertencias(){
-  const p = planActual();
-  const lista = [];
-  app.avisosCarga.forEach(a => lista.push({ cod:a.cod, txt:a.txt }));
-  p.asignaturas.forEach(a => advertenciasDe(a).forEach(w => {
-    if (!app.avisosCarga.some(x => x.codigo === a.codigo && x.cod === "A01"))
-      lista.push({ cod:"A01", txt:a.codigo + " · " + w.txt });
-  }));
-  await preguntar({
-    titulo: "Advertencias del plan",
-    cuerpo: '<div class="nota aviso">Las advertencias no impiden guardar ni registrar el plan. Se señalan en la fila ' +
-      "y la celda donde ocurren.</div>" +
-      '<ul class="lista-err lista-adv" style="margin-top:12px">' + lista.map(a =>
-        '<li><span class="cod">' + esc(a.cod) + "</span><span>" + esc(a.txt) + "</span></li>").join("") + "</ul>",
-    acciones: [{ texto:"Cerrar", clase:"primario", valor:true }]
-  });
-}
 
 /* ============================================================
    Acciones de edición
@@ -1362,8 +1510,6 @@ async function accion(tipo){
 
   switch (tipo) {
 
-    case "advertencias": return verAdvertencias();
-
     case "editar": {
       const r = await preguntar({
         titulo: "Editar horas del grupo",
@@ -1376,15 +1522,7 @@ async function accion(tipo){
       });
       if (!r) return;
       const { ht, hp } = r();
-      if (!numero(ht) || !numero(hp) || aNum(ht) < 0 || aNum(hp) < 0) {
-        await preguntar({
-          titulo: "Valor no válido",
-          cuerpo: '<div class="nota error"><b>E07</b> · HT y HP deben ser números no negativos. Se conserva el valor anterior.</div>',
-          acciones: [{ texto:"Entendido", clase:"primario", valor:true }]
-        });
-        return;
-      }
-      s.g.ht = aNum(ht); s.g.hp = aNum(hp);
+      s.g.ht = ht; s.g.hp = hp;   // se guarda tal cual se escribió
       break;
     }
 
@@ -1393,15 +1531,17 @@ async function accion(tipo){
         titulo: "Agregar asignatura",
         cuerpo:
           '<div class="fila-campos">' +
-          '<div class="campo"><label for="n-sem">Semestre</label><input type="text" id="n-sem" value="1"></div>' +
+          '<div class="campo"><label for="n-sem">Semestre</label><input type="text" id="n-sem" value="1" placeholder="5 o 1-2"></div>' +
           '<div class="campo"><label for="n-malla">Malla</label><input type="text" id="n-malla" value="2024"></div>' +
           '<div class="campo"><label for="n-cod">Código</label><input type="text" id="n-cod" placeholder="3.1.1.24"></div>' +
           '</div><div class="campo" style="margin-top:12px"><label for="n-nom">Asignatura</label><input type="text" id="n-nom"></div>' +
           '<div class="fila-campos">' +
           '<div class="campo"><label for="n-ht">HT</label><input type="text" id="n-ht" value="3"></div>' +
           '<div class="campo"><label for="n-hp">HP</label><input type="text" id="n-hp" value="2"></div>' +
-          '<div class="campo"><label for="n-dpto">Dpto</label><select id="n-dpto">' +
-            DPTOS.map(d => "<option>" + d + "</option>").join("") + "</select></div></div>" +
+          '<div class="campo"><label for="n-dpto">Dpto</label>' +
+            '<input type="text" id="n-dpto" list="lista-dptos" value="' + DPTOS[0] + '">' +
+            '<datalist id="lista-dptos">' + DPTOS.map(d => "<option>" + d + "</option>").join("") +
+            "</datalist></div></div>" +
           '<div class="campo" style="margin-top:12px"><label for="n-obs">Observaciones</label><input type="text" id="n-obs" placeholder="INTERNACIONAL, VIRTUAL…"></div>',
         acciones: [{ texto:"Cancelar", valor:null }, { texto:"Agregar", clase:"primario", valor:() => ({
           sem:$("#n-sem").value, malla:$("#n-malla").value, cod:$("#n-cod").value.trim(),
@@ -1411,26 +1551,16 @@ async function accion(tipo){
       });
       if (!r) return;
       const d = r();
-      const fallos = [];
-      if (!entero(d.sem) || +d.sem < 1) fallos.push("E10 · el semestre debe ser un entero mayor o igual a 1.");
-      if (!/^\d{4}$/.test(d.malla)) fallos.push("E11 · la malla debe ser un año de cuatro dígitos.");
-      if (!d.cod) fallos.push("E05 · el código es obligatorio.");
-      if (!d.nom) fallos.push("E05 · el nombre de la asignatura es obligatorio.");
-      if (!numero(d.ht) || aNum(d.ht) < 0) fallos.push("E07 · HT debe ser un número no negativo.");
-      if (!numero(d.hp) || aNum(d.hp) < 0) fallos.push("E07 · HP debe ser un número no negativo.");
-      if (fallos.length) {
-        await preguntar({
-          titulo: "Datos no válidos",
-          cuerpo: '<ul class="lista-err">' + fallos.map(f => "<li><span>" + esc(f) + "</span></li>").join("") + "</ul>",
-          acciones: [{ texto:"Entendido", clase:"primario", valor:true }]
-        });
-        return;
-      }
+      /* Sin validación: se guarda lo que se haya escrito. El semestre se interpreta
+         si se puede («5», «1-2»); si no, se conserva el texto y da nombre al bloque. */
+      const dsem = descomponerSemestre(d.sem);
+      const sem = !isNaN(dsem.sem) ? dsem.sem : (d.sem.trim() || "Sin semestre");
+      const gru = !isNaN(dsem.grupo) ? dsem.grupo : 1;
       p.asignaturas.push({
-        sem:+d.sem, malla:+d.malla, codigo:d.cod, nombre:d.nom, dpto:d.dpto, obs:d.obs,
-        grupos:[{ id:"g" + Math.random().toString(36).slice(2), n:1, ht:aNum(d.ht), hp:aNum(d.hp), desdoble:null, fusion:null }]
+        sem, malla:d.malla, codigo:d.cod, nombre:d.nom, dpto:d.dpto, obs:d.obs,
+        grupos:[{ id:"g" + Math.random().toString(36).slice(2), n:gru, ht:d.ht, hp:d.hp, desdoble:null, fusion:null }]
       });
-      p.asignaturas.sort((a, b) => a.sem - b.sem || a.codigo.localeCompare(b.codigo));
+      p.asignaturas.sort((a, b) => num(a.sem) - num(b.sem) || String(a.codigo).localeCompare(String(b.codigo)));
       aviso("Asignatura agregada");
       break;
     }
@@ -1452,7 +1582,7 @@ async function accion(tipo){
     }
 
     case "agregar-grupo": {
-      const n = Math.max(...s.a.grupos.map(g => g.n)) + 1;
+      const n = Math.max(0, ...s.a.grupos.map(g => num(g.n))) + 1;
       s.a.grupos.push({ id:"g" + Math.random().toString(36).slice(2), n, ht:s.g.ht, hp:s.g.hp, desdoble:null, fusion:null });
       aviso("Grupo " + n + " agregado a " + s.a.nombre);
       break;
@@ -1461,7 +1591,7 @@ async function accion(tipo){
     case "grupo-semestre": {
       const sem = s ? s.a.sem : (p.asignaturas[0] || {}).sem;
       if (sem === undefined) return aviso("El plan no tiene asignaturas.");
-      const asigs = p.asignaturas.filter(a => a.sem === sem);
+      const asigs = p.asignaturas.filter(a => String(a.sem) === String(sem));
       const ok = await preguntar({
         titulo: "Agregar un grupo a todo el semestre",
         cuerpo: '<div class="nota">Se creará un grupo correlativo en las <b>' + asigs.length +
@@ -1471,7 +1601,7 @@ async function accion(tipo){
       if (!ok) return;
       asigs.forEach(a => {
         const base = a.grupos[0];
-        a.grupos.push({ id:"g" + Math.random().toString(36).slice(2), n:Math.max(...a.grupos.map(g => g.n)) + 1,
+        a.grupos.push({ id:"g" + Math.random().toString(36).slice(2), n:Math.max(0, ...a.grupos.map(g => num(g.n))) + 1,
                         ht:base.ht, hp:base.hp, desdoble:null, fusion:null });
       });
       aviso("Grupo agregado en " + asigs.length + " asignaturas");
@@ -1512,7 +1642,7 @@ async function accion(tipo){
       });
       if (!r) return;
       const { tipo, cant } = r();
-      const horas = tipo === "Práctica" ? s.g.hp : s.g.ht;
+      const horas = num(tipo === "Práctica" ? s.g.hp : s.g.ht);
       const n = parseInt(cant, 10);
       if (!horas) {
         await preguntar({
@@ -1689,12 +1819,11 @@ $("#btn-registrar").onclick = async () => {
   const p = planActual();
   if (!p.asignaturas.length) return aviso("El plan no tiene asignaturas que registrar.");
   const t = totales(p.asignaturas);
-  const adv = p.asignaturas.reduce((s, a) => s + advertenciasDe(a).length, 0) + app.avisosCarga.length;
 
   if (p.estado === "Registrado") {
     const r = await preguntar({
       titulo: "Guardar cambios",
-      cuerpo: '<div class="nota">Se guardará una versión nueva del plan <b>Registrado</b>. Advertencias vigentes: <b>' + adv + "</b>.</div>" +
+      cuerpo: '<div class="nota">Se guardará una versión nueva del plan <b>Registrado</b>.</div>' +
         '<div class="campo" style="margin-top:12px"><label for="motivo">Motivo del cambio (opcional)</label>' +
         '<input type="text" id="motivo" placeholder="Matrícula extemporánea"></div>',
       acciones: [{ texto:"Cancelar", valor:null }, { texto:"Confirmar", clase:"primario", valor:() => $("#motivo").value.trim() }]
@@ -1708,8 +1837,7 @@ $("#btn-registrar").onclick = async () => {
 
   const mensaje = "¿Desea registrar el Plan de Ciclo de " + nombreCarrera(app.carrera) + " para el periodo " + app.ciclo +
     "? Al confirmar, el estado cambiará a REGISTRADO y se habilitará la asignación docente para los Departamentos " +
-    "Académicos (DIMA, DAHU, DACJ, DACTE). El plan podrá seguir editándose y cada guardado generará una nueva versión. " +
-    "Advertencias vigentes: " + adv + ".";
+    "Académicos (DIMA, DAHUC, DACJ, DACTE). El plan podrá seguir editándose y cada guardado generará una nueva versión.";
 
   const ok = await preguntar({
     titulo: "Registrar el plan de ciclo",
@@ -1731,7 +1859,7 @@ $("#btn-registrar").onclick = async () => {
   mostrar("exito");
   $("#exito-nota").innerHTML =
     "<b>Plan registrado.</b> " + esc(nombreCarrera(app.carrera)) + " · " + esc(app.ciclo) + " · versión <b>v" + v + "</b>. " +
-    "La asignación docente queda habilitada para DIMA, DAHU, DACJ y DACTE. El plan sigue siendo editable: cada guardado generará una versión nueva.";
+    "La asignación docente queda habilitada para DIMA, DAHUC, DACJ y DACTE. El plan sigue siendo editable: cada guardado generará una versión nueva.";
 };
 
 $("#exito-editar").onclick = () => { if (app.carrera) abrirEdicion(app.carrera); };
