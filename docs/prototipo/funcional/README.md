@@ -2,8 +2,9 @@
 
 Prototipo operativo del caso de uso CU-001 con autenticación real mediante **Google
 Identity Services**. A diferencia del cascarón de `docs/prototipo/`, aquí las acciones
-hacen algo: el contenido pegado o importado se analiza de verdad, las reglas de
-validación se aplican y el plan se construye a partir de los datos reales.
+hacen algo: el contenido pegado o importado se analiza de verdad y el plan se
+construye a partir de los datos reales. El sistema no valida ese contenido: lo
+interpreta, y nada se rechaza.
 
 Son tres archivos —`index.html`, `servir.py` y `datos-ejemplo.js`— sin dependencias
 que instalar.
@@ -143,9 +144,9 @@ compararlas y restaurarlas tenga sentido en la demostración.
 
 ### Normalizaciones aplicadas al importar los Excel
 
-Los archivos de `docs/archivos/` no cumplen la plantilla oficial. Al extraerlos se
-corrigió lo siguiente, y conviene conocerlo porque son los mismos defectos que el
-importador debe rechazar si alguien los carga tal cual:
+Los archivos de `docs/archivos/` no siguen la plantilla oficial. Al extraerlos para
+`datos-ejemplo.js` se normalizó lo siguiente. El importador de la aplicación ya no
+rechaza nada de esto: lo interpreta o lo conserva como texto.
 
 | Problema en el origen | Corrección | Veces |
 |---|---|---|
