@@ -50,8 +50,10 @@ services:
 
     healthcheck:
       # python3 está en la imagen; curl no. Se comprueba con la biblioteca estándar.
+      # Se usa HEAD: con GET el cliente cerraba antes de recibir el archivo entero
+      # y el servidor registraba un «broken pipe» cada 30 segundos.
       test: ["CMD", "python3", "-c",
-             "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/index.html', timeout=3)"]
+             "import urllib.request as u; u.urlopen(u.Request('http://127.0.0.1:8000/index.html', method='HEAD'), timeout=3)"]
       interval: 30s
       timeout: 5s
       retries: 3

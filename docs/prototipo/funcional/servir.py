@@ -17,7 +17,6 @@ import functools
 import http.server
 import json
 import os
-import socketserver
 import sys
 from pathlib import Path
 
@@ -83,6 +82,15 @@ class Manejador(http.server.SimpleHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         super().end_headers()
 
+    def handle_one_request(self):
+        # Un navegador que cancela la carga, o un proxy que cierra la conexion,
+        # aborta la escritura. No es un fallo del servidor: se ignora en vez de
+        # dejar que socketserver imprima un traceback por cada uno.
+        try:
+            super().handle_one_request()
+        except (ConnectionResetError, BrokenPipeError):
+            self.close_connection = True
+
     def log_message(self, formato, *args):
         # En los errores, el primer argumento es un HTTPStatus, no una cadena.
         primero = str(args[0]) if args else ""
@@ -144,11 +152,10 @@ def main():
     Manejador.configuracion = valores
     manejador = functools.partial(Manejador, directory=str(DIR))
 
-    class Servidor(socketserver.TCPServer):
-        allow_reuse_address = True
-
     try:
-        with Servidor((direccion, puerto), manejador) as httpd:
+        # Un hilo por peticion: la pagina pide varios archivos a la vez y un
+        # servidor secuencial los encolaria.
+        with http.server.ThreadingHTTPServer((direccion, puerto), manejador) as httpd:
             httpd.serve_forever()
     except OSError as e:
         if e.errno == errno.EADDRINUSE:
