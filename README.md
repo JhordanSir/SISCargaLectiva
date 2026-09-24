@@ -54,7 +54,7 @@ El detalle está en [requirements.md](requirements.md) y en [CU-001](docs/CU/CU-
 │       ├── CU-001-Registrar-Plan-de-Ciclo.html   # Cascarón: recorre el flujo básico y los 34 FA
 │       └── funcional/                            # Prototipo operativo con Google OAuth 2.0 real
 ├── requirements.md          # Requerimientos consolidados
-├── compose.yml              # Servicios locales (hoy: el prototipo funcional)
+├── compose.yml              # Despliegue del prototipo funcional tras Traefik
 └── .env.example             # Variables de entorno de ejemplo
 ```
 
@@ -70,14 +70,17 @@ plantilla oficial. Para ejecutarlo:
 1. Copiar `.env.example` a `.env` y completar `GOOGLE_CLIENT_ID` (ver la guía en
    [docs/prototipo/funcional/README.md](docs/prototipo/funcional/README.md)). `.env` no se
    versiona.
-2. Arrancar el servidor local, de una de estas dos formas:
+2. Arrancar el servidor local:
 
    ```bash
-   cd docs/prototipo/funcional && python3 servir.py   # con Python
-   docker compose up                                  # con Docker Compose
+   cd docs/prototipo/funcional && python3 servir.py
    ```
 
 3. Abrir <http://localhost:8000>.
+
+Para desplegarlo en el servidor, detrás de Traefik, está `compose.yml`; las
+variables que necesita se documentan en `.env.example` y en el README del
+prototipo.
 
 El otro prototipo, `docs/prototipo/CU-001-Registrar-Plan-de-Ciclo.html`, es un cascarón de
 solo pantallas —sin autenticación ni validación real— que sirve para recorrer visualmente

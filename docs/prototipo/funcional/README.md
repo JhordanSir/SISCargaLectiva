@@ -7,8 +7,8 @@ construye a partir de los datos reales. El sistema no valida ese contenido: lo
 interpreta, y nada se rechaza.
 
 Son tres archivos —`index.html`, `servir.py` y `datos-ejemplo.js`— sin dependencias
-que instalar. Se ejecuta con Python directamente o con `docker compose up` desde la
-raíz del repositorio.
+que instalar. En local se ejecuta con Python; para el servidor hay un
+`compose.yml` en la raíz del repositorio.
 
 ---
 
@@ -67,23 +67,32 @@ permite probar sin tocarlo:
 GOOGLE_CLIENT_ID=otro-id.apps.googleusercontent.com python3 servir.py
 ```
 
-### Con Docker Compose
+### Desplegar en el servidor
 
-Desde la raíz del repositorio:
+`compose.yml`, en la raíz del repositorio, despliega el prototipo detrás de
+Traefik. **No publica puertos**: Traefik lo alcanza por la red de Docker, así que
+este archivo no sirve para abrirlo en tu equipo — para eso usa `python3 servir.py`.
+
+En el servidor hacen falta cuatro variables:
+
+| Variable | Qué es |
+|---|---|
+| `PROTOTIPO_HOST` | Dominio público, por ejemplo `nohagotuchamba.wayrasimi.tech`. |
+| `TRAEFIK_NETWORK` | Red de Docker en la que escucha Traefik. Compruébalo con `docker network ls`. |
+| `TRAEFIK_CERTRESOLVER` | Resolver de certificados de tu Traefik, según su configuración estática. |
+| `GOOGLE_CLIENT_ID` | ID de cliente OAuth. |
 
 ```bash
-docker compose up        # http://localhost:8000
-docker compose down
+docker compose up -d
+docker compose logs -f prototipo
 ```
 
-El servicio `prototipo` usa la imagen oficial de Python y monta esta carpeta en
-solo lectura, así que no hay `Dockerfile` ni nada que instalar. Toma
-`GOOGLE_CLIENT_ID` y `SIS_DOMINIO` del `.env` de la raíz mediante `env_file`, de
-modo que el `.env` no entra en la imagen. El puerto del equipo se elige con
-`SIS_PUERTO` y se publica solo en `127.0.0.1`, no en la red local.
+Si falta alguna variable, Compose se detiene con un mensaje que dice cuál.
 
-Dentro del contenedor, Compose fuerza `SIS_BIND=0.0.0.0`; ejecutado a mano,
-`servir.py` sigue escuchando solo en `127.0.0.1`.
+> **El dominio público debe registrarse en Google Cloud.** El origen
+> `https://nohagotuchamba.wayrasimi.tech` es distinto de `http://localhost:8000`
+> para Google, así que hay que añadirlo en *Orígenes de JavaScript autorizados* o
+> el acceso fallará con `Error 401: invalid_client`.
 
 **No funciona abriendo el archivo con doble clic.** Un origen `file://` no puede
 autenticar contra Google; la aplicación lo detecta y lo avisa en pantalla. Servirlo

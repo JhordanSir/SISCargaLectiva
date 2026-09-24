@@ -1,25 +1,33 @@
 # =============================================================
-#  SISCargaLectiva · servicios locales
+#  SISCargaLectiva · prototipo funcional de CU-001
 # =============================================================
-# Arrancar:   docker compose up
-# Detener:    docker compose down
+# Pensado para desplegar detrás del Traefik que ya tienes delante de
+# wayrasimi.tech. Traefik llega al contenedor por la red compartida; el
+# contenedor no publica ningún puerto al exterior.
 #
-# Por ahora solo levanta el prototipo funcional de CU-001. Los servicios
-# del backend (Spring Boot) y de PostgreSQL se añadirán cuando exista ese
-# código; al final del archivo hay una nota con lo que harán falta.
+#   Desplegar:  docker compose up -d
+#   Ver logs:   docker compose logs -f prototipo
+#   Retirar:    docker compose down
+#
+# Variables que hay que definir en el entorno del servidor (o en .env):
+#
+#   PROTOTIPO_HOST        nohagotuchamba.wayrasimi.tech
+#   TRAEFIK_NETWORK       red externa donde vive Traefik
+#   TRAEFIK_CERTRESOLVER  nombre del resolver de certificados de tu Traefik
+#   GOOGLE_CLIENT_ID      ID de cliente OAuth
+#
+# Los dos valores de Traefik dependen de cómo esté montado tu servidor:
+# comprueba con `docker network ls` y con la configuración estática de
+# Traefik antes del primer despliegue. Los valores por defecto de abajo
+# son los de una instalación de Dokploy.
 
 services:
 
-  # -----------------------------------------------------------
-  #  Prototipo funcional de CU-001
-  # -----------------------------------------------------------
-  # Sirve docs/prototipo/funcional con servir.py, que solo usa la
-  # biblioteca estándar: no hace falta Dockerfile ni instalar nada.
   prototipo:
     image: python:3.13-slim
-    container_name: siscargalectiva-prototipo
     working_dir: /app
     command: ["python3", "servir.py"]
+    restart: unless-stopped
 
     volumes:
       # Solo lectura: servir.py no escribe ningún archivo.
@@ -27,21 +35,39 @@ services:
 
     environment:
       # Dentro del contenedor hay que escuchar en todas las interfaces
-      # para que el puerto publicado sea alcanzable desde el equipo.
+      # para que Traefik alcance el servicio por la red de Docker.
       SIS_BIND: "0.0.0.0"
-      # Puerto interno fijo; el del equipo se elige con SIS_PUERTO (ver ports).
       SIS_PUERTO: "8000"
+      GOOGLE_CLIENT_ID: "${GOOGLE_CLIENT_ID:?define GOOGLE_CLIENT_ID en el entorno o en .env}"
+      SIS_DOMINIO: "${SIS_DOMINIO:-ulasalle.edu.pe}"
 
-    # Toma GOOGLE_CLIENT_ID y SIS_DOMINIO del .env de la raíz del repositorio.
-    # El .env no se versiona y no entra en la imagen: solo llega como entorno.
+    # Permite definir las variables en un .env junto al compose. En el
+    # servidor es más habitual inyectarlas desde la plataforma.
     env_file:
       - path: .env
         required: false
 
-    ports:
-      # Publicado solo en el equipo local, no en la red.
-      # El origen que se registra en Google Cloud es http://localhost:<SIS_PUERTO>.
-      - "127.0.0.1:${SIS_PUERTO:-8000}:8000"
+    networks:
+      - proxy
+
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: "${TRAEFIK_NETWORK:-dokploy-network}"
+
+      # Enrutado del dominio público hacia este contenedor.
+      traefik.http.routers.siscargalectiva.rule: "Host(`${PROTOTIPO_HOST:?define PROTOTIPO_HOST, por ejemplo nohagotuchamba.wayrasimi.tech}`)"
+      traefik.http.routers.siscargalectiva.entrypoints: "websecure"
+      traefik.http.routers.siscargalectiva.tls: "true"
+      traefik.http.routers.siscargalectiva.tls.certresolver: "${TRAEFIK_CERTRESOLVER:-letsencrypt}"
+      traefik.http.services.siscargalectiva.loadbalancer.server.port: "8000"
+
+      # Redirige el tráfico sin cifrar al mismo dominio en HTTPS. Google
+      # Identity Services no funciona sobre http en un dominio público.
+      traefik.http.routers.siscargalectiva-http.rule: "Host(`${PROTOTIPO_HOST}`)"
+      traefik.http.routers.siscargalectiva-http.entrypoints: "web"
+      traefik.http.routers.siscargalectiva-http.middlewares: "siscargalectiva-https"
+      traefik.http.middlewares.siscargalectiva-https.redirectscheme.scheme: "https"
+      traefik.http.middlewares.siscargalectiva-https.redirectscheme.permanent: "true"
 
     healthcheck:
       # python3 está en la imagen; curl no. Se comprueba con la biblioteca estándar.
@@ -52,20 +78,25 @@ services:
       retries: 3
       start_period: 5s
 
-    restart: unless-stopped
+networks:
+  # Red que ya existe en el servidor y en la que escucha Traefik.
+  # No la crea este compose: se conecta a ella.
+  proxy:
+    external: true
+    name: "${TRAEFIK_NETWORK:-dokploy-network}"
 
+# -------------------------------------------------------------
+#  Para trabajar en local
+# -------------------------------------------------------------
+# Este archivo no publica puertos, así que en tu equipo no sirve para
+# abrir el prototipo en el navegador. En local basta con:
+#
+#   cd docs/prototipo/funcional && python3 servir.py
+#
 # -------------------------------------------------------------
 #  Pendiente: servicios del backend
 # -------------------------------------------------------------
-# Cuando exista el proyecto Spring Boot habrá que añadir, como mínimo:
-#
-#   backend   Java 21 + Spring Boot, con las migraciones de Flyway y el
-#             flujo OAuth de servidor. Necesitará el secreto de cliente de
-#             Google, que NO es el mismo dato que GOOGLE_CLIENT_ID y que
-#             nunca debe llegar al navegador.
-#   db        PostgreSQL, con volumen propio para los datos y el seed de
-#             datos maestros (carreras, departamentos, ciclos, usuarios, roles).
-#
-# No se definen aquí por adelantado: sus variables y su configuración se
-# acuerdan con el equipo y se documentan en .env.example en el mismo cambio
-# en que se empiecen a usar.
+# Cuando exista el proyecto Spring Boot habrá que añadir los servicios
+# backend (Java 21 + Flyway) y db (PostgreSQL, con volumen propio). Sus
+# variables se acuerdan con el equipo y se documentan en .env.example en
+# el mismo cambio en que se empiecen a usar.
