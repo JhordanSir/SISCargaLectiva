@@ -69,25 +69,28 @@ GOOGLE_CLIENT_ID=otro-id.apps.googleusercontent.com python3 servir.py
 
 ### Desplegar en el servidor
 
-`compose.yml`, en la raíz del repositorio, despliega el prototipo detrás de
-Traefik. **No publica puertos**: Traefik lo alcanza por la red de Docker, así que
-este archivo no sirve para abrirlo en tu equipo — para eso usa `python3 servir.py`.
+El despliegue va en **Dokploy**, con el `compose.yml` de la raíz del repositorio.
+Ese archivo **no publica puertos ni lleva etiquetas de Traefik**: el enrutado y el
+certificado los genera Dokploy. Tampoco sirve para abrirlo en tu equipo; para eso
+usa `python3 servir.py`.
 
-En el servidor hacen falta cuatro variables:
+En la pestaña **Domains** de la aplicación:
 
-| Variable | Qué es |
+| Campo | Valor |
 |---|---|
-| `PROTOTIPO_HOST` | Dominio público, por ejemplo `nohagotuchamba.wayrasimi.tech`. |
-| `TRAEFIK_NETWORK` | Red de Docker en la que escucha Traefik. Compruébalo con `docker network ls`. |
-| `TRAEFIK_CERTRESOLVER` | Resolver de certificados de tu Traefik, según su configuración estática. |
-| `GOOGLE_CLIENT_ID` | ID de cliente OAuth. |
+| Service Name | `prototipo` |
+| Host | `nohagotuchamba.wayrasimi.tech` |
+| Path | `/` |
+| **Container Port** | **`8000`** |
+| HTTPS | activado, con Let's Encrypt |
 
-```bash
-docker compose up -d
-docker compose logs -f prototipo
-```
+El **Container Port es el error más fácil de cometer**: el valor por defecto de la
+interfaz es `80`, pero `servir.py` escucha en el `8000`. Con el puerto mal puesto
+Traefik entrega un 404 o un 502 aunque el certificado se haya emitido bien.
 
-Si falta alguna variable, Compose se detiene con un mensaje que dice cuál.
+En la pestaña **Environment**: `GOOGLE_CLIENT_ID` y, si difiere del valor por
+defecto, `SIS_DOMINIO`. Si falta el ID de cliente el contenedor arranca igual y la
+aplicación muestra su pantalla de configuración.
 
 > **El dominio público debe registrarse en Google Cloud.** El origen
 > `https://nohagotuchamba.wayrasimi.tech` es distinto de `http://localhost:8000`

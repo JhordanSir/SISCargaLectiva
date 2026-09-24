@@ -54,7 +54,7 @@ El detalle está en [requirements.md](requirements.md) y en [CU-001](docs/CU/CU-
 │       ├── CU-001-Registrar-Plan-de-Ciclo.html   # Cascarón: recorre el flujo básico y los 34 FA
 │       └── funcional/                            # Prototipo operativo con Google OAuth 2.0 real
 ├── requirements.md          # Requerimientos consolidados
-├── compose.yml              # Despliegue del prototipo funcional tras Traefik
+├── compose.yml              # Despliegue del prototipo funcional en Dokploy
 └── .env.example             # Variables de entorno de ejemplo
 ```
 
@@ -78,9 +78,9 @@ plantilla oficial. Para ejecutarlo:
 
 3. Abrir <http://localhost:8000>.
 
-Para desplegarlo en el servidor, detrás de Traefik, está `compose.yml`; las
-variables que necesita se documentan en `.env.example` y en el README del
-prototipo.
+Para desplegarlo en el servidor está `compose.yml`, pensado para Dokploy. Los
+pasos de la pestaña Domains, incluido el **Container Port 8000**, están en el
+README del prototipo.
 
 El otro prototipo, `docs/prototipo/CU-001-Registrar-Plan-de-Ciclo.html`, es un cascarón de
 solo pantallas —sin autenticación ni validación real— que sirve para recorrer visualmente

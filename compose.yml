@@ -1,25 +1,29 @@
 # =============================================================
 #  SISCargaLectiva · prototipo funcional de CU-001
 # =============================================================
-# Pensado para desplegar detrás del Traefik que ya tienes delante de
-# wayrasimi.tech. Traefik llega al contenedor por la red compartida; el
-# contenedor no publica ningún puerto al exterior.
+# Pensado para desplegar en Dokploy. El enrutado y el certificado los
+# gestiona Dokploy desde su pestaña Domains, que genera las etiquetas de
+# Traefik por su cuenta: por eso aquí no hay ninguna etiqueta traefik.*
+# ni se publica ningún puerto.
 #
-#   Desplegar:  docker compose up -d
-#   Ver logs:   docker compose logs -f prototipo
-#   Retirar:    docker compose down
+# En la pestaña Domains hay que poner:
 #
-# Variables que hay que definir en el entorno del servidor (o en .env):
+#   Service Name     prototipo
+#   Host             nohagotuchamba.wayrasimi.tech
+#   Path             /
+#   Container Port   8000        <-- el prototipo escucha aquí, no en el 80
+#   HTTPS            activado
 #
-#   PROTOTIPO_HOST        nohagotuchamba.wayrasimi.tech
-#   TRAEFIK_NETWORK       red externa donde vive Traefik
-#   TRAEFIK_CERTRESOLVER  nombre del resolver de certificados de tu Traefik
-#   GOOGLE_CLIENT_ID      ID de cliente OAuth
+# En la pestaña Environment:
 #
-# Los dos valores de Traefik dependen de cómo esté montado tu servidor:
-# comprueba con `docker network ls` y con la configuración estática de
-# Traefik antes del primer despliegue. Los valores por defecto de abajo
-# son los de una instalación de Dokploy.
+#   GOOGLE_CLIENT_ID   el ID de cliente OAuth
+#   SIS_DOMINIO        ulasalle.edu.pe   (opcional, es el valor por defecto)
+#
+# Si GOOGLE_CLIENT_ID no está definido el contenedor arranca igual: la
+# aplicación muestra su pantalla de configuración en vez de fallar.
+#
+# En local este archivo no sirve para abrir el prototipo, porque no publica
+# puertos. Para eso:  cd docs/prototipo/funcional && python3 servir.py
 
 services:
 
@@ -38,36 +42,11 @@ services:
       # para que Traefik alcance el servicio por la red de Docker.
       SIS_BIND: "0.0.0.0"
       SIS_PUERTO: "8000"
-      GOOGLE_CLIENT_ID: "${GOOGLE_CLIENT_ID:?define GOOGLE_CLIENT_ID en el entorno o en .env}"
+      GOOGLE_CLIENT_ID: "${GOOGLE_CLIENT_ID:-}"
       SIS_DOMINIO: "${SIS_DOMINIO:-ulasalle.edu.pe}"
 
-    # Permite definir las variables en un .env junto al compose. En el
-    # servidor es más habitual inyectarlas desde la plataforma.
-    env_file:
-      - path: .env
-        required: false
-
     networks:
-      - proxy
-
-    labels:
-      traefik.enable: "true"
-      traefik.docker.network: "${TRAEFIK_NETWORK:-dokploy-network}"
-
-      # Enrutado del dominio público hacia este contenedor.
-      traefik.http.routers.siscargalectiva.rule: "Host(`${PROTOTIPO_HOST:?define PROTOTIPO_HOST, por ejemplo nohagotuchamba.wayrasimi.tech}`)"
-      traefik.http.routers.siscargalectiva.entrypoints: "websecure"
-      traefik.http.routers.siscargalectiva.tls: "true"
-      traefik.http.routers.siscargalectiva.tls.certresolver: "${TRAEFIK_CERTRESOLVER:-letsencrypt}"
-      traefik.http.services.siscargalectiva.loadbalancer.server.port: "8000"
-
-      # Redirige el tráfico sin cifrar al mismo dominio en HTTPS. Google
-      # Identity Services no funciona sobre http en un dominio público.
-      traefik.http.routers.siscargalectiva-http.rule: "Host(`${PROTOTIPO_HOST}`)"
-      traefik.http.routers.siscargalectiva-http.entrypoints: "web"
-      traefik.http.routers.siscargalectiva-http.middlewares: "siscargalectiva-https"
-      traefik.http.middlewares.siscargalectiva-https.redirectscheme.scheme: "https"
-      traefik.http.middlewares.siscargalectiva-https.redirectscheme.permanent: "true"
+      - dokploy-network
 
     healthcheck:
       # python3 está en la imagen; curl no. Se comprueba con la biblioteca estándar.
@@ -81,18 +60,9 @@ services:
 networks:
   # Red que ya existe en el servidor y en la que escucha Traefik.
   # No la crea este compose: se conecta a ella.
-  proxy:
+  dokploy-network:
     external: true
-    name: "${TRAEFIK_NETWORK:-dokploy-network}"
 
-# -------------------------------------------------------------
-#  Para trabajar en local
-# -------------------------------------------------------------
-# Este archivo no publica puertos, así que en tu equipo no sirve para
-# abrir el prototipo en el navegador. En local basta con:
-#
-#   cd docs/prototipo/funcional && python3 servir.py
-#
 # -------------------------------------------------------------
 #  Pendiente: servicios del backend
 # -------------------------------------------------------------
