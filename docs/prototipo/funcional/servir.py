@@ -111,6 +111,10 @@ def main():
     if len(sys.argv) == 1 and puerto_env.isdigit():
         puerto = int(puerto_env)
 
+    # Por defecto solo escucha en el equipo local. En un contenedor hace falta
+    # 0.0.0.0 para que el puerto publicado sea alcanzable desde fuera.
+    direccion = os.environ.get("SIS_BIND", entorno.get("SIS_BIND", "127.0.0.1"))
+
     origen = f"http://localhost:{puerto}"
 
     print()
@@ -125,6 +129,8 @@ def main():
         print("  GOOGLE_CLIENT_ID (sin definir)")
     print(f"  Dominio          {valores.get('SIS_DOMINIO') or 'ulasalle.edu.pe (por defecto)'}")
     print(f"  Dirección        {origen}")
+    if direccion != "127.0.0.1":
+        print(f"  Escuchando en    {direccion}:{puerto}")
     print()
     if not cid:
         print("  Falta GOOGLE_CLIENT_ID: la aplicación abrirá la pantalla de configuración.")
@@ -142,7 +148,7 @@ def main():
         allow_reuse_address = True
 
     try:
-        with Servidor(("127.0.0.1", puerto), manejador) as httpd:
+        with Servidor((direccion, puerto), manejador) as httpd:
             httpd.serve_forever()
     except OSError as e:
         if e.errno == errno.EADDRINUSE:
