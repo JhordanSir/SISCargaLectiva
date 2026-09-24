@@ -7,7 +7,8 @@ construye a partir de los datos reales. El sistema no valida ese contenido: lo
 interpreta, y nada se rechaza.
 
 Son tres archivos —`index.html`, `servir.py` y `datos-ejemplo.js`— sin dependencias
-que instalar.
+que instalar. Se ejecuta con Python directamente o con `docker compose up` desde la
+raíz del repositorio.
 
 ---
 
@@ -65,6 +66,24 @@ permite probar sin tocarlo:
 ```bash
 GOOGLE_CLIENT_ID=otro-id.apps.googleusercontent.com python3 servir.py
 ```
+
+### Con Docker Compose
+
+Desde la raíz del repositorio:
+
+```bash
+docker compose up        # http://localhost:8000
+docker compose down
+```
+
+El servicio `prototipo` usa la imagen oficial de Python y monta esta carpeta en
+solo lectura, así que no hay `Dockerfile` ni nada que instalar. Toma
+`GOOGLE_CLIENT_ID` y `SIS_DOMINIO` del `.env` de la raíz mediante `env_file`, de
+modo que el `.env` no entra en la imagen. El puerto del equipo se elige con
+`SIS_PUERTO` y se publica solo en `127.0.0.1`, no en la red local.
+
+Dentro del contenedor, Compose fuerza `SIS_BIND=0.0.0.0`; ejecutado a mano,
+`servir.py` sigue escuchando solo en `127.0.0.1`.
 
 **No funciona abriendo el archivo con doble clic.** Un origen `file://` no puede
 autenticar contra Google; la aplicación lo detecta y lo avisa en pantalla. Servirlo

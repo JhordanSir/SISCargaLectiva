@@ -1,0 +1,71 @@
+# =============================================================
+#  SISCargaLectiva · servicios locales
+# =============================================================
+# Arrancar:   docker compose up
+# Detener:    docker compose down
+#
+# Por ahora solo levanta el prototipo funcional de CU-001. Los servicios
+# del backend (Spring Boot) y de PostgreSQL se añadirán cuando exista ese
+# código; al final del archivo hay una nota con lo que harán falta.
+
+services:
+
+  # -----------------------------------------------------------
+  #  Prototipo funcional de CU-001
+  # -----------------------------------------------------------
+  # Sirve docs/prototipo/funcional con servir.py, que solo usa la
+  # biblioteca estándar: no hace falta Dockerfile ni instalar nada.
+  prototipo:
+    image: python:3.13-slim
+    container_name: siscargalectiva-prototipo
+    working_dir: /app
+    command: ["python3", "servir.py"]
+
+    volumes:
+      # Solo lectura: servir.py no escribe ningún archivo.
+      - ./docs/prototipo/funcional:/app:ro
+
+    environment:
+      # Dentro del contenedor hay que escuchar en todas las interfaces
+      # para que el puerto publicado sea alcanzable desde el equipo.
+      SIS_BIND: "0.0.0.0"
+      # Puerto interno fijo; el del equipo se elige con SIS_PUERTO (ver ports).
+      SIS_PUERTO: "8000"
+
+    # Toma GOOGLE_CLIENT_ID y SIS_DOMINIO del .env de la raíz del repositorio.
+    # El .env no se versiona y no entra en la imagen: solo llega como entorno.
+    env_file:
+      - path: .env
+        required: false
+
+    ports:
+      # Publicado solo en el equipo local, no en la red.
+      # El origen que se registra en Google Cloud es http://localhost:<SIS_PUERTO>.
+      - "127.0.0.1:${SIS_PUERTO:-8000}:8000"
+
+    healthcheck:
+      # python3 está en la imagen; curl no. Se comprueba con la biblioteca estándar.
+      test: ["CMD", "python3", "-c",
+             "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/index.html', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+    restart: unless-stopped
+
+# -------------------------------------------------------------
+#  Pendiente: servicios del backend
+# -------------------------------------------------------------
+# Cuando exista el proyecto Spring Boot habrá que añadir, como mínimo:
+#
+#   backend   Java 21 + Spring Boot, con las migraciones de Flyway y el
+#             flujo OAuth de servidor. Necesitará el secreto de cliente de
+#             Google, que NO es el mismo dato que GOOGLE_CLIENT_ID y que
+#             nunca debe llegar al navegador.
+#   db        PostgreSQL, con volumen propio para los datos y el seed de
+#             datos maestros (carreras, departamentos, ciclos, usuarios, roles).
+#
+# No se definen aquí por adelantado: sus variables y su configuración se
+# acuerdan con el equipo y se documentan en .env.example en el mismo cambio
+# en que se empiecen a usar.
