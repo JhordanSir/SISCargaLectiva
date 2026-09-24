@@ -535,10 +535,15 @@ const CONFIG = {
        rol: "director"    → edita el plan de cualquier carrera.
        rol: "coordinador" → edita solo las carreras de «carreras»; el resto las
                             consulta en solo lectura (RN-02).
-     Descomenta una línea para probar la vista restringida de un coordinador. */
+     Para probar la vista restringida de un coordinador, cambia el rol de una
+     de estas cuentas por { rol: "coordinador", carreras: ["ING"] }. */
   DIRECTORIO: {
-    // "mfloresl@ulasalle.edu.pe": { rol: "coordinador", carreras: ["ING"] },
-    // "r.delgado@ulasalle.edu.pe": { rol: "director" }
+    "mfloresl@ulasalle.edu.pe":    { rol: "director" },
+    "fmaresg@ulasalle.edu.pe":     { rol: "director" },
+    "jhuamanih@ulasalle.edu.pe":   { rol: "director" },
+    "jortizc@ulasalle.edu.pe":     { rol: "director" },
+    "afrontadof@ulasalle.edu.pe":  { rol: "director" },
+    "aarenasc@ulasalle.edu.pe":    { rol: "director" }
   },
 
   /* Rol asignado a una cuenta del dominio que no figure en DIRECTORIO.
