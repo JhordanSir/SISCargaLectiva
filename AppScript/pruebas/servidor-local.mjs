@@ -18,12 +18,14 @@ const USUARIO_POR_DEFECTO = "mfloresl@ulasalle.edu.pe";
 const PUENTE = usuario => `<script>
 (function () {
   var USUARIO = ${JSON.stringify(usuario)};
+  window.__llamadas = [];
   function run(ok, mal) {
     return new Proxy({}, { get: function (_, nombre) {
       if (nombre === "withSuccessHandler") return function (f) { return run(f, mal); };
       if (nombre === "withFailureHandler") return function (f) { return run(ok, f); };
       return function () {
         var args = Array.prototype.slice.call(arguments);
+        window.__llamadas.push(nombre);
         fetch("/run/" + nombre + "?usuario=" + encodeURIComponent(USUARIO), { method: "POST", body: JSON.stringify(args) })
           .then(function (r) { return r.json(); })
           .then(function (r) { if ("error" in r) { if (mal) mal(new Error(r.error)); } else if (ok) ok(r.valor); })

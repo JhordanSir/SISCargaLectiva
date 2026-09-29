@@ -191,8 +191,99 @@ test("otro dominio o una cuenta sin rol reciben acceso denegado", () => {
   assert.throws(() => ejecutar(e, "alguien@gmail.com", "obtenerTablero", CICLO), /no pertenece/);
   assert.equal(ejecutar(e, "nuevo@ulasalle.edu.pe", "datosIniciales_").usuario.rol, "director");
   e.propiedades.SIS_ROL_POR_DEFECTO = "ninguno";
+  assert.equal(ejecutar(e, "nuevo@ulasalle.edu.pe", "datosIniciales_").usuario.rol, "director", "el rol sigue en caché");
+  e.desfase = 6 * 60000;
   assert.match(ejecutar(e, "nuevo@ulasalle.edu.pe", "datosIniciales_").motivo, /no tiene asignado el rol/);
   assert.equal(ejecutar(e, A, "datosIniciales_").estado, "ok");
+});
+
+test("un cambio en la pestaña Usuarios se aplica cuando caduca la caché, a los 5 minutos", () => {
+  const e = sistema();
+  const coord = "coord@ulasalle.edu.pe";
+  e.hoja("Usuarios").getRange(8, 1, 1, 3).setNumberFormat("@").setValues([[coord, "coordinador", "ING"]]);
+  assert.deepEqual(ejecutar(e, coord, "datosIniciales_").usuario.carreras, ["ING"]);
+  e.hoja("Usuarios").getRange(8, 2, 1, 1).setNumberFormat("@").setValues([["director"]]);
+  e.desfase = 4 * 60000;
+  assert.throws(() => ejecutar(e, coord, "abrirEdicion", CICLO, "ADM"), /no tiene permiso/);
+  e.desfase = 6 * 60000;
+  assert.ok(ejecutar(e, coord, "abrirEdicion", CICLO, "ADM").expira);
+});
+
+test("el tablero trae el contenido vigente de cada plan", () => {
+  const e = sistema();
+  const t = ejecutar(e, A, "obtenerTablero", CICLO);
+  assert.deepEqual(t.filas.map(f => [f.sig, f.contenido.length]),
+    [["ING", 68], ["IND", 13], ["ADM", 60], ["DER", 80], ["ARQ", 12], ["PSI", 29], ["COM", 38], ["ICO", 45]]);
+  assert.ok(ejecutar(e, A, "obtenerTablero", "2026-2").filas.every(f => f.contenido.length === 0));
+});
+
+test("dentro del intervalo el tablero no llama a Drive; «Releer Excel» sí", () => {
+  const e = sistema();
+  ejecutar(e, A, "obtenerTablero", CICLO);
+  e.reiniciarCuentas();
+  ejecutar(e, B, "obtenerTablero", CICLO);
+  assert.equal(e.cuentas.drive, 0, "segunda carga sin Drive");
+  e.reiniciarCuentas();
+  ejecutar(e, B, "obtenerTablero", CICLO, { releer: true });
+  assert.ok(e.cuentas.drive > 0, "releer mira la carpeta");
+  e.desfase = 6 * 60000;
+  e.reiniciarCuentas();
+  ejecutar(e, B, "obtenerTablero", CICLO);
+  assert.ok(e.cuentas.drive > 0, "pasado el intervalo vuelve a mirar");
+  e.propiedades.SIS_MINUTOS_REVISION_XLSX = "0";
+  e.reiniciarCuentas();
+  ejecutar(e, B, "obtenerTablero", CICLO);
+  assert.ok(e.cuentas.drive > 0, "con 0 mira en cada carga");
+});
+
+test("con la caché caliente, el tablero y la consulta no leen Versiones ni Usuarios", () => {
+  const e = sistema();
+  ejecutar(e, A, "obtenerTablero", CICLO);
+  e.reiniciarCuentas();
+  ejecutar(e, A, "obtenerTablero", CICLO);
+  ejecutar(e, A, "obtenerPlan", CICLO, "DER");
+  assert.equal(e.cuentas.lecturas.Versiones || 0, 0);
+  assert.equal(e.cuentas.lecturas.Usuarios || 0, 0);
+  assert.ok(Object.keys(e.cuentas.lecturas).every(h => h === "Planes" || h === "Bloqueos"), JSON.stringify(e.cuentas.lecturas));
+});
+
+test("con la caché vacía, el tablero lee las 8 versiones de un solo bloque", () => {
+  const e = sistema();
+  const antes = ejecutar(e, A, "obtenerTablero", CICLO).filas;
+  e.cache.clear();
+  e.reiniciarCuentas();
+  const despues = ejecutar(e, A, "obtenerTablero", CICLO).filas;
+  assert.equal(e.cuentas.lecturas.Versiones, 1);
+  assert.deepEqual(despues.map(f => f.contenido), antes.map(f => f.contenido));
+  e.reiniciarCuentas();
+  ejecutar(e, A, "obtenerTablero", CICLO);
+  assert.equal(e.cuentas.lecturas.Versiones || 0, 0, "y queda en caché");
+});
+
+test("abrirEdicion solo devuelve el contenido si la versión que tiene el navegador ya no es la vigente", () => {
+  const e = sistema();
+  ejecutar(e, A, "obtenerTablero", CICLO);
+  const r = ejecutar(e, A, "abrirEdicion", CICLO, "ARQ", 1);
+  assert.equal(r.version, 1);
+  assert.equal("asignaturas" in r, false);
+  const nueva = ejecutar(e, A, "guardarPlan", CICLO, "ARQ", { asignaturas: [], estado: "Registrado", tipo: "guardar cambios", versionBase: 1 });
+  assert.equal(nueva.version, 2);
+  const r2 = ejecutar(e, A, "abrirEdicion", CICLO, "ARQ", 1);
+  assert.deepEqual([r2.version, r2.asignaturas], [2, []]);
+  assert.equal(ejecutar(e, B, "abrirEdicion", CICLO, "ARQ", 2).bloqueado.correo, A);
+});
+
+test("la página llega con el tablero y avisa si falta revisar los xlsx", () => {
+  const e = sistema();
+  const d = ejecutar(e, A, "datosIniciales_");
+  assert.equal(d.tablero.ciclo, CICLO);
+  assert.equal(d.tablero.pendiente, true, "sin revisión reciente, el navegador la pide aparte");
+  assert.ok(d.tablero.filas.every(f => f.estado === "Sin Iniciar"), "doGet no lee Drive");
+  ejecutar(e, A, "obtenerTablero", CICLO);
+  const d2 = ejecutar(e, B, "datosIniciales_");
+  assert.equal(d2.tablero.pendiente, false);
+  assert.equal(d2.tablero.filas.find(f => f.sig === "ING").contenido.length, 68);
+  assert.match(d2.tablero.avisos.join(" "), /9\.2\.5\.24/);
 });
 
 test("cambiar solo la fecha del xlsx no crea versiones; cambiar su contenido sí", () => {
@@ -201,7 +292,7 @@ test("cambiar solo la fecha del xlsx no crea versiones; cambiar su contenido sí
   const carpeta = e.carpetas.get(e.propiedades.SIS_CARPETA_ID);
   const [carrera, departamento] = [...carpeta.archivos].filter(a => /CargaX/.test(a.getName())).sort((x, y) => x.getName().localeCompare(y.getName()));
   carrera.fecha = new Date("2026-09-25T08:00:00Z");
-  ejecutar(e, A, "obtenerTablero", CICLO);
+  ejecutar(e, A, "obtenerTablero", CICLO, { releer: true });
   assert.equal(e.hoja("Versiones").filas().length, 8);
 
   /* Sin el libro por departamento desaparecen las marcas de CONDICIÓN: cambian las
@@ -214,11 +305,14 @@ test("cambiar solo la fecha del xlsx no crea versiones; cambiar su contenido sí
   assert.ok(cambian.includes("ING"));
 
   carpeta.archivos.delete(departamento);
-  const t = ejecutar(e, A, "obtenerTablero", CICLO);
+  ejecutar(e, A, "obtenerTablero", CICLO);
+  assert.equal(e.hoja("Versiones").filas().length, 8, "dentro del intervalo aún no se ve el cambio");
+  const t = ejecutar(e, A, "obtenerTablero", CICLO, { releer: true });
   const actualizadas = e.hoja("Versiones").filas().filter(v => v[4] === "actualización desde xlsx").map(v => v[1]).sort();
   assert.deepEqual(actualizadas, cambian.sort());
   assert.equal(fila(t, "ING").version, 2);
   assert.equal(fila(t, "ING").estado, "Registrado");
+  assert.equal(fila(t, "ING").contenido.find(a => a.codigo === "3.4.1.24").obs, "", "el tablero ya trae el contenido nuevo");
 });
 
 test("un xlsx convertido a Hoja de cálculo de Google se señala y no se lee", () => {

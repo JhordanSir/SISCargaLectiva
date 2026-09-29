@@ -19,6 +19,9 @@ class Rango {
     for (let i = 0; i < this.filas; i++) for (let j = 0; j < this.cols; j++) fn(this.fila + i, this.col + j, i, j);
   }
   getValues() {
+    const cuentas = this.hoja.libro.entorno.cuentas;
+    cuentas.sheets++;
+    cuentas.lecturas[this.hoja.nombre] = (cuentas.lecturas[this.hoja.nombre] || 0) + 1;
     const r = Array.from({ length: this.filas }, () => Array(this.cols).fill(""));
     this.celdas((f, c, i, j) => { const x = this.hoja.celda(f, c); r[i][j] = x ? x.v : ""; });
     return r;
@@ -27,6 +30,7 @@ class Rango {
   setValues(valores) {
     if (valores.length !== this.filas || valores.some(f => f.length !== this.cols))
       throw new Error("El número de filas o columnas de los datos no coincide con el del rango.");
+    this.hoja.libro.entorno.cuentas.sheets++;
     this.celdas((f, c, i, j) => this.hoja.escribir(f, c, valores[i][j]));
     return this;
   }
@@ -99,16 +103,18 @@ class Libro {
   deleteSheet(h) { this.hojas = this.hojas.filter(x => x !== h); }
 }
 
+/* Cada método de un archivo o carpeta de Drive cuenta como una llamada a Drive. */
 class Archivo {
-  constructor({ nombre, tipo, bytes, fecha, carpeta }) {
-    Object.assign(this, { id: nuevoId("ar"), nombre, tipo, bytes, fecha: fecha || new Date(), carpeta, papelera: false });
+  constructor({ nombre, tipo, bytes, fecha, carpeta, entorno }) {
+    Object.assign(this, { id: nuevoId("ar"), nombre, tipo, bytes, fecha: fecha || new Date(), carpeta, papelera: false, entorno });
   }
-  getId() { return this.id; }
-  getName() { return this.nombre; }
-  getMimeType() { return this.tipo; }
-  getLastUpdated() { return new Date(this.fecha); }
-  isTrashed() { return this.papelera; }
-  getBlob() { return new Blob(this.bytes, this.nombre); }
+  llamada() { if (this.entorno) this.entorno.cuentas.drive++; }
+  getId() { this.llamada(); return this.id; }
+  getName() { this.llamada(); return this.nombre; }
+  getMimeType() { this.llamada(); return this.tipo; }
+  getLastUpdated() { this.llamada(); return new Date(this.fecha); }
+  isTrashed() { this.llamada(); return this.papelera; }
+  getBlob() { this.llamada(); return new Blob(this.bytes, this.nombre); }
   moveTo(carpeta) { if (this.carpeta) this.carpeta.archivos.delete(this); carpeta.archivos.add(this); this.carpeta = carpeta; return this; }
 }
 
@@ -120,12 +126,17 @@ class Blob {
 }
 
 class Carpeta {
-  constructor(nombre) { Object.assign(this, { id: nuevoId("ca"), nombre, archivos: new Set(), papelera: false }); }
+  constructor(nombre, entorno) { Object.assign(this, { id: nuevoId("ca"), nombre, archivos: new Set(), papelera: false, entorno }); }
+  llamada() { this.entorno.cuentas.drive++; }
   getId() { return this.id; }
-  getName() { return this.nombre; }
+  getName() { this.llamada(); return this.nombre; }
   getUrl() { return "https://drive.google.com/drive/folders/" + this.id; }
-  isTrashed() { return this.papelera; }
-  getFiles() { const l = [...this.archivos]; let i = 0; return { hasNext: () => i < l.length, next: () => l[i++] }; }
+  isTrashed() { this.llamada(); return this.papelera; }
+  getFiles() {
+    this.llamada();
+    const l = [...this.archivos]; let i = 0;
+    return { hasNext: () => i < l.length, next: () => { this.llamada(); return l[i++]; } };
+  }
 }
 
 export const MIME_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -133,16 +144,36 @@ export const MIME_XLSX = "application/vnd.openxmlformats-officedocument.spreadsh
 export function crearEntorno({ propietario = "mfloresl@ulasalle.edu.pe" } = {}) {
   const e = {
     usuario: propietario, propietario, desfase: 0,
-    propiedades: {}, carpetas: new Map(), libros: new Map(), archivos: new Map(), registro: []
+    propiedades: {}, carpetas: new Map(), libros: new Map(), archivos: new Map(), registro: [],
+    cache: new Map(),
+    cuentas: { drive: 0, sheets: 0, lecturas: {} }
   };
+  e.reiniciarCuentas = () => { e.cuentas = { drive: 0, sheets: 0, lecturas: {} }; };
   const ahora = () => Date.now() + e.desfase;
   class RelojDate extends Date {
     constructor(...a) { if (a.length) super(...a); else super(ahora()); }
     static now() { return ahora(); }
   }
 
+  /* CacheService: caduca según el reloj simulado y rechaza, como Apps Script, valores de
+     más de 100 KB y claves de más de 250 caracteres. */
+  const cache = {
+    get: k => { const x = e.cache.get(k); return x && x.vence > ahora() ? x.valor : null; },
+    getAll: claves => Object.fromEntries(claves.map(k => [k, cache.get(k)]).filter(([, v]) => v != null)),
+    put: (k, v, segundos = 600) => {
+      const valor = String(v);
+      if (k.length > 250) throw new Error("Clave de caché demasiado larga: " + k);
+      if (Buffer.byteLength(valor) > 100 * 1024) throw new Error("Argumento demasiado grande: valor de caché de " + Buffer.byteLength(valor) + " bytes");
+      e.cache.set(k, { valor, vence: ahora() + Math.min(segundos, 21600) * 1000 });
+    },
+    putAll: (valores, segundos) => Object.entries(valores).forEach(([k, v]) => cache.put(k, v, segundos)),
+    remove: k => { e.cache.delete(k); },
+    removeAll: claves => claves.forEach(k => e.cache.delete(k))
+  };
+
   e.globales = {
     Date: RelojDate,
+    CacheService: { getScriptCache: () => cache },
     PropertiesService: { getScriptProperties: () => ({
       getProperties: () => ({ ...e.propiedades }),
       getProperty: k => (k in e.propiedades ? e.propiedades[k] : null),
@@ -155,14 +186,14 @@ export function crearEntorno({ propietario = "mfloresl@ulasalle.edu.pe" } = {}) 
     },
     LockService: { getScriptLock: () => ({ tryLock: () => true, waitLock: () => {}, releaseLock: () => {}, hasLock: () => true }) },
     SpreadsheetApp: {
-      create: nombre => { const l = new Libro(e, nombre); e.libros.set(l.id, l); e.archivos.set(l.id, new Archivo({ nombre, tipo: "application/vnd.google-apps.spreadsheet" })); e.archivos.get(l.id).id = l.id; return l; },
-      openById: id => { const l = e.libros.get(id); if (!l) throw new Error("No existe la hoja " + id); return l; },
+      create: nombre => { const l = new Libro(e, nombre); e.libros.set(l.id, l); e.archivos.set(l.id, new Archivo({ nombre, tipo: "application/vnd.google-apps.spreadsheet", entorno: e })); e.archivos.get(l.id).id = l.id; return l; },
+      openById: id => { e.cuentas.sheets++; const l = e.libros.get(id); if (!l) throw new Error("No existe la hoja " + id); return l; },
       flush: () => {}
     },
     DriveApp: {
-      createFolder: nombre => { const c = new Carpeta(nombre); e.carpetas.set(c.id, c); return c; },
-      getFolderById: id => { const c = e.carpetas.get(id); if (!c) throw new Error("No existe la carpeta " + id); return c; },
-      getFileById: id => { const a = e.archivos.get(id); if (!a) throw new Error("No existe el archivo " + id); return a; }
+      createFolder: nombre => { const c = new Carpeta(nombre, e); e.carpetas.set(c.id, c); return c; },
+      getFolderById: id => { e.cuentas.drive++; const c = e.carpetas.get(id); if (!c) throw new Error("No existe la carpeta " + id); return c; },
+      getFileById: id => { e.cuentas.drive++; const a = e.archivos.get(id); if (!a) throw new Error("No existe el archivo " + id); return a; }
     },
     Utilities: {
       unzip: blob => Object.entries(descomprimir(blob.bytes)).map(([nombre, bytes]) => new Blob(bytes, nombre))
@@ -197,7 +228,7 @@ export function crearEntorno({ propietario = "mfloresl@ulasalle.edu.pe" } = {}) 
   /* Sube un archivo a una carpeta, como si se arrastrara en Drive. */
   e.subir = (carpetaId, nombre, bytes, { tipo = MIME_XLSX, fecha } = {}) => {
     const c = e.carpetas.get(carpetaId);
-    const a = new Archivo({ nombre, tipo, bytes, fecha, carpeta: c });
+    const a = new Archivo({ nombre, tipo, bytes, fecha, carpeta: c, entorno: e });
     c.archivos.add(a);
     e.archivos.set(a.id, a);
     return a;

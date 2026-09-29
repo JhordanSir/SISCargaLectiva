@@ -91,6 +91,14 @@ class Pestana {
     }
     throw new Error("Tiempo agotado esperando: " + msg + " (" + expr + ")");
   }
+  async esperarQuizas(expr, ms) {
+    const fin = Date.now() + ms;
+    while (Date.now() < fin) {
+      if (await this.evaluar(expr)) return true;
+      await dormir(100);
+    }
+    return false;
+  }
   pulsar(selector) { return this.evaluar(`document.querySelector(${JSON.stringify(selector)}).click()`); }
   texto(selector) { return this.evaluar(`(document.querySelector(${JSON.stringify(selector)}) || {}).textContent || ""`); }
   async dialogo(boton) {
@@ -124,24 +132,37 @@ async function recorrido(srv) {
   const pa = await Pestana.abrir(url(A));
   await pa.esperar(`!document.querySelector("#v-menu").hidden`, "arranca en el menú");
   asegurar(await pa.texto("#u-correo") === A && await pa.texto("#u-rol") === "Director de departamento", "la cabecera muestra la cuenta y el rol");
+  asegurar(await pa.evaluar(`typeof XLSX === "undefined"`), "SheetJS no se descarga al abrir la página");
   await pa.pulsar("#op-planes");
-  await pa.esperar(`document.querySelectorAll("#tb-tablero tr").length === 8 && !document.body.classList.contains("ocupado")`, "el tablero lista las 8 carreras");
+  await pa.esperar(`document.querySelectorAll("#tb-tablero tr").length === 8 && [...document.querySelectorAll("#tb-tablero .pill")].every(p => p.textContent === "Registrado")`,
+    "el tablero lista las 8 carreras, leídas del xlsx de fondo");
   let filas = await pa.filasTablero();
   asegurar(filas.every(f => f.celdas[1] === "Registrado" && f.celdas[6] === "v1"), "todas Registrado v1, leídas del xlsx");
   asegurar(filas.reduce((n, f) => n + Number(f.celdas[4]), 0) === 365, "suman 365 grupos");
   await pa.captura("01-tablero.png");
 
+  await pa.pulsar("#btn-releer");
+  await pa.esperar(`[...document.querySelectorAll("#brindis div")].some(d => d.textContent === "Excel revisado")`, "«Releer Excel» revisa la carpeta");
+
+  const antesConsulta = await pa.evaluar("window.__llamadas.length");
   await pa.pulsar('#tb-tablero tr[data-sig="DER"]');
   await pa.esperar(`!document.querySelector("#v-lectura").hidden`, "la fila abre la consulta en solo lectura");
   asegurar((await pa.resumen("#lectura-resumen")).Asignaturas === 80, "Derecho tiene 80 asignaturas");
+  asegurar(!(await pa.evaluar(`window.__llamadas.slice(${antesConsulta})`)).includes("obtenerPlan"), "consultar no llama al servidor");
   await pa.pulsar("#v-lectura [data-volver]");
   await pa.esperar(`!document.querySelector("#v-planes").hidden`, "vuelve al tablero");
 
   console.log("Director: edición de Ingeniería de Software");
   await pa.esperar(`!!document.querySelector('[data-editar="ING"]')`, "botón Editar disponible");
-  await pa.pulsar('[data-editar="ING"]');
-  await pa.esperar(`!document.querySelector("#v-grilla").hidden`, "abre la grilla");
-  asegurar(/Sesión de edición: (29|30):\d\d/.test(await pa.texto("#reloj-grilla")), "muestra el reloj del bloqueo");
+  const alInstante = await pa.evaluar(`(() => {
+    document.querySelector('[data-editar="ING"]').click();
+    return { grilla: !document.querySelector("#v-grilla").hidden, reloj: document.querySelector("#reloj-grilla").textContent,
+             guardar: document.querySelector("#btn-registrar").disabled };
+  })()`);
+  asegurar(alInstante.grilla && alInstante.reloj === "Tomando el bloqueo de edición…" && alInstante.guardar,
+    "«Editar» abre la grilla al instante y no deja guardar hasta confirmar el bloqueo");
+  await pa.esperar(`/Sesión de edición: (29|30):\\d\\d/.test(document.querySelector("#reloj-grilla").textContent) && !document.querySelector("#btn-registrar").disabled`,
+    "el bloqueo se confirma y arranca el reloj");
   asegurar((await pa.texto("#nota-estado")).includes("Registrado (v1)"), "nota de estado Registrado (v1)");
 
   await pa.evaluar(`window.scrollTo(0, document.body.scrollHeight)`);
@@ -196,7 +217,7 @@ async function recorrido(srv) {
   console.log("Segunda cuenta: el plan en edición se ve bloqueado");
   const pb = await Pestana.abrir(url(B));
   await pb.pulsar("#op-planes");
-  await pb.esperar(`document.querySelectorAll("#tb-tablero tr").length === 8 && !document.body.classList.contains("ocupado")`, "tablero de la segunda cuenta");
+  await pb.esperar(`document.querySelectorAll("#tb-tablero tr").length === 8`, "tablero de la segunda cuenta, que llega con la página");
   filas = await pb.filasTablero();
   const ing = filas.find(f => f.sig === "ING");
   asegurar(ing.celdas[1] === "Bloqueado" && ing.celdas[7] === A && ing.celdas[6] === "v2", "ING aparece bloqueado por " + A + " en v2");
@@ -213,7 +234,7 @@ async function recorrido(srv) {
   await pa.esperar(`document.querySelector("#nota-estado").textContent.includes("(v3)")`, "restaurar v1 crea la v3");
   await pa.pulsar("#volver-grilla");
   await pa.dialogo("Salir");
-  await pa.esperar(`!document.querySelector("#v-planes").hidden && document.querySelector('#tb-tablero tr[data-sig="ING"]').cells[7].textContent.trim() === "—" && !document.body.classList.contains("ocupado")`, "sale y libera el bloqueo");
+  await pa.esperar(`!document.querySelector("#v-planes").hidden && document.querySelector('#tb-tablero tr[data-sig="ING"]').cells[7].textContent.trim() === "—"`, "sale y libera el bloqueo");
   asegurar((await pa.filasTablero()).find(f => f.sig === "ING").celdas[6] === "v3", "el tablero muestra la v3");
 
   console.log("Director: plan nuevo por pegado en 2026-2");
@@ -237,6 +258,7 @@ async function recorrido(srv) {
   asegurar((await pa.texto("#nota-importacion")).startsWith("1 fila de otra carrera se ignoró"), "avisa de la fila de otra carrera");
   const r = await pa.resumen();
   asegurar(r.Asignaturas === 2 && r.Grupos === 3 && r["Intl. / virtual"] === 1, "2 asignaturas, 3 grupos, 1 virtual");
+  await pa.esperar(`!document.querySelector("#btn-registrar").disabled`, "el bloqueo ya está confirmado");
   await pa.pulsar("#btn-registrar");
   await pa.dialogo("Confirmar y registrar");
   await pa.esperar(`!document.querySelector("#v-exito").hidden && document.querySelector("#exito-nota").textContent.includes("versión v1")`, "registro completado en v1");
@@ -244,12 +266,14 @@ async function recorrido(srv) {
   await pa.esperar(`(() => { const tr = document.querySelector('#tb-tablero tr[data-sig="ING"]'); return tr && tr.cells[1].textContent === "Registrado" && tr.cells[7].textContent.trim() === "—"; })()`, "ING 2026-2 queda Registrado y sin bloqueo");
 
   console.log("Director: subir un .xlsx con varias hojas");
-  const hayXLSX = await pa.evaluar(`typeof XLSX !== "undefined"`);
+  await pa.pulsar('[data-editar="ADM"]');
+  await pa.esperar(`!document.querySelector("#v-carga").hidden`, "carga masiva de ADM");
+  const hayXLSX = await pa.esperarQuizas(`typeof XLSX !== "undefined"`, 15000);
   if (!hayXLSX) {
     console.log("  ⚠ SheetJS no cargó desde cdn.sheetjs.com (¿sin internet?): se omite la subida de .xlsx");
+    await pa.pulsar("#volver-carga");
   } else {
-    await pa.pulsar('[data-editar="ADM"]');
-    await pa.esperar(`!document.querySelector("#v-carga").hidden`, "carga masiva de ADM");
+    asegurar(true, "al entrar en la carga masiva se descarga SheetJS");
     await pa.subirArchivo("#input-archivo", XLSX_CARRERA);
     await pa.esperar(`document.querySelector("#dlg").open && !!document.querySelector("#sel-hoja")`, "pregunta qué hoja importar");
     await pa.evaluar(`document.querySelector("#sel-hoja").value = "Adm. Neg. Int."`);
@@ -257,6 +281,7 @@ async function recorrido(srv) {
     await pa.esperar(`!document.querySelector("#v-grilla").hidden`, "importa la hoja");
     const ra = await pa.resumen();
     asegurar(ra.Asignaturas === 60 && ra.Grupos === 60, "la hoja de ADM da 60 asignaturas y 60 grupos");
+    await pa.esperar(`!document.querySelector("#btn-borrador").disabled`, "se puede guardar el borrador");
     await pa.pulsar("#btn-borrador");
     await pa.dialogo("Guardar");
     await pa.esperar(`document.querySelector("#nota-estado").textContent.includes("Borrador (v1)")`, "se guarda como Borrador v1");
@@ -280,7 +305,7 @@ async function recorrido(srv) {
   srv.entorno.propiedades.SIS_MINUTOS_BLOQUEO = "1";
   const pe = await Pestana.abrir(url(A));
   await pe.pulsar("#op-planes");
-  await pe.esperar(`!!document.querySelector('[data-editar="PSI"]') && !document.body.classList.contains("ocupado")`, "tablero listo");
+  await pe.esperar(`!!document.querySelector('[data-editar="PSI"]')`, "tablero listo");
   await pe.pulsar('[data-editar="PSI"]');
   await pe.esperar(`!document.querySelector("#v-grilla").hidden`, "edita PSI");
   await pe.pulsar('#bloques tr[data-ci="0"][data-gi="0"]');
