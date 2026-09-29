@@ -2,7 +2,7 @@
    se guardan como texto plano para que Sheets no convierta «2026-1» en una fecha. */
 var TABLAS_ = {
   Usuarios: ["correo", "rol", "carreras"],
-  Planes: ["ciclo", "carrera", "estado", "version", "actualizado_por", "actualizado_en", "firma_xlsx", "totales"],
+  Planes: ["ciclo", "carrera", "estado", "version", "actualizado_por", "actualizado_en", "firma_xlsx", "totales", "fila_version"],
   Versiones: ["ciclo", "carrera", "n", "estado", "tipo", "usuario", "fecha", "motivo", "contenido"],
   Bloqueos: ["ciclo", "carrera", "correo", "desde", "expira"],
   Fuentes: ["tipo", "archivo_id", "nombre", "modificado", "procesado_en", "avisos"]
@@ -91,6 +91,29 @@ function trocear_(texto) {
   const partes = [];
   for (let i = 0; i < texto.length; i += MAX_CELDA_) partes.push(texto.slice(i, i + MAX_CELDA_));
   return partes.length ? partes : [""];
+}
+
+/* Caché del script, compartida por todos los usuarios. Las claves llevan el ID de la
+   hoja del sistema para que una reinstalación no sirva datos de la anterior. */
+function cache_() {
+  return CacheService.getScriptCache();
+}
+
+function claveCache_(tipo, resto) {
+  return "sis:" + config_().bdId + ":" + tipo + ":" + resto;
+}
+
+function leerDeCache_(clave) {
+  const v = cache_().get(clave);
+  return v == null ? null : JSON.parse(v);
+}
+
+function guardarEnCache_(clave, valor, segundos) {
+  try {
+    cache_().put(clave, JSON.stringify(valor), segundos);
+  } catch (e) {
+    /* Un valor de más de 100 KB no cabe: se volverá a leer de la hoja. */
+  }
 }
 
 /* Ejecuta fn con el candado del script, para que dos usuarios no escriban a la vez. */

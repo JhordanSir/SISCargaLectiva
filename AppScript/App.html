@@ -13,9 +13,12 @@ const { CARRERAS, DPTOS, ESTADOS, num, th, totales, matrizDesdeTexto, ubicarCabe
 const app = {
   usuario: SIS.usuario || null,   // {correo, rol, carreras}
   ciclo: CONFIG.ciclo,
-  tablero: [],                    // filas del último tablero leído
+  tablero: [],                    // filas del tablero, con el contenido vigente de cada plan
+  tableroCiclo: null,             // ciclo al que pertenecen esas filas
+  tableroHora: 0,                 // cuándo se leyeron; 0 = hay que volver a leerlas
+  tableroPedido: 0,               // descarta las respuestas que llegan tarde
   carrera: null,                  // sigla del plan en edición
-  plan: null,                     // {estado, version, asignaturas, sucio}
+  plan: null,                     // {estado, version, asignaturas, sucio, confirmado}
   seleccion: null,                // {ci, gi}
   colapsados: new Set(),
   matrizPegada: null,             // contenido pegado, ya dividido en filas y columnas
@@ -24,7 +27,10 @@ const app = {
 };
 
 /* Bloqueo de edición: la hora de caducidad la fija el servidor y el latido la renueva. */
-const edicion = { expira: 0, temporizador: null, ultimoLatido: 0 };
+const edicion = { expira: 0, temporizador: null, ultimoLatido: 0, pedido: 0 };
+
+/* El tablero se vuelve a pedir si sus datos tienen más de esto. */
+const VIGENCIA_TABLERO_MS = 15000;
 
 /* ============================================================
    Utilidades
@@ -34,6 +40,7 @@ const $$ = s => Array.from(document.querySelectorAll(s));
 const esc = t => String(t == null ? "" : t).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
 const fecha = iso => { const d = new Date(iso); return isNaN(d) ? String(iso || "") : d.toLocaleString("es-PE", { dateStyle:"short", timeStyle:"short" }); };
 const hora = iso => { const d = new Date(iso); return isNaN(d) ? "" : d.toLocaleTimeString("es-PE", { hour:"2-digit", minute:"2-digit" }); };
+const clonar = x => JSON.parse(JSON.stringify(x));
 
 const VISTAS = ["instalar","denegado","menu","planes","carga","pegado","grilla","lectura","exito"];
 function mostrar(v){
@@ -93,22 +100,30 @@ dlg.addEventListener("cancel", e => { e.preventDefault(); dlg.close(); });
 /* ============================================================
    Llamadas al servidor
    ============================================================ */
-let pendientes = 0;
-function invocar(nombre, args, visible){
-  if (visible) { pendientes++; $("#cargando").hidden = false; document.body.classList.add("ocupado"); }
+/* Tres modos: «bloquea» muestra la barra de actividad e impide pulsar mientras tanto;
+   «fondo» solo muestra la barra; «silencio» no muestra nada. */
+const pendientes = { bloquea: 0, fondo: 0 };
+function pintarActividad(){
+  $("#cargando").hidden = !(pendientes.bloquea + pendientes.fondo);
+  document.body.classList.toggle("ocupado", pendientes.bloquea > 0);
+}
+function invocar(nombre, args, modo){
+  const visible = modo !== "silencio";
+  if (visible) { pendientes[modo]++; pintarActividad(); }
   return new Promise((ok, mal) => {
     const fin = () => {
       if (!visible) return;
-      pendientes = Math.max(0, pendientes - 1);
-      if (!pendientes) { $("#cargando").hidden = true; document.body.classList.remove("ocupado"); }
+      pendientes[modo] = Math.max(0, pendientes[modo] - 1);
+      pintarActividad();
     };
     google.script.run
       .withSuccessHandler(r => { fin(); ok(r); })
       .withFailureHandler(e => { fin(); mal(e); })[nombre](...args);
   });
 }
-const llamar = (nombre, ...args) => invocar(nombre, args, true);
-const llamarEnSilencio = (nombre, ...args) => invocar(nombre, args, false);
+const llamar = (nombre, ...args) => invocar(nombre, args, "bloquea");
+const llamarDeFondo = (nombre, ...args) => invocar(nombre, args, "fondo");
+const llamarEnSilencio = (nombre, ...args) => invocar(nombre, args, "silencio");
 
 function informarError(e){
   return preguntar({
@@ -168,8 +183,8 @@ async function latido(){
 async function bloqueoPerdido(correo){
   detenerReloj();
   app.carrera = null; app.plan = null; app.seleccion = null;
-  mostrar("planes");
-  cargarTablero();
+  app.tableroHora = 0;
+  mostrarTablero();
   await preguntar({
     titulo: "Se perdió el bloqueo de edición",
     cuerpo: '<div class="nota aviso">Tu bloqueo caducó y ahora el plan lo está editando <b>' + esc(correo) +
@@ -185,10 +200,11 @@ async function expirar(){
   let resultado = "sin cambios";
   if (p && p.sucio && p.asignaturas.length) {
     try {
-      await llamar("guardarPlan", app.ciclo, sig, {
+      const r = await llamar("guardarPlan", app.ciclo, sig, {
         asignaturas: p.asignaturas, versionBase: p.version, forzar: true, tipo: "autoguardado",
         estado: p.estado === ESTADOS.REGISTRADO ? ESTADOS.REGISTRADO : ESTADOS.BORRADOR
       });
+      actualizarFilaTablero(sig, { estado: r.estado, version: r.version, totales: totales(p.asignaturas), contenido: clonar(p.asignaturas) });
       resultado = "guardado";
     } catch (e) {
       resultado = (e && e.message) || String(e);
@@ -196,8 +212,8 @@ async function expirar(){
   }
   try { await llamarEnSilencio("liberarBloqueo", app.ciclo, sig); } catch (e) { /* caduca solo */ }
   app.carrera = null; app.plan = null; app.seleccion = null;
-  mostrar("planes");
-  cargarTablero();
+  app.tableroHora = 0;
+  mostrarTablero();
   const texto = resultado === "guardado"
     ? "Los cambios sin guardar se almacenaron como una nueva versión y se liberó el bloqueo del plan."
     : resultado === "sin cambios"
@@ -212,12 +228,13 @@ async function expirar(){
 
 /* Libera el bloqueo y vuelve al tablero, descartando lo no guardado. */
 async function terminarEdicion(){
-  const sig = app.carrera;
+  const sig = app.carrera, confirmado = !!(app.plan && app.plan.confirmado);
   detenerReloj();
   app.carrera = null; app.plan = null; app.seleccion = null;
   pintarTablero();
   mostrar("planes");
-  if (sig) { try { await llamarEnSilencio("liberarBloqueo", app.ciclo, sig); } catch (e) { /* caduca solo */ } }
+  /* Si el bloqueo aún no estaba confirmado, lo devuelve abrirEdicion cuando responda. */
+  if (sig && confirmado) { try { await llamarEnSilencio("liberarBloqueo", app.ciclo, sig); } catch (e) { /* caduca solo */ } }
   cargarTablero();
 }
 
@@ -229,36 +246,70 @@ window.addEventListener("pagehide", () => {
 /* ============================================================
    Vistas
    ============================================================ */
-$("#op-planes").onclick = () => { pintarTablero(); mostrar("planes"); cargarTablero(); };
+$("#op-planes").onclick = () => mostrarTablero();
 
 $$("[data-volver]").forEach(b => { b.onclick = () => {
   const destino = b.dataset.volver;
-  mostrar(destino);
-  if (destino === "planes") { pintarTablero(); cargarTablero(); }
+  if (destino === "planes") mostrarTablero();
+  else mostrar(destino);
 }; });
 
 $("#sel-ciclo").innerHTML = CONFIG.ciclos.map(c => "<option" + (c === app.ciclo ? " selected" : "") + ">" + esc(c) + "</option>").join("");
-$("#sel-ciclo").onchange = e => { app.ciclo = e.target.value; app.tablero = []; pintarTablero(); cargarTablero(); };
+$("#sel-ciclo").onchange = e => { app.ciclo = e.target.value; mostrarTablero(); };
+$("#btn-releer").onclick = () => cargarTablero({ releer: true });
 
-async function cargarTablero(){
-  const ciclo = app.ciclo;
+/* ---------- tablero ---------- */
+/* Las filas del tablero traen el contenido vigente de cada plan, así que consultar un plan
+   o empezar a editarlo no espera al servidor. Se muestra lo que haya y, si ya tiene unos
+   segundos, se vuelve a leer de fondo. */
+const tableroAlDia = () => app.tableroCiclo === app.ciclo && Date.now() - app.tableroHora < VIGENCIA_TABLERO_MS;
+const filaTablero = sig => app.tableroCiclo === app.ciclo ? app.tablero.find(f => f.sig === sig) || null : null;
+const bloqueoVigente = b => b && Date.parse(b.expira) > Date.now() ? b : null;
+
+function mostrarTablero(){
+  pintarTablero();
+  mostrar("planes");
+  if (!tableroAlDia()) cargarTablero();
+}
+
+async function cargarTablero(opciones){
+  const ciclo = app.ciclo, pedido = ++app.tableroPedido;
+  const releer = !!(opciones && opciones.releer);
   try {
-    const r = await llamar("obtenerTablero", ciclo);
-    if (ciclo !== app.ciclo) return;
-    app.tablero = r.filas;
-    const avisos = r.avisos || [];
-    $("#avisos-tablero").innerHTML = avisos.map(a => '<div class="nota aviso">' + esc(a) + "</div>").join("");
-    $("#avisos-tablero").hidden = !avisos.length;
-    pintarTablero();
+    const r = await (releer ? llamar : llamarDeFondo)("obtenerTablero", ciclo, { releer: releer });
+    if (pedido !== app.tableroPedido || ciclo !== app.ciclo) return;
+    fijarTablero(ciclo, r.filas, r.avisos);
+    if (releer) aviso("Excel revisado");
   } catch (e) {
-    informarError(e);
+    if (pedido === app.tableroPedido) informarError(e);
   }
 }
 
+function fijarTablero(ciclo, filas, avisos){
+  app.tablero = filas;
+  app.tableroCiclo = ciclo;
+  app.tableroHora = Date.now();
+  const lista = avisos || [];
+  $("#avisos-tablero").innerHTML = lista.map(a => '<div class="nota aviso">' + esc(a) + "</div>").join("");
+  $("#avisos-tablero").hidden = !lista.length;
+  pintarTablero();
+}
+
+/* Tras guardar, la fila del plan se actualiza aquí mismo. La próxima vez que se muestre
+   el tablero se vuelve a leer, y las lecturas que ya estaban en camino se descartan. */
+function actualizarFilaTablero(sig, cambios){
+  app.tableroPedido++;
+  app.tableroHora = 0;
+  const f = filaTablero(sig);
+  if (f) Object.assign(f, cambios);
+}
+
 function pintarTablero(){
-  $("#tb-tablero").innerHTML = app.tablero.map(f => {
+  const filas = app.tableroCiclo === app.ciclo ? app.tablero : [];
+  $("#tb-tablero").innerHTML = filas.map(f => {
     const t = f.totales || {};
-    const otro = f.bloqueo && f.bloqueo.correo !== app.usuario.correo;
+    const b = bloqueoVigente(f.bloqueo);
+    const otro = b && b.correo !== app.usuario.correo;
     const cls = otro ? "bloqueado" : f.estado === ESTADOS.REGISTRADO ? "registrado" : f.estado === ESTADOS.BORRADOR ? "borrador" : "sin";
     const puede = app.usuario.carreras.includes(f.sig);
     const v = f.version ? "v" + f.version : "—";
@@ -268,7 +319,7 @@ function pintarTablero(){
       '<td class="num">' + (t.sem || "—") + '</td><td class="num">' + (t.asig || "—") + "</td>" +
       '<td class="num">' + (t.grupos || "—") + '</td><td class="num">' + (t.dictado || "—") + "</td>" +
       '<td class="cod">' + v + "</td>" +
-      '<td class="cod" style="font-size:11px;color:var(--ink-faint)">' + (f.bloqueo ? esc(f.bloqueo.correo) : "—") + "</td>" +
+      '<td class="cod" style="font-size:11px;color:var(--ink-faint)">' + (b ? esc(b.correo) : "—") + "</td>" +
       '<td style="text-align:right">' + (puede
         ? '<button class="btn" data-editar="' + f.sig + '" style="padding:4px 10px;font-size:12px">Editar</button>'
         : "") + "</td></tr>";
@@ -282,9 +333,15 @@ function pintarTablero(){
   });
 }
 
+/* ---------- consulta ---------- */
 async function abrirLectura(sig){
-  let p;
-  try { p = await llamar("obtenerPlan", app.ciclo, sig); } catch (e) { return informarError(e); }
+  const f = filaTablero(sig);
+  let p = f && Array.isArray(f.contenido)
+    ? { estado: f.estado, version: f.version, asignaturas: f.contenido, bloqueo: bloqueoVigente(f.bloqueo) }
+    : null;
+  if (!p) {
+    try { p = await llamar("obtenerPlan", app.ciclo, sig); } catch (e) { return informarError(e); }
+  }
   mostrar("lectura");
   $("#lectura-titulo").textContent = "Consulta · " + nombreCarrera(sig) + " · " + app.ciclo;
   $("#lectura-nota").innerHTML = p.asignaturas.length
@@ -295,31 +352,96 @@ async function abrirLectura(sig){
   $("#lectura-bloques").innerHTML = htmlBloques(p.asignaturas, false);
 }
 
+/* ---------- edición ---------- */
+/* Se abre al instante con el contenido que trajo el tablero y el bloqueo se pide de
+   fondo; hasta que el servidor lo confirma no se puede guardar. Si según el tablero otra
+   cuenta tiene el plan, se espera la respuesta antes de abrir. */
 async function abrirEdicion(sig){
+  const f = filaTablero(sig);
+  const b = f && bloqueoVigente(f.bloqueo);
+  if (!f || !Array.isArray(f.contenido) || (b && b.correo !== app.usuario.correo)) return abrirEdicionEsperando(sig);
+
+  const pedido = ++edicion.pedido;
+  entrarEnEdicion(sig, { estado: f.estado, version: f.version, asignaturas: clonar(f.contenido) });
+  let r;
+  try {
+    r = await llamarDeFondo("abrirEdicion", app.ciclo, sig, f.version);
+  } catch (e) {
+    if (pedido === edicion.pedido && app.carrera === sig) { salirSinGuardar(); mostrarTablero(); informarError(e); }
+    return;
+  }
+  if (pedido !== edicion.pedido || app.carrera !== sig) {
+    /* Ya se salió de este plan: el bloqueo que se acaba de tomar se devuelve. */
+    if (!r.bloqueado && app.carrera !== sig) llamarEnSilencio("liberarBloqueo", app.ciclo, sig).catch(() => {});
+    return;
+  }
+  if (r.bloqueado) {
+    const habiaCambios = app.plan.sucio;
+    salirSinGuardar();
+    return avisarBloqueado(sig, r.bloqueado, habiaCambios);
+  }
+  confirmarEdicion(sig, r);
+}
+
+async function abrirEdicionEsperando(sig){
   let r;
   try { r = await llamar("abrirEdicion", app.ciclo, sig); } catch (e) { return informarError(e); }
-  if (r.bloqueado) {
-    await preguntar({
-      titulo: "El plan está siendo editado",
-      cuerpo: '<div class="nota aviso">Lo está editando <b>' + esc(r.bloqueado.correo) + "</b> desde las " +
-              esc(hora(r.bloqueado.desde)) + ". Puedes consultarlo en solo lectura.</div>",
-      acciones: [{ texto:"Consultar en solo lectura", clase:"primario", valor:true }]
-    });
-    return abrirLectura(sig);
-  }
+  if (r.bloqueado) return avisarBloqueado(sig, r.bloqueado, false);
+  ++edicion.pedido;
+  entrarEnEdicion(sig, { estado: r.estado, version: r.version, asignaturas: r.asignaturas });
+  confirmarEdicion(sig, r);
+}
 
+function entrarEnEdicion(sig, plan){
   app.carrera = sig;
-  app.plan = { estado: r.estado, version: r.version, asignaturas: r.asignaturas, sucio: false };
+  app.plan = Object.assign({ sucio: false, confirmado: false }, plan);
   app.seleccion = null;
   app.colapsados.clear();
   app.avisoImportacion = "";
-  iniciarReloj(r.expira);
+  detenerReloj();
+  $$(".reloj").forEach(e => { e.textContent = "Tomando el bloqueo de edición…"; });
+  if (app.plan.asignaturas.length) pintarGrilla();
+  else irACarga();
+}
 
-  if (app.plan.asignaturas.length) { pintarGrilla(); return; }
-  irACarga();
+function confirmarEdicion(sig, r){
+  const p = app.plan;
+  p.confirmado = true;
+  iniciarReloj(r.expira);
+  if (Array.isArray(r.asignaturas) && r.version !== p.version) {
+    /* Entretanto se guardó otra versión. Si todavía no hay cambios, se carga esa; si ya
+       los hay, se conservan y al guardar se avisará de la versión más reciente. */
+    actualizarFilaTablero(sig, { estado: r.estado, version: r.version, totales: totales(r.asignaturas), contenido: clonar(r.asignaturas) });
+    if (!p.sucio) {
+      Object.assign(p, { estado: r.estado, version: r.version, asignaturas: r.asignaturas });
+      app.seleccion = null;
+      if (app.vista === "carga" && p.asignaturas.length) pintarGrilla();
+      aviso("Se cargó la versión más reciente del plan, v" + r.version);
+    }
+  }
+  if (app.vista === "grilla") pintarGrilla();
+}
+
+/* Sale de la edición sin guardar ni liberar nada: el bloqueo no llegó a tomarse. */
+function salirSinGuardar(){
+  detenerReloj();
+  app.carrera = null; app.plan = null; app.seleccion = null;
+}
+
+async function avisarBloqueado(sig, bloqueo, habiaCambios){
+  actualizarFilaTablero(sig, { bloqueo: bloqueo });
+  await preguntar({
+    titulo: "El plan está siendo editado",
+    cuerpo: '<div class="nota aviso">Lo está editando <b>' + esc(bloqueo.correo) + "</b> desde las " +
+            esc(hora(bloqueo.desde)) + ". Puedes consultarlo en solo lectura." +
+            (habiaCambios ? " Los cambios que alcanzaste a hacer no se guardaron." : "") + "</div>",
+    acciones: [{ texto:"Consultar en solo lectura", clase:"primario", valor:true }]
+  });
+  return abrirLectura(sig);
 }
 
 function irACarga(){
+  cargarSheetJS();   // se adelanta la descarga por si se sube un libro de cálculo
   $("#carga-titulo").textContent = "Carga masiva · " + nombreCarrera(app.carrera);
   $("#nota-bloqueo").innerHTML =
     "Tienes el <b>bloqueo de edición</b> del plan de " + esc(nombreCarrera(app.carrera)) + " para " + esc(app.ciclo) +
@@ -432,13 +554,29 @@ $("#procesar-pegado").onclick = () => {
 $("#op-archivo").onclick = () => $("#input-archivo").click();
 $("#input-archivo").onchange = e => { const f = e.target.files[0]; if (f) leerArchivo(f); e.target.value = ""; };
 
+/* SheetJS pesa casi 1 MB: se descarga al entrar en la carga masiva, no al abrir la página.
+   Si no se puede descargar, el archivo se lee como texto. */
+const URL_SHEETJS = "https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js";
+let descargaSheetJS = null;
+function cargarSheetJS(){
+  if (typeof XLSX !== "undefined") return Promise.resolve(true);
+  if (!descargaSheetJS) descargaSheetJS = new Promise(resolve => {
+    const s = document.createElement("script");
+    s.src = URL_SHEETJS;
+    s.onload = () => resolve(typeof XLSX !== "undefined");
+    s.onerror = () => { descargaSheetJS = null; s.remove(); resolve(false); };
+    document.head.appendChild(s);
+  });
+  return descargaSheetJS;
+}
+
 /* Acepta cualquier archivo. Intenta leerlo como libro de cálculo y, si no lo es,
    como texto plano. No hay extensiones prohibidas ni formatos rechazados. */
 async function leerArchivo(file){
   const ext = ((file.name.match(/\.([^.]+)$/) || [])[1] || "").toLowerCase();
   const pareceLibro = ["xlsx","xlsm","xlsb","xls","ods"].includes(ext);
 
-  if (pareceLibro && typeof XLSX !== "undefined") {
+  if (pareceLibro && await cargarSheetJS()) {
     try {
       const libro = XLSX.read(await file.arrayBuffer(), { type:"array" });
       let hojaLibro = libro.SheetNames[0];
@@ -588,8 +726,12 @@ function pintarGrilla(){
   if (!p) return;
   mostrar("grilla");
   $("#grilla-titulo").textContent = nombreCarrera(app.carrera) + " · " + app.ciclo;
+  /* Hasta que el servidor confirma el bloqueo se puede editar, pero no guardar. */
+  const listo = !!p.confirmado;
   $("#btn-registrar").textContent = p.estado === ESTADOS.REGISTRADO ? "Guardar cambios" : "Registrar plan";
-  $("#btn-borrador").disabled = p.estado === ESTADOS.REGISTRADO;
+  $("#btn-registrar").disabled = !listo;
+  $("#btn-borrador").disabled = !listo || p.estado === ESTADOS.REGISTRADO;
+  $('[data-acc="historial"]').disabled = !listo;
 
   const nota = $("#nota-estado");
   if (p.estado === ESTADOS.REGISTRADO) {
@@ -892,6 +1034,7 @@ async function accion(tipo){
       try { res = await llamar("restaurarVersion", app.ciclo, app.carrera, n); } catch (e) { return informarError(e); }
       Object.assign(p, { asignaturas: res.asignaturas, version: res.version, estado: res.estado, sucio: false });
       if (res.expira) edicion.expira = Date.parse(res.expira);
+      actualizarFilaTablero(app.carrera, { estado: res.estado, version: res.version, totales: totales(res.asignaturas), contenido: clonar(res.asignaturas) });
       app.seleccion = null;
       modifica = false;
       aviso("Versión v" + n + " restaurada");
@@ -939,6 +1082,7 @@ async function guardar(datos){
   }
   Object.assign(p, { version: r.version, estado: r.estado, sucio: false });
   if (r.expira) edicion.expira = Date.parse(r.expira);
+  actualizarFilaTablero(sig, { estado: r.estado, version: r.version, totales: totales(p.asignaturas), contenido: clonar(p.asignaturas) });
   return r;
 }
 
@@ -1009,7 +1153,6 @@ $("#btn-registrar").onclick = async () => {
     "<b>Plan registrado.</b> " + esc(nombreCarrera(sig)) + " · " + esc(app.ciclo) + " · versión <b>v" + g.version + "</b>. " +
     "La asignación docente queda habilitada para DIMA, DAHUC, DACJ y DACTE. El plan sigue siendo editable: cada guardado generará una versión nueva.";
   try { await llamarEnSilencio("liberarBloqueo", app.ciclo, sig); } catch (e) { /* caduca solo */ }
-  cargarTablero();
 };
 
 $("#exito-editar").onclick = () => { if (app.carrera) abrirEdicion(app.carrera); };
@@ -1092,6 +1235,12 @@ console.log("%c" + ARTE_CONSOLA, "font-family: monospace; font-size: 9px; line-h
     ? "Director de departamento"
     : "Coordinador de carrera" + (u.carreras.length ? " · " + u.carreras.join(", ") : " · solo lectura");
   $("#usuario").hidden = false;
+  /* La página ya trae el tablero. Si hace un rato que nadie revisa los xlsx de Drive, se
+     revisan ahora de fondo, mientras el usuario está en el menú. */
+  if (SIS.tablero) {
+    fijarTablero(SIS.tablero.ciclo, SIS.tablero.filas, SIS.tablero.avisos);
+    if (SIS.tablero.pendiente) cargarTablero();
+  }
   mostrar("menu");
 })();
 </script>

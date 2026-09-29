@@ -3,7 +3,27 @@
    distinta), cada plan cuyo contenido en el xlsx cambió recibe una versión nueva:
    «importación desde xlsx» si no tenía ninguna, «actualización desde xlsx» si ya tenía. */
 
-function sincronizarFuentes_() {
+/* Mirar la carpeta cuesta decenas de llamadas a Drive, así que se hace como mucho una
+   vez cada SIS_MINUTOS_REVISION_XLSX minutos; mientras tanto se repiten los avisos de la
+   última revisión. forzar (el botón «Releer Excel») mira la carpeta en el momento. */
+function sincronizarFuentes_(forzar) {
+  const cfg = config_();
+  const clave = claveCache_("xlsx", cfg.carpetaId);
+  if (!forzar && cfg.minutosRevisionXlsx > 0) {
+    const ultima = leerDeCache_(clave);
+    if (ultima) return ultima.avisos;
+  }
+  const avisos = revisarFuentes_();
+  if (cfg.minutosRevisionXlsx > 0) guardarEnCache_(clave, { avisos: avisos }, cfg.minutosRevisionXlsx * 60);
+  return avisos;
+}
+
+function xlsxRevisadoHacePoco_() {
+  const cfg = config_();
+  return cfg.minutosRevisionXlsx > 0 ? leerDeCache_(claveCache_("xlsx", cfg.carpetaId)) : null;
+}
+
+function revisarFuentes_() {
   const cfg = config_();
   const avisos = [];
   const carpeta = abrirCarpeta_(cfg.carpetaId);

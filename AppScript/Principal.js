@@ -26,7 +26,13 @@ function datosIniciales_() {
   try {
     const u = usuarioActual_();
     if (u.denegado) return { estado: "denegado", motivo: u.denegado, config: config };
-    return { estado: "ok", usuario: u, config: config };
+    /* La página llega con el tablero ya leído. No se mira Drive aquí para no retrasarla:
+       si hace falta revisar los xlsx, el navegador lo pide en segundo plano (pendiente). */
+    const revisado = xlsxRevisadoHacePoco_();
+    return {
+      estado: "ok", usuario: u, config: config,
+      tablero: { ciclo: config.ciclo, filas: leerTablero_(config.ciclo), avisos: revisado ? revisado.avisos : [], pendiente: !revisado }
+    };
   } catch (e) {
     return { estado: "error", motivo: e.message, config: config };
   }

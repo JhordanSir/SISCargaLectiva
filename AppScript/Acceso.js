@@ -2,8 +2,11 @@
    institucional, así que Google ya exige una cuenta de ese dominio; aquí se
    comprueba de nuevo y se busca el rol en la pestaña Usuarios.
    Director: edita todas las carreras. Coordinador: solo las de su columna «carreras».
-   Ambos consultan todas en solo lectura. */
+   Ambos consultan todas en solo lectura.
+   El rol de cada cuenta se guarda 5 minutos en la caché del script: un cambio en la
+   pestaña Usuarios tarda como mucho eso en aplicarse. */
 var usuarioCache_ = null;
+var SEGUNDOS_CACHE_USUARIO_ = 300;
 
 function usuarioActual_() {
   if (usuarioCache_) return usuarioCache_;
@@ -17,22 +20,30 @@ function usuarioActual_() {
     u = { correo: correo, denegado: "La cuenta " + correo + " no pertenece al dominio " + cfg.dominio +
           ". Inicia sesión con tu correo institucional." };
   } else {
-    const fila = leerTabla_("Usuarios").filter(function (f) { return f.correo.trim().toLowerCase() === correo; })[0];
-    const rol = rolNormalizado_(fila ? fila.rol : cfg.rolPorDefecto);
-    if (!rol) {
-      u = { correo: correo, denegado: "La cuenta " + correo + " no tiene asignado el rol de Responsable del Plan de Ciclo. " +
-            "Añádela a la pestaña Usuarios de la hoja del sistema o contacta con la administración del sistema." };
-    } else {
-      u = {
-        correo: correo,
-        rol: rol,
-        carreras: rol === "director" ? Dominio.CARRERAS.map(function (c) { return c.sig; }) : carrerasDeTexto_(fila ? fila.carreras : ""),
-        pordefecto: !fila
-      };
+    const clave = claveCache_("u", correo);
+    u = leerDeCache_(clave);
+    if (!u) {
+      u = rolDeCuenta_(correo, cfg);
+      guardarEnCache_(clave, u, SEGUNDOS_CACHE_USUARIO_);
     }
   }
   usuarioCache_ = u;
   return u;
+}
+
+function rolDeCuenta_(correo, cfg) {
+  const fila = leerTabla_("Usuarios").filter(function (f) { return f.correo.trim().toLowerCase() === correo; })[0];
+  const rol = rolNormalizado_(fila ? fila.rol : cfg.rolPorDefecto);
+  if (!rol) {
+    return { correo: correo, denegado: "La cuenta " + correo + " no tiene asignado el rol de Responsable del Plan de Ciclo. " +
+             "Añádela a la pestaña Usuarios de la hoja del sistema o contacta con la administración del sistema." };
+  }
+  return {
+    correo: correo,
+    rol: rol,
+    carreras: rol === "director" ? Dominio.CARRERAS.map(function (c) { return c.sig; }) : carrerasDeTexto_(fila ? fila.carreras : ""),
+    pordefecto: !fila
+  };
 }
 
 function rolNormalizado_(texto) {

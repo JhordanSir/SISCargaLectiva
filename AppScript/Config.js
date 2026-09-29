@@ -6,6 +6,7 @@ var PROPIEDADES_POR_DEFECTO_ = {
   SIS_MAX_SUBGRUPOS: "5",
   SIS_CICLOS: "2026-1,2026-2,2027-1,2027-2",
   SIS_CICLO_XLSX: "2026-1",
+  SIS_MINUTOS_REVISION_XLSX: "5",
   SIS_ROL_POR_DEFECTO: "director"
 };
 
@@ -40,6 +41,8 @@ function config_() {
     maxSubgrupos: entero("SIS_MAX_SUBGRUPOS", 2),
     ciclos: ciclos,
     cicloXlsx: cicloXlsx,
+    /* Cada cuánto se mira si los xlsx de Drive cambiaron; 0 = en cada carga del tablero. */
+    minutosRevisionXlsx: entero("SIS_MINUTOS_REVISION_XLSX", 0),
     /* Si la propiedad existe se respeta tal cual: «ninguno» (o vacío) deniega. */
     rolPorDefecto: p.SIS_ROL_POR_DEFECTO != null ? String(p.SIS_ROL_POR_DEFECTO) : PROPIEDADES_POR_DEFECTO_.SIS_ROL_POR_DEFECTO
   };

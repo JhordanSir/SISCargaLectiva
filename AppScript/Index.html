@@ -4,7 +4,6 @@
 <base target="_top">
 <meta charset="utf-8">
 <?!= include("Estilos") ?>
-<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -67,9 +66,12 @@
       <h2>Planes de ciclo</h2>
     </div>
     <div class="panel-cuerpo">
-      <div class="campo" style="max-width:240px">
-        <label for="sel-ciclo">Ciclo académico</label>
-        <select id="sel-ciclo"></select>
+      <div class="fila-tablero">
+        <div class="campo" style="max-width:240px;margin-bottom:0">
+          <label for="sel-ciclo">Ciclo académico</label>
+          <select id="sel-ciclo"></select>
+        </div>
+        <button class="btn" id="btn-releer" title="Vuelve a leer ahora los .xlsx de la carpeta de Drive">Releer Excel</button>
       </div>
       <div id="avisos-tablero" hidden></div>
       <p class="etq" style="margin-bottom:7px">Tablero de monitoreo general</p>
