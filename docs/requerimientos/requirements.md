@@ -4,11 +4,12 @@
 
 | Campo | Valor |
 |---|---|
-| Versión del documento | 1.0 |
-| Fecha | 2026-09-19 |
+| Versión del documento | 1.1 |
+| Fecha | 2026-09-29 |
 | Fase actual | **Fase 1: CU-001 Registrar Plan de Ciclo** |
-| Fuentes | `docs/requerimientos/transcripcion.md` (clase del docente), `docs/requerimientos/flujobasico.md` (1.ª revisión), `docs/requerimientos/flujosalternativos.md` (2.ª revisión), `docs/CU/CUs-Carga lectiva.png` (diagrama de CU), `docs/QA/Checklist.md`, `docs/archivos/*.xlsx` (datos reales) |
-| Decisiones del equipo | Resumidas en la sección 10. El detalle P01–P45 está en `preguntas.md` (archivo local, excluido del repositorio por `.gitignore`). |
+| Fuentes | `docs/feedback/transcripcion.md` (clase del docente), `docs/feedback/flujobasico.md` (1.ª revisión), `docs/feedback/flujosalternativos.md` (2.ª revisión), `docs/CU/CUs-Carga lectiva.png` (diagrama de CU), `docs/QA/Checklist.md`, `docs/archivos/*.xlsx` (datos reales) |
+| Decisiones del equipo | Resumidas en la sección 10. El detalle P01–P45 está en `preguntas.md` (archivo local, excluido del repositorio por `.gitignore`). Las decisiones del 2026-09-29, que llevan la etiqueta **[2026-09-29]**, solo constan en la sección 10. |
+| Cambios de la v1.1 | Stack en Google Apps Script con los `.xlsx` de Drive como fuente de datos (sección 9 y 10); sección 8 alineada con CU-001 v4.0, que interpreta el contenido en vez de validarlo; nuevas preguntas abiertas Q15 y Q16. |
 
 > **Regla de lectura.** Cada requisito indica su fuente: **[D]** docente (transcripción o revisiones), **[P##]** decisión del equipo registrada en `preguntas.md`, **[X]** hallazgo en los archivos `.xlsx`. Lo que no tiene fuente confirmada figura en la sección 15, *Preguntas abiertas*, y no se implementa hasta resolverse.
 
@@ -210,40 +211,47 @@ Una cabecera **repetida** es error. Es el caso del Excel actual, que tiene "HT" 
 
 ---
 
-## 8. Reglas de validación
+## 8. Interpretación del contenido (sin validación)
 
-### 8.1 Errores: rechazan todo el archivo [P04]
+> Desde la **v4.0 de CU-001** (2026-09-24) el sistema no valida el contenido importado: lo **interpreta** y nunca rechaza una carga (RN-16 a RN-22 del CU). Las reglas de error E01–E12 y las advertencias A01–A04 de la v1.0 de este documento quedaron sin efecto y sus identificadores no se reutilizan. Con ellas pierden efecto el rechazo del archivo completo (RF-026), la validación de celdas al editar (RF-034) y el carácter obligatorio de las columnas de la sección 7.1. La referencia de comportamiento es el prototipo funcional de `docs/prototipo/funcional/`, que la versión en Apps Script (`AppScript/`) reproduce. **[CU v4.0]**
+
+### 8.1 Reglas de interpretación
+
+| Regla | Comportamiento |
+|---|---|
+| Nada se rechaza | Ninguna celda, fila ni archivo impide completar una carga. Cualquier archivo se lee como libro de cálculo y, si no se puede, como texto. **[CU RN-16, RN-21]** |
+| Cabeceras | Se localiza la fila de cabeceras aunque haya títulos encima. Se normalizan (mayúsculas, tildes y espacios) y se aceptan los sinónimos de la sección 7.2. Una columna sin cabecera reconocible se deduce por su contenido: el código por su forma `3.1.1.24`, la malla por el año, la carrera por su sigla o alias y el departamento por su código. |
+| Texto conservado | Una celda que no se entiende como número se guarda y se muestra tal cual. Para los totales se toma el número que contenga; si no tiene ninguno, cuenta como cero. **[CU RN-17]** |
+| SEMESTRE | `5` es el semestre 5, grupo 1; `1-2` es el semestre 1, grupo 2. Otro texto da nombre a su propio bloque. **[CU RN-18]** |
+| GRUPO | Si está vacío se toma del sufijo de SEMESTRE; si SEMESTRE tampoco lo indica, vale 1. **[CU RN-19]** |
+| CARRERA | Admite la sigla, el nombre completo o un alias (`Ing. Software`, `Adm. Neg. Int.`…). **[CU RN-20]** Al importar en el plan de una carrera, las filas que indican **otra** carrera se ignoran y el sistema avisa cuántas fueron; una fila sin CARRERA sí se importa. **[2026-09-29]** |
+| Columnas sin uso | TOTAL HORAS no se lee: el total se calcula como HT + HP. DOCENTE, TURNO y cualquier otra columna se ignoran. **[CU RN-09]** |
+
+### 8.2 Advertencias vigentes
+
+Las advertencias no bloquean: el sistema avisa y el Responsable confirma.
 
 | ID | Regla |
 |---|---|
-| E01 | Formato no admitido: solo se aceptan texto pegado, `.xlsx` y `.csv`. |
-| E02 | No existe una fila con todas las cabeceras obligatorias. |
-| E03 | Cabecera repetida, evaluada después de normalizar y aplicar sinónimos. |
-| E04 | No hay filas de datos debajo de las cabeceras. Las filas completamente vacías se ignoran. |
-| E05 | Celda obligatoria vacía (sección 7.1). |
-| E06 | CARRERA distinta de la carrera seleccionada. |
-| E07 | HT, HP o TOTAL HORAS no numéricos o negativos. |
-| E08 | `TOTAL HORAS ≠ HT + HP`. |
-| E09 | DPTO fuera de {DIMA, DAHU, DACJ, DACTE}. |
-| E10 | SEMESTRE no es un entero ≥ 1. |
-| E11 | MALLA no es un año de 4 dígitos. |
-| E12 | GRUPO informado que no es un entero ≥ 1. |
-
-### 8.2 Advertencias: no rechazan; se muestran siempre, visibles y localizadas [P37]
-
-| ID | Regla |
-|---|---|
-| A01 | MALLA no coincide con el sufijo del CÓDIGO. **[P09]** |
-| A02 | CÓDIGO + GRUPO repetido. **[P37]** |
-| A03 | Mismo CÓDIGO con distinta ASIGNATURA, HT o HP (caso `9.2.5.24` en Psicología). **[P36][P37]** |
-| A04 | Columnas ignoradas (aviso informativo). **[P11]** |
-| A05 | Diferencias entre los grupos de una fusión: nombre, código, HT, HP o TH. **[P14]** |
-| A06 | Eliminación de un grupo o asignatura que es el único grupo, que está fusionado o que tiene docente asignado. **[D][P03]** |
+| A05 | Los grupos de una fusión difieren del grupo principal en nombre, código u horas. Las horas se comparan como números, de modo que `3` y `3.0` no cuentan como diferencia. **[P14]** |
+| A06 | Se elimina el único grupo de una asignatura o un grupo que participa en una fusión. **[D][P03]** |
 
 ### 8.3 Clasificación
 
-- **Internacional/virtual:** OBSERVACIONES contiene "INTERNACIONAL" o "VIRTUAL" (normalizado). Valores reales: `INTERNACIONAL/VIRTUAL`, `INTERNACIONAL COLOMBIA- VIRTUAL`, `INTERNACIONAL MÉXICO - VIRTUAL`. El marcador se puede editar en la grilla.
-- **Malla:** se toma de la columna MALLA. El sufijo del código solo sirve para la advertencia A01.
+- **Internacional/virtual:** OBSERVACIONES contiene "INTERNACIONAL" o "VIRTUAL". Valores reales: `INTERNACIONAL/VIRTUAL`, `INTERNACIONAL COLOMBIA- VIRTUAL`, `INTERNACIONAL MÉXICO - VIRTUAL`.
+- **Malla:** se toma de la columna MALLA. **[CU RN-11]**
+
+### 8.4 Lectura de los `.xlsx` de Drive (versión Apps Script) **[2026-09-29]**
+
+El servidor lee los `.xlsx` de la carpeta de Drive sin convertirlos a Hoja de cálculo de Google y aplica las mismas reglas de la sección 8.1.
+
+| Regla | Comportamiento |
+|---|---|
+| Archivos | CargaXCarrera aporta la oferta: cada hoja es una carrera, reconocida por el nombre de la hoja o por la columna CARRERA. CargaXDepartamento solo aporta las marcas de CONDICIÓN. CargaDeDocentes no se lee. |
+| Fechas | Una celda con formato de fecha se lee como la mostraría Excel: SEMESTRE `1-1` guardado como `45658` con formato `d-m` vuelve a ser `1-1`. |
+| Marcas de CONDICIÓN | Si una asignatura no trae OBSERVACIONES y su código tiene en CargaXDepartamento una CONDICIÓN que menciona INTERNACIONAL, VIRTUAL o FUSIÓN, esa condición pasa a ser su observación. |
+| Fusiones | Las fusiones anotadas en el Excel (`FUSIÓN ADM-2/COM-6`) quedan como texto en OBSERVACIONES: no se convierten en fusiones del sistema. |
+| Fila repetida | Si una hoja repite código y grupo, se conserva la primera fila y el tablero avisa con la hoja, la asignatura y el código, hasta que el Excel cambie. |
 
 ---
 
@@ -251,29 +259,29 @@ Una cabecera **repetida** es error. Es el caso del Excel actual, que tiene "HT" 
 
 | ID | Requisito | Fuente |
 |---|---|---|
-| RNF-01 | Autenticación con Google OAuth 2.0 restringida al dominio `@ulasalle.edu.pe`. | CU-001 |
-| RNF-02 | La autorización por rol y por carrera se valida en el **backend**, no solo en la interfaz. | Seguridad |
-| RNF-03 | Las reglas de validación (sección 8) se aplican en el backend, que es la fuente de verdad. El frontend puede prevalidar. | Consistencia |
+| RNF-01 | Acceso con cuenta de Google restringido al dominio `@ulasalle.edu.pe`. La aplicación web se publica solo para el dominio y el servidor vuelve a comprobar el dominio de la cuenta. | CU-001, [2026-09-29] |
+| RNF-02 | La autorización por rol y por carrera se valida en el **servidor** (Apps Script), no solo en la interfaz. | Seguridad |
+| RNF-03 | Las reglas de interpretación (sección 8) son un único código que usan el servidor y el navegador (`AppScript/Dominio.js`). | Consistencia |
 | RNF-04 | Cada guardado (versión, bitácora y liberación del bloqueo) es una **transacción atómica**. | [D] 1.ª revisión |
 | RNF-05 | Las advertencias son altamente visibles y están localizadas en fila y celda. | [P37] |
 | RNF-06 | La carga masiva minimiza el uso de formularios uno por uno. La preocupación del docente era la cantidad de clics. | [D] |
 | RNF-07 | Interfaz en español. Fechas en zona `America/Lima`. | Contexto |
 | RNF-08 | El tiempo de expiración del bloqueo es configurable (30 min por defecto). | [P40] |
-| RNF-09 | Stack: backend **Spring Boot + Java 21 + Maven**, **PostgreSQL**, migraciones **Flyway**, **Docker Compose**. Frontend **por decidir**. | [P22–P24] |
-| RNF-10 | Los datos maestros (carreras, departamentos, ciclos, usuarios y roles) se cargan con **migraciones Flyway** (seed). | [P29] |
+| RNF-09 | Stack: **Google Apps Script** (servidor y página con HtmlService). Los `.xlsx` de una carpeta de **Google Drive** son la fuente de la oferta y nunca se modifican. Una **hoja de cálculo de Google** guarda los planes, las versiones, los bloqueos y los usuarios. Reemplaza al stack Spring Boot + PostgreSQL + Flyway de P22–P24. | [2026-09-29] |
+| RNF-10 | Los usuarios y roles viven en la pestaña Usuarios de la hoja del sistema. Las carreras y los departamentos son constantes del código. Los ciclos y los parámetros son propiedades del script. La función `instalar()` crea la estructura y siembra los usuarios iniciales. | [P29], [2026-09-29] |
 
 ---
 
 ## 10. Resumen de decisiones del equipo
 
-Los códigos P## remiten a `preguntas.md` (archivo local).
+Los códigos P## remiten a `preguntas.md` (archivo local). Las decisiones marcadas **[2026-09-29]** se tomaron al pasar el prototipo a Google Apps Script y no tienen código P##.
 
 | Tema | Decisión |
 |---|---|
 | Registrado | Editable con advertencias; todo guardado versiona; restaurar crea una nueva versión (P01, P05, P25, P44, P45). |
 | Ciclo | Siempre editable, incluidos los ciclos anteriores (P02, P41). |
 | Alumnos y aforo | Fuera de alcance (P03). |
-| Errores de importación | Se rechaza todo el archivo con la lista completa de errores (P04, P06). |
+| Importación | Se interpreta y nunca se rechaza; lo que no se entiende se conserva como texto. Reemplaza el rechazo del archivo completo de P04 y P06 (CU-001 v4.0). |
 | Plantilla | Agrega MALLA, GRUPO y DPTO; DOCENTE, TURNO y otras columnas se ignoran (P07, P08, P11). |
 | Parser | Normaliza, acepta sinónimos, detecta la fila de cabeceras, pide elegir la hoja; GRUPO vacío es 1 (P27, P33–P35). |
 | DPTO | Obligatorio y solo con códigos oficiales; Humanidades es **DAHU** (P19–P21). |
@@ -285,7 +293,18 @@ Los códigos P## remiten a `preguntas.md` (archivo local).
 | Roles | Coordinador edita sus carreras; Director edita todas; todos consultan todas (P17, P43). |
 | Formatos | Pegar, `.xlsx` y `.csv` (P28). |
 | Fuera de fase 1 | Créditos y correo (P26, P30). |
-| Stack | Java 21, Maven, Spring Boot, PostgreSQL, Flyway; frontend por decidir (P22–P24). |
+| Stack | Google Apps Script + Google Drive + hoja de cálculo de Google. Reemplaza Java 21, Maven, Spring Boot, PostgreSQL y Flyway (P22–P24) [2026-09-29]. |
+| Fuente de datos | Los `.xlsx` de la carpeta de Drive se leen como base de datos y nunca se modifican. Lo editado, las versiones, los bloqueos y los usuarios se guardan en la hoja «SISCargaLectiva-BD» [2026-09-29]. |
+| Archivos leídos | CargaXCarrera aporta la oferta de cada carrera; CargaXDepartamento, solo las marcas de CONDICIÓN; CargaDeDocentes no se usa [2026-09-29]. |
+| Estado inicial | Cada carrera del xlsx entra en su ciclo (2026-1) como **Registrado v1**, con el tipo «importación desde xlsx» [2026-09-29]. |
+| Cambios en el xlsx | Si el xlsx cambia, cada plan cuyo contenido cambió recibe una versión «actualización desde xlsx»; el estado se conserva y nada se pierde del historial [2026-09-29]. |
+| Fusiones del Excel | Quedan como texto en OBSERVACIONES; no se convierten en fusiones del sistema [2026-09-29]. |
+| Fusión al editar | Solo entre grupos del plan en edición, como en el prototipo. La fusión con otras carreras (RF-048, RN-12 y RN-13 del CU) queda abierta: Q15 [2026-09-29]. |
+| Ciclos | Lista fija y configurable: 2026-1, 2026-2, 2027-1 y 2027-2 [2026-09-29]. |
+| Acceso | La aplicación web se ejecuta con la cuenta propietaria y se publica para el dominio; el correo sale de la sesión de Google y no se muestran nombre ni foto [2026-09-29]. |
+| Usuarios | Pestaña Usuarios, sembrada con las cuentas del equipo como Director. Una cuenta del dominio que no figure entra como Director; la propiedad `SIS_ROL_POR_DEFECTO` lo cambia [2026-09-29]. |
+| Configuración | Propiedades del script, creadas por `instalar()` [2026-09-29]. |
+| Correcciones del prototipo | Deshacer una fusión devuelve a cada grupo sus horas; un desdoble se puede quitar; importar toma solo las filas de la carrera del plan y avisa cuántas ignoró [2026-09-29]. |
 | Redacción de CU | Tabla de flujo Paso\|Responsable\|Acción (no Actor\|Sistema); sin sección de Postcondiciones; en el flujo de eventos, un paso nunca une dos acciones ni enumera en línea lo que el sistema muestra (va en guiones o entre paréntesis); el resto del documento usa "y"/"o" con normalidad (P77–P81). |
 
 ---
@@ -353,7 +372,7 @@ Mallas vistas: 2016, 2021, 2022 y 2024. Turnos vistos: Mañana, Tarde y Noche (n
 | CargaXCarrera | SEMESTRE `1-1`/`1-2` convertido por Excel en fechas (`45658`, `45689`, `46023`, `46054`). | Columna GRUPO (P07) |
 | CargaXCarrera | Desdoble de práctica escrito como `3 - 1` (HT3 HP2) y `3 - 2` (HT0 HP2). | Desdoble en el sistema (P10) |
 | CargaXCarrera | ICO: MALLA 2022 con códigos `…24`. | A01 |
-| CargaXCarrera | PSI: código `9.2.5.24` repetido en dos asignaturas distintas. | A03 |
+| CargaXCarrera | PSI: código `9.2.5.24` repetido en dos asignaturas distintas («Psicología del desarrollo I» y «Procesos básicos I»), ambas en el grupo 1. | Al leer el xlsx se conserva la primera fila y el tablero avisa (sección 8.4); Q16 |
 | CargaXCarrera | Fusiones anotadas como texto libre en OBSERVACIONES (`FUSIÓN ADM-4/ICO-4/COM-4`, `Fusión con ADM 3`…). | RF-028 |
 | CargaXCarrera | Fusiones con reparto HT/HP distinto (Epistemología ICO 2/2 y COM 4/0; Derechos Humanos). | P14, RF-047 |
 | CargaXCarrera | Mismo curso fusionado con DPTO distinto según la carrera (Liderazgo y Trabajo en Equipo: DAHUC y DACTE). | Posible inconsistencia a revisar en la fase 3 |
@@ -411,4 +430,6 @@ Mallas vistas: 2016, 2021, 2022 y 2024. Turnos vistos: Mañana, Tarde y Noche (n
 | Q11 | `.csv`: ¿qué delimitador (`,` o `;`) y qué codificación (UTF-8, Windows-1252)? | Equipo |
 | Q12 | ¿Se valida que el segmento de semestre del código coincida con SEMESTRE? | Equipo |
 | Q13 | **Prueba técnica:** verificar que pegar desde Google Sheets entrega texto tabulado (TSV) en el navegador objetivo. | Equipo |
-| Q14 | ¿Qué **frontend** se usará? Si es AppSheet, ver la advertencia sobre `.xlsx`. ¿La lectura del archivo se hace en el frontend o en el backend? | Equipo |
+| Q14 | ~~¿Qué **frontend** se usará? ¿La lectura del archivo se hace en el frontend o en el backend?~~ **Resuelta [2026-09-29]:** Google Apps Script. Los `.xlsx` de Drive los lee el servidor sin convertirlos a Hoja de cálculo de Google; el archivo que sube el usuario se lee en el navegador con SheetJS. | Equipo |
+| Q15 | **Fusión entre carreras.** RF-048 y las reglas RN-12 y RN-13 de CU-001 v4.0 piden fusionar con grupos de otras carreras, y el docente lo planteó así. La versión en Apps Script solo fusiona grupos del plan en edición, como el prototipo. ¿Se mantiene así o se implementa la fusión entre carreras? | Docente |
+| Q16 | En el Excel de Psicología, «Procesos básicos I» repite el código `9.2.5.24` de «Psicología del desarrollo I». ¿Cuál es su código correcto? Mientras no se corrija, esa fila no se lee y el tablero lo avisa. | Equipo |
