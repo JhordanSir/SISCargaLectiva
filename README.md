@@ -20,7 +20,7 @@ Hoy este proceso se lleva en varios Google Sheets separados, uno por carrera y o
 
 El **Coordinador de carrera** (en sus carreras) o el **Director de departamento** (en cualquier carrera) registra el plan de ciclo de una carrera:
 
-- **Los Excel son la fuente de datos.** La oferta de 2026-1 se lee de los `.xlsx` de una carpeta de Google Drive, sin convertirlos, y cada carrera arranca como *Registrado v1*. Si el Excel cambia, cada plan afectado recibe una versión nueva. Los `.xlsx` nunca se modifican.
+- **Los Excel son la fuente de datos.** La oferta de 2026-1 se lee de los `.xlsx` de una carpeta de Google Drive, sin convertirlos, y cada carrera arranca como *Registrado v1*. Si el Excel cambia, cada plan afectado recibe una versión nueva. Los `.xlsx` nunca se modifican. La carpeta se revisa como mucho cada 5 minutos; el botón **Releer Excel** del tablero la revisa en el momento.
 - **Carga masiva:** se pega desde Google Sheets o se sube un `.xlsx` o `.csv`. El sistema no valida: interpreta lo que recibe y nunca rechaza una carga (CU-001 v4.0). Solo toma las filas de la carrera del plan.
 - **Grilla por semestre** para editar horas, asignaturas y grupos: agregar grupos, desdoblar la práctica o la teoría y fusionar grupos del plan, siempre con aviso y sin bloquear.
 - **Estados** Sin Iniciar → Borrador → Registrado. Un plan Registrado sigue siendo editable y **cada guardado genera una versión**, que se puede restaurar.
@@ -84,9 +84,10 @@ Vive en las propiedades del script (**Configuración del proyecto → Propiedade
 | `SIS_MAX_SUBGRUPOS` | `5` | Máximo de subgrupos de un desdoble parcial. |
 | `SIS_CICLOS` | `2026-1,2026-2,2027-1,2027-2` | Ciclos del selector. |
 | `SIS_CICLO_XLSX` | `2026-1` | Ciclo al que pertenecen los `.xlsx`. |
+| `SIS_MINUTOS_REVISION_XLSX` | `5` | Cada cuántos minutos, como máximo, se mira si los `.xlsx` de la carpeta cambiaron. Con `0` se mira en cada carga del tablero, que es más lento. |
 | `SIS_ROL_POR_DEFECTO` | `director` | Rol de una cuenta del dominio que no está en la pestaña Usuarios: `director`, `coordinador` (solo consulta) o `ninguno` (acceso denegado). |
 
-Los usuarios se gestionan en la pestaña **Usuarios** de la hoja del sistema, con tres columnas: `correo`, `rol` (`director` o `coordinador`) y `carreras` (siglas separadas por comas, solo para coordinadores). `instalar()` la siembra con las cuentas del equipo como Director.
+Los usuarios se gestionan en la pestaña **Usuarios** de la hoja del sistema, con tres columnas: `correo`, `rol` (`director` o `coordinador`) y `carreras` (siglas separadas por comas, solo para coordinadores). `instalar()` la siembra con las cuentas del equipo como Director. Un cambio en esa pestaña tarda hasta 5 minutos en aplicarse, porque el rol de cada cuenta se guarda en caché.
 
 ### Probar sin Google
 
