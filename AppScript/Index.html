@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<?!= include("Estilos") ?>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+
+<div class="cargando" id="cargando" hidden></div>
+
+<header class="barra">
+  <div class="marca"><b>SISCargaLectiva</b><span>Planes de Ciclo</span></div>
+  <div class="usuario" id="usuario" hidden>
+    <div class="datos"><b id="u-correo"></b><span id="u-rol"></span></div>
+  </div>
+</header>
+
+<div class="lienzo">
+
+  <!-- ===== Sistema sin instalar ===== -->
+  <section class="panel" id="v-instalar" hidden>
+    <div class="panel-cab"><h2>El sistema todavía no está instalado</h2></div>
+    <div class="panel-cuerpo">
+      <div class="nota aviso">Faltan la carpeta de Drive y la hoja de cálculo del sistema. La cuenta propietaria del script debe instalarlas una vez.</div>
+      <ol class="pasos-guia">
+        <li>Abre el proyecto en el editor de Apps Script (<code>clasp open-script</code>).</li>
+        <li>Elige la función <code>instalar</code> y pulsa <b>Ejecutar</b>. Acepta los permisos que pide Google.</li>
+        <li>El registro de ejecución muestra el enlace de la carpeta <b>SISCargaLectiva</b>. Sube ahí los archivos <code>CargaXCarrera</code> y <code>CargaXDepartamento</code> (.xlsx, sin convertir).</li>
+        <li>Recarga esta página.</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ===== Acceso denegado ===== -->
+  <section class="panel" id="v-denegado" hidden>
+    <div class="panel-cab"><h2 id="denegado-titulo">Acceso denegado</h2></div>
+    <div class="panel-cuerpo">
+      <div class="nota error" id="denegado-msg"></div>
+      <p style="margin-top:12px;font-size:12.5px;color:var(--ink-soft)">Si tienes varias cuentas de Google abiertas, cambia a tu cuenta institucional y recarga la página.</p>
+    </div>
+  </section>
+
+  <!-- ===== Menú ===== -->
+  <section class="panel" id="v-menu" hidden>
+    <div class="panel-cab"><h2>Menú principal</h2></div>
+    <div class="panel-cuerpo">
+      <div class="menu">
+        <button class="menu-op" id="op-planes">
+          <span><b>Gestión de Planes de Ciclo</b><small>Registrar y editar la oferta académica por carrera</small></span>
+        </button>
+        <button class="menu-op" disabled>
+          <span><b>Asignar docentes al plan de ciclo</b><small>Disponible en una fase posterior</small></span>
+        </button>
+        <button class="menu-op" disabled>
+          <span><b>Reporte de carga lectiva</b><small>Disponible en una fase posterior</small></span>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Planes / tablero ===== -->
+  <section class="panel" id="v-planes" hidden>
+    <div class="panel-cab">
+      <button class="btn volver" data-volver="menu">← Volver al menú</button>
+      <h2>Planes de ciclo</h2>
+    </div>
+    <div class="panel-cuerpo">
+      <div class="campo" style="max-width:240px">
+        <label for="sel-ciclo">Ciclo académico</label>
+        <select id="sel-ciclo"></select>
+      </div>
+      <div id="avisos-tablero" hidden></div>
+      <p class="etq" style="margin-bottom:7px">Tablero de monitoreo general</p>
+      <div class="tabla-caja" style="margin-bottom:8px">
+        <table>
+          <thead><tr>
+            <th>Carrera</th><th>Estado</th><th class="num">Sem.</th><th class="num">Asig.</th>
+            <th class="num">Grupos</th><th class="num">Horas</th><th>Versión</th><th>Editando</th><th></th>
+          </tr></thead>
+          <tbody id="tb-tablero"></tbody>
+        </table>
+      </div>
+      <p style="font-size:12px;color:var(--ink-faint)">
+        Pulsa una fila para consultar el plan en solo lectura. Usa <b>Editar</b> en las carreras que tengas autorizadas.
+      </p>
+    </div>
+  </section>
+
+  <!-- ===== Carga masiva ===== -->
+  <section class="panel" id="v-carga" hidden>
+    <div class="panel-cab">
+      <button class="btn volver" id="volver-carga">← Volver al tablero</button>
+      <h2 id="carga-titulo">Carga masiva de la oferta</h2>
+      <span class="reloj" id="reloj-carga"></span>
+    </div>
+    <div class="panel-cuerpo">
+      <div class="nota ok" id="nota-bloqueo"></div>
+      <p class="etq" style="margin:18px 0 8px">Opciones de carga</p>
+      <div class="barra-acciones">
+        <button class="btn primario" id="op-pegar">Pegar desde Google Sheets</button>
+        <button class="btn" id="op-archivo">Subir archivo</button>
+        <button class="btn" id="op-plantilla">Descargar plantilla oficial</button>
+      </div>
+      <input type="file" id="input-archivo" hidden>
+      <div class="nota" style="margin-top:16px">
+        <b>Columnas de la plantilla oficial:</b>
+        <code>CARRERA · MALLA · SEMESTRE · CÓDIGO · ASIGNATURA · GRUPO · HT · HP · TOTAL HORAS · DPTO · OBSERVACIONES</code>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Pegado ===== -->
+  <section class="panel" id="v-pegado" hidden>
+    <div class="panel-cab">
+      <button class="btn volver" data-volver="carga">← Volver a las opciones de carga</button>
+      <h2>Pegar desde Google Sheets</h2>
+      <span class="reloj" id="reloj-pegado"></span>
+    </div>
+    <div class="panel-cuerpo">
+      <p class="etq" style="margin-bottom:7px">Copia el rango completo en Google Sheets, incluida la fila de cabeceras, y pégalo aquí</p>
+      <div class="hoja" id="hoja-pegado" tabindex="0" role="group"
+           aria-label="Área de pegado. Pulsa Ctrl+V para pegar el rango copiado.">
+        <div class="hoja-vacia" id="hoja-vacia">
+          <b>Pega aquí el rango</b>
+          <small>Ctrl+V &nbsp;·&nbsp; Cmd+V en Mac</small>
+        </div>
+        <div class="hoja-scroll" id="hoja-scroll" hidden></div>
+      </div>
+      <div class="hoja-pie" id="hoja-pie" hidden></div>
+      <div class="barra-acciones" style="margin-top:14px">
+        <button class="btn primario" id="procesar-pegado" disabled>Procesar contenido</button>
+        <button class="btn" id="limpiar-pegado" disabled>Limpiar</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Grilla ===== -->
+  <section class="panel" id="v-grilla" hidden>
+    <div class="panel-cab">
+      <button class="btn volver" id="volver-grilla">← Salir de la edición</button>
+      <h2 id="grilla-titulo">Vista previa del plan</h2>
+      <span class="reloj" id="reloj-grilla"></span>
+    </div>
+    <div class="panel-cuerpo">
+      <div class="nota aviso" id="nota-estado" hidden></div>
+      <div class="nota aviso" id="nota-importacion" hidden></div>
+      <p class="etq" style="margin:14px 0 7px">Resumen global</p>
+      <dl class="resumen" id="resumen"></dl>
+
+      <div class="barra-acciones" style="margin:16px 0 12px">
+        <button class="btn" id="btn-colapsar">Colapsar todo</button>
+        <button class="btn" data-acc="agregar-asignatura">Agregar asignatura</button>
+        <button class="btn" data-acc="grupo-semestre">Agregar grupo al semestre</button>
+        <button class="btn" data-acc="fusionar">Fusionar grupos</button>
+        <button class="btn" data-acc="historial">Historial de versiones</button>
+      </div>
+
+      <div id="bloques"></div>
+
+      <p class="etq" style="margin:18px 0 7px">Acciones sobre la fila seleccionada</p>
+      <div class="barra-acciones" id="acciones-fila">
+        <button class="btn" data-acc="editar" data-req="sel">Editar HT / HP</button>
+        <button class="btn" data-acc="agregar-grupo" data-req="sel">Agregar grupo</button>
+        <button class="btn" data-acc="desdoblar" data-req="sel">Desdoblar</button>
+        <button class="btn" data-acc="quitar-desdoble" data-req="des">Quitar desdoble</button>
+        <button class="btn" data-acc="deshacer-fusion" data-req="fus">Deshacer fusión</button>
+        <button class="btn peligro" data-acc="eliminar-grupo" data-req="sel">Eliminar grupo</button>
+        <button class="btn peligro" data-acc="eliminar-asignatura" data-req="sel">Eliminar asignatura</button>
+      </div>
+
+      <p class="etq" style="margin:18px 0 7px">Guardado</p>
+      <div class="barra-acciones">
+        <button class="btn primario" id="btn-registrar"></button>
+        <button class="btn" id="btn-borrador">Guardar borrador</button>
+        <button class="btn" data-acc="reemplazar">Reemplazar contenido</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Solo lectura ===== -->
+  <section class="panel" id="v-lectura" hidden>
+    <div class="panel-cab">
+      <button class="btn volver" data-volver="planes">← Volver al tablero</button>
+      <h2 id="lectura-titulo">Consulta del plan</h2>
+    </div>
+    <div class="panel-cuerpo">
+      <div class="nota" id="lectura-nota"></div>
+      <p class="etq" style="margin:14px 0 7px">Resumen global</p>
+      <dl class="resumen" id="lectura-resumen"></dl>
+      <div id="lectura-bloques" style="margin-top:14px"></div>
+    </div>
+  </section>
+
+  <!-- ===== Registro completado ===== -->
+  <section class="panel" id="v-exito" hidden>
+    <div class="panel-cab">
+      <button class="btn volver" data-volver="planes">← Volver al tablero</button>
+      <h2>Registro completado</h2>
+    </div>
+    <div class="panel-cuerpo">
+      <div class="nota ok" id="exito-nota"></div>
+      <div class="barra-acciones" style="margin-top:16px">
+        <button class="btn" id="exito-editar">Seguir editando el plan</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<footer class="pie-marca">
+  <div class="interior">
+    <span class="logo-wayra" role="img" aria-label="Wayrasimi S.A.C.S."></span>
+    <span class="txt">Powered by <b>Wayrasimi S.A.C.S.</b></span>
+  </div>
+</footer>
+
+<dialog id="dlg">
+  <div class="dlg-cab"><h3 id="dlg-titulo"></h3></div>
+  <div class="dlg-cuerpo" id="dlg-cuerpo"></div>
+  <div class="dlg-pie" id="dlg-pie"></div>
+</dialog>
+
+<div class="brindis" id="brindis"></div>
+
+<script>var SIS = <?!= inicial ?>;</script>
+<script>var Dominio = <?!= dominio ?>;</script>
+<?!= include("App") ?>
+</body>
+</html>

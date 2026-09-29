@@ -1,0 +1,1097 @@
+<script>
+"use strict";
+
+/* ============================================================
+   Configuración y datos maestros (llegan del servidor en SIS y Dominio)
+   ============================================================ */
+const CONFIG = SIS.config;
+const { CARRERAS, DPTOS, ESTADOS, num, th, totales, matrizDesdeTexto, ubicarCabeceras, interpretar, nombreCarrera } = Dominio;
+
+/* ============================================================
+   Estado de la página
+   ============================================================ */
+const app = {
+  usuario: SIS.usuario || null,   // {correo, rol, carreras}
+  ciclo: CONFIG.ciclo,
+  tablero: [],                    // filas del último tablero leído
+  carrera: null,                  // sigla del plan en edición
+  plan: null,                     // {estado, version, asignaturas, sucio}
+  seleccion: null,                // {ci, gi}
+  colapsados: new Set(),
+  matrizPegada: null,             // contenido pegado, ya dividido en filas y columnas
+  avisoImportacion: "",
+  vista: null
+};
+
+/* Bloqueo de edición: la hora de caducidad la fija el servidor y el latido la renueva. */
+const edicion = { expira: 0, temporizador: null, ultimoLatido: 0 };
+
+/* ============================================================
+   Utilidades
+   ============================================================ */
+const $  = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const esc = t => String(t == null ? "" : t).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+const fecha = iso => { const d = new Date(iso); return isNaN(d) ? String(iso || "") : d.toLocaleString("es-PE", { dateStyle:"short", timeStyle:"short" }); };
+const hora = iso => { const d = new Date(iso); return isNaN(d) ? "" : d.toLocaleTimeString("es-PE", { hour:"2-digit", minute:"2-digit" }); };
+
+const VISTAS = ["instalar","denegado","menu","planes","carga","pegado","grilla","lectura","exito"];
+function mostrar(v){
+  const cambia = app.vista !== v;
+  VISTAS.forEach(x => { $("#v-" + x).hidden = (x !== v); });
+  app.vista = v;
+  if (cambia) window.scrollTo({ top:0, behavior:"instant" });
+}
+
+function aviso(texto){
+  const d = document.createElement("div");
+  d.textContent = texto;
+  $("#brindis").appendChild(d);
+  setTimeout(() => d.remove(), 3400);
+}
+
+/* Diálogo genérico. acciones: [{texto, clase, valor}]. Devuelve una promesa.
+   Una pregunta nueva sustituye a la que esté abierta, que se resuelve con null. */
+const dlg = $("#dlg");
+let terminarPregunta = null;
+function preguntar({ titulo, cuerpo, acciones }){
+  if (terminarPregunta) terminarPregunta(null);
+  return new Promise(resolve => {
+    let resuelto = false;
+    /* El evento close llega después de cerrar; si para entonces ya se abrió otra
+       pregunta, pertenece a la anterior y se ignora. */
+    const alCerrar = () => { if (!dlg.open) terminar(null); };
+    function terminar(v){
+      if (resuelto) return;
+      resuelto = true;
+      dlg.removeEventListener("close", alCerrar);
+      if (terminarPregunta === terminar) terminarPregunta = null;
+      resolve(v);
+    }
+    terminarPregunta = terminar;
+
+    $("#dlg-titulo").textContent = titulo;
+    $("#dlg-cuerpo").innerHTML = cuerpo;
+    const pie = $("#dlg-pie");
+    pie.innerHTML = "";
+    acciones.forEach(a => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "btn " + (a.clase || "");
+      b.textContent = a.texto;
+      /* Se resuelve antes de cerrar: el contenido sigue en el DOM, de modo que
+         un «valor» que sea función pueda leer los campos del formulario. */
+      b.onclick = () => { terminar(a.valor); dlg.close(); };
+      pie.appendChild(b);
+    });
+    dlg.addEventListener("close", alCerrar);
+    if (!dlg.open) dlg.showModal();
+  });
+}
+dlg.addEventListener("cancel", e => { e.preventDefault(); dlg.close(); });
+
+/* ============================================================
+   Llamadas al servidor
+   ============================================================ */
+let pendientes = 0;
+function invocar(nombre, args, visible){
+  if (visible) { pendientes++; $("#cargando").hidden = false; document.body.classList.add("ocupado"); }
+  return new Promise((ok, mal) => {
+    const fin = () => {
+      if (!visible) return;
+      pendientes = Math.max(0, pendientes - 1);
+      if (!pendientes) { $("#cargando").hidden = true; document.body.classList.remove("ocupado"); }
+    };
+    google.script.run
+      .withSuccessHandler(r => { fin(); ok(r); })
+      .withFailureHandler(e => { fin(); mal(e); })[nombre](...args);
+  });
+}
+const llamar = (nombre, ...args) => invocar(nombre, args, true);
+const llamarEnSilencio = (nombre, ...args) => invocar(nombre, args, false);
+
+function informarError(e){
+  return preguntar({
+    titulo: "No se pudo completar la operación",
+    cuerpo: '<div class="nota error">' + esc((e && e.message) || e) + "</div>",
+    acciones: [{ texto:"Entendido", clase:"primario", valor:true }]
+  });
+}
+
+/* ============================================================
+   Bloqueo de edición
+   ============================================================ */
+function iniciarReloj(expira){
+  edicion.expira = Date.parse(expira);
+  edicion.ultimoLatido = Date.now();
+  clearInterval(edicion.temporizador);
+  edicion.temporizador = setInterval(tic, 1000);
+  pintarReloj();
+}
+function detenerReloj(){
+  clearInterval(edicion.temporizador); edicion.temporizador = null;
+  $$(".reloj").forEach(e => e.textContent = "");
+}
+const quedan = () => Math.max(0, Math.ceil((edicion.expira - Date.now()) / 1000));
+
+function tic(){
+  pintarReloj();
+  if (Date.now() >= edicion.expira) expirar();
+}
+function pintarReloj(){
+  const q = quedan(), m = Math.floor(q / 60), s = q % 60;
+  const txt = "Sesión de edición: " + m + ":" + String(s).padStart(2, "0");
+  $$(".reloj").forEach(e => {
+    e.textContent = txt;
+    e.classList.toggle("poco", q <= 60);
+  });
+}
+
+/* La actividad renueva el bloqueo en el servidor, como mucho una vez por minuto. */
+async function latido(){
+  if (!edicion.temporizador || !app.carrera) return;
+  const intervalo = Math.min(60000, CONFIG.minutosBloqueo * 15000);
+  if (Date.now() - edicion.ultimoLatido < intervalo) return;
+  edicion.ultimoLatido = Date.now();
+  const sig = app.carrera;
+  try {
+    const r = await llamarEnSilencio("renovarBloqueo", app.ciclo, sig);
+    if (app.carrera !== sig || !edicion.temporizador) return;
+    if (r.perdido) return bloqueoPerdido(r.perdido.correo);
+    edicion.expira = Date.parse(r.expira);
+    pintarReloj();
+  } catch (e) {
+    /* Si falla, la siguiente actividad lo vuelve a intentar. */
+  }
+}
+
+async function bloqueoPerdido(correo){
+  detenerReloj();
+  app.carrera = null; app.plan = null; app.seleccion = null;
+  mostrar("planes");
+  cargarTablero();
+  await preguntar({
+    titulo: "Se perdió el bloqueo de edición",
+    cuerpo: '<div class="nota aviso">Tu bloqueo caducó y ahora el plan lo está editando <b>' + esc(correo) +
+            "</b>. Los cambios que no habías guardado no se pudieron conservar.</div>",
+    acciones: [{ texto:"Entendido", clase:"primario", valor:true }]
+  });
+}
+
+async function expirar(){
+  if (!edicion.temporizador) return;
+  detenerReloj();
+  const sig = app.carrera, p = app.plan;
+  let resultado = "sin cambios";
+  if (p && p.sucio && p.asignaturas.length) {
+    try {
+      await llamar("guardarPlan", app.ciclo, sig, {
+        asignaturas: p.asignaturas, versionBase: p.version, forzar: true, tipo: "autoguardado",
+        estado: p.estado === ESTADOS.REGISTRADO ? ESTADOS.REGISTRADO : ESTADOS.BORRADOR
+      });
+      resultado = "guardado";
+    } catch (e) {
+      resultado = (e && e.message) || String(e);
+    }
+  }
+  try { await llamarEnSilencio("liberarBloqueo", app.ciclo, sig); } catch (e) { /* caduca solo */ }
+  app.carrera = null; app.plan = null; app.seleccion = null;
+  mostrar("planes");
+  cargarTablero();
+  const texto = resultado === "guardado"
+    ? "Los cambios sin guardar se almacenaron como una nueva versión y se liberó el bloqueo del plan."
+    : resultado === "sin cambios"
+      ? "No había cambios sin guardar. Se liberó el bloqueo del plan."
+      : "No se pudieron guardar los cambios: " + resultado;
+  await preguntar({
+    titulo: "La sesión de edición ha expirado",
+    cuerpo: '<div class="nota aviso">Transcurrieron ' + CONFIG.minutosBloqueo + " minutos sin actividad. " + esc(texto) + "</div>",
+    acciones: [{ texto:"Entendido", clase:"primario", valor:true }]
+  });
+}
+
+/* Libera el bloqueo y vuelve al tablero, descartando lo no guardado. */
+async function terminarEdicion(){
+  const sig = app.carrera;
+  detenerReloj();
+  app.carrera = null; app.plan = null; app.seleccion = null;
+  pintarTablero();
+  mostrar("planes");
+  if (sig) { try { await llamarEnSilencio("liberarBloqueo", app.ciclo, sig); } catch (e) { /* caduca solo */ } }
+  cargarTablero();
+}
+
+["click","keydown"].forEach(ev => document.addEventListener(ev, latido, { passive:true }));
+window.addEventListener("pagehide", () => {
+  if (edicion.temporizador && app.carrera) google.script.run.liberarBloqueo(app.ciclo, app.carrera);
+});
+
+/* ============================================================
+   Vistas
+   ============================================================ */
+$("#op-planes").onclick = () => { pintarTablero(); mostrar("planes"); cargarTablero(); };
+
+$$("[data-volver]").forEach(b => { b.onclick = () => {
+  const destino = b.dataset.volver;
+  mostrar(destino);
+  if (destino === "planes") { pintarTablero(); cargarTablero(); }
+}; });
+
+$("#sel-ciclo").innerHTML = CONFIG.ciclos.map(c => "<option" + (c === app.ciclo ? " selected" : "") + ">" + esc(c) + "</option>").join("");
+$("#sel-ciclo").onchange = e => { app.ciclo = e.target.value; app.tablero = []; pintarTablero(); cargarTablero(); };
+
+async function cargarTablero(){
+  const ciclo = app.ciclo;
+  try {
+    const r = await llamar("obtenerTablero", ciclo);
+    if (ciclo !== app.ciclo) return;
+    app.tablero = r.filas;
+    const avisos = r.avisos || [];
+    $("#avisos-tablero").innerHTML = avisos.map(a => '<div class="nota aviso">' + esc(a) + "</div>").join("");
+    $("#avisos-tablero").hidden = !avisos.length;
+    pintarTablero();
+  } catch (e) {
+    informarError(e);
+  }
+}
+
+function pintarTablero(){
+  $("#tb-tablero").innerHTML = app.tablero.map(f => {
+    const t = f.totales || {};
+    const otro = f.bloqueo && f.bloqueo.correo !== app.usuario.correo;
+    const cls = otro ? "bloqueado" : f.estado === ESTADOS.REGISTRADO ? "registrado" : f.estado === ESTADOS.BORRADOR ? "borrador" : "sin";
+    const puede = app.usuario.carreras.includes(f.sig);
+    const v = f.version ? "v" + f.version : "—";
+    return '<tr class="pulsable" data-sig="' + f.sig + '">' +
+      "<td><b>" + esc(f.nombre) + '</b> <span class="cod" style="color:var(--ink-faint)">' + f.sig + "</span></td>" +
+      '<td><span class="pill ' + cls + '">' + (otro ? "Bloqueado" : esc(f.estado)) + "</span></td>" +
+      '<td class="num">' + (t.sem || "—") + '</td><td class="num">' + (t.asig || "—") + "</td>" +
+      '<td class="num">' + (t.grupos || "—") + '</td><td class="num">' + (t.dictado || "—") + "</td>" +
+      '<td class="cod">' + v + "</td>" +
+      '<td class="cod" style="font-size:11px;color:var(--ink-faint)">' + (f.bloqueo ? esc(f.bloqueo.correo) : "—") + "</td>" +
+      '<td style="text-align:right">' + (puede
+        ? '<button class="btn" data-editar="' + f.sig + '" style="padding:4px 10px;font-size:12px">Editar</button>'
+        : "") + "</td></tr>";
+  }).join("");
+
+  $$("#tb-tablero tr").forEach(tr => {
+    tr.onclick = e => { if (!e.target.closest("[data-editar]")) abrirLectura(tr.dataset.sig); };
+  });
+  $$("#tb-tablero [data-editar]").forEach(b => {
+    b.onclick = e => { e.stopPropagation(); abrirEdicion(b.dataset.editar); };
+  });
+}
+
+async function abrirLectura(sig){
+  let p;
+  try { p = await llamar("obtenerPlan", app.ciclo, sig); } catch (e) { return informarError(e); }
+  mostrar("lectura");
+  $("#lectura-titulo").textContent = "Consulta · " + nombreCarrera(sig) + " · " + app.ciclo;
+  $("#lectura-nota").innerHTML = p.asignaturas.length
+    ? "Plan en estado <b>" + esc(p.estado) + "</b>, versión <b>v" + p.version + "</b>. Vista de solo lectura." +
+      (p.bloqueo ? " Lo está editando <b>" + esc(p.bloqueo.correo) + "</b>." : "")
+    : "Esta carrera todavía no tiene ninguna asignatura registrada en " + esc(app.ciclo) + ".";
+  pintarResumen($("#lectura-resumen"), p.asignaturas);
+  $("#lectura-bloques").innerHTML = htmlBloques(p.asignaturas, false);
+}
+
+async function abrirEdicion(sig){
+  let r;
+  try { r = await llamar("abrirEdicion", app.ciclo, sig); } catch (e) { return informarError(e); }
+  if (r.bloqueado) {
+    await preguntar({
+      titulo: "El plan está siendo editado",
+      cuerpo: '<div class="nota aviso">Lo está editando <b>' + esc(r.bloqueado.correo) + "</b> desde las " +
+              esc(hora(r.bloqueado.desde)) + ". Puedes consultarlo en solo lectura.</div>",
+      acciones: [{ texto:"Consultar en solo lectura", clase:"primario", valor:true }]
+    });
+    return abrirLectura(sig);
+  }
+
+  app.carrera = sig;
+  app.plan = { estado: r.estado, version: r.version, asignaturas: r.asignaturas, sucio: false };
+  app.seleccion = null;
+  app.colapsados.clear();
+  app.avisoImportacion = "";
+  iniciarReloj(r.expira);
+
+  if (app.plan.asignaturas.length) { pintarGrilla(); return; }
+  irACarga();
+}
+
+function irACarga(){
+  $("#carga-titulo").textContent = "Carga masiva · " + nombreCarrera(app.carrera);
+  $("#nota-bloqueo").innerHTML =
+    "Tienes el <b>bloqueo de edición</b> del plan de " + esc(nombreCarrera(app.carrera)) + " para " + esc(app.ciclo) +
+    ". Expira tras " + CONFIG.minutosBloqueo + " minutos de inactividad; mientras tanto, los demás usuarios lo ven en solo lectura.";
+  mostrar("carga");
+}
+
+$("#volver-carga").onclick = () => terminarEdicion();
+
+/* ---------- pegado ---------- */
+$("#op-pegar").onclick = () => { mostrar("pegado"); limpiarHoja(); $("#hoja-pegado").focus(); };
+
+/* ---------- área de pegado con forma de hoja de cálculo ---------- */
+const MAX_FILAS_VISTA = 300;          // tope de filas dibujadas; se procesan todas
+const hoja = $("#hoja-pegado");
+
+/* Nombre de columna al estilo de una hoja: A, B, … Z, AA, AB… */
+function letraColumna(i){
+  let s = "";
+  for (i++; i > 0; i = Math.floor((i - 1) / 26)) s = String.fromCharCode(65 + (i - 1) % 26) + s;
+  return s;
+}
+
+function limpiarHoja(){
+  app.matrizPegada = null;
+  $("#hoja-scroll").hidden = true;
+  $("#hoja-scroll").innerHTML = "";
+  $("#hoja-vacia").hidden = false;
+  $("#hoja-pie").hidden = true;
+  $("#procesar-pegado").disabled = true;
+  $("#limpiar-pegado").disabled = true;
+}
+
+function pintarHoja(matriz){
+  app.matrizPegada = matriz;
+  const columnas = matriz.reduce((n, f) => Math.max(n, f.length), 0);
+  const cab = ubicarCabeceras(matriz);
+  const filaCab = cab && !cab.faltan.length && !cab.repetidas.length ? cab.fila : -1;
+  const visibles = matriz.slice(0, MAX_FILAS_VISTA);
+
+  const encabezado = "<thead><tr><th></th>" +
+    Array.from({ length: columnas }, (_, j) => "<th>" + letraColumna(j) + "</th>").join("") +
+    "</tr></thead>";
+
+  const cuerpo = "<tbody>" + visibles.map((f, i) => {
+    const celdas = Array.from({ length: columnas }, (_, j) => {
+      const v = f[j] == null ? "" : f[j];
+      return "<td" + (v === "" ? ' class="vacia"' : "") + ' title="' + esc(v) + '">' +
+             (v === "" ? "" : esc(v)) + "</td>";
+    }).join("");
+    return "<tr" + (i === filaCab ? ' class="fila-cabecera"' : "") + "><th>" + (i + 1) + "</th>" + celdas + "</tr>";
+  }).join("") + "</tbody>";
+
+  $("#hoja-scroll").innerHTML = "<table>" + encabezado + cuerpo + "</table>";
+  $("#hoja-scroll").hidden = false;
+  $("#hoja-vacia").hidden = true;
+
+  const partes = [
+    '<span><span class="dato">' + matriz.length + "</span> fila(s) × " +
+      '<span class="dato">' + columnas + "</span> columna(s)</span>"
+  ];
+  if (filaCab >= 0) partes.push("Cabeceras detectadas en la fila <span class=\"dato\">" + (filaCab + 1) + "</span>");
+  else partes.push('<span style="color:var(--aviso)">No se reconocen las cabeceras de la plantilla oficial</span>');
+  if (matriz.length > MAX_FILAS_VISTA)
+    partes.push("Se muestran las primeras " + MAX_FILAS_VISTA + "; se procesarán todas");
+  $("#hoja-pie").innerHTML = partes.join(" · ");
+  $("#hoja-pie").hidden = false;
+
+  $("#procesar-pegado").disabled = false;
+  $("#limpiar-pegado").disabled = false;
+}
+
+function recibirPegado(e){
+  if (app.vista !== "pegado") return;
+  const texto = (e.clipboardData || window.clipboardData).getData("text/plain");
+  if (!texto || !texto.trim()) return;
+  e.preventDefault();
+  const matriz = matrizDesdeTexto(texto);
+  if (!matriz.length) return aviso("El contenido pegado está vacío.");
+  pintarHoja(matriz);
+  latido();
+  aviso("Pegadas " + matriz.length + " filas");
+}
+
+/* Se escucha en el documento para que el pegado funcione con o sin foco en la rejilla. */
+document.addEventListener("paste", recibirPegado);
+hoja.addEventListener("click", () => hoja.focus());
+
+/* Arrastrar y soltar un archivo de texto sobre la rejilla también rellena la hoja. */
+["dragenter","dragover"].forEach(ev => hoja.addEventListener(ev, e => {
+  e.preventDefault(); hoja.classList.add("encima");
+}));
+["dragleave","drop"].forEach(ev => hoja.addEventListener(ev, e => {
+  e.preventDefault(); hoja.classList.remove("encima");
+}));
+hoja.addEventListener("drop", async e => {
+  const f = e.dataTransfer && e.dataTransfer.files[0];
+  if (!f) return;
+  const m = matrizDesdeTexto(await f.text());
+  if (m.length) pintarHoja(m);
+});
+
+$("#limpiar-pegado").onclick = () => { limpiarHoja(); hoja.focus(); };
+$("#procesar-pegado").onclick = () => {
+  if (!app.matrizPegada) return aviso("Pega primero el rango copiado desde Google Sheets.");
+  procesar(app.matrizPegada);
+};
+
+/* ---------- archivo ---------- */
+$("#op-archivo").onclick = () => $("#input-archivo").click();
+$("#input-archivo").onchange = e => { const f = e.target.files[0]; if (f) leerArchivo(f); e.target.value = ""; };
+
+/* Acepta cualquier archivo. Intenta leerlo como libro de cálculo y, si no lo es,
+   como texto plano. No hay extensiones prohibidas ni formatos rechazados. */
+async function leerArchivo(file){
+  const ext = ((file.name.match(/\.([^.]+)$/) || [])[1] || "").toLowerCase();
+  const pareceLibro = ["xlsx","xlsm","xlsb","xls","ods"].includes(ext);
+
+  if (pareceLibro && typeof XLSX !== "undefined") {
+    try {
+      const libro = XLSX.read(await file.arrayBuffer(), { type:"array" });
+      let hojaLibro = libro.SheetNames[0];
+
+      if (libro.SheetNames.length > 1) {
+        const elegida = await preguntar({
+          titulo: "El libro contiene varias hojas",
+          cuerpo: '<p style="font-size:13px;margin-bottom:10px">Elige la hoja que quieres importar.</p>' +
+            '<div class="campo"><select id="sel-hoja">' +
+            libro.SheetNames.map(n => "<option>" + esc(n) + "</option>").join("") + "</select></div>",
+          acciones: [
+            { texto:"Cancelar", valor:null },
+            { texto:"Importar la hoja", clase:"primario", valor:() => $("#sel-hoja").value }
+          ]
+        });
+        if (!elegida) return;
+        hojaLibro = elegida();
+      }
+
+      const matriz = XLSX.utils.sheet_to_json(libro.Sheets[hojaLibro], { header:1, raw:false, defval:"" })
+        .map(f => f.map(c => String(c == null ? "" : c).trim()));
+      return procesar(matriz);
+    } catch (e) {
+      /* Si no se deja leer como libro, se intenta como texto. */
+    }
+  }
+
+  let texto = "";
+  try { texto = await file.text(); } catch (e) { texto = ""; }
+  const matriz = matrizDesdeTexto(texto);
+  if (!matriz.length) {
+    aviso("No se pudo sacar nada de «" + file.name + "».");
+    return;
+  }
+  procesar(matriz);
+}
+
+/* ---------- procesar ---------- */
+/* Nunca falla: lo que se pueda interpretar entra, y el resto se queda como texto.
+   Solo se toman las filas de la carrera en edición (o sin carrera). */
+async function procesar(matriz){
+  const { asignaturas, ignoradas } = interpretar(matriz, { carrera: app.carrera });
+  const p = app.plan;
+
+  if (p.asignaturas.length) {
+    const seguir = await preguntar({
+      titulo: "Reemplazar el contenido del plan",
+      cuerpo: '<div class="nota aviso">Se reemplazará todo el contenido actual del plan. Se perderán los desdobles, ' +
+              "los ajustes manuales y las fusiones.</div>",
+      acciones: [{ texto:"Cancelar", valor:null }, { texto:"Reemplazar", clase:"primario", valor:true }]
+    });
+    if (!seguir) return;
+  }
+
+  p.asignaturas = asignaturas;
+  p.sucio = true;
+  app.seleccion = null;
+  app.avisoImportacion = ignoradas
+    ? (ignoradas === 1 ? "1 fila de otra carrera se ignoró" : ignoradas + " filas de otras carreras se ignoraron") +
+      ": el plan de " + nombreCarrera(app.carrera) + " solo toma sus propias filas y las que no indican carrera."
+    : "";
+  latido();
+
+  if (!asignaturas.length) {
+    aviso("No se encontró ninguna fila con contenido.");
+    pintarGrilla();
+    return;
+  }
+  const t = totales(asignaturas);
+  aviso("Importadas " + t.asig + " asignaturas y " + t.grupos + " grupos.");
+  pintarGrilla();
+}
+
+/* ---------- plantilla ---------- */
+$("#op-plantilla").onclick = () => {
+  const cab = ["CARRERA","MALLA","SEMESTRE","CÓDIGO","ASIGNATURA","GRUPO","HT","HP","TOTAL HORAS","DPTO","OBSERVACIONES"];
+  const ejemplo = [nombreCarrera(app.carrera), "2024", "1", "3.1.1.24", "Cálculo I", "1", "3", "2", "5", "DIMA", ""];
+  const csv = "﻿" + [cab, ejemplo].map(f => f.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(";")).join("\r\n");
+  const url = URL.createObjectURL(new Blob([csv], { type:"text/csv;charset=utf-8" }));
+  const a = document.createElement("a");
+  a.href = url; a.download = "Plantilla_Plan_Ciclo.csv";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  aviso("Plantilla descargada");
+};
+
+/* ============================================================
+   Grilla
+   ============================================================ */
+function pintarResumen(nodo, asignaturas){
+  const t = totales(asignaturas);
+  const celdas = [
+    ["Asignaturas", t.asig], ["Grupos", t.grupos],
+    ["Horas teóricas", t.ht], ["Horas prácticas", t.hp],
+    ["Total horas", t.th], ["Horas de dictado", t.dictado],
+    ["Intl. / virtual", t.intl], ["Fusiones", t.fus],
+    ["Desdobles", t.des]
+  ];
+  nodo.innerHTML = celdas.map(([k, v]) =>
+    "<div><dt>" + esc(k) + "</dt><dd>" + esc(v) + "</dd></div>").join("");
+}
+
+function htmlBloques(asignaturas, editable){
+  if (!asignaturas.length) return '<div class="nota">El plan no tiene asignaturas.</div>';
+  const sems = [...new Set(asignaturas.map(a => a.sem))]
+    .sort((x, y) => num(x) - num(y) || String(x).localeCompare(String(y)));
+
+  return sems.map(sem => {
+    const asigs = asignaturas.filter(a => a.sem === sem);
+    const nG = asigs.reduce((s, a) => s + a.grupos.length, 0);
+    const nH = asigs.reduce((s, a) => s + a.grupos.reduce((q, g) => q + th(g), 0), 0);
+    const abierto = !app.colapsados.has(String(sem));
+
+    const filas = asigs.map(a => {
+      const ci = asignaturas.indexOf(a);
+      return a.grupos.map((g, gi) => {
+        const sel = editable && app.seleccion && app.seleccion.ci === ci && app.seleccion.gi === gi;
+        return "<tr class=\"" + (editable ? "pulsable " : "") + (sel ? "sel" : "") +
+          '" data-ci="' + ci + '" data-gi="' + gi + '">' +
+          '<td class="cod">' + esc(a.malla) + "</td>" +
+          '<td class="cod">' + esc(a.codigo) + "</td>" +
+          "<td>" + esc(a.nombre) +
+            (Dominio.esInternacional(a) ? '<span class="marca-c intl">INTL</span>' : "") +
+            (g.fusion ? '<span class="marca-c fus">FUS</span>' : "") +
+            (g.desdoble ? '<span class="marca-c des">' + esc(g.desdoble) + "</span>" : "") + "</td>" +
+          '<td class="num">' + esc(g.n) + '</td><td class="num">' + esc(g.ht) +
+          '</td><td class="num">' + esc(g.hp) + "</td>" +
+          '<td class="num"><b>' + th(g) + "</b></td>" +
+          '<td class="cod">' + esc(a.dpto) + "</td>" +
+          '<td style="font-size:12px;color:var(--ink-soft)">' + esc(a.obs || "—") + "</td></tr>";
+      }).join("");
+    }).join("");
+
+    return '<div class="bloque" data-sem="' + esc(sem) + '" data-abierto="' + (abierto ? "si" : "no") + '">' +
+      '<button type="button" class="bloque-cab" data-toggle="' + esc(sem) + '">' +
+        '<span class="chev">' + (abierto ? "▼" : "▶") + '</span><b>Semestre ' + esc(sem) + "</b>" +
+        '<span class="tot">' + asigs.length + " asignaturas · " + nG + " grupos · " + nH + " horas</span></button>" +
+      '<div class="tabla-caja"><table><thead><tr>' +
+        '<th>Malla</th><th>Código</th><th>Asignatura</th><th class="num">Grupo</th>' +
+        '<th class="num">HT</th><th class="num">HP</th><th class="num">Total</th><th>Dpto</th><th>Observaciones</th>' +
+      "</tr></thead><tbody>" + filas + "</tbody></table></div></div>";
+  }).join("");
+}
+
+function pintarGrilla(){
+  const p = app.plan;
+  if (!p) return;
+  mostrar("grilla");
+  $("#grilla-titulo").textContent = nombreCarrera(app.carrera) + " · " + app.ciclo;
+  $("#btn-registrar").textContent = p.estado === ESTADOS.REGISTRADO ? "Guardar cambios" : "Registrar plan";
+  $("#btn-borrador").disabled = p.estado === ESTADOS.REGISTRADO;
+
+  const nota = $("#nota-estado");
+  if (p.estado === ESTADOS.REGISTRADO) {
+    nota.hidden = false;
+    nota.className = "nota ok";
+    nota.innerHTML = "El plan está <b>Registrado</b> (v" + p.version +
+      "). Sigue siendo editable: cada guardado genera una versión nueva.";
+  } else if (p.estado === ESTADOS.BORRADOR) {
+    nota.hidden = false;
+    nota.className = "nota aviso";
+    nota.innerHTML = "El plan está en <b>Borrador</b> (v" + p.version + "). Todavía no habilita la asignación docente.";
+  } else nota.hidden = true;
+
+  $("#nota-importacion").hidden = !app.avisoImportacion;
+  $("#nota-importacion").textContent = app.avisoImportacion;
+
+  pintarResumen($("#resumen"), p.asignaturas);
+  $("#bloques").innerHTML = htmlBloques(p.asignaturas, true);
+
+  $("#btn-colapsar").textContent = app.colapsados.size ? "Expandir todo" : "Colapsar todo";
+
+  $$("#bloques [data-toggle]").forEach(b => { b.onclick = () => {
+    const s = b.dataset.toggle;
+    app.colapsados.has(s) ? app.colapsados.delete(s) : app.colapsados.add(s);
+    pintarGrilla();
+  }; });
+  $$("#bloques tr[data-ci]").forEach(tr => { tr.onclick = () => {
+    app.seleccion = { ci:+tr.dataset.ci, gi:+tr.dataset.gi };
+    pintarGrilla();
+  }; });
+
+  const s = seleccion();
+  $$("#acciones-fila [data-req]").forEach(b => {
+    const req = b.dataset.req;
+    b.disabled = req === "sel" ? !s : req === "fus" ? !(s && s.g.fusion) : !(s && s.g.desdoble);
+  });
+}
+
+function seleccion(){
+  const p = app.plan;
+  if (!p || !app.seleccion) return null;
+  const a = p.asignaturas[app.seleccion.ci];
+  if (!a) return null;
+  const g = a.grupos[app.seleccion.gi];
+  if (!g) return null;
+  return { a, g, ci:app.seleccion.ci, gi:app.seleccion.gi };
+}
+const resumenSel = s => '<div class="nota">Selección: <b>' + esc(s.a.codigo) + " " + esc(s.a.nombre) +
+  "</b> · grupo " + esc(s.g.n) + " · HT " + esc(s.g.ht) + " / HP " + esc(s.g.hp) + " / total " + th(s.g) + ".</div>";
+
+$("#btn-colapsar").onclick = () => {
+  const p = app.plan;
+  if (app.colapsados.size) app.colapsados.clear();
+  else [...new Set(p.asignaturas.map(a => String(a.sem)))].forEach(s => app.colapsados.add(s));
+  pintarGrilla();
+};
+
+/* ============================================================
+   Acciones de edición
+   ============================================================ */
+$$("[data-acc]").forEach(b => { b.onclick = () => accion(b.dataset.acc); });
+
+async function accion(tipo){
+  const p = app.plan;
+  if (!p) return;
+  const s = seleccion();
+  let modifica = true;
+  latido();
+
+  switch (tipo) {
+
+    case "editar": {
+      const r = await preguntar({
+        titulo: "Editar horas del grupo",
+        cuerpo: resumenSel(s) +
+          '<div class="fila-campos" style="margin-top:12px">' +
+          '<div class="campo"><label for="e-ht">HT</label><input type="text" id="e-ht" value="' + esc(s.g.ht) + '"></div>' +
+          '<div class="campo"><label for="e-hp">HP</label><input type="text" id="e-hp" value="' + esc(s.g.hp) + '"></div>' +
+          '</div><div class="nota" style="margin-top:12px">El total de horas se recalcula automáticamente.</div>',
+        acciones: [{ texto:"Cancelar", valor:null }, { texto:"Aplicar", clase:"primario", valor:() => ({ ht:$("#e-ht").value, hp:$("#e-hp").value }) }]
+      });
+      if (!r) return;
+      const { ht, hp } = r();
+      s.g.ht = ht; s.g.hp = hp;   // se guarda tal cual se escribió
+      break;
+    }
+
+    case "agregar-asignatura": {
+      const r = await preguntar({
+        titulo: "Agregar asignatura",
+        cuerpo:
+          '<div class="fila-campos">' +
+          '<div class="campo"><label for="n-sem">Semestre</label><input type="text" id="n-sem" value="1" placeholder="5 o 1-2"></div>' +
+          '<div class="campo"><label for="n-malla">Malla</label><input type="text" id="n-malla" value="2024"></div>' +
+          '<div class="campo"><label for="n-cod">Código</label><input type="text" id="n-cod" placeholder="3.1.1.24"></div>' +
+          '</div><div class="campo" style="margin-top:12px"><label for="n-nom">Asignatura</label><input type="text" id="n-nom"></div>' +
+          '<div class="fila-campos">' +
+          '<div class="campo"><label for="n-ht">HT</label><input type="text" id="n-ht" value="3"></div>' +
+          '<div class="campo"><label for="n-hp">HP</label><input type="text" id="n-hp" value="2"></div>' +
+          '<div class="campo"><label for="n-dpto">Dpto</label>' +
+            '<input type="text" id="n-dpto" list="lista-dptos" value="' + DPTOS[0] + '">' +
+            '<datalist id="lista-dptos">' + DPTOS.map(d => "<option>" + d + "</option>").join("") +
+            "</datalist></div></div>" +
+          '<div class="campo" style="margin-top:12px"><label for="n-obs">Observaciones</label><input type="text" id="n-obs" placeholder="INTERNACIONAL, VIRTUAL…"></div>',
+        acciones: [{ texto:"Cancelar", valor:null }, { texto:"Agregar", clase:"primario", valor:() => ({
+          sem:$("#n-sem").value, malla:$("#n-malla").value, codigo:$("#n-cod").value.trim(),
+          nombre:$("#n-nom").value.trim(), ht:$("#n-ht").value, hp:$("#n-hp").value,
+          dpto:$("#n-dpto").value, obs:$("#n-obs").value.trim()
+        }) }]
+      });
+      if (!r) return;
+      /* Sin validación: se guarda lo que se haya escrito. */
+      Dominio.agregarAsignatura(p.asignaturas, r());
+      app.seleccion = null;   // la lista se reordena: la fila seleccionada ya no es la misma
+      aviso("Asignatura agregada");
+      break;
+    }
+
+    case "eliminar-asignatura": {
+      const ok = await preguntar({
+        titulo: "Eliminar asignatura",
+        cuerpo: resumenSel(s) + '<div class="nota aviso" style="margin-top:8px">Se eliminará la asignatura y sus ' +
+          s.a.grupos.length + " grupo(s)." + (s.a.grupos.some(g => g.fusion) ? " Alguno participa en una fusión y se retirará de ella." : "") + "</div>",
+        acciones: [{ texto:"Cancelar", valor:null }, { texto:"Eliminar", clase:"peligro", valor:true }]
+      });
+      if (!ok) return;
+      Dominio.eliminarAsignatura(p.asignaturas, s.ci);
+      app.seleccion = null;
+      aviso("Asignatura eliminada");
+      break;
+    }
+
+    case "agregar-grupo": {
+      const n = Dominio.agregarGrupo(p.asignaturas, s.ci, s.gi);
+      aviso("Grupo " + n + " agregado a " + s.a.nombre);
+      break;
+    }
+
+    case "grupo-semestre": {
+      const sem = s ? s.a.sem : (p.asignaturas[0] || {}).sem;
+      if (sem === undefined) return aviso("El plan no tiene asignaturas.");
+      const cuantas = p.asignaturas.filter(a => String(a.sem) === String(sem)).length;
+      const ok = await preguntar({
+        titulo: "Agregar un grupo a todo el semestre",
+        cuerpo: '<div class="nota">Se creará un grupo correlativo en las <b>' + cuantas +
+          "</b> asignaturas del semestre <b>" + esc(sem) + "</b>, con las mismas horas que su primer grupo.</div>",
+        acciones: [{ texto:"Cancelar", valor:null }, { texto:"Agregar", clase:"primario", valor:true }]
+      });
+      if (!ok) return;
+      aviso("Grupo agregado en " + Dominio.agregarGrupoSemestre(p.asignaturas, sem) + " asignaturas");
+      break;
+    }
+
+    case "eliminar-grupo": {
+      const solo = s.a.grupos.length === 1;
+      const ok = await preguntar({
+        titulo: "Eliminar grupo",
+        cuerpo: resumenSel(s) +
+          (solo || s.g.fusion ? '<div class="nota aviso" style="margin-top:8px">' +
+            (solo ? "Es el único grupo de la asignatura: al eliminarlo, la asignatura deja de aportar horas y se retira del plan. " : "") +
+            (s.g.fusion ? "El grupo participa en una fusión y se retirará de ella." : "") + "</div>" : ""),
+        acciones: [{ texto:"Cancelar", valor:null }, { texto:"Eliminar", clase:"peligro", valor:true }]
+      });
+      if (!ok) return;
+      Dominio.eliminarGrupo(p.asignaturas, s.ci, s.gi);
+      app.seleccion = null;
+      aviso("Grupo eliminado");
+      break;
+    }
+
+    case "desdoblar": {
+      const r = await preguntar({
+        titulo: "Desdoble parcial",
+        cuerpo: resumenSel(s) +
+          '<div class="fila-campos" style="margin-top:12px">' +
+          '<div class="campo"><label for="d-tipo">Tipo</label><select id="d-tipo">' +
+            '<option value="Práctica">Práctica</option><option value="Teoría">Teoría</option></select></div>' +
+          '<div class="campo"><label for="d-cant">Subgrupos (2 – ' + CONFIG.maxSubgrupos + ')</label>' +
+            '<input type="number" id="d-cant" value="2" min="2" max="' + CONFIG.maxSubgrupos + '"></div></div>' +
+          '<div class="nota" style="margin-top:12px">Las horas del otro tipo se mantienen en una sección común.</div>',
+        acciones: [{ texto:"Cancelar", valor:null }, { texto:"Desdoblar", clase:"primario", valor:() => ({ tipo:$("#d-tipo").value, cant:$("#d-cant").value }) }]
+      });
+      if (!r) return;
+      const { tipo: clase, cant } = r();
+      const horas = num(clase === "Práctica" ? s.g.hp : s.g.ht);
+      const n = parseInt(cant, 10);
+      if (!horas) {
+        await preguntar({
+          titulo: "El desdoble no aplica",
+          cuerpo: '<div class="nota aviso">El grupo no registra horas de ' + clase.toLowerCase() +
+            ", así que no hay nada que desdoblar. No se han generado subgrupos.</div>",
+          acciones: [{ texto:"Entendido", clase:"primario", valor:true }]
+        });
+        return;
+      }
+      if (!(n >= 2 && n <= CONFIG.maxSubgrupos)) {
+        await preguntar({
+          titulo: "Cantidad de subgrupos no válida",
+          cuerpo: '<div class="nota aviso">La cantidad de subgrupos debe estar entre <b>2</b> y <b>' +
+            CONFIG.maxSubgrupos + "</b>. No se han generado subgrupos.</div>",
+          acciones: [{ texto:"Entendido", clase:"primario", valor:true }]
+        });
+        return accion("desdoblar");
+      }
+      Dominio.desdoblar(s.g, clase, n);
+      aviso("Desdoble de " + clase.toLowerCase() + " en " + n + " subgrupos");
+      break;
+    }
+
+    case "quitar-desdoble": {
+      const ok = await preguntar({
+        titulo: "Quitar el desdoble",
+        cuerpo: resumenSel(s) + '<div class="nota" style="margin-top:8px">Se quitará el desdoble <b>' + esc(s.g.desdoble) +
+          "</b>: el grupo vuelve a dictarse en una sola sección.</div>",
+        acciones: [{ texto:"Cancelar", valor:null }, { texto:"Quitar desdoble", clase:"primario", valor:true }]
+      });
+      if (!ok) return;
+      Dominio.quitarDesdoble(s.g);
+      aviso("Desdoble quitado");
+      break;
+    }
+
+    case "fusionar": {
+      const ops = [];
+      p.asignaturas.forEach((a, ci) => a.grupos.forEach((g, gi) => {
+        ops.push('<option value="' + ci + ":" + gi + '">' + esc(a.codigo) + " " + esc(a.nombre) +
+          " · grupo " + esc(g.n) + " · " + esc(g.ht) + "/" + esc(g.hp) + "</option>");
+      }));
+      if (ops.length < 2) return aviso("Hacen falta al menos dos grupos en el plan para fusionar.");
+      const r = await preguntar({
+        titulo: "Fusionar grupos",
+        cuerpo:
+          '<p style="font-size:13px;margin-bottom:10px">Marca dos o más grupos (Ctrl o Mayús para selección múltiple) y elige el grupo principal, cuyas horas definirán la sección fusionada.</p>' +
+          '<div class="campo"><label for="f-grupos">Grupos a fusionar</label>' +
+          '<select id="f-grupos" multiple size="7">' + ops.join("") + "</select></div>" +
+          '<div class="campo"><label for="f-principal">Grupo principal</label><select id="f-principal">' + ops.join("") + "</select></div>" +
+          '<div class="nota">Las diferencias de nombre, código u horas se muestran como advertencia: no impiden la fusión.</div>',
+        acciones: [{ texto:"Cancelar", valor:null }, { texto:"Fusionar", clase:"primario", valor:() => ({
+          sel:Array.from($("#f-grupos").selectedOptions).map(o => o.value), principal:$("#f-principal").value
+        }) }]
+      });
+      if (!r) return;
+      const { sel, principal } = r();
+      if (sel.length < 2) {
+        await preguntar({
+          titulo: "Selección insuficiente",
+          cuerpo: '<div class="nota aviso">La fusión requiere al menos dos grupos.</div>',
+          acciones: [{ texto:"Volver a seleccionar", clase:"primario", valor:true }]
+        });
+        return accion("fusionar");
+      }
+      const { difs } = Dominio.fusionar(p.asignaturas, sel, principal);
+      if (difs.length) {
+        await preguntar({
+          titulo: "Fusión creada con advertencias",
+          cuerpo: '<div class="nota aviso"><b>A05</b> · Estos grupos difieren del grupo principal en nombre, código u horas. ' +
+            "La fusión se ha creado igualmente y sus horas se cuentan una sola vez.</div>" +
+            '<ul class="lista-err lista-adv" style="margin-top:10px">' +
+            difs.map(d => "<li><span>" + esc(d) + "</span></li>").join("") + "</ul>",
+          acciones: [{ texto:"Entendido", clase:"primario", valor:true }]
+        });
+      } else aviso("Grupos fusionados");
+      break;
+    }
+
+    case "deshacer-fusion": {
+      const ok = await preguntar({
+        titulo: "Deshacer la fusión",
+        cuerpo: '<div class="nota">Se disolverá la sección fusionada: cada grupo volverá a contarse por separado y recuperará las horas que tenía antes de la fusión.</div>',
+        acciones: [{ texto:"Cancelar", valor:null }, { texto:"Deshacer", clase:"primario", valor:true }]
+      });
+      if (!ok) return;
+      Dominio.deshacerFusion(p.asignaturas, s.g.fusion);
+      aviso("Fusión deshecha");
+      break;
+    }
+
+    case "historial": {
+      let versiones;
+      try { versiones = await llamar("obtenerHistorial", app.ciclo, app.carrera); } catch (e) { return informarError(e); }
+      if (!versiones.length) return aviso("Todavía no hay versiones guardadas de este plan.");
+      const r = await preguntar({
+        titulo: "Historial de versiones",
+        cuerpo: '<div class="tabla-caja"><table><thead><tr><th>Versión</th><th>Estado</th><th>Tipo</th>' +
+          "<th>Usuario</th><th>Fecha</th><th>Motivo</th></tr></thead><tbody>" +
+          versiones.map(v =>
+            '<tr><td class="cod">v' + v.n + "</td><td>" + esc(v.estado) + "</td><td>" + esc(v.tipo) +
+            '</td><td class="cod" style="font-size:11px">' + esc(v.usuario) + '</td><td class="cod" style="font-size:11px">' +
+            esc(fecha(v.fecha)) + "</td><td>" + esc(v.motivo || "—") + "</td></tr>").join("") +
+          "</tbody></table></div>" +
+          '<div class="campo" style="margin-top:14px"><label for="v-restaurar">Restaurar una versión</label><select id="v-restaurar">' +
+          versiones.map(v => '<option value="' + v.n + '">v' + v.n + " · " + esc(v.estado) + " · " + esc(fecha(v.fecha)) + "</option>").join("") +
+          "</select></div>" +
+          '<div class="nota">Restaurar no borra el historial: genera una versión nueva con el contenido recuperado.</div>',
+        acciones: [{ texto:"Cerrar", valor:null }, { texto:"Restaurar", clase:"primario", valor:() => $("#v-restaurar").value }]
+      });
+      if (!r) return;
+      const n = parseInt(r(), 10);
+      let res;
+      try { res = await llamar("restaurarVersion", app.ciclo, app.carrera, n); } catch (e) { return informarError(e); }
+      Object.assign(p, { asignaturas: res.asignaturas, version: res.version, estado: res.estado, sucio: false });
+      if (res.expira) edicion.expira = Date.parse(res.expira);
+      app.seleccion = null;
+      modifica = false;
+      aviso("Versión v" + n + " restaurada");
+      break;
+    }
+
+    case "reemplazar": {
+      const ok = await preguntar({
+        titulo: "Reemplazar el contenido",
+        cuerpo: '<div class="nota aviso">Volverás a las opciones de carga. Al importar un contenido nuevo se reemplazará ' +
+          "todo el plan actual, incluidos los desdobles, los ajustes manuales y las fusiones.</div>",
+        acciones: [{ texto:"Cancelar", valor:null }, { texto:"Continuar", clase:"primario", valor:true }]
+      });
+      if (!ok) return;
+      irACarga();
+      return;
+    }
+  }
+
+  if (modifica) p.sucio = true;
+  app.avisoImportacion = "";
+  pintarGrilla();
+}
+
+/* ============================================================
+   Guardado y versionado
+   ============================================================ */
+/* Si mientras se editaba se guardó otra versión (por ejemplo, una actualización desde
+   el xlsx), se advierte y el usuario decide si guarda igualmente. */
+async function guardar(datos){
+  const p = app.plan, sig = app.carrera;
+  const base = { asignaturas: p.asignaturas, versionBase: p.version };
+  let r = await llamar("guardarPlan", app.ciclo, sig, Object.assign({}, base, datos));
+  if (r.conflicto) {
+    const c = r.conflicto;
+    const seguir = await preguntar({
+      titulo: "Hay una versión más reciente del plan",
+      cuerpo: '<div class="nota aviso">Mientras editabas se guardó la versión <b>v' + c.n + "</b>" +
+        (c.tipo ? " (" + esc(c.tipo) + ", " + esc(c.usuario) + ", " + esc(fecha(c.fecha)) + ")" : "") +
+        ". Si continúas, tu contenido se guardará como una versión nueva y esa versión seguirá disponible en el historial.</div>",
+      acciones: [{ texto:"Cancelar", valor:null }, { texto:"Guardar de todos modos", clase:"primario", valor:true }]
+    });
+    if (!seguir) return null;
+    r = await llamar("guardarPlan", app.ciclo, sig, Object.assign({}, base, datos, { forzar: true }));
+  }
+  Object.assign(p, { version: r.version, estado: r.estado, sucio: false });
+  if (r.expira) edicion.expira = Date.parse(r.expira);
+  return r;
+}
+
+$("#btn-borrador").onclick = async () => {
+  const p = app.plan;
+  if (!p.asignaturas.length) return aviso("El plan no tiene asignaturas que guardar.");
+  const ok = await preguntar({
+    titulo: "Guardar borrador",
+    cuerpo: '<div class="nota">El plan se guardará como una versión nueva en estado <b>Borrador</b>. ' +
+      "Todavía no habilitará la asignación docente.</div>",
+    acciones: [{ texto:"Cancelar", valor:null }, { texto:"Guardar", clase:"primario", valor:true }]
+  });
+  if (!ok) return;
+  let r;
+  try { r = await guardar({ estado: ESTADOS.BORRADOR, tipo: "guardar borrador" }); } catch (e) { return informarError(e); }
+  if (!r) return;
+  aviso("Borrador guardado como v" + r.version);
+  pintarGrilla();
+};
+
+$("#btn-registrar").onclick = async () => {
+  const p = app.plan;
+  if (!p.asignaturas.length) return aviso("El plan no tiene asignaturas que registrar.");
+  const t = totales(p.asignaturas);
+
+  if (p.estado === ESTADOS.REGISTRADO) {
+    const r = await preguntar({
+      titulo: "Guardar cambios",
+      cuerpo: '<div class="nota">Se guardará una versión nueva del plan <b>Registrado</b>.</div>' +
+        '<div class="campo" style="margin-top:12px"><label for="motivo">Motivo del cambio (opcional)</label>' +
+        '<input type="text" id="motivo" placeholder="Matrícula extemporánea"></div>',
+      acciones: [{ texto:"Cancelar", valor:null }, { texto:"Confirmar", clase:"primario", valor:() => $("#motivo").value.trim() }]
+    });
+    if (!r) return;
+    let g;
+    try { g = await guardar({ estado: ESTADOS.REGISTRADO, tipo: "guardar cambios", motivo: r() }); } catch (e) { return informarError(e); }
+    if (!g) return;
+    aviso("Cambios guardados como v" + g.version);
+    return pintarGrilla();
+  }
+
+  const mensaje = "¿Desea registrar el Plan de Ciclo de " + nombreCarrera(app.carrera) + " para el periodo " + app.ciclo +
+    "? Al confirmar, el estado cambiará a REGISTRADO y se habilitará la asignación docente para los Departamentos " +
+    "Académicos (DIMA, DAHUC, DACJ, DACTE). El plan podrá seguir editándose y cada guardado generará una nueva versión.";
+
+  const ok = await preguntar({
+    titulo: "Registrar el plan de ciclo",
+    cuerpo:
+      '<div class="tabla-caja"><table><tbody>' +
+        "<tr><td>Asignaturas</td><td class='num'>" + t.asig + "</td><td>Grupos</td><td class='num'>" + t.grupos + "</td></tr>" +
+        "<tr><td>Horas teóricas</td><td class='num'>" + t.ht + "</td><td>Horas prácticas</td><td class='num'>" + t.hp + "</td></tr>" +
+        "<tr><td>Total horas</td><td class='num'>" + t.th + "</td><td>Horas de dictado</td><td class='num'>" + t.dictado + "</td></tr>" +
+        "<tr><td>Fusiones</td><td class='num'>" + t.fus + "</td><td>Desdobles</td><td class='num'>" + t.des + "</td></tr>" +
+      "</tbody></table></div>" +
+      '<div class="cita" style="margin-top:14px">' + esc(mensaje) + "</div>",
+    acciones: [{ texto:"Cancelar", valor:null }, { texto:"Confirmar y registrar", clase:"primario", valor:true }]
+  });
+  if (!ok) return;
+
+  let g;
+  try { g = await guardar({ estado: ESTADOS.REGISTRADO, tipo: "registrar" }); } catch (e) { return informarError(e); }
+  if (!g) return;
+  const sig = app.carrera;
+  detenerReloj();
+  app.plan = null;
+  mostrar("exito");
+  $("#exito-nota").innerHTML =
+    "<b>Plan registrado.</b> " + esc(nombreCarrera(sig)) + " · " + esc(app.ciclo) + " · versión <b>v" + g.version + "</b>. " +
+    "La asignación docente queda habilitada para DIMA, DAHUC, DACJ y DACTE. El plan sigue siendo editable: cada guardado generará una versión nueva.";
+  try { await llamarEnSilencio("liberarBloqueo", app.ciclo, sig); } catch (e) { /* caduca solo */ }
+  cargarTablero();
+};
+
+$("#exito-editar").onclick = () => { if (app.carrera) abrirEdicion(app.carrera); };
+
+$("#volver-grilla").onclick = async () => {
+  const ok = await preguntar({
+    titulo: "Salir de la edición",
+    cuerpo: '<div class="nota aviso">Se descartarán los cambios que no hayas guardado y se liberará el bloqueo del plan.</div>',
+    acciones: [{ texto:"Seguir editando", valor:null }, { texto:"Salir", clase:"peligro", valor:true }]
+  });
+  if (!ok) return;
+  terminarEdicion();
+};
+
+/* ============================================================
+   Arranque
+   ============================================================ */
+/* ------------------------------------------------------------
+   Firma en la consola del navegador
+   ------------------------------------------------------------ */
+const ARTE_CONSOLA = [
+  "                               ,▄▄▄▄µ   .╥▄▄▄µ",
+  "                          ,▄▓█████████▓▓████████▓▄",
+  "                        ▄▓█████████████████████████▄µ",
+  "                      ▄██████████████████████████████▓µ",
+  "                    ,▓█████████████████████████████████▄",
+  "                   ▄█████████████████████████████████████",
+  "                  ▐█████████████▓▀▀▓▀▀▀▀▓▓▓▓█████████████▌",
+  "                  ▓█████▓▓▀╫▒╫▒▒▒▒▒▒▒▒▒▒▒▒╫╫▀▓▓███████████H",
+  "                 )█████▓▓╫╫▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒╫▒▒▒▀▓█████▌",
+  "                 ▐█████▓▓╫▒▒╫▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒╫╫▓█████",
+  "                 ▐████▓▓╫╫╫▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒╫╫╫╫▓████",
+  "                  ████▒╫╫▄▓▓▓▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒╫╫▒╫╫▀████",
+  "                  ███╫╫╫▓▀▀▀▀▀████▓▓╫▒▒▒▒▓▓▓███▓▓▓▀▓▓╫╫▓██▌",
+  "                 φ▓██╫╫╫╫▄▓▓▓▓▓▓▓▓▓▓╫▒▒▒▒▓▓▓▓▓▓▓▓▓▄▄╫╫╫╫██▌",
+  "                 ▓▒╫█▒╫╫╫▒▒▒╫▒╫╫╫╫╫╫▒▒▒▒▒╫╫╫▓╫╫╫▒╫╫╫▒╫╫╫█▌╫Æ",
+  "                 ╫▒╫▌▒╫╫▒▒▒▒▒▒▒▒▒╫╫▒▒▒▒▒▒▒╫╫▒▒▒▒▒▒▒▒▒▒╫▒╫▒╫H",
+  "                 J╫▓╫╫▒▒▒▒▒▒▒▒▒▄▓▓╫▒▒▒▒▒▒▒▒╫▓▄▒▒▒▒▒▒▒▒▒╫▒╫▒",
+  "                  ╫╫╫╫▒▒▒▒▒▒▒╫▓▀╫╫▒▒▒▒▒▒▒▒▒▒▒╫▓▒▒▒▒▒╨▒▒╫▒╫Ñ",
+  "                  `▒▒╫╫╫╫▒▒▒▓▀╫╫╫╫╫╫╫╫╫╫╫╫╫╫╫▒▒▀▓╫▒▒▒▒╫╫▒▒\" .",
+  "                   ╨Ñ╫╫╫╫▒▒▓▒╫╫╫╫╫╫╫╫╫╫╫╫╫▒▒▒╫╫╫▓▒▒▒▒╫╫╫▒H╓▒░░▒",
+  "                     ╫╫╫╫▒▒▓╫╫▓▓▓▀▀▀▓╫▓▓╫╫╫▀▓▓▓▓▓▒▒▒▒╫╫∩ 4╫▒▒╫",
+  "                      ╫╫╫╫▒╫▓╫▓█▌▒▒░U░░.░░▒▒▒▓█▓▒▒▒▒▒╫Ñ 4▒▒▒╫",
+  "                      `╫╫╫▒╫╫╫╫╫▓╫▒░▒▒▒▒▒▒▒▒╫▓▓▓╫▒▒▒╫M Æ▒▒▒▒",
+  "                        ▒╫▓▒▓╫╫╫▓╫▒▒▒▒▒▒▒▒▒▒▓▓█╫▒▒▒▒▓ ▓▒▒▒▒H",
+  "                      ▄██▀▓▓▒▒╫╫╫╫╫╫▀▓╫▓▓▓▓▓▓▓▌▒▒▒▒╫█▓▒▒▒▒╩",
+  "                 ,▄▄▓████µ²▀▓╫▒▒╫▒▒▒▒▒▒▒▒▒╫╫▓▓▒▒▒▒▒▓▀▒▒▒▒▓▄µ",
+  "            ,▄▄▓██████████  ²▀▓╫╫▒╫▒▒▒▒▒╫╫╫▓▓╫╫▒▒▒▒▒▒▒▒▒▓█████▓▄▄▄,",
+  "     ,╓▄▄▓▓███████████████▌.   ╙▀▓▓▓▓▓▓▓▓▓▓▀╫╫▒▒▒▒▒▒▒▒▒▒▒╫▒███████████▓▓▄▄▄,,",
+  "▄▄▓▓███████████████████████▌░     ╨▀▓▓███▌▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▓███████████████████▓",
+  "█████████████████████████████░     ,╫▓╫▓▒╫╫▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒████████████████████",
+  "██████████████████████████████µ   4▒▒▒╫╫╫╫▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▓███████████████████",
+  "███████████████████████████████µ ▄▓▒▒▒╫╫╫╫╫▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒████████████████████",
+  "████████████████████████████████╦██▓▒▒╫╫╫▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒╫╫█████████████████████",
+  "███████████████████████████████████▓Æ╫▒╫▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒╫▒██████████████████████",
+  "██████████████████████████████████▓▀╫╫▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒╫▓███████████████████████",
+  "███████████████████████████████████▄ ²Ñ▒▒▒▒▒▒▒▒▒▒▒▒▒▒╫▄█████████████████████████",
+  "████████████████████████████████████▌  ╨▒▒▒▒▒▒▒▒▒▒╫▒▓███████████████████████████",
+  "██████████████████████████████████████µ `╫▒▒▒▒▒▒▒▓██████████████████████████████",
+  "███████████████████████████████████████▄  ╜╩▒▒╫▓████████████████████████████████",
+  "████████████████████████████████████████▄    `╙Ñ▀███████████████████████████████",
+  "█████████████████████████████████████████▌:. .░╦▓███████████████████████████████",
+  "██████████████████████████████████████████▓µ▒▒▓█████████████████████████████████",
+  "████████████████████████████████████████████▓███████████████████████████████████",
+  "████████████████████████████████████████████████████████████████████████████████"
+].join("\n");
+
+console.log("%c" + ARTE_CONSOLA, "font-family: monospace; font-size: 9px; line-height: 1;");
+
+(function arrancar(){
+  if (SIS.estado === "sin-instalar") return mostrar("instalar");
+  if (SIS.estado !== "ok") {
+    $("#denegado-titulo").textContent = SIS.estado === "error" ? "No se pudo iniciar el sistema" : "Acceso denegado";
+    $("#denegado-msg").textContent = SIS.motivo || "";
+    return mostrar("denegado");
+  }
+  const u = app.usuario;
+  $("#u-correo").textContent = u.correo;
+  $("#u-rol").textContent = u.rol === "director"
+    ? "Director de departamento"
+    : "Coordinador de carrera" + (u.carreras.length ? " · " + u.carreras.join(", ") : " · solo lectura");
+  $("#usuario").hidden = false;
+  mostrar("menu");
+})();
+</script>
