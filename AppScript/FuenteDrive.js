@@ -69,11 +69,12 @@ function tipoDeFuente_(nombre) {
   const n = Dominio.normalizar(nombre).replace(/[^A-Z]/g, "");
   if (n.indexOf("CARGAXCARRERA") >= 0) return "carrera";
   if (n.indexOf("CARGAXDEPARTAMENTO") >= 0) return "departamento";
+  if (n.indexOf("CARGADEDOCENTES") >= 0 || n.indexOf("DOCENTES") >= 0) return "docentes";
   return null;
 }
 
 function localizarXlsx_(carpeta, avisos) {
-  const candidatos = { carrera: [], departamento: [] };
+  const candidatos = { carrera: [], departamento: [], docentes: [] };
   const it = carpeta.getFiles();
   while (it.hasNext()) {
     const a = it.next();
@@ -96,11 +97,15 @@ function localizarXlsx_(carpeta, avisos) {
       avisos.push("Hay " + lista.length + " archivos " + etiqueta + " en la carpeta; se usa el más reciente, «" + lista[0].getName() + "».");
     return lista[0];
   };
-  return { carrera: elegir(candidatos.carrera, "CargaXCarrera"), departamento: elegir(candidatos.departamento, "CargaXDepartamento") };
+  return {
+    carrera: elegir(candidatos.carrera, "CargaXCarrera"),
+    departamento: elegir(candidatos.departamento, "CargaXDepartamento"),
+    docentes: elegir(candidatos.docentes, "CargaDeDocentes")
+  };
 }
 
 function firmaFuentes_(f) {
-  return ["carrera", "departamento"].filter(function (t) { return f[t]; }).map(function (t) {
+  return ["carrera", "departamento", "docentes"].filter(function (t) { return f[t]; }).map(function (t) {
     return { tipo: t, archivo_id: f[t].getId(), nombre: f[t].getName(), modificado: f[t].getLastUpdated().toISOString() };
   });
 }

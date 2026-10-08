@@ -398,8 +398,255 @@ function crearDominio() {
     return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(16);
   }
 
+  /* ============================================================
+     CU-002: Lógica de Asignación Docente y Balance Horario
+     ============================================================ */
+  const DPTOS_INFO = {
+    DIMA: { sigla: "DIMA", nombre: "Departamento de Ingeniería y Matemáticas", alias: ["INGENIERIA Y MATEMATICAS", "INGENIERIA", "MATEMATICAS", "DIMA"] },
+    DAHUC: { sigla: "DAHUC", nombre: "Departamento de Humanidades y Comunicación", alias: ["HUMANIDADES Y COM.", "HUMANIDADES Y CIENCIAS SOCIALES", "HUMANIDADES", "COMUNICACION", "DAHUC"] },
+    DACJ: { sigla: "DACJ", nombre: "Departamento de Ciencias Jurídicas", alias: ["CIENCIAS JURIDICAS", "DERECHO", "DACJ"] },
+    DACTE: { sigla: "DACTE", nombre: "Departamento de Ciencias y Tecnologías Empresariales", alias: ["CS. Y TEC. EMPRESARIALES", "CIENCIAS Y TECNOLOGIAS EMPRESARIALES", "EMPRESARIALES", "DACTE"] }
+  };
+
+  function normalizarDpto(s) {
+    if (!s) return null;
+    const n = normalizar(s);
+    for (const sigla of Object.keys(DPTOS_INFO)) {
+      if (sigla === n) return sigla;
+      const alist = DPTOS_INFO[sigla].alias;
+      for (let i = 0; i < alist.length; i++) {
+        const al = normalizar(alist[i]);
+        if (al === n || n.indexOf(al) >= 0 || al.indexOf(n) >= 0) return sigla;
+      }
+    }
+    return null;
+  }
+
+  function nombreDpto(sigla) {
+    const info = DPTOS_INFO[sigla];
+    return info ? info.nombre : sigla;
+  }
+
+  function claveDocente(nombre) {
+    return normalizar(nombre).replace(/[,.\-–—]/g, " ").replace(/\s+/g, " ").trim();
+  }
+
+  /* Interpreta matriz pegada o de archivo CargaXDepartamento */
+  function interpretarAsignacionesDepartamento(matriz, cursosDpto) {
+    if (!matriz || !matriz.length) return { asignaciones: [], filasLeidas: 0, avisos: ["Contenido vacío."] };
+
+    let filaCab = -1;
+    let colDoc = -1, colCarr = -1, colSem = -1, colCod = -1, colAsig = -1, colHt = -1, colHp = -1, colCond = -1;
+
+    for (let i = 0; i < Math.min(10, matriz.length); i++) {
+      const fila = matriz[i].map(normalizar);
+      fila.forEach((c, j) => {
+        if (c.indexOf("DOCENTE") >= 0 || c.indexOf("PROFESOR") >= 0) colDoc = j;
+        if (c === "CARRERA" || c === "CARR") colCarr = j;
+        if (c.indexOf("SEMESTRE") >= 0 || c === "SEM") colSem = j;
+        if (c.indexOf("CODIGO") >= 0 || c.indexOf("CÓDIGO") >= 0) colCod = j;
+        if (c.indexOf("ASIGNATURA") >= 0 || c.indexOf("CURSO") >= 0) colAsig = j;
+        if (c === "HT" || c.indexOf("HORAS TEORICAS") >= 0) colHt = j;
+        if (c === "HP" || c.indexOf("HORAS PRACTICAS") >= 0) colHp = j;
+        if (c.indexOf("CONDICION") >= 0) colCond = j;
+      });
+      if (colDoc >= 0 && (colCod >= 0 || colAsig >= 0)) {
+        filaCab = i;
+        break;
+      }
+    }
+
+    if (filaCab < 0) {
+      colDoc = 0; colCarr = 1; colSem = 3; colCod = 4; colAsig = 5; colHt = 6; colHp = 7; colCond = 9;
+      filaCab = 0;
+    }
+
+    const asignaciones = [];
+    const avisos = [];
+    let docenteActual = "";
+
+    for (let r = filaCab + 1; r < matriz.length; r++) {
+      const f = matriz[r];
+      if (!f || !f.length) continue;
+      const celdaDoc = f[colDoc] ? String(f[colDoc]).trim() : "";
+      if (celdaDoc && !/TOTAL/i.test(celdaDoc)) {
+        docenteActual = celdaDoc;
+      }
+
+      const cod = f[colCod] ? String(f[colCod]).trim() : "";
+      const carr = f[colCarr] ? String(f[colCarr]).trim() : "";
+      const asig = f[colAsig] ? String(f[colAsig]).trim() : "";
+      const ht = colHt >= 0 && f[colHt] ? num(f[colHt]) : 0;
+      const hp = colHp >= 0 && f[colHp] ? num(f[colHp]) : 0;
+      const cond = colCond >= 0 && f[colCond] ? String(f[colCond]).trim() : "";
+
+      if (!cod && !asig) continue;
+      if (/TOTAL/i.test(asig) || /TOTAL/i.test(cod) || /TOTAL/i.test(carr)) continue;
+      if (!docenteActual) continue;
+
+      const sigCarr = siglaDeCarrera(carr) || carr;
+      const horas = (ht + hp) > 0 ? (ht + hp) : 4;
+
+      asignaciones.push({
+        carrera: sigCarr,
+        codigo: cod,
+        asignatura: asig,
+        semestre: f[colSem] ? String(f[colSem]).trim() : "",
+        grupo: "1",
+        componente: ht > 0 && hp === 0 ? "Teoría" : (hp > 0 && ht === 0 ? "Práctica" : "Completo"),
+        docente: docenteActual,
+        horas: horas,
+        condicion: cond,
+        reemplazo_de: ""
+      });
+    }
+
+    return {
+      asignaciones: asignaciones,
+      filasLeidas: asignaciones.length,
+      avisos: avisos
+    };
+  }
+
+  /* Evalúa balance y advertencias A07 a A13 */
+  function calcularBalanceDocente(docentes, asignaciones) {
+    const mapaDocentes = {};
+
+    (docentes || []).forEach(d => {
+      const k = claveDocente(d.nombreCompleto);
+      mapaDocentes[k] = {
+        dni: d.dni || "",
+        nombreCompleto: d.nombreCompleto,
+        condicion: d.condicion || "Contratado",
+        categoria: d.categoria || "AUXILIAR",
+        dpto: normalizarDpto(d.dpto) || d.dpto,
+        dedicacion: d.dedicacion || "TP",
+        horasLectivas: 0,
+        cursos: [],
+        advertencias: []
+      };
+    });
+
+    (asignaciones || []).forEach(a => {
+      if (!a.docente || !a.docente.trim()) return;
+      const docNom = a.docente.trim();
+
+      // RN-30: Docente Internacional Pendiente reserva plaza sin sumar horas a personas físicas
+      if (/INTERNACIONAL/i.test(docNom) || /INTERNACIONAL/i.test(a.condicion || "")) {
+        return;
+      }
+
+      const k = claveDocente(docNom);
+      if (!mapaDocentes[k]) {
+        mapaDocentes[k] = {
+          dni: a.dni || "",
+          nombreCompleto: docNom,
+          condicion: a.condicion || "Contratado",
+          categoria: "DOCENTE",
+          dpto: a.departamento || "",
+          dedicacion: "TP",
+          horasLectivas: 0,
+          cursos: [],
+          advertencias: []
+        };
+      }
+
+      const doc = mapaDocentes[k];
+      const h = num(a.horas);
+      doc.horasLectivas += h;
+      doc.cursos.push(a);
+
+      // A13 (RN-26): Verificar si el departamento de la asignatura coincide
+      if (a.departamento && a.dptoAsignatura && normalizarDpto(a.departamento) !== normalizarDpto(a.dptoAsignatura)) {
+        doc.advertencias.push({
+          codigo: "A13",
+          mensaje: "Asignatura " + a.codigo + " solicitada para " + a.dptoAsignatura + " pero asignada en " + a.departamento + "."
+        });
+      }
+    });
+
+    Object.values(mapaDocentes).forEach(doc => {
+      const h = doc.horasLectivas;
+      if (h === 0 && doc.cursos.length === 0) return;
+
+      // A07 (RN-23): > 40 horas
+      if (h > 40) {
+        doc.advertencias.push({
+          codigo: "A07",
+          mensaje: "Supera las 40 horas lectivas semanales (asignadas: " + h + "h)."
+        });
+      }
+
+      // A08 (RN-24): Externo TC > 16 horas
+      const esExternoTC = /EXTERNO/i.test(doc.condicion) && doc.dedicacion === "TC";
+      if (esExternoTC && h > 16) {
+        doc.advertencias.push({
+          codigo: "A08",
+          mensaje: "Docente externo con dedicación TC supera 16 horas lectivas (asignadas: " + h + "h)."
+        });
+      }
+
+      // A09 (RN-23): > 24 horas semanales (alerta moderada)
+      if (h > 24 && h <= 40) {
+        doc.advertencias.push({
+          codigo: "A09",
+          mensaje: "Supera las 24 horas lectivas semanales (asignadas: " + h + "h). Requiere revisión de balance."
+        });
+      }
+
+      // A10 (RN-28): Regular TP < 8 horas
+      const esTP = doc.dedicacion === "TP";
+      if (esTP && h > 0 && h < 8) {
+        doc.advertencias.push({
+          codigo: "A10",
+          mensaje: "Docente a tiempo parcial con menos de 8 horas lectivas (asignadas: " + h + "h)."
+        });
+      }
+
+      // A12 (RN-30): Cargo administrativo > 20 horas
+      const tieneCargo = /CARGO|DIRECTOR|DECANO|JEFE|ADMIN/i.test(doc.categoria) || /CARGO/i.test(doc.condicion);
+      if (tieneCargo && h > 20) {
+        doc.advertencias.push({
+          codigo: "A12",
+          mensaje: "Docente con cargo administrativo supera 20 horas lectivas (asignadas: " + h + "h)."
+        });
+      }
+
+      // A11 (RN-29): Cruce de asignaturas en el mismo semestre dentro de la misma carrera
+      const semCarrera = {};
+      doc.cursos.forEach(c => {
+        const clave = (c.carrera || "") + ":" + (c.sem || c.semestre || "");
+        if (!semCarrera[clave]) semCarrera[clave] = [];
+        if (semCarrera[clave].indexOf(c.codigo) < 0) semCarrera[clave].push(c.codigo);
+      });
+      Object.entries(semCarrera).forEach(([sc, codigos]) => {
+        if (codigos.length > 1) {
+          const partes = sc.split(":");
+          doc.advertencias.push({
+            codigo: "A11",
+            mensaje: "Cruce potencial: asignado a " + codigos.length + " asignaturas distintas (" + codigos.join(", ") + ") en " + partes[0] + " semestre " + partes[1] + "."
+          });
+        }
+      });
+    });
+
+    const lista = Object.values(mapaDocentes).filter(d => d.cursos.length > 0 || (docentes && docentes.length <= 150));
+    const totalHoras = Object.values(mapaDocentes).reduce((sum, d) => sum + d.horasLectivas, 0);
+    const totalAdv = Object.values(mapaDocentes).reduce((sum, d) => sum + d.advertencias.length, 0);
+
+    return {
+      docentes: lista,
+      totalDocentesAsignados: Object.values(mapaDocentes).filter(d => d.horasLectivas > 0).length,
+      totalHorasAsignadas: totalHoras,
+      advertenciasTotales: totalAdv
+    };
+  }
+
   return {
-    DPTOS: DPTOS, CARRERAS: CARRERAS, COLUMNAS: COLUMNAS, ESTADOS: ESTADOS,
+    DPTOS: DPTOS, DPTOS_INFO: DPTOS_INFO, normalizarDpto: normalizarDpto, nombreDpto: nombreDpto,
+    claveDocente: claveDocente, interpretarAsignacionesDepartamento: interpretarAsignacionesDepartamento,
+    calcularBalanceDocente: calcularBalanceDocente,
+    CARRERAS: CARRERAS, COLUMNAS: COLUMNAS, ESTADOS: ESTADOS,
     nombreCarrera: nombreCarrera, normalizar: normalizar, canonica: canonica,
     matrizDesdeTexto: matrizDesdeTexto, ubicarCabeceras: ubicarCabeceras,
     coincideCarrera: coincideCarrera, siglaDeCarrera: siglaDeCarrera,

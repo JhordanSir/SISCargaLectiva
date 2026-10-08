@@ -42,7 +42,7 @@ const fecha = iso => { const d = new Date(iso); return isNaN(d) ? String(iso || 
 const hora = iso => { const d = new Date(iso); return isNaN(d) ? "" : d.toLocaleTimeString("es-PE", { hour:"2-digit", minute:"2-digit" }); };
 const clonar = x => JSON.parse(JSON.stringify(x));
 
-const VISTAS = ["instalar","denegado","menu","planes","carga","pegado","grilla","lectura","exito"];
+const VISTAS = ["instalar","denegado","menu","planes","carga","pegado","grilla","lectura","exito","docentes","docentes-carga"];
 function mostrar(v){
   const cambia = app.vista !== v;
   VISTAS.forEach(x => { $("#v-" + x).hidden = (x !== v); });
@@ -1220,7 +1220,655 @@ const ARTE_CONSOLA = [
   "████████████████████████████████████████████████████████████████████████████████"
 ].join("\n");
 
-console.log("%c" + ARTE_CONSOLA, "font-family: monospace; font-size: 9px; line-height: 1;");
+/* ============================================================
+   CU-002: Carga de Docentes y Gestión de Asignaciones
+   ============================================================ */
+
+const appDocentes = {
+  ciclo: CONFIG.ciclo,
+  dpto: "DIMA",
+  vistaActual: "dpto", // "dpto" o "carrera"
+  catalogo: [],
+  cursos: [],
+  asignaciones: [], // lista reactiva en memoria [{carrera, codigo, asignatura, grupo, componente, docente, horas, condicion, reemplazo_de}]
+  balance: null,
+  bloqueo: null,
+  filtroDpto: "todos", // "todos", "advertencias", "catalogo"
+  filtroSoloPendientes: false,
+  matrizPegada: null,
+  asignacionesPrevia: []
+};
+
+// Evento al pulsar "Asignar docentes al plan de ciclo" en el menú principal
+$("#op-docentes").onclick = () => iniciarCargaDocentes();
+
+async function iniciarCargaDocentes(forzarCiclo, forzarDpto) {
+  if (forzarCiclo) appDocentes.ciclo = forzarCiclo;
+  if (forzarDpto) appDocentes.dpto = forzarDpto;
+
+  const selCiclo = $("#sel-doc-ciclo");
+  if (!selCiclo.children.length) {
+    selCiclo.innerHTML = CONFIG.ciclos.map(c => `<option value="${esc(c)}"${c === appDocentes.ciclo ? " selected" : ""}>${esc(c)}</option>`).join("");
+  } else {
+    selCiclo.value = appDocentes.ciclo;
+  }
+  $("#sel-doc-dpto").value = appDocentes.dpto;
+
+  mostrar("docentes");
+  await cargarEstadoDocentes();
+}
+
+async function cargarEstadoDocentes() {
+  try {
+    const res = await llamar("obtenerEstadoDocentes", appDocentes.ciclo, appDocentes.dpto);
+    if (res.estado !== "ok") throw new Error("No se pudo obtener el estado de docentes.");
+
+    appDocentes.catalogo = res.catalogo || [];
+    appDocentes.cursos = res.cursos || [];
+    appDocentes.asignaciones = res.asignaciones || [];
+    appDocentes.bloqueo = res.bloqueo || null;
+
+    recalcularBalanceDocentes();
+    pintarVistaDocentes();
+  } catch (err) {
+    informarError(err);
+  }
+}
+
+function recalcularBalanceDocentes() {
+  appDocentes.balance = Dominio.calcularBalanceDocente(appDocentes.catalogo, appDocentes.asignaciones);
+}
+
+function pintarVistaDocentes() {
+  // 1. Métricas
+  const totalHorasReq = appDocentes.cursos.reduce((sum, c) => sum + (num(c.ht) + num(c.hp) * (c.subgrupos || 1)), 0);
+  const totalHorasAsig = appDocentes.asignaciones.reduce((sum, a) => sum + num(a.horas), 0);
+  const cob = totalHorasReq > 0 ? Math.round((totalHorasAsig / totalHorasReq) * 100) : 0;
+  const advCount = appDocentes.balance ? appDocentes.balance.advertenciasTotales : 0;
+  const docAsigCount = appDocentes.balance ? appDocentes.balance.totalDocentesAsignados : 0;
+
+  $("#met-doc-req").textContent = totalHorasReq;
+  $("#met-doc-asig").textContent = totalHorasAsig;
+  $("#met-doc-cob").textContent = cob + "%";
+  $("#met-doc-total").textContent = docAsigCount;
+  $("#met-doc-adv").textContent = advCount;
+  $("#caja-met-adv").classList.toggle("con-alerta", advCount > 0);
+
+  // 2. Alertas activas A07 a A13
+  const cajaAlertas = $("#alertas-docentes");
+  const todasAlertas = [];
+  if (appDocentes.balance && appDocentes.balance.docentes) {
+    appDocentes.balance.docentes.forEach(d => {
+      (d.advertencias || []).forEach(a => {
+        todasAlertas.push({ docente: d.nombreCompleto, ...a });
+      });
+    });
+  }
+
+  if (todasAlertas.length > 0) {
+    cajaAlertas.hidden = false;
+    cajaAlertas.innerHTML = `
+      <b style="color:var(--peligro, #b91c1c);font-size:12.5px">Advertencias de carga horaria y cruces vigentes (${todasAlertas.length}):</b>
+      <ul>
+        ${todasAlertas.map(a => `<li><span class="badge-doc alerta">${esc(a.codigo)}</span> <b>${esc(a.docente)}:</b> ${esc(a.mensaje)}</li>`).join("")}
+      </ul>
+    `;
+  } else {
+    cajaAlertas.hidden = true;
+    cajaAlertas.innerHTML = "";
+  }
+
+  // 3. Renderizar tabla según vista seleccionada
+  if (appDocentes.vistaActual === "dpto") {
+    pintarTablaVistaDepartamento();
+  } else {
+    pintarTablaVistaCarrera();
+  }
+}
+
+function pintarTablaVistaDepartamento() {
+  const tb = $("#tb-vista-dpto");
+  tb.innerHTML = "";
+
+  const docs = (appDocentes.balance && appDocentes.balance.docentes) ? appDocentes.balance.docentes : [];
+  const filtro = appDocentes.filtroDpto;
+
+  const filtrados = docs.filter(d => {
+    if (filtro === "advertencias") return d.advertencias && d.advertencias.length > 0;
+    if (filtro === "todos") return d.horasLectivas > 0 || (d.cursos && d.cursos.length > 0);
+    return true;
+  });
+
+  if (!filtrados.length) {
+    tb.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--ink-soft)">No se encontraron docentes con el filtro seleccionado.</td></tr>`;
+    return;
+  }
+
+  filtrados.forEach(d => {
+    const tr = document.createElement("tr");
+
+    const chips = (d.cursos || []).map(c => {
+      const cls = c.componente === "Teoría" ? "teoria" : (c.componente === "Práctica" ? "practica" : "");
+      return `<span class="chip-curso ${cls}" title="${esc(c.asignatura)} (Grupo ${esc(c.grupo)})">
+        <b>[${esc(c.carrera)}]</b> ${esc(c.codigo)} · G${esc(c.grupo)} (${esc(c.componente || "Comp.")} ${esc(c.horas)}h)
+      </span>`;
+    }).join(" ");
+
+    const chipsAdv = (d.advertencias || []).map(a => `<span class="badge-doc alerta" title="${esc(a.mensaje)}">${esc(a.codigo)}</span>`).join(" ");
+
+    tr.innerHTML = `
+      <td>
+        <b>${esc(d.nombreCompleto)}</b>
+        ${d.dni ? `<br><small style="color:var(--ink-faint)">DNI: ${esc(d.dni)}</small>` : ""}
+      </td>
+      <td><span class="badge-doc condicion">${esc(d.dedicacion || "TP")}</span></td>
+      <td><span style="font-size:12px">${esc(d.condicion || "Contratado")}</span></td>
+      <td class="num"><b style="${d.horasLectivas > 40 ? "color:var(--peligro, #b91c1c)" : ""}">${d.horasLectivas}h</b></td>
+      <td>${chips || '<span style="color:var(--ink-faint);font-size:12px">Sin asignaciones</span>'}</td>
+      <td>${chipsAdv || '<span class="badge-doc ok">✓ Sin alertas</span>'}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-sm" data-acc-doc="asignar-curso" data-doc="${esc(d.nombreCompleto)}" title="Asignar un curso a este docente">+ Asignar</button>
+        ${d.cursos && d.cursos.length ? `<button class="btn btn-sm" data-acc-doc="reemplazar-doc" data-doc="${esc(d.nombreCompleto)}" title="Reemplazar docente en sus cursos">Reemplazar</button>` : ""}
+      </td>
+    `;
+    tb.appendChild(tr);
+  });
+}
+
+function pintarTablaVistaCarrera() {
+  const tb = $("#tb-vista-carrera");
+  tb.innerHTML = "";
+
+  const cursos = appDocentes.cursos || [];
+  const soloPend = appDocentes.filtroSoloPendientes;
+
+  let filasDibujadas = 0;
+  cursos.forEach((c, idx) => {
+    const asig = appDocentes.asignaciones.find(a =>
+      a.carrera === c.carrera && a.codigo === c.codigo && String(a.grupo) === String(c.grupo)
+    );
+
+    if (soloPend && asig && asig.docente) return;
+
+    filasDibujadas++;
+    const tr = document.createElement("tr");
+    const asignado = asig && asig.docente;
+    const esInter = asignado && /INTERNACIONAL/i.test(asig.docente);
+
+    tr.innerHTML = `
+      <td><b>${esc(c.carrera)}</b></td>
+      <td>${esc(c.sem)}</td>
+      <td><code>${esc(c.codigo)}</code></td>
+      <td><b>${esc(c.nombre)}</b></td>
+      <td>${esc(c.grupo)}</td>
+      <td>${esc(c.ht > 0 && c.hp === 0 ? "Teoría" : (c.hp > 0 && c.ht === 0 ? "Práctica" : "Completo"))}</td>
+      <td class="num">${c.ht}</td>
+      <td class="num">${c.hp}</td>
+      <td>
+        ${asignado ? (
+          esInter
+            ? '<span class="badge-doc condicion">🌐 Docente Internacional (Pendiente)</span>'
+            : `<b>${esc(asig.docente)}</b>${asig.reemplazo_de ? `<br><small style="color:var(--ink-faint)">Sustituye a: ${esc(asig.reemplazo_de)}</small>` : ""}`
+        ) : '<span class="badge-doc pendiente">Pendiente</span>'}
+      </td>
+      <td>
+        ${asignado ? '<span class="badge-doc ok">Asignado</span>' : '<span class="badge-doc pendiente">Por asignar</span>'}
+      </td>
+      <td style="white-space:nowrap">
+        ${asignado ? `
+          <button class="btn btn-sm" data-acc-asig="editar" data-idx="${idx}">Cambiar</button>
+          <button class="btn btn-sm peligro" data-acc-asig="quitar" data-idx="${idx}">Quitar</button>
+        ` : `
+          <button class="btn btn-sm primario" data-acc-asig="asignar" data-idx="${idx}">Asignar</button>
+        `}
+      </td>
+    `;
+    tb.appendChild(tr);
+  });
+
+  if (!filasDibujadas) {
+    tb.innerHTML = `<tr><td colspan="11" style="text-align:center;padding:24px;color:var(--ink-soft)">No hay asignaturas pendientes en este departamento.</td></tr>`;
+  }
+}
+
+// Selector de vista: Conmutación inmediata
+$("#btn-vista-dpto").onclick = () => {
+  appDocentes.vistaActual = "dpto";
+  $("#btn-vista-dpto").classList.add("activo");
+  $("#btn-vista-carrera").classList.remove("activo");
+  $("#vista-dpto-contenedor").hidden = false;
+  $("#vista-carrera-contenedor").hidden = true;
+  $("#filtros-vista-dpto").hidden = false;
+  $("#filtros-vista-carrera").hidden = true;
+  pintarTablaVistaDepartamento();
+};
+
+$("#btn-vista-carrera").onclick = () => {
+  appDocentes.vistaActual = "carrera";
+  $("#btn-vista-carrera").classList.add("activo");
+  $("#btn-vista-dpto").classList.remove("activo");
+  $("#vista-dpto-contenedor").hidden = true;
+  $("#vista-carrera-contenedor").hidden = false;
+  $("#filtros-vista-dpto").hidden = true;
+  $("#filtros-vista-carrera").hidden = false;
+  pintarTablaVistaCarrera();
+};
+
+$("#sel-doc-ciclo").onchange = e => {
+  appDocentes.ciclo = e.target.value;
+  cargarEstadoDocentes();
+};
+
+$("#sel-doc-dpto").onchange = e => {
+  appDocentes.dpto = e.target.value;
+  cargarEstadoDocentes();
+};
+
+$("#sel-filtro-docentes").onchange = e => {
+  appDocentes.filtroDpto = e.target.value;
+  pintarTablaVistaDepartamento();
+};
+
+$("#chk-solo-pendientes").onchange = e => {
+  appDocentes.filtroSoloPendientes = e.target.checked;
+  pintarTablaVistaCarrera();
+};
+
+document.addEventListener("click", async e => {
+  const btnDoc = e.target.closest("[data-acc-doc]");
+  if (btnDoc) {
+    const acc = btnDoc.dataset.accDoc;
+    const docNom = btnDoc.dataset.doc;
+    if (acc === "asignar-curso") {
+      abrirModalAsignarCursoADocente(docNom);
+    } else if (acc === "reemplazar-doc") {
+      abrirModalReemplazoDocente(docNom);
+    }
+    return;
+  }
+
+  const btnAsig = e.target.closest("[data-acc-asig]");
+  if (btnAsig) {
+    const acc = btnAsig.dataset.accAsig;
+    const idx = parseInt(btnAsig.dataset.idx, 10);
+    const curso = appDocentes.cursos[idx];
+    if (!curso) return;
+
+    if (acc === "asignar" || acc === "editar") {
+      abrirModalAsignarDocenteACurso(curso);
+    } else if (acc === "quitar") {
+      appDocentes.asignaciones = appDocentes.asignaciones.filter(a =>
+        !(a.carrera === curso.carrera && a.codigo === curso.codigo && String(a.grupo) === String(curso.grupo))
+      );
+      recalcularBalanceDocentes();
+      pintarVistaDocentes();
+      aviso("Asignación retirada.");
+    }
+    return;
+  }
+});
+
+async function abrirModalAsignarDocenteACurso(curso) {
+  const opcionesDocentes = (appDocentes.catalogo || [])
+    .filter(d => Dominio.normalizarDpto(d.dpto) === Dominio.normalizarDpto(appDocentes.dpto))
+    .map(d => `<option value="${esc(d.nombreCompleto)}">${esc(d.nombreCompleto)} (${esc(d.dedicacion)} - ${esc(d.condicion)})</option>`)
+    .join("");
+
+  const cuerpo = `
+    <div style="font-size:13px;margin-bottom:12px">
+      <b>${esc(curso.carrera)} · Semestre ${esc(curso.sem)}</b><br>
+      <code>${esc(curso.codigo)}</code> - ${esc(curso.nombre)} (Grupo ${esc(curso.grupo)})<br>
+      <small style="color:var(--ink-soft)">Horas: ${curso.ht} HT + ${curso.hp} HP = <b>${curso.th} horas lectivas</b></small>
+    </div>
+    <div class="campo">
+      <label for="dlg-sel-doc">Docente del departamento (${esc(appDocentes.dpto)}):</label>
+      <select id="dlg-sel-doc" style="width:100%">
+        <option value="">-- Seleccionar de la plana docente --</option>
+        ${opcionesDocentes}
+      </select>
+    </div>
+    <div class="campo">
+      <label for="dlg-doc-manual">O escribir nombre / buscar otro docente:</label>
+      <input type="text" id="dlg-doc-manual" placeholder="Apellidos y nombres del docente">
+    </div>
+    <div class="campo" style="margin-top:10px">
+      <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer">
+        <input type="checkbox" id="dlg-chk-inter"> Marcar como <b>Docente Internacional (Pendiente)</b> (RN-30)
+      </label>
+    </div>
+  `;
+
+  const ok = await preguntar({
+    titulo: "Asignar docente a la asignatura",
+    cuerpo: cuerpo,
+    acciones: [
+      { texto: "Cancelar", clase: "", valor: null },
+      { texto: "Asignar docente", clase: "primario", valor: true }
+    ]
+  });
+
+  if (!ok) return;
+
+  const esInter = $("#dlg-chk-inter") && $("#dlg-chk-inter").checked;
+  const selDoc = $("#dlg-sel-doc") ? $("#dlg-sel-doc").value : "";
+  const manDoc = $("#dlg-doc-manual") ? $("#dlg-doc-manual").value.trim() : "";
+  const docenteFinal = esInter ? "Docente Internacional" : (manDoc || selDoc);
+
+  if (!docenteFinal) {
+    aviso("Debes seleccionar o escribir un docente.");
+    return;
+  }
+
+  appDocentes.asignaciones = appDocentes.asignaciones.filter(a =>
+    !(a.carrera === curso.carrera && a.codigo === curso.codigo && String(a.grupo) === String(curso.grupo))
+  );
+
+  appDocentes.asignaciones.push({
+    carrera: curso.carrera,
+    codigo: curso.codigo,
+    asignatura: curso.nombre,
+    grupo: String(curso.grupo),
+    componente: curso.ht > 0 && curso.hp === 0 ? "Teoría" : (curso.hp > 0 && curso.ht === 0 ? "Práctica" : "Completo"),
+    docente: docenteFinal,
+    horas: curso.th,
+    condicion: esInter ? "INTERNACIONAL" : "",
+    reemplazo_de: "",
+    departamento: appDocentes.dpto
+  });
+
+  recalcularBalanceDocentes();
+  pintarVistaDocentes();
+  aviso("Docente asignado correctamente.");
+}
+
+async function abrirModalAsignarCursoADocente(docNom) {
+  const cursosSinDoc = appDocentes.cursos.filter(c => {
+    return !appDocentes.asignaciones.some(a =>
+      a.carrera === c.carrera && a.codigo === c.codigo && String(a.grupo) === String(c.grupo) && a.docente
+    );
+  });
+
+  if (!cursosSinDoc.length) {
+    aviso("Todas las asignaturas del departamento ya cuentan con docente asignado.");
+    return;
+  }
+
+  const opcionesCursos = cursosSinDoc.map((c, i) =>
+    `<option value="${i}">[${esc(c.carrera)}] ${esc(c.codigo)} - ${esc(c.nombre)} G${esc(c.grupo)} (${c.th}h)</option>`
+  ).join("");
+
+  const cuerpo = `
+    <div style="margin-bottom:12px;font-size:13px">
+      Asignar curso pendiente al profesor: <b>${esc(docNom)}</b>
+    </div>
+    <div class="campo">
+      <label for="dlg-sel-curso-pendiente">Seleccionar asignatura solicitada:</label>
+      <select id="dlg-sel-curso-pendiente" style="width:100%">
+        ${opcionesCursos}
+      </select>
+    </div>
+  `;
+
+  const ok = await preguntar({
+    titulo: "Asignar curso a " + docNom,
+    cuerpo: cuerpo,
+    acciones: [
+      { texto: "Cancelar", clase: "", valor: null },
+      { texto: "Asignar", clase: "primario", valor: true }
+    ]
+  });
+
+  if (!ok) return;
+
+  const idx = parseInt($("#dlg-sel-curso-pendiente").value, 10);
+  const curso = cursosSinDoc[idx];
+  if (!curso) return;
+
+  appDocentes.asignaciones.push({
+    carrera: curso.carrera,
+    codigo: curso.codigo,
+    asignatura: curso.nombre,
+    grupo: String(curso.grupo),
+    componente: curso.ht > 0 && curso.hp === 0 ? "Teoría" : (curso.hp > 0 && curso.ht === 0 ? "Práctica" : "Completo"),
+    docente: docNom,
+    horas: curso.th,
+    condicion: "",
+    reemplazo_de: "",
+    departamento: appDocentes.dpto
+  });
+
+  recalcularBalanceDocentes();
+  pintarVistaDocentes();
+  aviso(`Curso ${curso.codigo} asignado a ${docNom}.`);
+}
+
+async function abrirModalReemplazoDocente(titularActual) {
+  const opcionesSustitutos = (appDocentes.catalogo || [])
+    .filter(d => Dominio.normalizarDpto(d.dpto) === Dominio.normalizarDpto(appDocentes.dpto) && d.nombreCompleto !== titularActual)
+    .map(d => `<option value="${esc(d.nombreCompleto)}">${esc(d.nombreCompleto)} (${esc(d.dedicacion)})</option>`)
+    .join("");
+
+  const cuerpo = `
+    <div style="margin-bottom:12px;font-size:13px">
+      Sustituir al docente titular: <b style="color:var(--peligro, #b91c1c)">${esc(titularActual)}</b>
+    </div>
+    <div class="campo">
+      <label for="dlg-sel-sustituto">Nuevo docente sustituto:</label>
+      <select id="dlg-sel-sustituto" style="width:100%">
+        <option value="">-- Seleccionar sustituto --</option>
+        ${opcionesSustitutos}
+      </select>
+    </div>
+    <div class="campo">
+      <label for="dlg-motivo-reemplazo">Motivo del reemplazo (auditoría):</label>
+      <select id="dlg-motivo-reemplazo" style="width:100%">
+        <option value="Licencia médica">Licencia médica</option>
+        <option value="Licencia por gravidez">Licencia por gravidez</option>
+        <option value="Renuncia">Renuncia</option>
+        <option value="Ajuste de carga horaria">Ajuste de carga horaria</option>
+        <option value="Otro motivo justificado">Otro motivo justificado</option>
+      </select>
+    </div>
+  `;
+
+  const ok = await preguntar({
+    titulo: "Reemplazo de docente (RN-31)",
+    cuerpo: cuerpo,
+    acciones: [
+      { texto: "Cancelar", clase: "", valor: null },
+      { texto: "Confirmar Reemplazo", clase: "primario", valor: true }
+    ]
+  });
+
+  if (!ok) return;
+
+  const nuevoDoc = $("#dlg-sel-sustituto") ? $("#dlg-sel-sustituto").value : "";
+  const motivo = $("#dlg-motivo-reemplazo") ? $("#dlg-motivo-reemplazo").value : "";
+
+  if (!nuevoDoc) {
+    aviso("Debes seleccionar un docente sustituto.");
+    return;
+  }
+
+  let cursosReemplazados = 0;
+  appDocentes.asignaciones.forEach(a => {
+    if (a.docente === titularActual) {
+      a.reemplazo_de = titularActual;
+      a.docente = nuevoDoc;
+      a.condicion = (a.condicion ? a.condicion + " · " : "") + "Sustitución: " + motivo;
+      cursosReemplazados++;
+    }
+  });
+
+  recalcularBalanceDocentes();
+  pintarVistaDocentes();
+  aviso(`Se reemplazó a ${titularActual} por ${nuevoDoc} en ${cursosReemplazados} asignaturas.`);
+}
+
+$("#btn-doc-guardar").onclick = async () => {
+  const total = appDocentes.asignaciones.length;
+  const advCount = appDocentes.balance ? appDocentes.balance.advertenciasTotales : 0;
+  const totalHoras = appDocentes.asignaciones.reduce((sum, a) => sum + num(a.horas), 0);
+
+  const cuerpo = `
+    <div style="font-size:13px">
+      Se guardarán las asignaciones para el departamento <b>${esc(appDocentes.dpto)}</b> en el ciclo <b>${esc(appDocentes.ciclo)}</b>.<br><br>
+      • Total asignaciones: <b>${total}</b><br>
+      • Horas lectivas totales: <b>${totalHoras}h</b><br>
+      • Advertencias vigentes (A07-A13): <b style="${advCount > 0 ? "color:var(--peligro, #b91c1c)" : ""}">${advCount}</b>
+      ${advCount > 0 ? "<br><br><span style='font-size:12px;color:var(--ink-soft)'>Nota: Según la regla de negocio RN-33, las advertencias no bloquean el guardado y se registran bajo confirmación informada.</span>" : ""}
+    </div>
+  `;
+
+  const ok = await preguntar({
+    titulo: "Confirmar guardado de asignaciones",
+    cuerpo: cuerpo,
+    acciones: [
+      { texto: "Cancelar", clase: "", valor: null },
+      { texto: "Confirmar y guardar", clase: "primario", valor: true }
+    ]
+  });
+
+  if (!ok) return;
+
+  try {
+    const res = await llamar("guardarAsignaciones", appDocentes.ciclo, appDocentes.dpto, appDocentes.asignaciones, "Guardado interactivo");
+    if (!res.ok) throw new Error("No se pudo completar el guardado.");
+    aviso(`Asignaciones guardadas con éxito (${res.guardadas} registros).`);
+    await cargarEstadoDocentes();
+  } catch (err) {
+    informarError(err);
+  }
+};
+
+/* ---------- Carga Masiva de Asignaciones (Rejilla y Archivo) ---------- */
+
+$("#btn-doc-masiva").onclick = () => {
+  mostrar("docentes-carga");
+  $("#caja-pegar-doc").hidden = false;
+  $("#caja-previa-doc").hidden = true;
+};
+
+$("#volver-doc-carga").onclick = () => {
+  mostrar("docentes");
+};
+
+$("#btn-doc-archivo-tab").onclick = () => {
+  $("#input-doc-archivo").click();
+};
+
+$("#input-doc-archivo").onchange = async e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  aviso("Archivo seleccionado: " + f.name + ". Copia y pega las filas en la rejilla para previsualizar.");
+};
+
+$("#hoja-pegado-doc").addEventListener("paste", e => {
+  e.preventDefault();
+  const texto = (e.clipboardData || window.clipboardData).getData("text");
+  if (!texto) return;
+
+  appDocentes.matrizPegada = Dominio.matrizDesdeTexto(texto);
+  pintarRejillaDocentes(appDocentes.matrizPegada);
+});
+
+function pintarRejillaDocentes(matriz) {
+  const scroll = $("#hoja-scroll-doc");
+  const vacia = $("#hoja-vacia-doc");
+
+  if (!matriz || !matriz.length) {
+    scroll.hidden = true;
+    vacia.hidden = false;
+    $("#btn-procesar-pegado-doc").disabled = true;
+    $("#btn-limpiar-pegado-doc").disabled = true;
+    return;
+  }
+
+  vacia.hidden = true;
+  scroll.hidden = false;
+  $("#btn-procesar-pegado-doc").disabled = false;
+  $("#btn-limpiar-pegado-doc").disabled = false;
+
+  const html = `
+    <table class="tabla-hoja">
+      <tbody>
+        ${matriz.slice(0, 50).map((fila, r) => `
+          <tr>
+            <th class="num">${r + 1}</th>
+            ${fila.map(c => `<td>${esc(c)}</td>`).join("")}
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
+  scroll.innerHTML = html;
+}
+
+$("#btn-limpiar-pegado-doc").onclick = () => {
+  appDocentes.matrizPegada = null;
+  pintarRejillaDocentes(null);
+};
+
+$("#btn-procesar-pegado-doc").onclick = () => {
+  if (!appDocentes.matrizPegada || !appDocentes.matrizPegada.length) return;
+
+  const interpretado = Dominio.interpretarAsignacionesDepartamento(appDocentes.matrizPegada, appDocentes.cursos);
+  appDocentes.asignacionesPrevia = interpretado.asignaciones || [];
+
+  $("#caja-pegar-doc").hidden = true;
+  $("#caja-previa-doc").hidden = false;
+
+  $("#nota-previa-doc").innerHTML = `Se leyeron <b>${appDocentes.asignacionesPrevia.length}</b> asignaciones docentes del contenido pegado. Revisa la validación con la plana docente antes de aplicar.`;
+
+  const tb = $("#tb-previa-doc");
+  tb.innerHTML = "";
+
+  appDocentes.asignacionesPrevia.forEach(a => {
+    const tr = document.createElement("tr");
+    const esInter = /INTERNACIONAL/i.test(a.docente) || /INTERNACIONAL/i.test(a.condicion);
+    const docenteEnCatalogo = appDocentes.catalogo.some(d => Dominio.claveDocente(d.nombreCompleto) === Dominio.claveDocente(a.docente));
+
+    tr.innerHTML = `
+      <td><b>${esc(a.carrera)}</b></td>
+      <td><code>${esc(a.codigo)}</code></td>
+      <td>${esc(a.asignatura)}</td>
+      <td>${esc(a.grupo)}</td>
+      <td>${esc(a.componente)}</td>
+      <td><b>${esc(a.docente)}</b></td>
+      <td>
+        ${esInter ? '<span class="badge-doc condicion">Internacional</span>' : (
+          docenteEnCatalogo ? '<span class="badge-doc ok">✓ Catálogo</span>' : '<span class="badge-doc alerta">⚠ No adscrito</span>'
+        )}
+      </td>
+      <td class="num">${a.horas}h</td>
+    `;
+    tb.appendChild(tr);
+  });
+};
+
+$("#btn-cancelar-previa-doc").onclick = () => {
+  $("#caja-pegar-doc").hidden = false;
+  $("#caja-previa-doc").hidden = true;
+};
+
+$("#btn-aplicar-previa-doc").onclick = () => {
+  if (!appDocentes.asignacionesPrevia.length) return;
+
+  appDocentes.asignacionesPrevia.forEach(nueva => {
+    appDocentes.asignaciones = appDocentes.asignaciones.filter(a =>
+      !(a.carrera === nueva.carrera && a.codigo === nueva.codigo && String(a.grupo) === String(nueva.grupo))
+    );
+    appDocentes.asignaciones.push({
+      ...nueva,
+      departamento: appDocentes.dpto
+    });
+  });
+
+  recalcularBalanceDocentes();
+  pintarVistaDocentes();
+  mostrar("docentes");
+  aviso(`Se aplicaron ${appDocentes.asignacionesPrevia.length} asignaciones a la grilla.`);
+};
 
 (function arrancar(){
   if (SIS.estado === "sin-instalar") return mostrar("instalar");

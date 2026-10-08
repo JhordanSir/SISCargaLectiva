@@ -11,7 +11,7 @@ import http from "node:http";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import { crearEntorno, cargarServidor, ejecutar } from "./falsos.mjs";
-import { XLSX_CARRERA, XLSX_DEPARTAMENTO } from "./soporte.mjs";
+import { XLSX_CARRERA, XLSX_DEPARTAMENTO, XLSX_DOCENTES } from "./soporte.mjs";
 
 const USUARIO_POR_DEFECTO = "mfloresl@ulasalle.edu.pe";
 
@@ -44,6 +44,7 @@ export function iniciarServidorLocal({ puerto = 8765, conXlsx = true } = {}) {
   if (conXlsx) {
     e.subir(e.propiedades.SIS_CARPETA_ID, "SISCargaLectiva-Ejemplo-CargaXCarrera.xlsx", fs.readFileSync(XLSX_CARRERA));
     e.subir(e.propiedades.SIS_CARPETA_ID, "SISCargaLectiva-Ejemplo-CargaXDepartamento.xlsx", fs.readFileSync(XLSX_DEPARTAMENTO));
+    e.subir(e.propiedades.SIS_CARPETA_ID, "SISCargaLectiva-Ejemplo-CargaDeDocentes.xlsx", fs.readFileSync(XLSX_DOCENTES));
   }
 
   const servidor = http.createServer((req, res) => {

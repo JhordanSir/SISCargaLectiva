@@ -306,7 +306,21 @@ Los códigos P## remiten a `preguntas.md` (archivo local). Las decisiones marcad
 | Rapidez | La página llega con el tablero y el contenido vigente de los planes del ciclo, así que consultar un plan no llama al servidor. «Editar» abre al instante y toma el bloqueo de fondo; hasta que se confirma no se puede guardar. El contenido de cada versión se guarda en caché y SheetJS se descarga al entrar en la carga masiva [2026-09-29]. |
 | Configuración | Propiedades del script, creadas por `instalar()` [2026-09-29]. |
 | Correcciones del prototipo | Deshacer una fusión devuelve a cada grupo sus horas; un desdoble se puede quitar; importar toma solo las filas de la carrera del plan y avisa cuántas ignoró [2026-09-29]. |
-| Redacción de CU | Tabla de flujo Paso\|Responsable\|Acción (no Actor\|Sistema); sin sección de Postcondiciones; en el flujo de eventos, un paso nunca une dos acciones ni enumera en línea lo que el sistema muestra (va en guiones o entre paréntesis); el resto del documento usa "y"/"o" con normalidad (P77–P81). |
+| Redacción de CU | Tabla de flujo Paso|Responsable|Acción (no Actor|Sistema); sin sección de Postcondiciones; en el flujo de eventos, un paso nunca une dos acciones ni enumera en línea lo que el sistema muestra (va en guiones o entre paréntesis); el resto del documento usa "y"/"o" con normalidad (P77–P81). |
+| CU-002 Flujo | Carga masiva basada en hoja de cálculo (pegar rango de celdas o subir .xlsx por departamento) como flujo primario, con edición manual de ajustes (P82). |
+| CU-002 Reglas | Principio de "advertir, no prohibir" extendido a la carga docente: advertencias A## para topes (>40h, >16h externo, >24h cargo/alta, <8h baja, cruce en mismo semestre de carrera), sin bloqueo destructivo (P83). |
+| CU-002 Componentes | Asignación granular por componente: teoría y subgrupos prácticos/laboratorios independientes (P84). |
+| CU-002 Reemplazos e Int. | Opción de 'Pendiente Internacional' y acción de 'Reemplazar docente' con historial de auditoría de titular y sustituto (P85). |
+| CU-002 Alcance Director | Director asigna solo a cursos de su departamento en todas las carreras; excepciones requieren cambio formal de DPTO (P86). |
+| CU-002 Título | Título formal: CU-002 Carga de Docentes (P87). |
+| CU-002 Plantilla | Plantilla oficial basada en CargaXDepartamento: DOCENTE, CARRERA, MALLA, SEMESTRE, CÓDIGO, ASIGNATURA, HT, HP, CONDICIÓN, TIPO_HORA (P88). |
+| CU-002 Vistas | Dos vistas integradas: Vista por Departamento y Vista por Carrera para monitorear cursos pendientes (P89). |
+| CU-002 Estados | Sin estados nuevos de ciclo; versionado directo sobre el plan Registrado incorporando las asignaciones docentes (P90). |
+| CU-002 Prototipo Apps Script | Integrado directamente en la Web App de AppScript/, habilitando el botón del menú principal y compartiendo sesión y estilos (P91). |
+| CU-002 Catálogo de Docentes | Leído directamente de CargaDeDocentes.xlsx en Google Drive (P92). |
+| CU-002 Persistencia Asignaciones | Pestaña Asignaciones en SISCargaLectiva-BD para persistencia granular por fila de asignación docente (P93). |
+| CU-002 Conmutador de Vistas | Conmutador interactivo entre Vista por Departamento y Vista por Carrera con filtro de pendientes (P94). |
+| CU-002 Rejilla de Carga | Reutilización de Rejilla de Pegado matricial y subida de CargaXDepartamento .xlsx con previsualización (P95). |
 
 ---
 
@@ -315,14 +329,13 @@ Los códigos P## remiten a `preguntas.md` (archivo local). Las decisiones marcad
 ### 11.1 Administrar ciclos (Administrador)
 - Crear ciclos (p. ej. `2027-1`) y actualizar sus datos. **[D]**
 
-### 11.2 Asignar docentes a plan de ciclo (Director de departamento)
-- Asignar docentes a los grupos cuyo DPTO sea el del director. **[D]**
-- Permitir cambiar el DPTO de un curso por excepción. Ejemplo: un docente TC de DAHU completa su carga dictando Matemática Básica. **[D]**
-- Varios docentes por grupo: titular y **jefe de práctica**. En el Excel aparece como `A // B` o con el prefijo `JP -`. **[X]**
-- Datos del docente **[X]**: DNI, apellido paterno, apellido materno, nombres, condición (Ordinario/Contratado), categoría (Auxiliar, Asociado, Principal, Auxiliar/Internacional, Jefe de práctica), departamento, dedicación (TC/TP), "nuevo".
-- Condición en la carga: internacional (con país), virtual, invitado, conferencista, por concurso. **[X]**
-- Un docente **TC debe cubrir 40 h/semana**. **[D]**
-- Al editar el plan (fase 1), se advierte si el grupo ya tiene docente (A06). **[D]**
+### 11.2 CU-002: Carga de Docentes (Director de departamento) [P82–P90]
+- Asignar docentes a los grupos cuyo DPTO sea el del director en todas las carreras. **[D][P86]**
+- Carga masiva desde Google Sheets o archivo `.xlsx` (CargaXDepartamento) y edición directa en pantalla. **[D][P82][P88]**
+- Asignación por componente: docente de teoría y docente o jefe de práctica por cada subgrupo de laboratorio. **[D][P84]**
+- Control y alertas de carga horaria (40h máximo, 16h externos TC, >24h alerta alta, <8h alerta baja, cruce semestral). **[D][P83]**
+- Gestión de docentes internacionales pendientes y registro de reemplazos temporales durante el semestre. **[D][P85]**
+- Monitoreo integrado mediante vista por departamento y vista por carrera. **[D][P89]**
 
 ### 11.3 Generar reporte de carga lectiva
 - **Por carrera:** cursos de la carrera y quién los dicta. **[D]**

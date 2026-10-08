@@ -33,7 +33,7 @@ test("instalar() crea carpeta, hoja, pestañas y usuarios, y se puede repetir", 
   assert.ok(carpeta && bd);
   assert.equal(e.propiedades.SIS_CICLO_XLSX, "2026-1");
   const libro = e.libros.get(bd);
-  assert.deepEqual(libro.getSheets().map(h => h.getName()), ["Usuarios", "Planes", "Versiones", "Bloqueos", "Fuentes"]);
+  assert.deepEqual(libro.getSheets().map(h => h.getName()), ["Usuarios", "Planes", "Versiones", "Bloqueos", "Fuentes", "Asignaciones"]);
   assert.equal(e.hoja("Usuarios").filas().length, 6);
   ejecutar(e, A, "instalar");
   assert.equal(e.propiedades.SIS_CARPETA_ID, carpeta);

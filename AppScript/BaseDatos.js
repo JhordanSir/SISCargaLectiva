@@ -5,7 +5,8 @@ var TABLAS_ = {
   Planes: ["ciclo", "carrera", "estado", "version", "actualizado_por", "actualizado_en", "firma_xlsx", "totales", "fila_version"],
   Versiones: ["ciclo", "carrera", "n", "estado", "tipo", "usuario", "fecha", "motivo", "contenido"],
   Bloqueos: ["ciclo", "carrera", "correo", "desde", "expira"],
-  Fuentes: ["tipo", "archivo_id", "nombre", "modificado", "procesado_en", "avisos"]
+  Fuentes: ["tipo", "archivo_id", "nombre", "modificado", "procesado_en", "avisos"],
+  Asignaciones: ["ciclo", "departamento", "carrera", "codigo", "asignatura", "grupo", "componente", "docente", "horas", "condicion", "reemplazo_de", "fecha_asignacion"]
 };
 
 /* Una celda admite 50 000 caracteres; el contenido de una versión se reparte en

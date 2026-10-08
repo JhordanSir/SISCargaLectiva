@@ -49,8 +49,8 @@
         <button class="menu-op" id="op-planes">
           <span><b>Gestión de Planes de Ciclo</b><small>Registrar y editar la oferta académica por carrera</small></span>
         </button>
-        <button class="menu-op" disabled>
-          <span><b>Asignar docentes al plan de ciclo</b><small>Disponible en una fase posterior</small></span>
+        <button class="menu-op" id="op-docentes">
+          <span><b>Asignar docentes al plan de ciclo (CU-002)</b><small>Gestión de carga docente y balance horario por departamento</small></span>
         </button>
         <button class="menu-op" disabled>
           <span><b>Reporte de carga lectiva</b><small>Disponible en una fase posterior</small></span>
@@ -206,6 +206,187 @@
       <div class="barra-acciones" style="margin-top:16px">
         <button class="btn" id="exito-editar">Seguir editando el plan</button>
       </div>
+  <!-- ===== CU-002: Carga de Docentes ===== -->
+  <section class="panel" id="v-docentes" hidden>
+    <div class="panel-cab">
+      <button class="btn volver" data-volver="menu">← Volver al menú</button>
+      <h2>Carga de Docentes (CU-002)</h2>
+      <span class="reloj" id="reloj-docentes"></span>
+    </div>
+    <div class="panel-cuerpo">
+      <div class="nota aviso" id="nota-doc-bloqueo" hidden></div>
+
+      <!-- Barra de Filtros y Conmutador de Vistas -->
+      <div class="fila-tablero" style="gap:12px;flex-wrap:wrap;align-items:flex-end">
+        <div class="campo" style="max-width:180px;margin-bottom:0">
+          <label for="sel-doc-ciclo">Ciclo académico</label>
+          <select id="sel-doc-ciclo"></select>
+        </div>
+        <div class="campo" style="max-width:260px;margin-bottom:0">
+          <label for="sel-doc-dpto">Departamento académico</label>
+          <select id="sel-doc-dpto">
+            <option value="DIMA">DIMA - Ing. y Matemáticas</option>
+            <option value="DAHUC">DAHUC - Humanidades y Com.</option>
+            <option value="DACJ">DACJ - Ciencias Jurídicas</option>
+            <option value="DACTE">DACTE - Cs. y Tec. Empresariales</option>
+          </select>
+        </div>
+        <div class="conmutador-vistas" style="display:flex;gap:4px">
+          <button class="btn activo" id="btn-vista-dpto" type="button">Vista por Departamento</button>
+          <button class="btn" id="btn-vista-carrera" type="button">Vista por Carrera</button>
+        </div>
+        <div style="margin-left:auto;display:flex;gap:8px">
+          <button class="btn" id="btn-doc-masiva">Carga Masiva</button>
+          <button class="btn primario" id="btn-doc-guardar">Guardar Asignaciones</button>
+        </div>
+      </div>
+
+      <!-- Resumen y Alertas Reactivas -->
+      <div class="resumen-docentes" style="margin:16px 0 12px;display:flex;gap:12px;flex-wrap:wrap">
+        <div class="tarjeta-metrica">
+          <small>Horas Requeridas</small>
+          <b id="met-doc-req">0</b>
+        </div>
+        <div class="tarjeta-metrica">
+          <small>Horas Asignadas</small>
+          <b id="met-doc-asig">0</b>
+        </div>
+        <div class="tarjeta-metrica">
+          <small>Cobertura</small>
+          <b id="met-doc-cob">0%</b>
+        </div>
+        <div class="tarjeta-metrica">
+          <small>Docentes Asignados</small>
+          <b id="met-doc-total">0</b>
+        </div>
+        <div class="tarjeta-metrica" id="caja-met-adv">
+          <small>Advertencias (A07-A13)</small>
+          <b id="met-doc-adv">0</b>
+        </div>
+      </div>
+
+      <!-- Panel de Alertas Activas -->
+      <div class="panel-alertas-docentes" id="alertas-docentes" hidden></div>
+
+      <!-- Barra de Filtros Rápidos de la Vista -->
+      <div class="barra-filtros" style="display:flex;gap:12px;margin:12px 0;align-items:center">
+        <div id="filtros-vista-dpto" style="display:flex;gap:8px;align-items:center">
+          <span class="etq" style="margin:0">Filtro de docentes:</span>
+          <select id="sel-filtro-docentes" style="padding:4px 8px;font-size:12.5px">
+            <option value="todos">Todos los docentes con carga</option>
+            <option value="advertencias">Solo con advertencias</option>
+            <option value="catalogo">Toda la plana docente</option>
+          </select>
+        </div>
+        <div id="filtros-vista-carrera" hidden style="display:flex;gap:8px;align-items:center">
+          <label style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;cursor:pointer">
+            <input type="checkbox" id="chk-solo-pendientes"> Solo asignaturas pendientes de docente
+          </label>
+        </div>
+      </div>
+
+      <!-- Contenedor Vista por Departamento -->
+      <div id="vista-dpto-contenedor">
+        <div class="tabla-caja">
+          <table class="tabla-docentes">
+            <thead>
+              <tr>
+                <th>Docente</th>
+                <th>Dedicación</th>
+                <th>Condición</th>
+                <th class="num">Horas</th>
+                <th>Asignaciones (Carrera · Curso · Grupo · Comp.)</th>
+                <th>Alertas</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tb-vista-dpto"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Contenedor Vista por Carrera -->
+      <div id="vista-carrera-contenedor" hidden>
+        <div class="tabla-caja">
+          <table class="tabla-carrera-doc">
+            <thead>
+              <tr>
+                <th>Carrera</th>
+                <th>Sem.</th>
+                <th>Código</th>
+                <th>Asignatura</th>
+                <th>Grupo</th>
+                <th>Comp.</th>
+                <th class="num">HT</th>
+                <th class="num">HP</th>
+                <th>Docente Asignado</th>
+                <th>Estado</th>
+                <th>Acción</th>
+              </tr>
+            </thead>
+            <tbody id="tb-vista-carrera"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ===== CU-002: Carga Masiva de Asignaciones (Rejilla y Archivo) ===== -->
+  <section class="panel" id="v-docentes-carga" hidden>
+    <div class="panel-cab">
+      <button class="btn volver" id="volver-doc-carga">← Volver a Carga de Docentes</button>
+      <h2>Carga Masiva de Asignaciones Docentes</h2>
+    </div>
+    <div class="panel-cuerpo">
+      <div class="barra-acciones" style="margin-bottom:14px">
+        <button class="btn primario" id="btn-doc-pegar-tab">Pegar desde Google Sheets</button>
+        <button class="btn" id="btn-doc-archivo-tab">Subir archivo CargaXDepartamento</button>
+      </div>
+      <input type="file" id="input-doc-archivo" hidden accept=".xlsx">
+
+      <div id="caja-pegar-doc">
+        <p class="etq" style="margin-bottom:7px">Copia el rango de celdas de asignaciones por departamento y pégalo aquí</p>
+        <div class="hoja" id="hoja-pegado-doc" tabindex="0" role="group" aria-label="Área de pegado para asignación docente">
+          <div class="hoja-vacia" id="hoja-vacia-doc">
+            <b>Pega aquí el rango de asignaciones</b>
+            <small>Ctrl+V &nbsp;·&nbsp; Cmd+V en Mac</small>
+          </div>
+          <div class="hoja-scroll" id="hoja-scroll-doc" hidden></div>
+        </div>
+        <div class="barra-acciones" style="margin-top:14px">
+          <button class="btn primario" id="btn-procesar-pegado-doc" disabled>Previsualizar Asignaciones</button>
+          <button class="btn" id="btn-limpiar-pegado-doc" disabled>Limpiar</button>
+        </div>
+      </div>
+
+      <!-- Previsualización interactiva con validación contra el catálogo (P99) -->
+      <div id="caja-previa-doc" hidden style="margin-top:16px">
+        <p class="etq">Previsualización de asignaciones a aplicar</p>
+        <div class="nota" id="nota-previa-doc"></div>
+        <div class="tabla-caja" style="margin-top:10px;max-height:360px">
+          <table>
+            <thead>
+              <tr>
+                <th>Carrera</th>
+                <th>Código</th>
+                <th>Asignatura</th>
+                <th>Grupo</th>
+                <th>Comp.</th>
+                <th>Docente Leído</th>
+                <th>Validación Catálogo</th>
+                <th class="num">Horas</th>
+              </tr>
+            </thead>
+            <tbody id="tb-previa-doc"></tbody>
+          </table>
+        </div>
+        <div class="barra-acciones" style="margin-top:14px">
+          <button class="btn primario" id="btn-aplicar-previa-doc">Aplicar a la Grilla de Asignación</button>
+          <button class="btn" id="btn-cancelar-previa-doc">Descartar</button>
+        </div>
+      </div>
+
     </div>
   </section>
 </div>

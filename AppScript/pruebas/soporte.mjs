@@ -9,6 +9,7 @@ export const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 export const REPO = path.resolve(RAIZ, "..");
 export const XLSX_CARRERA = path.join(REPO, "docs/archivos/SISCargaLectiva-Ejemplo-CargaXCarrera.xlsx");
 export const XLSX_DEPARTAMENTO = path.join(REPO, "docs/archivos/SISCargaLectiva-Ejemplo-CargaXDepartamento.xlsx");
+export const XLSX_DOCENTES = path.join(REPO, "docs/archivos/SISCargaLectiva-Ejemplo-CargaDeDocentes.xlsx");
 
 /* Lector zip mínimo: directorio central + inflate. Devuelve {ruta: Buffer}. */
 export function descomprimir(buffer) {
