@@ -41,11 +41,16 @@ const esc = t => String(t == null ? "" : t).replace(/[&<>"]/g, c => ({ "&":"&amp
 const fecha = iso => { const d = new Date(iso); return isNaN(d) ? String(iso || "") : d.toLocaleString("es-PE", { dateStyle:"short", timeStyle:"short" }); };
 const hora = iso => { const d = new Date(iso); return isNaN(d) ? "" : d.toLocaleTimeString("es-PE", { hour:"2-digit", minute:"2-digit" }); };
 const clonar = x => JSON.parse(JSON.stringify(x));
+const alPulsar = (s, fn) => { const el = $(s); if (el) el.onclick = fn; };
+const alCambiar = (s, fn) => { const el = $(s); if (el) el.onchange = fn; };
 
 const VISTAS = ["instalar","denegado","menu","planes","carga","pegado","grilla","lectura","exito","docentes","docentes-carga"];
 function mostrar(v){
   const cambia = app.vista !== v;
-  VISTAS.forEach(x => { $("#v-" + x).hidden = (x !== v); });
+  VISTAS.forEach(x => {
+    const el = $("#v-" + x);
+    if (el) el.hidden = (x !== v);
+  });
   app.vista = v;
   if (cambia) window.scrollTo({ top:0, behavior:"instant" });
 }
@@ -306,12 +311,16 @@ function actualizarFilaTablero(sig, cambios){
 
 function pintarTablero(){
   const filas = app.tableroCiclo === app.ciclo ? app.tablero : [];
-  $("#tb-tablero").innerHTML = filas.map(f => {
+  const u = app.usuario || {};
+  const carreras = Array.isArray(u.carreras) ? u.carreras : [];
+  const tb = $("#tb-tablero");
+  if (!tb) return;
+  tb.innerHTML = filas.map(f => {
     const t = f.totales || {};
     const b = bloqueoVigente(f.bloqueo);
-    const otro = b && b.correo !== app.usuario.correo;
+    const otro = b && b.correo !== u.correo;
     const cls = otro ? "bloqueado" : f.estado === ESTADOS.REGISTRADO ? "registrado" : f.estado === ESTADOS.BORRADOR ? "borrador" : "sin";
-    const puede = app.usuario.carreras.includes(f.sig);
+    const puede = carreras.includes(f.sig);
     const v = f.version ? "v" + f.version : "—";
     return '<tr class="pulsable" data-sig="' + f.sig + '">' +
       "<td><b>" + esc(f.nombre) + '</b> <span class="cod" style="color:var(--ink-faint)">' + f.sig + "</span></td>" +
@@ -1240,7 +1249,7 @@ const appDocentes = {
 };
 
 // Evento al pulsar "Asignar docentes al plan de ciclo" en el menú principal
-$("#op-docentes").onclick = () => iniciarCargaDocentes();
+alPulsar("#op-docentes", () => iniciarCargaDocentes());
 
 async function iniciarCargaDocentes(forzarCiclo, forzarDpto) {
   if (forzarCiclo) appDocentes.ciclo = forzarCiclo;
@@ -1384,16 +1393,32 @@ function pintarTablaVistaCarrera() {
 
   let filasDibujadas = 0;
   cursos.forEach((c, idx) => {
-    const asig = appDocentes.asignaciones.find(a =>
+    const asigs = appDocentes.asignaciones.filter(a =>
       a.carrera === c.carrera && a.codigo === c.codigo && String(a.grupo) === String(c.grupo)
     );
+    const esCompartida = asigs.length > 1;
+    const asignado = asigs.length > 0;
 
-    if (soloPend && asig && asig.docente) return;
+    if (soloPend && asignado) return;
 
     filasDibujadas++;
     const tr = document.createElement("tr");
-    const asignado = asig && asig.docente;
-    const esInter = asignado && /INTERNACIONAL/i.test(asig.docente);
+
+    let celdaDocente = '<span class="badge-doc pendiente">Pendiente</span>';
+    if (esCompartida) {
+      celdaDocente = `
+        <span class="badge-doc info" style="margin-bottom:4px;display:inline-block">Cátedra compartida (FA-001)</span><br>
+        ${asigs.map(a => `• <b>${esc(a.docente)}</b> <small style="color:var(--ink-soft)">(${esc(a.componente)}: ${a.horas}h)</small>`).join("<br>")}
+      `;
+    } else if (asignado) {
+      const a = asigs[0];
+      const esInter = /INTERNACIONAL/i.test(a.docente);
+      celdaDocente = esInter
+        ? '<span class="badge-doc condicion">🌐 Docente Internacional (Pendiente)</span>'
+        : `<b>${esc(a.docente)}</b>${a.reemplazo_de ? `<br><small style="color:var(--ink-faint)">Sustituye a: ${esc(a.reemplazo_de)}</small>` : ""}`;
+    }
+
+    const admiteCompartida = c.ht > 0 && c.hp > 0;
 
     tr.innerHTML = `
       <td><b>${esc(c.carrera)}</b></td>
@@ -1404,23 +1429,20 @@ function pintarTablaVistaCarrera() {
       <td>${esc(c.ht > 0 && c.hp === 0 ? "Teoría" : (c.hp > 0 && c.ht === 0 ? "Práctica" : "Completo"))}</td>
       <td class="num">${c.ht}</td>
       <td class="num">${c.hp}</td>
-      <td>
-        ${asignado ? (
-          esInter
-            ? '<span class="badge-doc condicion">🌐 Docente Internacional (Pendiente)</span>'
-            : `<b>${esc(asig.docente)}</b>${asig.reemplazo_de ? `<br><small style="color:var(--ink-faint)">Sustituye a: ${esc(asig.reemplazo_de)}</small>` : ""}`
-        ) : '<span class="badge-doc pendiente">Pendiente</span>'}
-      </td>
+      <td>${celdaDocente}</td>
       <td>
         ${asignado ? '<span class="badge-doc ok">Asignado</span>' : '<span class="badge-doc pendiente">Por asignar</span>'}
       </td>
-      <td style="white-space:nowrap">
+      <td style="white-space:nowrap;display:flex;gap:4px;flex-wrap:wrap">
         ${asignado ? `
           <button class="btn btn-sm" data-acc-asig="editar" data-idx="${idx}">Cambiar</button>
           <button class="btn btn-sm peligro" data-acc-asig="quitar" data-idx="${idx}">Quitar</button>
         ` : `
           <button class="btn btn-sm primario" data-acc-asig="asignar" data-idx="${idx}">Asignar</button>
         `}
+        ${admiteCompartida ? `
+          <button class="btn btn-sm" data-acc-asig="compartida" data-idx="${idx}" title="Configurar cátedra compartida dividiendo teoría y práctica">Cátedra</button>
+        ` : ""}
       </td>
     `;
     tb.appendChild(tr);
@@ -1432,47 +1454,47 @@ function pintarTablaVistaCarrera() {
 }
 
 // Selector de vista: Conmutación inmediata
-$("#btn-vista-dpto").onclick = () => {
+alPulsar("#btn-vista-dpto", () => {
   appDocentes.vistaActual = "dpto";
-  $("#btn-vista-dpto").classList.add("activo");
-  $("#btn-vista-carrera").classList.remove("activo");
-  $("#vista-dpto-contenedor").hidden = false;
-  $("#vista-carrera-contenedor").hidden = true;
-  $("#filtros-vista-dpto").hidden = false;
-  $("#filtros-vista-carrera").hidden = true;
+  const bDpto = $("#btn-vista-dpto"); if (bDpto) bDpto.classList.add("activo");
+  const bCar = $("#btn-vista-carrera"); if (bCar) bCar.classList.remove("activo");
+  const cDpto = $("#vista-dpto-contenedor"); if (cDpto) cDpto.hidden = false;
+  const cCar = $("#vista-carrera-contenedor"); if (cCar) cCar.hidden = true;
+  const fDpto = $("#filtros-vista-dpto"); if (fDpto) fDpto.hidden = false;
+  const fCar = $("#filtros-vista-carrera"); if (fCar) fCar.hidden = true;
   pintarTablaVistaDepartamento();
-};
+});
 
-$("#btn-vista-carrera").onclick = () => {
+alPulsar("#btn-vista-carrera", () => {
   appDocentes.vistaActual = "carrera";
-  $("#btn-vista-carrera").classList.add("activo");
-  $("#btn-vista-dpto").classList.remove("activo");
-  $("#vista-dpto-contenedor").hidden = true;
-  $("#vista-carrera-contenedor").hidden = false;
-  $("#filtros-vista-dpto").hidden = true;
-  $("#filtros-vista-carrera").hidden = false;
+  const bCar = $("#btn-vista-carrera"); if (bCar) bCar.classList.add("activo");
+  const bDpto = $("#btn-vista-dpto"); if (bDpto) bDpto.classList.remove("activo");
+  const cDpto = $("#vista-dpto-contenedor"); if (cDpto) cDpto.hidden = true;
+  const cCar = $("#vista-carrera-contenedor"); if (cCar) cCar.hidden = false;
+  const fDpto = $("#filtros-vista-dpto"); if (fDpto) fDpto.hidden = true;
+  const fCar = $("#filtros-vista-carrera"); if (fCar) fCar.hidden = false;
   pintarTablaVistaCarrera();
-};
+});
 
-$("#sel-doc-ciclo").onchange = e => {
+alCambiar("#sel-doc-ciclo", e => {
   appDocentes.ciclo = e.target.value;
   cargarEstadoDocentes();
-};
+});
 
-$("#sel-doc-dpto").onchange = e => {
+alCambiar("#sel-doc-dpto", e => {
   appDocentes.dpto = e.target.value;
   cargarEstadoDocentes();
-};
+});
 
-$("#sel-filtro-docentes").onchange = e => {
+alCambiar("#sel-filtro-docentes", e => {
   appDocentes.filtroDpto = e.target.value;
   pintarTablaVistaDepartamento();
-};
+});
 
-$("#chk-solo-pendientes").onchange = e => {
+alCambiar("#chk-solo-pendientes", e => {
   appDocentes.filtroSoloPendientes = e.target.checked;
   pintarTablaVistaCarrera();
-};
+});
 
 document.addEventListener("click", async e => {
   const btnDoc = e.target.closest("[data-acc-doc]");
@@ -1496,6 +1518,8 @@ document.addEventListener("click", async e => {
 
     if (acc === "asignar" || acc === "editar") {
       abrirModalAsignarDocenteACurso(curso);
+    } else if (acc === "compartida") {
+      abrirModalCatedraCompartida(curso);
     } else if (acc === "quitar") {
       appDocentes.asignaciones = appDocentes.asignaciones.filter(a =>
         !(a.carrera === curso.carrera && a.codigo === curso.codigo && String(a.grupo) === String(curso.grupo))
@@ -1507,6 +1531,89 @@ document.addEventListener("click", async e => {
     return;
   }
 });
+
+async function abrirModalCatedraCompartida(curso) {
+  const opciones = (appDocentes.catalogo || [])
+    .filter(d => Dominio.normalizarDpto(d.dpto) === Dominio.normalizarDpto(appDocentes.dpto))
+    .map(d => `<option value="${esc(d.nombreCompleto)}">${esc(d.nombreCompleto)} (${esc(d.dedicacion)})</option>`)
+    .join("");
+
+  const cuerpo = `
+    <div style="font-size:13px;margin-bottom:12px">
+      <b>${esc(curso.carrera)} · Semestre ${esc(curso.sem)}</b><br>
+      <code>${esc(curso.codigo)}</code> - ${esc(curso.nombre)} (Grupo ${esc(curso.grupo)})<br>
+      <span style="color:var(--ink-soft)">Distribución horaria: <b>${curso.ht}h Teoría</b> + <b>${curso.hp}h Práctica</b></span>
+    </div>
+    <div class="campo">
+      <label for="dlg-doc-teoria">Docente para Horas Teóricas (${curso.ht}h):</label>
+      <select id="dlg-doc-teoria" style="width:100%">
+        <option value="">-- Seleccionar docente de teoría --</option>
+        ${opciones}
+      </select>
+    </div>
+    <div class="campo">
+      <label for="dlg-doc-practica">Docente / Jefe de Práctica (${curso.hp}h):</label>
+      <select id="dlg-doc-practica" style="width:100%">
+        <option value="">-- Seleccionar docente de práctica --</option>
+        ${opciones}
+      </select>
+    </div>
+  `;
+
+  const ok = await preguntar({
+    titulo: "Configurar Cátedra Compartida (FA-001)",
+    cuerpo: cuerpo,
+    acciones: [
+      { texto: "Cancelar", clase: "", valor: null },
+      { texto: "Confirmar Cátedra", clase: "primario", valor: true }
+    ]
+  });
+
+  if (!ok) return;
+
+  const docTeo = $("#dlg-doc-teoria") ? $("#dlg-doc-teoria").value : "";
+  const docPra = $("#dlg-doc-practica") ? $("#dlg-doc-practica").value : "";
+
+  if (!docTeo || !docPra) {
+    aviso("Debes seleccionar ambos docentes para la cátedra compartida.");
+    return;
+  }
+
+  // Eliminar asignación previa de este curso
+  appDocentes.asignaciones = appDocentes.asignaciones.filter(a =>
+    !(a.carrera === curso.carrera && a.codigo === curso.codigo && String(a.grupo) === String(curso.grupo))
+  );
+
+  // Agregar asignación de teoría
+  appDocentes.asignaciones.push({
+    ciclo: appDocentes.ciclo,
+    departamento: appDocentes.dpto,
+    carrera: curso.carrera,
+    codigo: curso.codigo,
+    asignatura: curso.nombre,
+    grupo: curso.grupo,
+    componente: "Teoría",
+    docente: docTeo,
+    horas: curso.ht
+  });
+
+  // Agregar asignación de práctica
+  appDocentes.asignaciones.push({
+    ciclo: appDocentes.ciclo,
+    departamento: appDocentes.dpto,
+    carrera: curso.carrera,
+    codigo: curso.codigo,
+    asignatura: curso.nombre,
+    grupo: curso.grupo,
+    componente: "Práctica",
+    docente: docPra,
+    horas: curso.hp
+  });
+
+  recalcularBalanceDocentes();
+  pintarVistaDocentes();
+  aviso(`Cátedra compartida configurada: ${docTeo} (Teoría) y ${docPra} (Práctica).`);
+}
 
 async function abrirModalAsignarDocenteACurso(curso) {
   const opcionesDocentes = (appDocentes.catalogo || [])
@@ -1743,115 +1850,120 @@ $("#btn-doc-guardar").onclick = async () => {
 
 /* ---------- Carga Masiva de Asignaciones (Rejilla y Archivo) ---------- */
 
-$("#btn-doc-masiva").onclick = () => {
+alPulsar("#btn-doc-masiva", () => {
   mostrar("docentes-carga");
-  $("#caja-pegar-doc").hidden = false;
-  $("#caja-previa-doc").hidden = true;
-};
+  const cp = $("#caja-pegar-doc"); if (cp) cp.hidden = false;
+  const cprev = $("#caja-previa-doc"); if (cprev) cprev.hidden = true;
+});
 
-$("#volver-doc-carga").onclick = () => {
+alPulsar("#volver-doc-carga", () => {
   mostrar("docentes");
-};
+});
 
-$("#btn-doc-archivo-tab").onclick = () => {
-  $("#input-doc-archivo").click();
-};
+alPulsar("#btn-doc-archivo-tab", () => {
+  const inp = $("#input-doc-archivo"); if (inp) inp.click();
+});
 
-$("#input-doc-archivo").onchange = async e => {
+alCambiar("#input-doc-archivo", async e => {
   const f = e.target.files[0];
   if (!f) return;
   aviso("Archivo seleccionado: " + f.name + ". Copia y pega las filas en la rejilla para previsualizar.");
-};
-
-$("#hoja-pegado-doc").addEventListener("paste", e => {
-  e.preventDefault();
-  const texto = (e.clipboardData || window.clipboardData).getData("text");
-  if (!texto) return;
-
-  appDocentes.matrizPegada = Dominio.matrizDesdeTexto(texto);
-  pintarRejillaDocentes(appDocentes.matrizPegada);
 });
+
+const elHojaDoc = $("#hoja-pegado-doc");
+if (elHojaDoc) {
+  elHojaDoc.addEventListener("paste", e => {
+    e.preventDefault();
+    const texto = (e.clipboardData || window.clipboardData).getData("text");
+    if (!texto) return;
+
+    appDocentes.matrizPegada = Dominio.matrizDesdeTexto(texto);
+    pintarRejillaDocentes(appDocentes.matrizPegada);
+  });
+}
 
 function pintarRejillaDocentes(matriz) {
   const scroll = $("#hoja-scroll-doc");
   const vacia = $("#hoja-vacia-doc");
 
   if (!matriz || !matriz.length) {
-    scroll.hidden = true;
-    vacia.hidden = false;
-    $("#btn-procesar-pegado-doc").disabled = true;
-    $("#btn-limpiar-pegado-doc").disabled = true;
+    if (scroll) scroll.hidden = true;
+    if (vacia) vacia.hidden = false;
+    const bp = $("#btn-procesar-pegado-doc"); if (bp) bp.disabled = true;
+    const bl = $("#btn-limpiar-pegado-doc"); if (bl) bl.disabled = true;
     return;
   }
 
-  vacia.hidden = true;
-  scroll.hidden = false;
-  $("#btn-procesar-pegado-doc").disabled = false;
-  $("#btn-limpiar-pegado-doc").disabled = false;
-
-  const html = `
-    <table class="tabla-hoja">
-      <tbody>
-        ${matriz.slice(0, 50).map((fila, r) => `
-          <tr>
-            <th class="num">${r + 1}</th>
-            ${fila.map(c => `<td>${esc(c)}</td>`).join("")}
-          </tr>
-        `).join("")}
-      </tbody>
-    </table>
-  `;
-  scroll.innerHTML = html;
+  if (vacia) vacia.hidden = true;
+  if (scroll) {
+    scroll.hidden = false;
+    scroll.innerHTML = `
+      <table class="tabla-hoja">
+        <tbody>
+          ${matriz.slice(0, 50).map((fila, r) => `
+            <tr>
+              <th class="num">${r + 1}</th>
+              ${fila.map(c => `<td>${esc(c)}</td>`).join("")}
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    `;
+  }
+  const bp = $("#btn-procesar-pegado-doc"); if (bp) bp.disabled = false;
+  const bl = $("#btn-limpiar-pegado-doc"); if (bl) bl.disabled = false;
 }
 
-$("#btn-limpiar-pegado-doc").onclick = () => {
+alPulsar("#btn-limpiar-pegado-doc", () => {
   appDocentes.matrizPegada = null;
   pintarRejillaDocentes(null);
-};
+});
 
-$("#btn-procesar-pegado-doc").onclick = () => {
+alPulsar("#btn-procesar-pegado-doc", () => {
   if (!appDocentes.matrizPegada || !appDocentes.matrizPegada.length) return;
 
   const interpretado = Dominio.interpretarAsignacionesDepartamento(appDocentes.matrizPegada, appDocentes.cursos);
   appDocentes.asignacionesPrevia = interpretado.asignaciones || [];
 
-  $("#caja-pegar-doc").hidden = true;
-  $("#caja-previa-doc").hidden = false;
+  const cp = $("#caja-pegar-doc"); if (cp) cp.hidden = true;
+  const cprev = $("#caja-previa-doc"); if (cprev) cprev.hidden = false;
 
-  $("#nota-previa-doc").innerHTML = `Se leyeron <b>${appDocentes.asignacionesPrevia.length}</b> asignaciones docentes del contenido pegado. Revisa la validación con la plana docente antes de aplicar.`;
+  const np = $("#nota-previa-doc");
+  if (np) np.innerHTML = `Se leyeron <b>${appDocentes.asignacionesPrevia.length}</b> asignaciones docentes del contenido pegado. Revisa la validación con la plana docente antes de aplicar.`;
 
   const tb = $("#tb-previa-doc");
-  tb.innerHTML = "";
+  if (tb) {
+    tb.innerHTML = "";
+    appDocentes.asignacionesPrevia.forEach(a => {
+      const tr = document.createElement("tr");
+      const esInter = /INTERNACIONAL/i.test(a.docente) || /INTERNACIONAL/i.test(a.condicion);
+      const docenteEnCatalogo = appDocentes.catalogo.some(d => Dominio.claveDocente(d.nombreCompleto) === Dominio.claveDocente(a.docente));
 
-  appDocentes.asignacionesPrevia.forEach(a => {
-    const tr = document.createElement("tr");
-    const esInter = /INTERNACIONAL/i.test(a.docente) || /INTERNACIONAL/i.test(a.condicion);
-    const docenteEnCatalogo = appDocentes.catalogo.some(d => Dominio.claveDocente(d.nombreCompleto) === Dominio.claveDocente(a.docente));
+      tr.innerHTML = `
+        <td><b>${esc(a.carrera)}</b></td>
+        <td><code>${esc(a.codigo)}</code></td>
+        <td>${esc(a.asignatura)}</td>
+        <td>${esc(a.grupo)}</td>
+        <td>${esc(a.componente)}</td>
+        <td><b>${esc(a.docente)}</b></td>
+        <td>
+          ${esInter ? '<span class="badge-doc condicion">Internacional</span>' : (
+            docenteEnCatalogo ? '<span class="badge-doc ok">✓ Catálogo</span>' : '<span class="badge-doc alerta">⚠ No adscrito</span>'
+          )}
+        </td>
+        <td class="num">${a.horas}h</td>
+      `;
+      tb.appendChild(tr);
+    });
+  }
+});
 
-    tr.innerHTML = `
-      <td><b>${esc(a.carrera)}</b></td>
-      <td><code>${esc(a.codigo)}</code></td>
-      <td>${esc(a.asignatura)}</td>
-      <td>${esc(a.grupo)}</td>
-      <td>${esc(a.componente)}</td>
-      <td><b>${esc(a.docente)}</b></td>
-      <td>
-        ${esInter ? '<span class="badge-doc condicion">Internacional</span>' : (
-          docenteEnCatalogo ? '<span class="badge-doc ok">✓ Catálogo</span>' : '<span class="badge-doc alerta">⚠ No adscrito</span>'
-        )}
-      </td>
-      <td class="num">${a.horas}h</td>
-    `;
-    tb.appendChild(tr);
-  });
-};
+alPulsar("#btn-cancelar-previa-doc", () => {
+  const cp = $("#caja-pegar-doc"); if (cp) cp.hidden = false;
+  const cprev = $("#caja-previa-doc"); if (cprev) cprev.hidden = true;
+});
 
-$("#btn-cancelar-previa-doc").onclick = () => {
-  $("#caja-pegar-doc").hidden = false;
-  $("#caja-previa-doc").hidden = true;
-};
-
-$("#btn-aplicar-previa-doc").onclick = () => {
+alPulsar("#btn-aplicar-previa-doc", () => {
   if (!appDocentes.asignacionesPrevia.length) return;
 
   appDocentes.asignacionesPrevia.forEach(nueva => {
@@ -1868,27 +1980,54 @@ $("#btn-aplicar-previa-doc").onclick = () => {
   pintarVistaDocentes();
   mostrar("docentes");
   aviso(`Se aplicaron ${appDocentes.asignacionesPrevia.length} asignaciones a la grilla.`);
-};
+});
 
 (function arrancar(){
-  if (SIS.estado === "sin-instalar") return mostrar("instalar");
-  if (SIS.estado !== "ok") {
-    $("#denegado-titulo").textContent = SIS.estado === "error" ? "No se pudo iniciar el sistema" : "Acceso denegado";
-    $("#denegado-msg").textContent = SIS.motivo || "";
-    return mostrar("denegado");
+  try {
+    if (!window.SIS) {
+      console.error("SIS no definido");
+      return;
+    }
+    if (SIS.estado === "sin-instalar") return mostrar("instalar");
+    if (SIS.estado !== "ok") {
+      const tit = $("#denegado-titulo");
+      if (tit) tit.textContent = SIS.estado === "error" ? "No se pudo iniciar el sistema" : "Acceso denegado";
+      const msg = $("#denegado-msg");
+      if (msg) msg.textContent = SIS.motivo || "";
+      return mostrar("denegado");
+    }
+    const u = app.usuario || {};
+    const elCorreo = $("#u-correo");
+    if (elCorreo) elCorreo.textContent = u.correo || "";
+    const elRol = $("#u-rol");
+    if (elRol) {
+      elRol.textContent = u.rol === "director"
+        ? "Director de departamento"
+        : "Coordinador de carrera" + (u.carreras && u.carreras.length ? " · " + u.carreras.join(", ") : " · solo lectura");
+    }
+    const elUsuario = $("#usuario");
+    if (elUsuario) elUsuario.hidden = false;
+
+    // Mostrar menú de inmediato para que la interfaz nunca quede en negro
+    mostrar("menu");
+
+    /* La página ya trae el tablero. Si hace un rato que nadie revisa los xlsx de Drive, se
+       revisan ahora de fondo, mientras el usuario está en el menú. */
+    if (SIS.tablero) {
+      try {
+        fijarTablero(SIS.tablero.ciclo, SIS.tablero.filas, SIS.tablero.avisos);
+        if (SIS.tablero.pendiente) cargarTablero();
+      } catch (errTablero) {
+        console.warn("Aviso al inicializar tablero:", errTablero);
+      }
+    }
+  } catch (err) {
+    console.error("Error crítico en arrancar():", err);
+    mostrar("denegado");
+    const tit = $("#denegado-titulo");
+    if (tit) tit.textContent = "Error al iniciar";
+    const msg = $("#denegado-msg");
+    if (msg) msg.textContent = (err && err.message) ? err.message : String(err);
   }
-  const u = app.usuario;
-  $("#u-correo").textContent = u.correo;
-  $("#u-rol").textContent = u.rol === "director"
-    ? "Director de departamento"
-    : "Coordinador de carrera" + (u.carreras.length ? " · " + u.carreras.join(", ") : " · solo lectura");
-  $("#usuario").hidden = false;
-  /* La página ya trae el tablero. Si hace un rato que nadie revisa los xlsx de Drive, se
-     revisan ahora de fondo, mientras el usuario está en el menú. */
-  if (SIS.tablero) {
-    fijarTablero(SIS.tablero.ciclo, SIS.tablero.filas, SIS.tablero.avisos);
-    if (SIS.tablero.pendiente) cargarTablero();
-  }
-  mostrar("menu");
 })();
 </script>
