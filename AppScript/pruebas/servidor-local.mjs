@@ -6,18 +6,24 @@
      http://127.0.0.1:8765/?usuario=mfloresl@ulasalle.edu.pe
 
    El parámetro «usuario» elige la cuenta; dos pestañas con cuentas distintas sirven
-   para probar el bloqueo. Los datos viven en memoria mientras el proceso sigue vivo. */
+   para probar el bloqueo. Los datos viven en memoria mientras el proceso sigue vivo.
+
+     http://127.0.0.1:8765/panel?usuario=...&hoja=Ing.%20Software%202026-I&fila=5&vista=resumen
+
+   muestra el panel lateral del libro (Panel.html) con esa hoja y esa fila activas; sus
+   funciones se ejecutan como en el libro, con la cuenta de quien hace clic, y piden las
+   acciones a la aplicación web, que aquí queda publicada. */
 import http from "node:http";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
-import { crearEntorno, cargarServidor, ejecutar } from "./falsos.mjs";
+import { crearEntorno, cargarServidor, ejecutar, ejecutarEnLibro } from "./falsos.mjs";
 import { XLSX_CARRERA, XLSX_DEPARTAMENTO, XLSX_DOCENTES } from "./soporte.mjs";
 
 const USUARIO_POR_DEFECTO = "mfloresl@ulasalle.edu.pe";
 
-const PUENTE = usuario => `<script>
+const PUENTE = (usuario, libro) => `<script>
 (function () {
-  var USUARIO = ${JSON.stringify(usuario)};
+  var USUARIO = ${JSON.stringify(usuario)}, LIBRO = ${libro ? "true" : "false"};
   window.__llamadas = [];
   function run(ok, mal) {
     return new Proxy({}, { get: function (_, nombre) {
@@ -26,7 +32,7 @@ const PUENTE = usuario => `<script>
       return function () {
         var args = Array.prototype.slice.call(arguments);
         window.__llamadas.push(nombre);
-        fetch("/run/" + nombre + "?usuario=" + encodeURIComponent(USUARIO), { method: "POST", body: JSON.stringify(args) })
+        fetch("/run/" + nombre + "?usuario=" + encodeURIComponent(USUARIO) + (LIBRO ? "&libro=1" : ""), { method: "POST", body: JSON.stringify(args) })
           .then(function (r) { return r.json(); })
           .then(function (r) { if ("error" in r) { if (mal) mal(new Error(r.error)); } else if (ok) ok(r.valor); })
           .catch(function (e) { if (mal) mal(e); });
@@ -49,6 +55,8 @@ export function iniciarServidorLocal({ puerto = 8765, conXlsx = true } = {}) {
     e.subir(e.propiedades.SIS_CARPETA_XLSX, "SISCargaLectiva-Ejemplo-CargaDeDocentes.xlsx", fs.readFileSync(XLSX_DOCENTES));
     ejecutar(e, e.propietario, "sembrarCiclo");
   }
+  e.publicarWeb();
+  ejecutar(e, e.propietario, "doGet");
 
   const servidor = http.createServer((req, res) => {
     const url = new URL(req.url, "http://localhost");
@@ -60,7 +68,17 @@ export function iniciarServidorLocal({ puerto = 8765, conXlsx = true } = {}) {
         if (req.method === "GET" && url.pathname === "/") {
           e.usuario = usuario;
           ctx.configCache_ = null; ctx.libroCache_ = null; ctx.usuarioCache_ = null;
-          const html = ctx.doGet().getContent().replace("<head>", "<head>" + PUENTE(usuario));
+          const html = ctx.doGet().getContent().replace("<head>", "<head>" + PUENTE(usuario, false));
+          res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+          return res.end(html);
+        }
+        if (req.method === "GET" && url.pathname === "/panel") {
+          e.seleccion = { hoja: url.searchParams.get("hoja") || "", fila: Number(url.searchParams.get("fila")) || 4, col: 1 };
+          e.nuevaEjecucion(usuario, usuario, "libro");
+          const t = e.globales.HtmlService.createTemplateFromFile("Panel");
+          t.vista = url.searchParams.get("vista") || "resumen";
+          const html = t.evaluate().getContent().replace("<head>", "<head>" + PUENTE(usuario, true));
+          e.nuevaEjecucion(e.propietario, e.propietario, "web");
           res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
           return res.end(html);
         }
@@ -70,7 +88,8 @@ export function iniciarServidorLocal({ puerto = 8765, conXlsx = true } = {}) {
           if (m[1].endsWith("_") || typeof ctx[m[1]] !== "function") throw new Error("Función no disponible: " + m[1]);
           const args = JSON.parse(cuerpo || "[]");
           let respuesta;
-          try { respuesta = { valor: ejecutar(e, usuario, m[1], ...args) ?? null }; }
+          const enLibro = url.searchParams.get("libro") === "1";
+          try { respuesta = { valor: (enLibro ? ejecutarEnLibro : ejecutar)(e, usuario, m[1], ...args) ?? null }; }
           catch (err) { respuesta = { error: err.message }; }
           res.writeHead(200, { "content-type": "application/json" });
           return res.end(JSON.stringify(respuesta));

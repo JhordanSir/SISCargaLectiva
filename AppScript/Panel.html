@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<?!= include("Estilos") ?>
+<style>
+/* Panel lateral del libro (RF-101, P141): unos 300 px de ancho. */
+body{padding:12px 12px 28px;font-size:13px}
+h1{font-size:15px;margin-top:2px}
+h2{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-soft);margin:18px 0 6px}
+.linea{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px;color:var(--ink-soft);font-size:12px}
+.metricas{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:10px}
+.metricas .tarjeta-metrica{padding:6px 8px}
+.metricas .tarjeta-metrica b{font-size:15px}
+.acciones{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.acciones .btn{flex:1 1 calc(50% - 6px);justify-content:center;padding:6px 8px;font-size:12.5px}
+.acciones a.btn{color:var(--ink);text-decoration:none}
+.alertas{list-style:none;margin:0;padding:0}
+.alertas li+li{margin-top:4px}
+.alerta{display:block;width:100%;text-align:left;border:1px solid var(--line-soft);background:var(--surface);
+  border-radius:var(--r);padding:6px 8px;font:inherit;font-size:12.5px;color:inherit;cursor:pointer}
+.alerta:hover{background:var(--surface-2)}
+.alerta[disabled]{cursor:default}
+.codigo{display:inline-block;min-width:36px;font-weight:700;font-size:11px;font-family:var(--mono);margin-right:4px}
+.codigo.bloquea{color:var(--error)}
+.codigo.advierte{color:var(--aviso)}
+.items label{display:flex;gap:8px;align-items:flex-start;margin:4px 0;font-size:12.5px;font-weight:400;color:var(--ink);text-align:left}
+.items label input[type="checkbox"]{width:auto;flex:0 0 auto;margin:2px 0 0}
+.items label span{flex:1 1 auto;min-width:0}
+.campo input,.campo select{width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:var(--r);
+  background:var(--surface);color:var(--ink);font:inherit}
+.versiones{list-style:none;margin:0;padding:0}
+.versiones li{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line-soft)}
+.versiones small{display:block;color:var(--ink-faint)}
+.vacio{color:var(--ink-faint);font-size:12.5px}
+</style>
+</head>
+<body>
+<div id="cargando" class="cargando" hidden></div>
+<main>
+  <div class="etq">Panel de la carrera</div>
+  <h1 id="titulo">SISCargaLectiva</h1>
+  <div id="linea" class="linea"></div>
+  <div id="avisos"></div>
+
+  <section id="resumen" hidden>
+    <div id="bloqueo" class="nota" style="margin-top:10px"></div>
+    <div id="metricas" class="metricas"></div>
+    <div id="acciones" class="acciones"></div>
+    <h2 id="titulo-alertas">Alertas</h2>
+    <ul id="alertas" class="alertas"></ul>
+  </section>
+
+  <section id="reemplazo" hidden>
+    <h2>Registrar reemplazo docente</h2>
+    <div id="reemplazo-cuerpo"></div>
+  </section>
+
+  <section id="restaurar" hidden>
+    <h2>Restaurar una versión</h2>
+    <p class="vacio">Restaurar no borra el historial: crea una versión nueva con el contenido elegido. Sus docentes vuelven a pasar por A07, A08 y A11.</p>
+    <ul id="versiones" class="versiones"></ul>
+    <div class="acciones"><button class="btn" data-ir="resumen">Volver</button></div>
+  </section>
+
+  <section id="sin-carrera" hidden>
+    <p class="nota" style="margin-top:12px">Abre la hoja de una carrera, por ejemplo «Ing. Software 2026-I», y pulsa «Actualizar».</p>
+    <div class="acciones"><button class="btn primario" data-accion="actualizar">Actualizar</button></div>
+  </section>
+</main>
+
+<script>
+const VISTA_INICIAL = <?!= JSON.stringify(vista || "resumen") ?>;
+const BLOQUEAN = ["A07", "A08", "A11"];
+const app = { ctx: null, datos: null, reemplazo: null };
+const $ = s => document.querySelector(s);
+
+const esc = t => String(t == null ? "" : t).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const hora = iso => { const d = new Date(iso); return isNaN(d) ? "" : d.toLocaleString("es-PE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }); };
+
+function llamar(funcion, ...args) {
+  return new Promise((ok, mal) => google.script.run.withSuccessHandler(ok).withFailureHandler(mal)[funcion](...args));
+}
+const web = (accion, args) => llamar("panelLlamar", accion, args);
+
+function ocupado(si) {
+  $("#cargando").hidden = !si;
+  document.querySelectorAll("button:not([data-sinfila])").forEach(b => { b.disabled = si; });
+}
+
+function aviso(texto, tipo) {
+  const div = document.createElement("div");
+  div.className = "nota " + (tipo || "");
+  div.style.marginTop = "10px";
+  div.textContent = texto;
+  const caja = $("#avisos");
+  caja.innerHTML = "";
+  caja.appendChild(div);
+}
+
+function mostrar(vista) {
+  ["resumen", "reemplazo", "restaurar", "sin-carrera"].forEach(v => { $("#" + v).hidden = v !== vista; });
+}
+
+async function cargar(vista) {
+  ocupado(true);
+  try {
+    app.ctx = await llamar("panelContexto");
+    if (!app.ctx.sig) { $("#titulo").textContent = "SISCargaLectiva"; $("#linea").textContent = ""; mostrar("sin-carrera"); return; }
+    app.datos = await web("datosPanel", [app.ctx.ciclo, app.ctx.sig]);
+    pintar();
+    if (vista === "reemplazo") await abrirReemplazo();
+    else if (vista === "restaurar") mostrar("restaurar");
+    else { mostrar("resumen"); if (vista === "alertas") $("#titulo-alertas").scrollIntoView(); }
+  } catch (e) {
+    aviso(e.message || String(e), "error");
+  } finally {
+    ocupado(false);
+  }
+}
+
+function pintar() {
+  const d = app.datos;
+  $("#titulo").textContent = d.sig + " · " + d.hoja;
+  const pill = d.estado === "Registrado" ? "registrado" : d.estado === "Borrador" ? "borrador" : "sin";
+  $("#linea").innerHTML = '<span class="pill ' + pill + '">' + esc(d.estado) + "</span>" +
+    "<span>" + (d.version ? "v" + d.version : "sin versiones") + "</span>" +
+    (d.pendiente ? '<span class="pill borrador">cambios sin versionar</span>' : "");
+
+  const b = d.bloqueo;
+  $("#bloqueo").className = "nota" + (b && !b.propio ? " aviso" : "");
+  $("#bloqueo").textContent = b
+    ? (b.propio ? "Tienes el bloqueo de la hoja" : "La edita " + b.correo) + " desde " + hora(b.desde) + "; vence " + hora(b.expira) + " si no hay actividad."
+    : "Nadie la está editando. Tu primera edición en la hoja toma el bloqueo.";
+
+  const t = d.totales;
+  const cobertura = t.grupos ? Math.round(100 * t.cub / t.grupos) : 0;
+  $("#metricas").innerHTML = [["Asignaturas", t.asig], ["Grupos", t.grupos], ["Cobertura", cobertura + " %"],
+    ["HT", t.ht], ["HP", t.hp], ["TH", t.th], ["Dictado", t.dictado], ["Fusiones", t.fus], ["Vacantes", t.vac]]
+    .map(m => '<div class="tarjeta-metrica"><small>' + m[0] + "</small><b>" + esc(m[1]) + "</b></div>").join("");
+
+  const botones = [];
+  if (d.permisos.editar) {
+    botones.push('<button class="btn primario" data-accion="sincronizar">Sincronizar y versionar</button>');
+    botones.push('<button class="btn" data-accion="terminar">Terminar edición</button>');
+  }
+  if (d.permisos.reemplazar) botones.push('<button class="btn" data-accion="reemplazo">Registrar reemplazo</button>');
+  if (d.permisos.editar) botones.push('<button class="btn" data-ir="restaurar">Restaurar versión</button>');
+  if (d.urlWeb) botones.push('<a class="btn" href="' + esc(d.urlWeb) + '" target="_blank" rel="noopener">Abrir la web</a>');
+  botones.push('<button class="btn" data-accion="actualizar">Actualizar</button>');
+  $("#acciones").innerHTML = botones.join("");
+
+  $("#titulo-alertas").textContent = "Alertas (" + d.alertas.length + ")";
+  $("#alertas").innerHTML = d.alertas.length ? d.alertas.map((a, i) => {
+    const clase = BLOQUEAN.indexOf(a.codigo) >= 0 ? "bloquea" : /^A\d\d$/.test(a.codigo) ? "advierte" : "";
+    return '<li><button class="alerta" data-alerta="' + i + '"' + (a.fila ? "" : " disabled data-sinfila") + ">" +
+      '<span class="codigo ' + clase + '">' + esc(a.codigo) + "</span>" + esc(a.texto) +
+      (a.fila ? ' <span class="vacio">· fila ' + a.fila + "</span>" : "") + "</button></li>";
+  }).join("") : '<li class="vacio">Sin alertas.</li>';
+
+  $("#versiones").innerHTML = d.versiones.length ? d.versiones.map(v =>
+    "<li><span><b>v" + v.n + "</b> " + esc(v.tipo) + "<small>" + esc(v.usuario) + " · " + hora(v.fecha) + "</small></span>" +
+    '<button class="btn" data-restaurar="' + v.n + '">Restaurar</button></li>').join("") : '<li class="vacio">Todavía no hay versiones.</li>';
+}
+
+async function consolidar(accion) {
+  ocupado(true);
+  try {
+    const r = await web(accion, [app.ctx.ciclo, app.ctx.sig, ""]);
+    const partes = [r.nueva ? "Se creó la versión v" + r.version + "." : "No había cambios que versionar (v" + r.version + ")."];
+    const n = x => (x && x.length) || 0;
+    if (n(r.rechazados)) partes.push(n(r.rechazados) === 1 ? "No se aceptó 1 asignación (A07, A08 o A11)." : "No se aceptaron " + n(r.rechazados) + " asignaciones (A07, A08 o A11).");
+    if (n(r.esperas)) partes.push(n(r.esperas) === 1 ? "1 fusión sigue esperando." : n(r.esperas) + " fusiones siguen esperando.");
+    if (n(r.eliminados)) partes.push(n(r.eliminados) === 1 ? "Quedó fuera del plan 1 grupo eliminado en la hoja." : "Quedaron fuera del plan " + n(r.eliminados) + " grupos eliminados en la hoja.");
+    if (accion === "terminarEdicionHoja") partes.push(r.liberado ? "Se soltó el bloqueo." : "No tenías el bloqueo.");
+    aviso(partes.join(" "), "ok");
+    app.datos = await web("datosPanel", [app.ctx.ciclo, app.ctx.sig]);
+    pintar();
+  } catch (e) {
+    aviso(e.message || String(e), "error");
+  } finally {
+    ocupado(false);
+  }
+}
+
+/* ---------- reemplazo (P142) ---------- */
+async function abrirReemplazo() {
+  mostrar("reemplazo");
+  $("#reemplazo-cuerpo").innerHTML = '<p class="vacio">Leyendo la fila elegida…</p>';
+  const ctx = await llamar("panelContexto");
+  if (!ctx.sig || !ctx.fila) { $("#reemplazo-cuerpo").innerHTML = '<p class="nota aviso">Elige en la hoja de una carrera la fila del curso cuyo docente cambia.</p>' + volver(); return; }
+  try {
+    app.reemplazo = await web("datosReemplazo", [ctx.ciclo, ctx.sig, ctx.fila]);
+    pintarReemplazo(0);
+  } catch (e) {
+    $("#reemplazo-cuerpo").innerHTML = '<p class="nota error">' + esc(e.message || e) + "</p>" + volver();
+  }
+}
+
+const volver = () => '<div class="acciones"><button class="btn" data-ir="resumen">Volver</button></div>';
+
+function pintarReemplazo(k) {
+  const r = app.reemplazo, t = r.titulares[k];
+  const titulares = r.titulares.length > 1
+    ? '<div class="campo"><label for="titular">Docente titular</label><select id="titular">' +
+      r.titulares.map((x, i) => "<option value=\"" + i + "\"" + (i === k ? " selected" : "") + ">" + esc(x.nombre) + "</option>").join("") + "</select></div>"
+    : '<div class="campo"><label>Docente titular</label><b>' + esc(t.nombre) + "</b></div>";
+  $("#reemplazo-cuerpo").innerHTML =
+    '<p class="vacio">Fila ' + r.fila + ": " + esc(r.codigo) + " «" + esc(r.nombre) + "» (grupo " + esc(r.grupo) + ").</p>" + titulares +
+    '<div class="campo"><label>Asignaturas que cambian de docente</label><div class="items">' +
+    t.items.map((it, i) => '<label><input type="checkbox" data-item="' + i + '"' + (it.marcada ? " checked" : "") + ">" +
+      "<span>" + esc(it.sig) + " " + esc(it.codigo) + " «" + esc(it.nombre) + "» (grupo " + esc(it.grupo) + ") · " + esc(it.componentes.join(", ")) + "</span></label>").join("") +
+    "</div></div>" +
+    '<div class="campo"><label for="reemplazante">Docente reemplazante</label><input id="reemplazante" list="catalogo" autocomplete="off">' +
+    '<datalist id="catalogo">' + r.catalogo.map(f => '<option value="' + esc(f.nombre) + '">').join("") + "</datalist></div>" +
+    '<div class="campo"><label for="motivo">Motivo</label><select id="motivo"><option value="">Elige el motivo</option>' +
+    r.motivos.map(m => "<option>" + esc(m) + "</option>").join("") + "</select></div>" +
+    '<div class="campo"><label for="resolucion">N.º de resolución del Decanato</label><input id="resolucion"></div>' +
+    '<div class="campo"><label for="fecha">Fecha efectiva</label><input id="fecha" type="date"></div>' +
+    '<div class="acciones"><button class="btn primario" data-accion="confirmar-reemplazo">Confirmar reemplazo</button>' +
+    '<button class="btn" data-ir="resumen">Cancelar</button></div>';
+  const sel = $("#titular");
+  if (sel) sel.onchange = () => pintarReemplazo(parseInt(sel.value, 10));
+  app.titular = k;
+}
+
+async function confirmarReemplazo() {
+  const r = app.reemplazo, t = r.titulares[app.titular || 0];
+  const items = Array.from(document.querySelectorAll("[data-item]")).filter(x => x.checked)
+    .map(x => { const it = t.items[parseInt(x.dataset.item, 10)]; return { sig: it.sig, id: it.id, componentes: it.componentes }; });
+  const datos = { titular: t.clave, reemplazante: $("#reemplazante").value, motivo: $("#motivo").value,
+                  resolucion: $("#resolucion").value, fechaEfectiva: $("#fecha").value, items: items };
+  ocupado(true);
+  try {
+    const res = await web("registrarReemplazo", [r.ciclo, datos]);
+    if (!res.ok) {
+      aviso("No se registró el reemplazo. En " + res.asignatura + ": " + res.bloqueos.map(b => b.mensaje).join(" "), "error");
+      return;
+    }
+    const n = res.hechos.length;
+    aviso("Reemplazo registrado: " + res.reemplazante + " reemplaza a " + res.saliente + " en " + n +
+          (n === 1 ? " asignatura" : " asignaturas") + (res.alta ? "; se dio de alta «por completar» en General" : "") + ".", "ok");
+    app.datos = await web("datosPanel", [app.ctx.ciclo, app.ctx.sig]);
+    pintar();
+    mostrar("resumen");
+  } catch (e) {
+    aviso(e.message || String(e), "error");
+  } finally {
+    ocupado(false);
+  }
+}
+
+async function restaurar(n) {
+  if (!confirm("¿Restaurar la v" + n + " de " + app.ctx.sig + "? Se crea una versión nueva con ese contenido.")) return;
+  ocupado(true);
+  try {
+    const r = await web("restaurarVersion", [app.ctx.ciclo, app.ctx.sig, n]);
+    aviso("Se restauró la v" + n + " como v" + r.version + "." +
+          (r.rechazados.length === 1 ? " 1 asignación quedó pendiente por A07, A08 o A11." : r.rechazados.length ? " " + r.rechazados.length + " asignaciones quedaron pendientes por A07, A08 o A11." : ""), "ok");
+    app.datos = await web("datosPanel", [app.ctx.ciclo, app.ctx.sig]);
+    pintar();
+    mostrar("resumen");
+  } catch (e) {
+    aviso(e.message || String(e), "error");
+  } finally {
+    ocupado(false);
+  }
+}
+
+document.addEventListener("click", ev => {
+  const b = ev.target.closest("button");
+  if (!b || b.disabled) return;
+  if (b.dataset.ir) { $("#avisos").innerHTML = ""; mostrar(b.dataset.ir); return; }
+  if (b.dataset.restaurar) { restaurar(parseInt(b.dataset.restaurar, 10)); return; }
+  if (b.dataset.alerta != null) {
+    const a = app.datos.alertas[parseInt(b.dataset.alerta, 10)];
+    if (a && a.fila) llamar("panelIrA", app.datos.hoja, a.fila).catch(e => aviso(e.message || String(e), "error"));
+    return;
+  }
+  const accion = b.dataset.accion;
+  if (accion === "actualizar") cargar("resumen");
+  else if (accion === "sincronizar") consolidar("consolidarHoja");
+  else if (accion === "terminar") consolidar("terminarEdicionHoja");
+  else if (accion === "reemplazo") abrirReemplazo();
+  else if (accion === "confirmar-reemplazo") confirmarReemplazo();
+});
+
+cargar(VISTA_INICIAL);
+</script>
+</body>
+</html>

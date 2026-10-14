@@ -15,8 +15,15 @@ var MENSAJE_SIN_ROL_ = "Acceso denegado. La cuenta no cuenta con permisos de Res
 
 function usuarioActual_() {
   if (usuarioCache_) return usuarioCache_;
+  usuarioCache_ = usuarioDeCorreo_(Session.getActiveUser().getEmail());
+  return usuarioCache_;
+}
+
+/* La cuenta de un correo: la de quien abre la web o, en un disparador de la hoja, la de
+   quien editó (Edicion.js). */
+function usuarioDeCorreo_(correoBruto) {
   const cfg = config_();
-  const correo = String(Session.getActiveUser().getEmail() || "").trim().toLowerCase();
+  const correo = String(correoBruto || "").trim().toLowerCase();
   let u;
 
   if (!correo) {
@@ -32,7 +39,6 @@ function usuarioActual_() {
       guardarEnCache_(clave, u, SEGUNDOS_CACHE_USUARIO_);
     }
   }
-  usuarioCache_ = u;
   return u;
 }
 

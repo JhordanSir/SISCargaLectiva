@@ -757,7 +757,7 @@ function crearDominioCarga(D) {
     REGLAS: REGLAS, reglas: reglas, VACANTE: VACANTE, MOTIVOS_REEMPLAZO: MOTIVOS_REEMPLAZO,
     leerCeldaDocente: leerCeldaDocente, repartir: repartir, escribirCeldaDocente: escribirCeldaDocente,
     leerGeneral: leerGeneral, fichaDocente: fichaDocente, palabras: palabras, claveNombre: claveNombre,
-    emparejar: emparejar, separarNombre: separarNombre, altaPorCompletar: altaPorCompletar,
+    emparejar: emparejar, separarNombre: separarNombre, altaPorCompletar: altaPorCompletar, asignacionDeParte: asignacionDeParte,
     cargaPorDocente: cargaPorDocente, cruces: cruces, advertenciasDocente: advertenciasDocente,
     sinDocente: sinDocente, evaluarCiclo: evaluarCiclo, bloqueosDeCambio: bloqueosDeCambio,
     asignar: asignar, reemplazar: reemplazar, asignarImportados: asignarImportados, aplicarCambiosDocente: aplicarCambiosDocente,

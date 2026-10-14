@@ -5,7 +5,7 @@
 var TABLAS_ = {
   _SYS_USUARIOS: ["correo", "rol", "carreras", "departamento"],
   _SYS_PLANES_ESTADO: ["ciclo", "carrera", "estado", "version", "actualizado_por", "actualizado_en", "totales",
-                       "fila_version", "bloqueo_correo", "bloqueo_desde", "bloqueo_expira"],
+                       "fila_version", "bloqueo_correo", "bloqueo_desde", "bloqueo_expira", "hoja_cambiada_en", "hoja_cambiada_por"],
   _SYS_VERSIONES: ["ciclo", "carrera", "n", "estado", "tipo", "usuario", "fecha", "motivo", "contenido"],
   _SYS_BITACORA: ["fecha", "usuario", "ciclo", "carrera", "accion", "version", "detalle"]
 };

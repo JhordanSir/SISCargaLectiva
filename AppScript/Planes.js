@@ -2,9 +2,11 @@
    hoja: cada guardado la escribe, añade una versión a _SYS_VERSIONES con el contenido
    completo del plan y actualiza General y las hojas por departamento. La fila del plan en
    _SYS_PLANES_ESTADO guarda su estado, su versión vigente, sus totales, en qué fila de
-   _SYS_VERSIONES está esa versión y el bloqueo. Lo editado a mano en la hoja se interpreta
-   al leerla y se consolida como versión con consolidarHoja() («Sincronizar y versionar
-   hoja actual»). El contenido de una versión nunca cambia: también se guarda en la caché. */
+   _SYS_VERSIONES está esa versión, el bloqueo y si la hoja tiene cambios que todavía no
+   son una versión. Lo editado a mano en la hoja se interpreta al momento (Edicion.js) y se
+   versiona con consolidarHoja() («Sincronizar y versionar hoja actual»), con
+   terminarEdicionHoja() o con el autoguardado al vencer el bloqueo (P111, P138). El
+   contenido de una versión nunca cambia: también se guarda en la caché. */
 
 var TIPOS_GUARDADO_ = ["guardar borrador", "registrar", "guardar cambios", "autoguardado"];
 var SEGUNDOS_CACHE_VERSION_ = 21600;   // el máximo que admite CacheService
@@ -56,21 +58,30 @@ function cachearTexto_(clave, texto) {
   }
 }
 
-/* Debe llamarse dentro de conCandado_. Añade la versión, actualiza la fila del plan y la
-   anota en la bitácora. */
+/* Debe llamarse dentro de conCandado_. Añade la versión, actualiza la fila del plan (la
+   hoja ya no tiene cambios sin versionar) y la anota en la bitácora. */
 function registrarVersion_(ciclo, sig, datos) {
   const fila = buscarPlan_(leerPlanes_(), ciclo, sig);
   const n = (fila ? parseInt(fila.version, 10) || 0 : 0) + 1;
-  const texto = JSON.stringify(datos.asignaturas);
+  const asignaturas = sinTransitorios(datos.asignaturas);
+  const texto = JSON.stringify(asignaturas);
   const filaVersion = agregarFila_("_SYS_VERSIONES",
     [ciclo, sig, n, datos.estado, datos.tipo, datos.usuario, datos.fecha, datos.motivo || ""].concat(trocear_(texto)));
   actualizarPlan_(ciclo, sig, fila, {
     estado: datos.estado, version: n, actualizado_por: datos.usuario, actualizado_en: datos.fecha,
-    totales: JSON.stringify(Dominio.totales(datos.asignaturas)), fila_version: filaVersion
+    totales: JSON.stringify(Dominio.totales(asignaturas)), fila_version: filaVersion,
+    hoja_cambiada_en: "", hoja_cambiada_por: ""
   });
   cachearTexto_(claveVersion_(ciclo, sig, n), texto);
   anotarBitacora_(datos.usuario, ciclo, sig, datos.tipo, n, datos.detalle || datos.motivo || "");
   return n;
+}
+
+/* Debe llamarse dentro de conCandado_. La hoja tiene cambios que todavía no son una versión. */
+function marcarHojaCambiada_(ciclo, sig, correo) {
+  const fila = buscarPlan_(leerPlanes_(), ciclo, sig);
+  if (fila && fila.hoja_cambiada_en) return;
+  actualizarPlan_(ciclo, sig, fila, { hoja_cambiada_en: new Date().toISOString(), hoja_cambiada_por: correo || "" });
 }
 
 function metaVersiones_(ciclo, sig) {
@@ -114,13 +125,30 @@ function contenidoVersion_(ciclo, sig, n, filaVersion) {
   return JSON.parse(texto || "[]");
 }
 
+/* El contenido de la versión vigente de una carrera ([] si no tiene). */
+function contenidoVigente_(ciclo, sig) {
+  const p = estadoDePlan_(buscarPlan_(leerPlanes_(), ciclo, sig));
+  return p.version ? contenidoVersion_(ciclo, sig, p.version, p.filaVersion) : [];
+}
+
 function sinFila_(v) {
   return { n: v.n, estado: v.estado, tipo: v.tipo, usuario: v.usuario, fecha: v.fecha, motivo: v.motivo };
+}
+
+function horaCorta_(iso) {
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? String(iso || "") : Utilities.formatDate(d, Session.getScriptTimeZone(), "HH:mm");
 }
 
 /* ============================================================
    Lo editado a mano en las hojas
    ============================================================ */
+
+/* ¿Tiene la hoja cambios que no son una versión? Los aceptados al editar (la marca del
+   plan) y los que todavía no se procesaron (filas editadas o vaciadas). */
+function cambiosSinVersionar_(fila, lectura) {
+  return !!(fila && fila.hoja_cambiada_en) || !!(lectura && (lectura.editadas || lectura.vaciadas.length));
+}
 
 function avisosDeLectura_(ciclo, lectura) {
   const avisos = [];
@@ -136,20 +164,52 @@ function avisosDeLectura_(ciclo, lectura) {
   return avisos;
 }
 
+/* Carreras del ciclo cuyo bloqueo tiene otra persona (P139). */
+function ocupacion_(ciclo, correo) {
+  const ocupadas = {};
+  leerPlanes_().forEach(function (p) {
+    if (p.ciclo !== ciclo) return;
+    const b = bloqueoDeFila_(p);
+    if (vigente_(b) && b.correo !== correo) ocupadas[p.carrera] = b;
+  });
+  return { ocupadas: ocupadas, libre: function (sig) { return !ocupadas[sig]; } };
+}
+
+function notaEspera_(carreras, ocupadas) {
+  return carreras.map(function (s) {
+    const b = ocupadas && ocupadas[s];
+    return s + (b ? " la edita " + b.correo + " desde las " + horaCorta_(b.desde) : " está en edición");
+  }).join("; ") + ": la fusión se crea al sincronizar esta hoja cuando se libere.";
+}
+
 /* Interpreta lo editado a mano en las hojas de «carreras»: las anotaciones de fusión
-   nuevas (P118) y los cambios de DOCENTE, con sus reglas (P122). Modifica lectura.planes y
+   nuevas (P118) y los cambios de DOCENTE, con sus reglas (P122). Una fusión que alcanza
+   una carrera que edita otra persona espera (P139): su anotación no se da por aceptada y
+   queda con una nota. opciones: { libre, ocupadas } de ocupacion_() y «reintentar», para
+   volver a probar las fusiones que esperaban (al sincronizar). Modifica lectura.planes y
    el catálogo (altas «por completar»). Devuelve las carreras cuyas hojas cambian: las
    editadas y las que una fusión nueva alcanza. */
-function conciliar_(lectura, carreras, catalogo, usuario) {
+function conciliar_(lectura, carreras, catalogo, usuario, opciones) {
   const C = dominioCarga_();
+  const op = opciones || {};
   const obs = [];
   carreras.forEach(function (sig) {
     const l = lectura.lecturas[sig];
-    if (l) l.obsCambiadas.forEach(function (a) { obs.push(a); });
+    if (l) l.obsCambiadas.forEach(function (a) { if (op.reintentar || !a.esperaFusion) obs.push(a); });
   });
   const fus = obs.length
-    ? Dominio.fusionesDesdeObservaciones(lectura.planes, { solo: function (a) { return obs.indexOf(a) >= 0; } })
-    : { secciones: [], avisos: [] };
+    ? Dominio.fusionesDesdeObservaciones(lectura.planes, { solo: function (a) { return obs.indexOf(a) >= 0; }, libre: op.libre })
+    : { secciones: [], avisos: [], enEspera: [] };
+  const esperan = [];
+  fus.enEspera.forEach(function (e) {
+    e.anotaciones.forEach(function (r) {
+      const a = lectura.planes[r.sig][r.ci];
+      if (obs.indexOf(a) < 0 || esperan.indexOf(a) >= 0) return;
+      a.esperaFusion = { texto: a.obs, nota: notaEspera_(e.carreras, op.ocupadas) };
+      esperan.push(a);
+    });
+  });
+  obs.forEach(function (a) { if (esperan.indexOf(a) < 0) delete a.esperaFusion; });
   const tocadas = carreras.slice();
   fus.secciones.forEach(function (s) {
     s.miembros.forEach(function (m) { if (tocadas.indexOf(m.sig) < 0) tocadas.push(m.sig); });
@@ -161,20 +221,104 @@ function conciliar_(lectura, carreras, catalogo, usuario) {
   });
   const doc = C.aplicarCambiosDocente(lectura.planes, cambios, catalogo, usuario, config_().reglas);
   return {
-    tocadas: tocadas, fusiones: fus.secciones, aceptados: doc.aceptados, rechazados: doc.rechazados, altas: doc.altas,
-    avisos: fus.avisos.concat(doc.avisos)
+    tocadas: tocadas, fusiones: fus.secciones,
+    esperas: esperan.map(function (a) { return { codigo: a.codigo, nombre: a.nombre, nota: a.esperaFusion.nota }; }),
+    aceptados: doc.aceptados, rechazados: doc.rechazados, altas: doc.altas, avisos: fus.avisos.concat(doc.avisos)
   };
 }
 
+/* Grupos de la versión vigente, por identificador. */
+function idsDeVersion_(ciclo, sig) {
+  const ids = [];
+  contenidoVigente_(ciclo, sig).forEach(function (a) { a.grupos.forEach(function (g) { ids.push(g.id); }); });
+  return ids;
+}
+
+/* Grupos eliminados a mano en la hoja de «sig» (P140, P143): los que se vaciaron (sus filas
+   conservan SIS) y, con opciones.filasEliminadas, los que se fueron con su fila entera
+   (según los grupos que tenía la hoja la última vez que el sistema la escribió o, si no se
+   recuerdan, según la versión vigente). La eliminación siempre se acepta, como en la web
+   (RN-15): si era el único grupo de su asignatura, la asignatura sale del plan; si estaba
+   fusionado y su sección se queda con un solo grupo, la fusión se deshace también en las
+   otras carreras (FA-022). Un subgrupo vaciado de un grupo que sigue en la hoja solo reduce
+   el desdoble. Modifica lectura.planes. Devuelve los grupos eliminados (A06 marca los que
+   eran el único grupo de su asignatura o estaban fusionados), las filas vaciadas que hay
+   que limpiar y las otras carreras cuyo plan cambió. */
+function resolverEliminados_(ciclo, sig, lectura, opciones) {
+  const l = lectura.lecturas[sig];
+  const res = { aceptados: [], blanquear: [], tocadas: [] };
+  if (!l) return res;
+  const vaciadasPorId = {};
+  l.vaciadas.forEach(function (v) { (vaciadasPorId[v.sis.id] = vaciadasPorId[v.sis.id] || []).push(v); });
+  const candidatos = [];
+  Object.keys(vaciadasPorId).forEach(function (id) {
+    vaciadasPorId[id].forEach(function (v) { res.blanquear.push(v.fila); });
+    if (!l.ubicaciones[id]) candidatos.push({ id: id, vaciadas: vaciadasPorId[id] });
+  });
+  if (opciones && opciones.filasEliminadas) {
+    const antes = leerIdsHoja_(ciclo, sig) || idsDeVersion_(ciclo, sig);
+    antes.forEach(function (id) { if (!l.ubicaciones[id] && !vaciadasPorId[id]) candidatos.push({ id: id, vaciadas: null }); });
+  }
+  if (!candidatos.length) return res;
+
+  /* Cada grupo eliminado con su asignatura: de los valores aceptados de sus filas vaciadas
+     o, si no se tienen, de la versión vigente. */
+  let version = null;
+  const deVersion = function (id) {
+    if (!version) version = contenidoVigente_(ciclo, sig);
+    for (let i = 0; i < version.length; i++) {
+      const g = version[i].grupos.filter(function (x) { return x.id === id; })[0];
+      if (g) return { a: version[i], g: g };
+    }
+    return null;
+  };
+  const claveDe = function (a) { return a.codigo || a.nombre; };
+  candidatos.forEach(function (c) {
+    let par = null;
+    if (c.vaciadas && c.vaciadas.every(function (v) { return v.sis.v; })) {
+      const filas = c.vaciadas.map(function (v) {
+        const valores = COLUMNAS_HOJA_.map(function () { return ""; });
+        COLUMNAS_FIRMA_.forEach(function (columna, k) { valores[col_(columna)] = v.sis.v[k]; });
+        valores[col_("SUBGRUPO")] = v.sis.sub || "";
+        valores[col_("SIS")] = JSON.stringify(v.sis);
+        return valores;
+      });
+      const p = planDeFilas(sig, filas);
+      if (p.asignaturas.length) par = { a: p.asignaturas[0], g: p.asignaturas[0].grupos[0] };
+    }
+    par = par || deVersion(c.id);
+    if (!par) { res.aceptados.push({ id: c.id, a06: false }); return; }
+    const a = par.a, g = par.g;
+    const queda = l.asignaturas.some(function (x) { return claveDe(x) === claveDe(a) && x.grupos.length; });
+    res.aceptados.push({ id: g.id, codigo: a.codigo, nombre: a.nombre, grupo: g.n, fusion: g.fusion || null,
+                         a06: !!g.fusion || !queda, filas: c.vaciadas ? c.vaciadas.map(function (v) { return v.fila; }) : [] });
+  });
+
+  /* Una sección que se queda con un solo grupo se deshace en las carreras que alcanzaba. */
+  res.aceptados.forEach(function (x) {
+    if (!x.fusion) return;
+    const otras = Dominio.gruposDeFusion(lectura.planes, x.fusion).map(function (y) { return y.sig; });
+    Dominio.limpiarFusionHuerfanaEnCiclo(lectura.planes, x.fusion);
+    otras.forEach(function (s) { if (s !== sig && res.tocadas.indexOf(s) < 0) res.tocadas.push(s); });
+  });
+  return res;
+}
+
 /* Debe llamarse dentro de conCandado_. Consolida lo editado a mano en la hoja de «sig» (y en
-   las que alcance una fusión nueva): escribe las hojas con lo aceptado, versiona cada plan
-   cuyo contenido cambió y actualiza los reportes. */
-function consolidar_(ciclo, sig, usuario, motivo) {
+   las que alcance una fusión nueva): resuelve los grupos eliminados, vuelve a probar las
+   fusiones que esperaban, escribe las hojas enteras con lo aceptado, versiona cada plan
+   cuyo contenido cambió y actualiza los reportes. opciones.tipo: el de la versión
+   («autoguardado» al vencer el bloqueo). */
+function consolidar_(ciclo, sig, usuario, motivo, opciones) {
+  const op = opciones || {};
   const lectura = leerPlanesCiclo_(ciclo);
   if (!lectura.lecturas[sig]) throw new Error("El ciclo " + ciclo + " no tiene la hoja de " + Dominio.nombreCarrera(sig) + ". Siembra el ciclo primero.");
   const editadas = lectura.lecturas[sig].editadas;
   const catalogo = leerGeneral_(ciclo);
-  const r = conciliar_(lectura, [sig], catalogo, usuario);
+  const eliminados = resolverEliminados_(ciclo, sig, lectura, { filasEliminadas: true });
+  const ocupacion = ocupacion_(ciclo, usuario.correo);
+  const r = conciliar_(lectura, [sig], catalogo, usuario, { libre: ocupacion.libre, ocupadas: ocupacion.ocupadas, reintentar: true });
+  eliminados.tocadas.forEach(function (s) { if (r.tocadas.indexOf(s) < 0) r.tocadas.push(s); });
   const fecha = new Date().toISOString();
   const versiones = {};
   r.tocadas.forEach(function (s) {
@@ -182,18 +326,31 @@ function consolidar_(ciclo, sig, usuario, motivo) {
     const fila = buscarPlan_(leerPlanes_(), ciclo, s);
     const p = estadoDePlan_(fila);
     const previo = p.version ? contenidoVersion_(ciclo, s, p.version, p.filaVersion) : [];
-    if (Dominio.contenidoCanonico(previo) === Dominio.contenidoCanonico(lectura.planes[s])) return;
+    if (Dominio.contenidoCanonico(previo) === Dominio.contenidoCanonico(lectura.planes[s])) {
+      if (fila && fila.hoja_cambiada_en) actualizarPlan_(ciclo, s, fila, { hoja_cambiada_en: "", hoja_cambiada_por: "" });
+      return;
+    }
     versiones[s] = registrarVersion_(ciclo, s, {
       estado: resolverEstado_(p.estado, Dominio.ESTADOS.BORRADOR),
-      tipo: s === sig ? "sincronización desde la hoja" : "fusión desde " + sig,
+      tipo: s === sig ? (op.tipo || "sincronización desde la hoja") : "fusión desde " + sig,
       usuario: usuario.correo, fecha: fecha, motivo: s === sig ? String(motivo || "").slice(0, 500) : "",
       asignaturas: lectura.planes[s],
       detalle: JSON.stringify({ editadas: s === sig ? editadas : 0, aceptados: r.aceptados.length, rechazados: r.rechazados.length,
-                                fusiones: r.fusiones.length, motivo: s === sig ? motivo || "" : "" })
+                                fusiones: r.fusiones.length, esperas: r.esperas.length, eliminados: eliminados.aceptados.length, motivo: s === sig ? motivo || "" : "" })
     });
   });
   actualizarReportes_(ciclo, lectura.planes, catalogo);
-  return { lectura: lectura, versiones: versiones, editadas: editadas, conciliacion: r };
+  return { lectura: lectura, versiones: versiones, editadas: editadas, conciliacion: r, eliminados: eliminados };
+}
+
+function resumenConsolidacion_(ciclo, sig, r) {
+  return {
+    version: r.versiones[sig] || estadoDePlan_(buscarPlan_(leerPlanes_(), ciclo, sig)).version,
+    nueva: !!r.versiones[sig], editadas: r.editadas, versiones: r.versiones,
+    aceptados: r.conciliacion.aceptados, rechazados: r.conciliacion.rechazados,
+    fusiones: r.conciliacion.fusiones.length, esperas: r.conciliacion.esperas, altas: r.conciliacion.altas.length,
+    eliminados: r.eliminados.aceptados, avisos: r.conciliacion.avisos
+  };
 }
 
 /* Vuelve a aplicar, con las reglas de hoy, los docentes de un contenido que se restaura:
@@ -219,16 +376,23 @@ function reaplicarDocentes_(planes, sig, asignaturas, catalogo) {
 }
 
 /* El plan que manda el navegador solo cambia la oferta (CU-001): las asignaciones de
-   docentes, sus rechazos y su historial son los que ya están en la hoja (RNF-02). Un grupo
+   docentes, sus rechazos y su historial son los que ya están en la hoja (RNF-02), y una
+   fusión anotada que espera (P139) sigue esperando si su anotación no cambió. Un grupo
    nuevo llega sin docente. */
-function conservarDocentes_(asignaturas, vigentes) {
-  const porId = {};
-  (vigentes || []).forEach(function (a) { a.grupos.forEach(function (g) { porId[g.id] = g; }); });
+function conservarDeHoja_(asignaturas, vigentes) {
+  const porId = {}, porClave = {};
+  (vigentes || []).forEach(function (a) {
+    a.grupos.forEach(function (g) { porId[g.id] = g; });
+    porClave[a.codigo || a.nombre] = a;
+  });
   asignaturas.forEach(function (a) {
+    CAMPOS_TRANSITORIOS_.forEach(function (k) { delete a[k]; });
+    const v = porClave[a.codigo || a.nombre];
+    if (v && v.esperaFusion && v.obs === a.obs) { a.esperaFusion = v.esperaFusion; a.obsAceptada = v.obsAceptada; }
     a.grupos.forEach(function (g) {
-      const v = porId[g.id];
-      g.asignacion = v ? v.asignacion || null : null;
-      if (v && v.rechazos) g.rechazos = v.rechazos; else delete g.rechazos;
+      const x = porId[g.id];
+      g.asignacion = x ? x.asignacion || null : null;
+      if (x && x.rechazos) g.rechazos = x.rechazos; else delete g.rechazos;
     });
   });
   return asignaturas;
@@ -240,7 +404,8 @@ function conservarDocentes_(asignaturas, vigentes) {
 
 /* Filas del tablero de un ciclo, con el contenido de cada plan: así el navegador consulta
    un plan o empieza a editarlo sin volver a pedirlo. «editadas» cuenta las filas editadas a
-   mano que todavía no se consolidaron. */
+   mano que todavía no se procesaron; «pendiente», si la hoja tiene cambios que todavía no
+   son una versión. */
 function filasTablero_(ciclo, lectura) {
   const planes = leerPlanes_().filter(function (p) { return p.ciclo === ciclo; });
   return Dominio.CARRERAS.map(function (car) {
@@ -248,10 +413,11 @@ function filasTablero_(ciclo, lectura) {
     const p = estadoDePlan_(fila);
     const b = bloqueoDeFila_(fila);
     const l = lectura.lecturas[car.sig];
-    const contenido = l ? l.asignaturas : [];
+    const contenido = l ? sinTransitorios(l.asignaturas) : [];
     return {
       sig: car.sig, nombre: car.nombre, hoja: nombreHojaCarrera(car.sig, ciclo), estado: p.estado, version: p.version,
-      totales: Dominio.totales(contenido), bloqueo: vigente_(b) ? b : null, contenido: contenido, editadas: l ? l.editadas : 0
+      totales: Dominio.totales(contenido), bloqueo: vigente_(b) ? b : null, contenido: contenido, editadas: l ? l.editadas : 0,
+      pendiente: cambiosSinVersionar_(fila, l)
     };
   });
 }
@@ -271,18 +437,19 @@ function obtenerTablero(ciclo) {
 function obtenerPlan(ciclo, sig) {
   exigirUsuario_();
   const c = validarCiclo_(ciclo), s = validarCarrera_(sig);
-  const p = estadoDePlan_(buscarPlan_(leerPlanes_(), c, s));
+  const fila = buscarPlan_(leerPlanes_(), c, s);
+  const p = estadoDePlan_(fila);
   const l = leerHojaCarrera_(c, s);
   const b = bloqueoDe_(c, s);
   return {
-    estado: p.estado, version: p.version, asignaturas: l ? l.asignaturas : [],
+    estado: p.estado, version: p.version, asignaturas: l ? sinTransitorios(l.asignaturas) : [],
     bloqueo: b ? { correo: b.correo, desde: b.desde, expira: b.expira } : null,
-    editadas: l ? l.editadas : 0
+    editadas: l ? l.editadas : 0, pendiente: cambiosSinVersionar_(fila, l)
   };
 }
 
 /* versionConocida: la versión que el navegador ya tiene. Si sigue siendo la vigente y la
-   hoja no se editó a mano, no se devuelve el contenido. */
+   hoja no tiene cambios sin versionar, no se devuelve el contenido. */
 function abrirEdicion(ciclo, sig, versionConocida) {
   const u = exigirUsuario_();
   const c = validarCiclo_(ciclo), s = validarCarrera_(sig);
@@ -290,19 +457,21 @@ function abrirEdicion(ciclo, sig, versionConocida) {
   return conCandado_(function () {
     const r = tomarBloqueo_(c, s, u.correo);
     if (!r.ok) return { bloqueado: { correo: r.bloqueo.correo, desde: r.bloqueo.desde, expira: r.bloqueo.expira } };
-    const p = estadoDePlan_(buscarPlan_(leerPlanes_(), c, s));
+    const fila = buscarPlan_(leerPlanes_(), c, s);
+    const p = estadoDePlan_(fila);
     const l = leerHojaCarrera_(c, s);
-    const res = { estado: p.estado, version: p.version, expira: r.expira, editadas: l ? l.editadas : 0 };
-    if (versionConocida == null || parseInt(versionConocida, 10) !== p.version || res.editadas)
-      res.asignaturas = l ? l.asignaturas : [];
+    const res = { estado: p.estado, version: p.version, expira: r.expira, editadas: l ? l.editadas : 0, pendiente: cambiosSinVersionar_(fila, l) };
+    if (versionConocida == null || parseInt(versionConocida, 10) !== p.version || res.pendiente)
+      res.asignaturas = l ? sinTransitorios(l.asignaturas) : [];
     return res;
   });
 }
 
 /* datos: {asignaturas, estado, tipo, motivo, versionBase, forzar}. Si se guardó otra
-   versión después de versionBase, o si la hoja se editó a mano, devuelve {conflicto} para
-   que el navegador advierta; con forzar se guarda igualmente (advertir, no prohibir), y lo
-   editado a mano se consolida antes como versión para que quede en el historial. */
+   versión después de versionBase, o si la hoja tiene cambios sin versionar, devuelve
+   {conflicto} para que el navegador advierta; con forzar se guarda igualmente (advertir,
+   no prohibir), y lo de la hoja se consolida antes como versión para que quede en el
+   historial. */
 function guardarPlan(ciclo, sig, datos) {
   const u = exigirUsuario_();
   const c = validarCiclo_(ciclo), s = validarCarrera_(sig);
@@ -314,21 +483,28 @@ function guardarPlan(ciclo, sig, datos) {
     const b = bloqueoDe_(c, s);
     if (b && b.correo !== u.correo)
       throw new Error("El plan lo está editando " + b.correo + ", así que no se guardó. Vuelve a abrirlo cuando termine.");
-    let p = estadoDePlan_(buscarPlan_(leerPlanes_(), c, s));
+    let fila = buscarPlan_(leerPlanes_(), c, s);
+    let p = estadoDePlan_(fila);
     if (!datos.forzar && p.version > (parseInt(datos.versionBase, 10) || 0)) {
       const ultima = metaVersiones_(c, s).filter(function (v) { return v.n === p.version; })[0];
       return { conflicto: ultima ? sinFila_(ultima) : { n: p.version } };
     }
     let lectura = leerPlanesCiclo_(c);
-    const editadas = lectura.lecturas[s] ? lectura.lecturas[s].editadas : 0;
-    if (editadas) {
-      if (!datos.forzar)
-        return { conflicto: { n: p.version, tipo: (editadas === 1 ? "1 fila editada" : editadas + " filas editadas") + " a mano en la hoja", usuario: "", fecha: "" } };
+    const l = lectura.lecturas[s];
+    if (cambiosSinVersionar_(fila, l)) {
+      if (!datos.forzar) {
+        const editadas = l ? l.editadas : 0;
+        return { conflicto: { n: p.version,
+                              tipo: editadas ? (editadas === 1 ? "1 fila editada" : editadas + " filas editadas") + " a mano en la hoja"
+                                             : "cambios en la hoja sin versionar",
+                              usuario: fila && fila.hoja_cambiada_por || "", fecha: fila && fila.hoja_cambiada_en || "" } };
+      }
       consolidar_(c, s, u, "Antes de guardar desde la web");
       lectura = leerPlanesCiclo_(c);
-      p = estadoDePlan_(buscarPlan_(leerPlanes_(), c, s));
+      fila = buscarPlan_(leerPlanes_(), c, s);
+      p = estadoDePlan_(fila);
     }
-    const asignaturas = conservarDocentes_(datos.asignaturas, lectura.planes[s]);
+    const asignaturas = conservarDeHoja_(datos.asignaturas, lectura.planes[s]);
     lectura.planes[s] = asignaturas;
     const estado = resolverEstado_(p.estado, datos.estado);
     const fecha = new Date().toISOString();
@@ -378,8 +554,9 @@ function restaurarVersion(ciclo, sig, n) {
   });
 }
 
-/* «Sincronizar y versionar hoja actual» (P111): lo editado a mano en la hoja de la carrera
-   pasa por las reglas y, si el contenido cambió, queda como una versión nueva. */
+/* «Sincronizar y versionar hoja actual» (P111, P138): lo editado a mano en la hoja de la
+   carrera pasa por las reglas y, si el contenido cambió, queda como una versión nueva. El
+   bloqueo se mantiene, como al guardar en la web. */
 function consolidarHoja(ciclo, sig, motivo) {
   const u = exigirUsuario_();
   const c = validarCiclo_(ciclo), s = validarCarrera_(sig);
@@ -388,11 +565,22 @@ function consolidarHoja(ciclo, sig, motivo) {
     const b = bloqueoDe_(c, s);
     if (b && b.correo !== u.correo) throw new Error("La hoja la está editando " + b.correo + ", así que no se consolidó.");
     const r = consolidar_(c, s, u, motivo);
-    return {
-      version: r.versiones[s] || estadoDePlan_(buscarPlan_(leerPlanes_(), c, s)).version,
-      nueva: !!r.versiones[s], editadas: r.editadas, versiones: r.versiones,
-      aceptados: r.conciliacion.aceptados, rechazados: r.conciliacion.rechazados,
-      fusiones: r.conciliacion.fusiones.length, altas: r.conciliacion.altas.length, avisos: r.conciliacion.avisos
-    };
+    if (b) tomarBloqueo_(c, s, u.correo);
+    return Object.assign(resumenConsolidacion_(c, s, r), { conBloqueo: !!b });
+  });
+}
+
+/* «Terminar edición» (P138): consolida como consolidarHoja() y suelta el bloqueo, con lo
+   que la hoja vuelve a sus Coordinadores y a los Directores. */
+function terminarEdicionHoja(ciclo, sig, motivo) {
+  const u = exigirUsuario_();
+  const c = validarCiclo_(ciclo), s = validarCarrera_(sig);
+  exigirEdicion_(u, s);
+  return conCandado_(function () {
+    const b = bloqueoDe_(c, s);
+    if (b && b.correo !== u.correo) throw new Error("La hoja la está editando " + b.correo + ", así que no se terminó su edición.");
+    const r = consolidar_(c, s, u, motivo);
+    const liberado = soltarBloqueo_(c, s, u.correo);
+    return Object.assign(resumenConsolidacion_(c, s, r), { liberado: liberado });
   });
 }

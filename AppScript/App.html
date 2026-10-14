@@ -327,7 +327,9 @@ function pintarTablero(){
       '<td><span class="pill ' + cls + '">' + (otro ? "Bloqueado" : esc(f.estado)) + "</span></td>" +
       '<td class="num">' + (t.sem || "—") + '</td><td class="num">' + (t.asig || "—") + "</td>" +
       '<td class="num">' + (t.grupos || "—") + '</td><td class="num">' + (t.dictado || "—") + "</td>" +
-      '<td class="cod">' + v + "</td>" +
+      '<td class="cod">' + v + (f.pendiente
+        ? '<br><small style="color:var(--aviso)" title="La hoja tiene cambios que todavía no son una versión. Se versionan al sincronizar la hoja.">hoja sin versionar</small>'
+        : "") + "</td>" +
       '<td class="cod" style="font-size:11px;color:var(--ink-faint)">' + (b ? esc(b.correo) : "—") + "</td>" +
       '<td style="text-align:right">' + (puede
         ? '<button class="btn" data-editar="' + f.sig + '" style="padding:4px 10px;font-size:12px">Editar</button>'

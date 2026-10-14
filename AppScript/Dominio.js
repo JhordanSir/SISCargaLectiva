@@ -517,10 +517,14 @@ function crearDominio() {
      carrera, el menor semestre (P130). Devuelve las secciones creadas y los avisos.
      opciones.solo(asignatura, sigla): lee solo las anotaciones de esas asignaturas. Al leer
      la hoja se usa para las anotaciones nuevas o cambiadas: una anotación que ya creó su
-     sección es solo texto (P134) y no debe rehacer una fusión que se deshizo. */
+     sección es solo texto (P134) y no debe rehacer una fusión que se deshizo.
+     opciones.libre(sigla): si una sección alcanza una carrera que no está libre (otra
+     persona tiene su bloqueo), no se crea y va a «enEspera» con las anotaciones que la
+     piden y las carreras ocupadas (P139). */
   function fusionesDesdeObservaciones(planes, opciones) {
-    const avisos = [], anotaciones = [];
+    const avisos = [], anotaciones = [], enEspera = [];
     const solo = opciones && opciones.solo;
+    const libre = (opciones && opciones.libre) || (() => true);
     const nombreDe = r => r.sig + " " + planes[r.sig][r.ci].codigo + " «" + planes[r.sig][r.ci].nombre + "»";
 
     Object.keys(planes).forEach(sig => (planes[sig] || []).forEach((a, ci) => {
@@ -558,7 +562,7 @@ function crearDominio() {
           if (!miembros.some(x => mismaRef(x, r))) miembros.push(r);
           if (!propuesta) propuesta = r;
         });
-        if (miembros.length > 1) anotaciones.push({ miembros: miembros, propuesta: propuesta, lista: lista, texto: a.obs });
+        if (miembros.length > 1) anotaciones.push({ miembros: miembros, propuesta: propuesta, lista: lista, texto: a.obs, sig: sig, ci: ci });
       });
     }));
 
@@ -571,8 +575,9 @@ function crearDominio() {
     const secciones = new Map();
     anotaciones.forEach(an => {
       const k = raiz(clave(an.miembros[0]));
-      if (!secciones.has(k)) secciones.set(k, { miembros: [], listas: [], cons: [], textos: [] });
+      if (!secciones.has(k)) secciones.set(k, { miembros: [], listas: [], cons: [], textos: [], origen: [] });
       const s = secciones.get(k);
+      if (!s.origen.some(o => o.sig === an.sig && o.ci === an.ci)) s.origen.push({ sig: an.sig, ci: an.ci });
       an.miembros.forEach(r => { if (!s.miembros.some(x => mismaRef(x, r))) s.miembros.push(r); });
       if (an.propuesta) (an.lista ? s.listas : s.cons).push(an.propuesta);
       if (s.textos.indexOf(an.texto) < 0) s.textos.push(an.texto);
@@ -582,6 +587,11 @@ function crearDominio() {
     const desempate = refs => refs.slice().sort((x, y) => x.sig.localeCompare(y.sig) || semDe(x) - semDe(y) || x.ci - y.ci || x.gi - y.gi)[0];
     const resultado = [];
     secciones.forEach(s => {
+      const ocupadas = s.miembros.map(r => r.sig).filter((x, i, l) => l.indexOf(x) === i && !libre(x));
+      if (ocupadas.length) {
+        enEspera.push({ anotaciones: s.origen, carreras: ocupadas, textos: s.textos });
+        return;
+      }
       const propuestas = s.listas.length ? s.listas : s.cons;
       const distintas = propuestas.filter((r, i) => propuestas.findIndex(x => mismaRef(x, r)) === i);
       let principal = distintas[0] || desempate(s.miembros);
@@ -599,7 +609,7 @@ function crearDominio() {
         miembros: s.miembros.map(x => ({ sig: x.sig, codigo: planes[x.sig][x.ci].codigo, grupo: planes[x.sig][x.ci].grupos[x.gi].n }))
       });
     });
-    return { secciones: resultado, avisos: avisos };
+    return { secciones: resultado, avisos: avisos, enEspera: enEspera };
   }
 
   /* ============================================================

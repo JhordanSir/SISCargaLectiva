@@ -65,8 +65,9 @@ function exigirPropietario_() {
 
 /* Se ejecuta una vez desde el editor del proyecto vinculado al libro (Extensiones → Apps
    Script, o clasp open-script). Se puede repetir sin riesgo: reutiliza lo que ya existe y
-   solo crea lo que falta. Prepara las hojas del sistema y la carpeta donde se suben los
-   .xlsx para sembrar un ciclo con sembrarCiclo(). */
+   solo crea lo que falta. Prepara las hojas del sistema, la carpeta donde se suben los
+   .xlsx para sembrar un ciclo con sembrarCiclo() y los disparadores de la edición en la
+   hoja (Edicion.js). */
 function instalar() {
   exigirPropietario_();
   const libro = SpreadsheetApp.getActive();
@@ -87,6 +88,7 @@ function instalar() {
 
   prepararTablas_(libro);
   const sembradas = sembrarUsuarios_();
+  const disparadores = instalarDisparadores_(libro);
   const sobrante = libro.getSheetByName("Hoja 1") || libro.getSheetByName("Sheet1");
   if (sobrante && sobrante.getLastRow() === 0 && libro.getSheets().length > 1) libro.deleteSheet(sobrante);
 
@@ -96,6 +98,8 @@ function instalar() {
     "Carpeta para los .xlsx: " + carpeta.getUrl(),
     sembradas ? "Se añadieron " + sembradas + " cuentas a _SYS_USUARIOS como Director con todos los departamentos."
               : "_SYS_USUARIOS ya tenía cuentas; no se tocó.",
+    disparadores.length ? "Disparadores creados: " + disparadores.join(", ") + "." : "Los disparadores ya existían.",
+    "El menú «🎓 SISCargaLectiva» necesita la aplicación web publicada: Implementar → Nueva implementación, y ábrela una vez.",
     "Siguiente paso: sube a esa carpeta CargaXCarrera, CargaXDepartamento y CargaDeDocentes (.xlsx, sin convertir) " +
     "y ejecuta sembrarCiclo con el ciclo «" + config_().cicloActual + "»."
   ].join("\n");

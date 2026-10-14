@@ -22,6 +22,10 @@ var COLUMNAS_SISTEMA_ = ["SUBGRUPO", "SECCIÓN", "SIS"];
 var COLUMNAS_FIRMA_ = ["CARRERA", "MALLA", "SEMESTRE", "CODIGO", "ASIGNATURA", "HT", "HP", "DOCENTE", "DPTO", "TURNO",
                        "OBSERVACIONES", "GRUPO"];
 
+/* Las notas que el sistema pone fuera de DOCENTE empiezan así, para no borrar las de las
+   personas. */
+var NOTA_SISTEMA_ = "SISCargaLectiva · ";
+
 /* Colores de la celda DOCENTE (RF-087) y de SECCIÓN en los grupos no principales. */
 var COLOR_RECHAZO_ = "#f4cccc";
 var COLOR_SIN_DOCENTE_ = "#fff2cc";
@@ -71,6 +75,10 @@ function numeroOTexto_(v) {
   return /^-?\d+(\.\d+)?$/.test(t) ? Number(t) : t;
 }
 
+function valoresFirma_(valores) {
+  return COLUMNAS_FIRMA_.map(function (c) { var v = valores[col_(c)]; return String(v == null ? "" : v).trim(); });
+}
+
 function firmaFila_(valores) {
   return Dominio.hash(JSON.stringify(COLUMNAS_FIRMA_.map(function (c) {
     var v = valores[col_(c)];
@@ -101,9 +109,12 @@ function bloquesDeGrupo_(g) {
 
 /* Lo que no se ve en las celdas. Las horas y las observaciones aceptadas sirven para
    rehacer un desdoble si alguien borró su primera fila y para saber si cambió una
-   anotación de fusión. */
+   anotación de fusión. Una anotación cuya fusión espera a que se libere otra carrera
+   (P139) no se da por aceptada: «obs» conserva el texto anterior y «ep», la espera. */
 function estadoGrupo_(a, g) {
-  var s = { ht: g.ht, hp: g.hp, obs: a.obs || "" };
+  var espera = a.esperaFusion || null;
+  var s = { ht: g.ht, hp: g.hp, obs: espera ? (a.obsAceptada || "") : (a.obs || "") };
+  if (espera) s.ep = espera;
   if (g.desdoble) s.d = g.desdoble;
   if (g.fusion) { s.fu = g.fusion; s.fp = g.fusionPrincipal === true; }
   if (g.previas) s.pr = g.previas;
@@ -152,9 +163,19 @@ function colorDocente_(g, claves) {
   return null;
 }
 
+/* Nota del sistema en OBSERVACIONES: la fusión en espera (P139) y la fila restaurada (P140). */
+function notaObservaciones_(a) {
+  var partes = [];
+  if (a.esperaFusion) partes.push(a.esperaFusion.nota);
+  if (a.notaSistema) partes.push(a.notaSistema);
+  return partes.length ? NOTA_SISTEMA_ + partes.join(" ") : "";
+}
+
 /* Filas de la hoja de una carrera. planes: los del ciclo, para nombrar en SECCIÓN el grupo
-   principal de una sección que une carreras. Por fila: los valores de las 16 columnas, la
-   nota de DOCENTE y los colores de DOCENTE y de SECCIÓN. */
+   principal de una sección que une carreras. Por fila: los valores de las 16 columnas, el
+   grupo y el subgrupo, las notas de DOCENTE y de OBSERVACIONES y los colores de DOCENTE y
+   de SECCIÓN. SIS lleva, además, los valores aceptados de las columnas que se editan a
+   mano («v»): con ellos se restaura o se revierte la fila (P122, P138, P140). */
 function filasDeCarrera(sig, asignaturas, planes) {
   var C = dominioCarga_();
   var filas = [];
@@ -167,10 +188,11 @@ function filasDeCarrera(sig, asignaturas, planes) {
                        numeroOTexto_(b.ht), numeroOTexto_(b.hp), Dominio.num(b.ht) + Dominio.num(b.hp),
                        C.escribirCeldaDocente(g, b.claves), a.dpto || "", g.turno || "", a.obs || "",
                        String(g.n == null ? "" : g.n), b.sub, seccion, ""];
-        valores[col_("SIS")] = JSON.stringify({ id: g.id, sub: b.sub, f: firmaFila_(valores), s: estado });
+        valores[col_("SIS")] = JSON.stringify({ id: g.id, sub: b.sub, f: firmaFila_(valores), s: estado, v: valoresFirma_(valores) });
         filas.push({
-          valores: valores,
+          valores: valores, id: g.id, sub: b.sub,
           nota: notaDocente_(g, b.claves),
+          notaObs: notaObservaciones_(a),
           colorDocente: colorDocente_(g, b.claves),
           colorSeccion: g.fusion && g.fusionPrincipal !== true ? COLOR_FUSIONADO_ : null
         });
@@ -213,19 +235,29 @@ function semestreYGrupo_(celdas) {
    fila 4, como los da getDisplayValues(). Junta las filas de un grupo por el identificador
    de SIS, recupera el estado que no se ve y compara cada fila con su firma para saber qué
    se editó a mano. Una fila sin SIS es un grupo nuevo escrito en la hoja.
+   Los datos de la asignatura salen de su primera fila, salvo los que se editaron a mano en
+   otra fila del mismo código: así un cambio vale en cualquiera de sus filas.
    Devuelve el plan, los cambios de DOCENTE que faltan pasar por las reglas
    ({ sig, ci, gi, claves, texto, fila }), las asignaturas cuya anotación de fusión es
-   nueva o cambió, cuántas filas se editaron y los avisos. */
+   nueva o cambió, cuántas filas se editaron, dónde está cada grupo ({ id: [{ fila, sub }] }),
+   las filas que conservan SIS pero se vaciaron ({ fila, sis }: un grupo o un subgrupo
+   eliminado, P140) y los avisos. */
 function planDeFilas(sig, filas) {
   var C = dominioCarga_();
   var avisos = [];
-  var grupos = [];          // { g, fila, celdas, filas: [...], sis, editado }
+  var grupos = [];          // { filas: [...], fila }
   var porId = {};
+  var vaciadas = [];
 
   (filas || []).forEach(function (f, i) {
     var celdas = COLUMNAS_HOJA_.map(function (c, j) { return f[j] == null ? "" : String(f[j]); });
-    if (!celdas.slice(0, col_("SUBGRUPO")).some(function (c) { return c.trim() !== ""; })) return;
-    var r = { fila: PRIMERA_FILA_ + i, celdas: celdas, sis: leerSis_(celdas[col_("SIS")]) };
+    var fila = PRIMERA_FILA_ + i;
+    var sis = leerSis_(celdas[col_("SIS")]);
+    if (!celdas.slice(0, col_("SUBGRUPO")).some(function (c) { return c.trim() !== ""; })) {
+      if (sis) vaciadas.push({ fila: fila, sis: sis });
+      return;
+    }
+    var r = { fila: fila, celdas: celdas, sis: sis };
     r.editada = !r.sis || r.sis.f !== firmaFila_(celdas);
     var carrera = celdas[col_("CARRERA")].trim();
     if (carrera && !Dominio.coincideCarrera(carrera, sig))
@@ -245,8 +277,18 @@ function planDeFilas(sig, filas) {
     grupos.push(nuevo);
   });
 
+  /* ¿Se editó a mano esta columna de la fila? Sin los valores aceptados (hojas escritas
+     antes de guardarlos), basta con que la fila esté editada. */
+  var editadoEn = function (r, columna) {
+    if (!r.sis) return true;
+    if (!r.sis.v) return r.editada;
+    var k = COLUMNAS_FIRMA_.indexOf(columna);
+    return r.celdas[col_(columna)].trim() !== String(r.sis.v[k] == null ? "" : r.sis.v[k]).trim();
+  };
+  var CAMPOS_ASIGNATURA = [["MALLA", "malla"], ["ASIGNATURA", "nombre"], ["DPTO", "dpto"], ["OBSERVACIONES", "obs"]];
+
   var cambiosDocente = [], obsCambiadas = [], editadas = 0;
-  var asignaturas = [], porClave = {};
+  var asignaturas = [], porClave = {}, ubicaciones = {};
 
   grupos.forEach(function (x) {
     var sis = x.filas[0].sis;
@@ -280,21 +322,35 @@ function planDeFilas(sig, filas) {
     if (s.fu) g.fusionPrincipal = s.fp === true;
     if (s.pr) g.previas = s.pr;
     if (s.r) g.rechazos = s.r;
+    ubicaciones[g.id] = x.filas.map(function (r) { return { fila: r.fila, sub: r.sis ? r.sis.sub || "" : "" }; });
 
-    /* La asignatura: la primera fila que la nombra da sus datos, como al importar. */
+    /* La asignatura: la primera fila que la nombra da sus datos, como al importar; un dato
+       editado a mano en otra de sus filas la corrige. */
     var codigo = c[col_("CODIGO")].trim(), nombre = c[col_("ASIGNATURA")].trim();
     var clave = codigo || nombre || ("fila-" + x.fila);
-    if (!porClave[clave]) {
-      porClave[clave] = { sem: sg.sem, malla: c[col_("MALLA")].trim(), codigo: codigo, nombre: nombre,
-                          dpto: c[col_("DPTO")].trim(), obs: c[col_("OBSERVACIONES")].trim(), grupos: [] };
-      asignaturas.push(porClave[clave]);
-    }
     var a = porClave[clave];
+    if (!a) {
+      a = porClave[clave] = { sem: sg.sem, malla: c[col_("MALLA")].trim(), codigo: codigo, nombre: nombre,
+                              dpto: c[col_("DPTO")].trim(), obs: c[col_("OBSERVACIONES")].trim(), grupos: [] };
+      asignaturas.push(a);
+    } else {
+      x.filas.forEach(function (r) {
+        CAMPOS_ASIGNATURA.forEach(function (cp) { if (editadoEn(r, cp[0])) a[cp[1]] = r.celdas[col_(cp[0])].trim(); });
+        if (editadoEn(r, "SEMESTRE")) a.sem = semestreYGrupo_(r.celdas).sem;
+      });
+    }
+    if (a.obsAceptada == null && sis && s.obs != null) a.obsAceptada = s.obs;
     a.grupos.push(g);
-    if (Dominio.leerFusionTexto(a.obs) && (!sis || a.obs !== (s.obs || "")) && obsCambiadas.indexOf(a) < 0) obsCambiadas.push(a);
+    x.g = g; x.a = a; x.s = s; x.sis = sis;
+  });
 
-    /* DOCENTE: si la celda ya no dice lo que el sistema escribió, es un cambio pendiente.
-       Las claves de cada fila salen del grupo tal como queda; el texto aceptado, del estado. */
+  /* Con cada asignatura ya completa: la espera de su fusión (P139), las anotaciones de
+     fusión nuevas o cambiadas y los cambios de DOCENTE. Las claves de cada fila salen del
+     grupo tal como queda; el texto aceptado, del estado. */
+  grupos.forEach(function (x) {
+    var g = x.g, a = x.a, s = x.s, sis = x.sis;
+    if (s.ep && s.ep.texto === a.obs && !a.esperaFusion) a.esperaFusion = s.ep;
+    if (Dominio.leerFusionTexto(a.obs) && (!sis || a.obs !== (s.obs || "")) && obsCambiadas.indexOf(a) < 0) obsCambiadas.push(a);
     var aceptado = { ht: s.ht, hp: s.hp, desdoble: s.d || null, asignacion: s.a || null };
     var bloquesNuevos = bloquesDeGrupo_(g), bloquesAceptados = sis ? bloquesDeGrupo_(aceptado) : [];
     x.filas.forEach(function (r, k) {
@@ -305,13 +361,16 @@ function planDeFilas(sig, filas) {
       var textoAceptado = previo ? C.escribirCeldaDocente(aceptado, previo.claves) : "";
       if (texto !== textoAceptado) cambiosDocente.push({ g: g, claves: bloque.claves, texto: texto, fila: r.fila });
     });
-    x.g = g;
   });
 
   Dominio.ordenarAsignaturas(asignaturas);
   asignaturas.forEach(function (a) { a.grupos.sort(function (x, y) { return Dominio.num(x.n) - Dominio.num(y.n); }); });
   var refs = new Map();
   asignaturas.forEach(function (a, ci) { a.grupos.forEach(function (g, gi) { refs.set(g, { ci: ci, gi: gi }); }); });
+  /* Una fila vaciada cuyo grupo y subgrupo siguen en otra fila no elimina nada. */
+  vaciadas = vaciadas.filter(function (v) {
+    return !(ubicaciones[v.sis.id] || []).some(function (u) { return u.sub === (v.sis.sub || ""); });
+  });
   return {
     asignaturas: asignaturas,
     cambiosDocente: cambiosDocente.map(function (cb) {
@@ -320,8 +379,22 @@ function planDeFilas(sig, filas) {
     }),
     obsCambiadas: obsCambiadas,
     editadas: editadas,
+    ubicaciones: ubicaciones,
+    vaciadas: vaciadas,
     avisos: avisos
   };
+}
+
+/* Campos de la asignatura que solo sirven mientras se lee y se escribe la hoja: no van a
+   las versiones ni a la web. */
+var CAMPOS_TRANSITORIOS_ = ["obsAceptada", "esperaFusion", "notaSistema"];
+
+function sinTransitorios(asignaturas) {
+  return (asignaturas || []).map(function (a) {
+    var b = {};
+    Object.keys(a).forEach(function (k) { if (CAMPOS_TRANSITORIOS_.indexOf(k) < 0) b[k] = a[k]; });
+    return b;
+  });
 }
 
 /* ============================================================
