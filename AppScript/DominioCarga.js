@@ -56,9 +56,10 @@ function crearDominioCarga(D) {
     });
   }
 
-  /* Reparte las partes de la celda entre los componentes del grupo. */
-  function repartir(g, partes) {
-    const comps = D.componentes(g);
+  /* Reparte las partes de la celda entre los componentes del grupo o, con «claves», entre
+     los de una fila: en la hoja, cada subgrupo de un desdoble es una fila (P133). */
+  function repartir(g, partes, claves) {
+    const comps = D.componentes(g).filter(c => !claves || claves.indexOf(c.clave) >= 0);
     const res = {};
     if (!partes.length) return { asignacion: res, aviso: null };
     const T = comps.filter(c => c.tipo === "T"), P = comps.filter(c => c.tipo === "P");
@@ -83,9 +84,10 @@ function crearDominioCarga(D) {
   const textoDe = x => x ? (x.vacante ? (x.texto || VACANTE) : String(x.texto || "")) : "";
   const distintos = l => l.filter((t, i) => l.indexOf(t) === i);
 
-  /* Inverso de leerCeldaDocente: lo que se escribe en la celda DOCENTE de la hoja. */
-  function escribirCeldaDocente(g) {
-    const comps = D.componentes(g), asig = g.asignacion || {};
+  /* Inverso de leerCeldaDocente: lo que se escribe en la celda DOCENTE de la hoja, para
+     todo el grupo o, con «claves», para los componentes de una fila. */
+  function escribirCeldaDocente(g, claves) {
+    const comps = D.componentes(g).filter(c => !claves || claves.indexOf(c.clave) >= 0), asig = g.asignacion || {};
     const textos = comps.map(c => textoDe(asig[c.clave]));
     if (textos.every(t => !t)) return "";
     if (distintos(textos).length === 1) return textos[0];
@@ -125,7 +127,8 @@ function crearDominioCarga(D) {
     ["departamento", t => /^DEPARTAMENTO|^DPTO/.test(t)],
     ["dedicacion", t => /^DEDIC/.test(t)],
     ["tcOtraUniv", t => /TC.?OTRA.?UNIV/.test(t)],
-    ["cargo", t => /^CARGO/.test(t)]
+    ["cargo", t => /^CARGO/.test(t)],
+    ["id", t => t === "ID"]
   ];
 
   const dedicacionDe = t => {
@@ -134,10 +137,12 @@ function crearDominioCarga(D) {
   };
   const siNo = t => /^(SI|S|X|TRUE|VERDADERO|1)$/.test(D.normalizar(t).replace(/[^A-Z0-9]/g, ""));
 
+  /* El identificador no cambia aunque luego se completen el DNI o los nombres: la hoja
+     General lo guarda en su columna ID y las asignaciones lo citan. */
   function fichaDocente(d) {
     d.dpto = D.normalizarDpto(d.departamento) || null;
     d.nombre = nombreVisible(d);
-    d.id = idDocente(d);
+    d.id = d.id || idDocente(d);
     d.porCompletar = porCompletar(d);
     return d;
   }
@@ -162,6 +167,7 @@ function crearDominioCarga(D) {
     matriz.slice(filaCab + 1).forEach(f => {
       if (!f) return;
       const d = {
+        id: val(f, "id"),
         n: val(f, "n"), dni: val(f, "dni"), paterno: val(f, "paterno"), materno: val(f, "materno"), nombres: val(f, "nombres"),
         condicion: val(f, "condicion"), categoria: val(f, "categoria"), nuevo: val(f, "nuevo"),
         departamento: val(f, "departamento"), dedicacion: dedicacionDe(val(f, "dedicacion")),
@@ -285,7 +291,8 @@ function crearDominioCarga(D) {
     if (parte.vacante) return { texto: parte.texto || VACANTE, vacante: "INTERNACIONAL" };
     if (parte.sinDocente) return parte.texto ? { texto: parte.texto, sinDocente: true } : null;
     const m = emparejar(parte.texto, catalogo);
-    if (m.estado === "exacto" || m.estado === "probable") return { texto: parte.texto, id: m.docente.id, vinculo: m.estado };
+    if (m.estado === "exacto" || m.estado === "probable")
+      return { texto: parte.texto, id: m.docente.id, vinculo: m.estado, nombre: m.docente.nombre };
     if (m.estado === "ambiguo") return { texto: parte.texto, id: null, vinculo: "ambiguo", candidatos: m.candidatos.map(f => f.id) };
     const nuevo = altaPorCompletar(parte.texto, catalogo);
     catalogo.push(nuevo);
@@ -498,6 +505,42 @@ function crearDominioCarga(D) {
     if (bloqueos.length) return { ok: false, bloqueos: bloqueos };
     aplicarAsignacion(planes, ref, cambios);
     return { ok: true, bloqueos: [] };
+  }
+
+  /* Cambios de la celda DOCENTE escritos a mano en la hoja que todavía no pasaron por las
+     reglas: cada uno es { sig, ci, gi, claves, texto }, con las claves de los componentes de
+     su fila. Se aplican en orden con asignar(): lo que A07, A08 o A11 impiden no se acepta,
+     el componente conserva su último valor aceptado y el rechazo queda en «rechazos» del
+     grupo, para la nota de la celda (P122). Solo se da de alta en General a quien queda
+     asignado. Si quien escribió es un Director y la fila pide otro departamento, se acepta
+     con aviso (P114). */
+  function aplicarCambiosDocente(planes, cambios, catalogo, usuario, cambiosReglas) {
+    const res = { aceptados: [], rechazados: [], altas: [], avisos: [] };
+    (cambios || []).forEach(cb => {
+      const a = planes[cb.sig][cb.ci], g = a.grupos[cb.gi];
+      const ref = { sig: cb.sig, ci: cb.ci, gi: cb.gi };
+      const donde = cb.sig + " " + a.codigo + " «" + a.nombre + "» (grupo " + g.n + (cb.fila ? ", fila " + cb.fila : "") + ")";
+      const provisional = catalogo.slice(), altas = [];
+      const rep = repartir(g, leerCeldaDocente(cb.texto), cb.claves);
+      if (rep.aviso) res.avisos.push(donde + ": la celda DOCENTE «" + cb.texto + "» " + rep.aviso);
+      const nuevos = {};
+      cb.claves.forEach(k => { nuevos[k] = rep.asignacion[k] ? asignacionDeParte(rep.asignacion[k], provisional, altas) : null; });
+      const r = asignar(planes, ref, nuevos, provisional, cambiosReglas);
+      if (!r.ok) {
+        g.rechazos = (g.rechazos || []).filter(x => !x.componentes.some(c => cb.claves.indexOf(c) >= 0))
+          .concat([{ componentes: cb.claves.slice(), texto: cb.texto, codigo: r.bloqueos[0].codigo, motivo: r.bloqueos[0].mensaje }]);
+        res.rechazados.push({ sig: cb.sig, codigo: a.codigo, grupo: g.n, fila: cb.fila || null, componentes: cb.claves.slice(),
+                              texto: cb.texto, regla: r.bloqueos[0].codigo, motivo: r.bloqueos[0].mensaje });
+        return;
+      }
+      altas.forEach(f => { catalogo.push(f); res.altas.push(f); });
+      res.aceptados.push({ sig: cb.sig, codigo: a.codigo, grupo: g.n, fila: cb.fila || null, componentes: cb.claves.slice(), texto: cb.texto });
+      if (usuario && usuario.rol === "director" && usuario.departamento && usuario.departamento !== "TODOS" &&
+          D.normalizarDpto(a.dpto) !== usuario.departamento && String(cb.texto).trim())
+        res.avisos.push(donde + " pide docente a " + (a.dpto || "ningún departamento") + " y lo asignó un Director de " +
+                        usuario.departamento + " (P114).");
+    });
+    return res;
   }
 
   /* Reemplazo docente (RF-094): en cada componente indicado, el reemplazante pasa a ser el
@@ -717,7 +760,7 @@ function crearDominioCarga(D) {
     emparejar: emparejar, separarNombre: separarNombre, altaPorCompletar: altaPorCompletar,
     cargaPorDocente: cargaPorDocente, cruces: cruces, advertenciasDocente: advertenciasDocente,
     sinDocente: sinDocente, evaluarCiclo: evaluarCiclo, bloqueosDeCambio: bloqueosDeCambio,
-    asignar: asignar, reemplazar: reemplazar, asignarImportados: asignarImportados,
+    asignar: asignar, reemplazar: reemplazar, asignarImportados: asignarImportados, aplicarCambiosDocente: aplicarCambiosDocente,
     horasGeneral: horasGeneral, consolidadoDepartamento: consolidadoDepartamento, consolidadoDocente: consolidadoDocente
   };
 }

@@ -280,8 +280,8 @@ function ofertaDesdeLibros(libroCarrera, libroDepartamento) {
    la oferta de cada carrera, el catálogo de la hoja General (P126), las fusiones anotadas
    en OBSERVACIONES (P118, P130) y los docentes de la columna DOCENTE, aplicados en el
    orden de las hojas y de las filas con los permisos de «usuario» (P122, P127). Por
-   omisión, un Director con todos los departamentos. */
-function cicloDesdeLibros(libroCarrera, libroDepartamento, libroDocentes, usuario) {
+   omisión, un Director con todos los departamentos. «reglas» ajusta los umbrales (RNF-11). */
+function cicloDesdeLibros(libroCarrera, libroDepartamento, libroDocentes, usuario, reglas) {
   const C = dominioCarga_();
   const r = ofertaDesdeLibros(libroCarrera, libroDepartamento);
   const planes = r.oferta;
@@ -293,7 +293,7 @@ function cicloDesdeLibros(libroCarrera, libroDepartamento, libroDocentes, usuari
 
   const lecturas = [];
   Object.keys(planes).forEach(function (sig) { (r.lecturas[sig] || []).forEach(function (l) { lecturas.push(l); }); });
-  const docentes = C.asignarImportados(planes, lecturas, catalogo, usuario || { rol: "director", departamento: "TODOS" });
+  const docentes = C.asignarImportados(planes, lecturas, catalogo, usuario || { rol: "director", departamento: "TODOS" }, reglas);
 
   return {
     planes: planes, catalogo: catalogo, fusiones: fusiones.secciones, docentes: docentes,

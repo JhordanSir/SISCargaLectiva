@@ -37,14 +37,17 @@ const PUENTE = usuario => `<script>
 })();
 </script>`;
 
+/* El libro queda instalado y, con conXlsx, con el ciclo actual sembrado desde los tres
+   .xlsx de ejemplo, como lo dejaría la cuenta propietaria con instalar() y sembrarCiclo(). */
 export function iniciarServidorLocal({ puerto = 8765, conXlsx = true } = {}) {
   const e = crearEntorno();
   const ctx = cargarServidor(e);
   ejecutar(e, e.propietario, "instalar");
   if (conXlsx) {
-    e.subir(e.propiedades.SIS_CARPETA_ID, "SISCargaLectiva-Ejemplo-CargaXCarrera.xlsx", fs.readFileSync(XLSX_CARRERA));
-    e.subir(e.propiedades.SIS_CARPETA_ID, "SISCargaLectiva-Ejemplo-CargaXDepartamento.xlsx", fs.readFileSync(XLSX_DEPARTAMENTO));
-    e.subir(e.propiedades.SIS_CARPETA_ID, "SISCargaLectiva-Ejemplo-CargaDeDocentes.xlsx", fs.readFileSync(XLSX_DOCENTES));
+    e.subir(e.propiedades.SIS_CARPETA_XLSX, "SISCargaLectiva-Ejemplo-CargaXCarrera.xlsx", fs.readFileSync(XLSX_CARRERA));
+    e.subir(e.propiedades.SIS_CARPETA_XLSX, "SISCargaLectiva-Ejemplo-CargaXDepartamento.xlsx", fs.readFileSync(XLSX_DEPARTAMENTO));
+    e.subir(e.propiedades.SIS_CARPETA_XLSX, "SISCargaLectiva-Ejemplo-CargaDeDocentes.xlsx", fs.readFileSync(XLSX_DOCENTES));
+    ejecutar(e, e.propietario, "sembrarCiclo");
   }
 
   const servidor = http.createServer((req, res) => {
@@ -56,7 +59,7 @@ export function iniciarServidorLocal({ puerto = 8765, conXlsx = true } = {}) {
       try {
         if (req.method === "GET" && url.pathname === "/") {
           e.usuario = usuario;
-          ctx.configCache_ = null; ctx.libroBdCache_ = null; ctx.usuarioCache_ = null;
+          ctx.configCache_ = null; ctx.libroCache_ = null; ctx.usuarioCache_ = null;
           const html = ctx.doGet().getContent().replace("<head>", "<head>" + PUENTE(usuario));
           res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
           return res.end(html);

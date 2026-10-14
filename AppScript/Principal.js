@@ -1,9 +1,11 @@
-/* Punto de entrada de la aplicación web. */
+/* Punto de entrada de la aplicación web. La página recibe el texto de crearDominio() y de
+   crearDominioCarga() y los ejecuta tal cual. */
 
 function doGet() {
   const t = HtmlService.createTemplateFromFile("Index");
   t.inicial = JSON.stringify(datosIniciales_()).replace(/</g, "\\u003c");
   t.dominio = "(" + crearDominio.toString() + ")()";
+  t.dominioCarga = "(" + crearDominioCarga.toString() + ")(Dominio)";
   return t.evaluate()
     .setTitle("SISCargaLectiva · Planes de Ciclo")
     .addMetaTag("viewport", "width=device-width, initial-scale=1");
@@ -13,25 +15,24 @@ function include(nombre) {
   return HtmlService.createHtmlOutputFromFile(nombre).getContent();
 }
 
+/* La página llega con el tablero del ciclo actual ya leído de las hojas del libro. */
 function datosIniciales_() {
   const cfg = config_();
   const config = {
     dominio: cfg.dominio,
     ciclos: cfg.ciclos,
-    ciclo: cfg.cicloXlsx,
+    ciclo: cfg.cicloActual,
     minutosBloqueo: cfg.minutosBloqueo,
     maxSubgrupos: cfg.maxSubgrupos
   };
-  if (!cfg.carpetaId || !cfg.bdId) return { estado: "sin-instalar", config: config };
+  if (!cfg.libroId) return { estado: "sin-instalar", config: config };
   try {
     const u = usuarioActual_();
     if (u.denegado) return { estado: "denegado", motivo: u.denegado, config: config };
-    /* La página llega con el tablero ya leído. No se mira Drive aquí para no retrasarla:
-       si hace falta revisar los xlsx, el navegador lo pide en segundo plano (pendiente). */
-    const revisado = xlsxRevisadoHacePoco_();
+    const lectura = leerPlanesCiclo_(config.ciclo);
     return {
       estado: "ok", usuario: u, config: config,
-      tablero: { ciclo: config.ciclo, filas: leerTablero_(config.ciclo), avisos: revisado ? revisado.avisos : [], pendiente: !revisado }
+      tablero: { ciclo: config.ciclo, filas: filasTablero_(config.ciclo, lectura), avisos: avisosDeLectura_(config.ciclo, lectura), pendiente: false }
     };
   } catch (e) {
     return { estado: "error", motivo: e.message, config: config };

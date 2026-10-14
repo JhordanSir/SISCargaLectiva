@@ -1,105 +1,60 @@
+/* CU-002 en el servidor sobre el libro (fase 2 del plan): balance del ciclo, consolidados
+   por departamento y marcas de General que solo se editan desde la web (P124, P126). */
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { crearEntorno, cargarServidor, ejecutar } from "./falsos.mjs";
-import { XLSX_CARRERA, XLSX_DEPARTAMENTO, XLSX_DOCENTES, plano } from "./soporte.mjs";
+import { XLSX_CARRERA, XLSX_DEPARTAMENTO, XLSX_DOCENTES } from "./soporte.mjs";
 
 const A = "mfloresl@ulasalle.edu.pe";
 const B = "fmaresg@ulasalle.edu.pe";
 const CICLO = "2026-1";
 
-function sistemaConDocentes() {
+function sembrado() {
   const e = crearEntorno();
   cargarServidor(e);
   ejecutar(e, A, "instalar");
-  e.subir(e.propiedades.SIS_CARPETA_ID, "SISCargaLectiva-Ejemplo-CargaXCarrera.xlsx", fs.readFileSync(XLSX_CARRERA), { fecha: "2026-09-20T10:00:00Z" });
-  e.subir(e.propiedades.SIS_CARPETA_ID, "SISCargaLectiva-Ejemplo-CargaXDepartamento.xlsx", fs.readFileSync(XLSX_DEPARTAMENTO), { fecha: "2026-09-20T10:05:00Z" });
-  e.subir(e.propiedades.SIS_CARPETA_ID, "SISCargaLectiva-Ejemplo-CargaDeDocentes.xlsx", fs.readFileSync(XLSX_DOCENTES), { fecha: "2026-09-20T10:10:00Z" });
+  [["SISCargaLectiva-Ejemplo-CargaXCarrera.xlsx", XLSX_CARRERA], ["SISCargaLectiva-Ejemplo-CargaXDepartamento.xlsx", XLSX_DEPARTAMENTO],
+   ["SISCargaLectiva-Ejemplo-CargaDeDocentes.xlsx", XLSX_DOCENTES]]
+    .forEach(([n, r]) => e.subir(e.propiedades.SIS_CARPETA_XLSX, n, fs.readFileSync(r)));
+  ejecutar(e, A, "sembrarCiclo", CICLO);
   return e;
 }
 
-test("CU-002: leerCatalogoDocentes_ extrae los profesores de CargaDeDocentes.xlsx", () => {
-  const e = sistemaConDocentes();
-  const catalogo = ejecutar(e, A, "leerCatalogoDocentes_", true);
-  assert.equal(catalogo.length, 12, "El archivo de ejemplo contiene 12 docentes representativos");
-  const alatrista = catalogo.find(d => d.nombreCompleto.includes("ALATRISTA"));
-  assert.ok(alatrista, "Debe encontrar al profesor Alatrista");
-  assert.equal(alatrista.dpto, "DACTE");
-  assert.equal(alatrista.dedicacion, "TP");
+test("obtenerCargaDocente: balance del ciclo, grupos sin docente y consolidados por departamento", () => {
+  const e = sembrado();
+  const r = ejecutar(e, B, "obtenerCargaDocente", CICLO);
+  assert.equal(r.docentes.length, 119, "todos los de General, también los que no tienen carga");
+  assert.deepEqual(r.docentes.flatMap(d => d.advertencias.map(a => a.codigo + " " + d.nombre)), ["A09 TORRES CALCIN, HENRY LUIS"]);
+  assert.deepEqual(Object.entries(r.pendientes).filter(([, p]) => p.grupos.length).map(([s, p]) => s + ":" + p.grupos.length), ["ADM:1", "IND:1"]);
+  assert.deepEqual(Object.fromEntries(Object.entries(r.departamentos).map(([k, d]) => [k, d.cobertura])),
+                   { DIMA: 99.5, DAHUC: 100, DACJ: 100, DACTE: 98.5 });
+  assert.equal(r.reglas.A07.max, 40);
 });
 
-test("CU-002: obtenerCursosDepartamento_ filtra las asignaturas requeridas al departamento DIMA", () => {
-  const e = sistemaConDocentes();
-  // Sincronizar fuentes para tener los planes de carrera registrados
-  ejecutar(e, A, "revisarFuentes_");
-  const cursos = ejecutar(e, A, "obtenerCursosDepartamento_", CICLO, "DIMA");
-  assert.ok(cursos.length > 0, "Debe haber asignaturas asignadas al departamento DIMA");
-  assert.ok(cursos.every(c => c.dpto === "DIMA"), "Todas las asignaturas deben pertenecer a DIMA");
+test("los umbrales se cambian con la propiedad SIS_REGLAS, sin tocar el código (RNF-11)", () => {
+  const e = sembrado();
+  e.propiedades.SIS_REGLAS = JSON.stringify({ A09: { max: 22 } });
+  const r = ejecutar(e, B, "obtenerCargaDocente", CICLO);
+  assert.equal(r.reglas.A09.max, 22);
+  assert.ok(r.docentes.filter(d => d.advertencias.some(a => a.codigo === "A09")).length > 1);
 });
 
-test("CU-002: calcularBalanceDocente detecta advertencias A07, A09, A10 y A11", () => {
-  const e = sistemaConDocentes();
-  const ctx = e.ctx;
-  const Dominio = ctx.Dominio;
+test("marcarDocente: solo un Director, desde la web; la marca de tiempo completo en otra universidad activa A08 (P124)", () => {
+  const e = sembrado();
+  const coord = "coord@ulasalle.edu.pe";
+  e.hoja("_SYS_USUARIOS").getRange(8, 1, 1, 4).setNumberFormat("@").setValues([[coord, "coordinador", "ING", ""]]);
+  const antes = ejecutar(e, B, "obtenerCargaDocente", CICLO);
+  const conDatos = antes.docentes.filter(d => d.ficha && !d.ficha.porCompletar && d.horas > 16)[0];
+  assert.ok(conDatos, "hay un docente del catálogo con más de 16 h");
+  assert.throws(() => ejecutar(e, coord, "marcarDocente", CICLO, conDatos.id, { tcOtraUniv: true }), /Solo un Director/);
 
-  const docentes = [
-    { dni: "111", nombreCompleto: "Perez Juan", condicion: "Contratado", categoria: "AUXILIAR", dpto: "DIMA", dedicacion: "TC" },
-    { dni: "222", nombreCompleto: "Gomez Maria", condicion: "Ordinario", categoria: "ASOCIADO", dpto: "DIMA", dedicacion: "TP" },
-    { dni: "333", nombreCompleto: "Lopez Carlos", condicion: "Contratado", categoria: "AUXILIAR", dpto: "DIMA", dedicacion: "TP" }
-  ];
-
-  const asignaciones = [
-    // Perez Juan con 42h (>40h -> A07 y A09) y cruce semestral en ING Sem 4 (A11)
-    { carrera: "ING", sem: "4", codigo: "COD1", grupo: "1", componente: "Teoría", docente: "Perez Juan", horas: 20 },
-    { carrera: "ING", sem: "4", codigo: "COD2", grupo: "1", componente: "Teoría", docente: "Perez Juan", horas: 22 },
-    // Gomez Maria con 6h (TP <8h -> A10)
-    { carrera: "IND", sem: "2", codigo: "COD3", grupo: "1", componente: "Práctica", docente: "Gomez Maria", horas: 6 },
-    // Docente Internacional no suma horas (RN-30)
-    { carrera: "DER", sem: "1", codigo: "COD4", grupo: "1", componente: "Teoría", docente: "Docente Internacional", condicion: "INTERNACIONAL", horas: 4 }
-  ];
-
-  const balance = Dominio.calcularBalanceDocente(docentes, asignaciones);
-  assert.equal(balance.totalDocentesAsignados, 2);
-  assert.equal(balance.totalHorasAsignadas, 48);
-
-  const docPerez = balance.docentes.find(d => d.dni === "111");
-  assert.equal(docPerez.horasLectivas, 42);
-  const codigosAdvPerez = docPerez.advertencias.map(a => a.codigo);
-  assert.ok(codigosAdvPerez.includes("A07"), "Debe tener advertencia A07 (>40h)");
-  assert.ok(codigosAdvPerez.includes("A11"), "Debe tener advertencia A11 (cruce semestral)");
-
-  const docGomez = balance.docentes.find(d => d.dni === "222");
-  assert.equal(docGomez.horasLectivas, 6);
-  const codigosAdvGomez = docGomez.advertencias.map(a => a.codigo);
-  assert.ok(codigosAdvGomez.includes("A10"), "Debe tener advertencia A10 (TP <8h)");
-});
-
-test("CU-002: guardarAsignaciones persiste en la pestaña Asignaciones y se recupera con obtenerEstadoDocentes", () => {
-  const e = sistemaConDocentes();
-  ejecutar(e, A, "revisarFuentes_");
-
-  const lista = [
-    {
-      carrera: "ING",
-      codigo: "3.4.4.24",
-      asignatura: "Teoría de la Computación",
-      grupo: "1",
-      componente: "Teoría",
-      docente: "Velasquez Doig Miguel Eduardo",
-      horas: 4,
-      condicion: "Ordinario",
-      reemplazo_de: ""
-    }
-  ];
-
-  const res = ejecutar(e, A, "guardarAsignaciones", CICLO, "DIMA", lista, "Asignación inicial de prueba");
-  assert.equal(res.ok, true);
-  assert.equal(res.guardadas, 1);
-
-  const estado = ejecutar(e, A, "obtenerEstadoDocentes", CICLO, "DIMA");
-  assert.equal(estado.estado, "ok");
-  assert.equal(estado.departamento, "DIMA");
-  assert.equal(estado.asignaciones.length, 1);
-  assert.equal(estado.asignaciones[0].docente, "Velasquez Doig Miguel Eduardo");
-  assert.equal(estado.asignaciones[0].horas, "4");
+  const m = ejecutar(e, B, "marcarDocente", CICLO, conDatos.id, { tcOtraUniv: true, cargo: "Coordinador de carrera" });
+  assert.deepEqual([m.tcOtraUniv, m.cargo], [true, "Coordinador de carrera"]);
+  const general = e.hoja("General 2026-I").filas();
+  assert.ok(general.some(f => f[21] === conDatos.id && f[19] === "Sí" && f[20] === "Coordinador de carrera"));
+  const despues = ejecutar(e, B, "obtenerCargaDocente", CICLO).docentes.find(d => d.id === conDatos.id);
+  assert.ok(despues.advertencias.some(a => a.codigo === "A08" && a.bloquea));
+  assert.ok(e.hoja("_SYS_BITACORA").filas().some(f => f[4] === "marca de docente"));
+  assert.throws(() => ejecutar(e, B, "marcarDocente", CICLO, "N:NO EXISTE", { tcOtraUniv: true }), /No hay ningún docente/);
 });

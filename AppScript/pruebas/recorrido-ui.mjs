@@ -135,14 +135,14 @@ async function recorrido(srv) {
   asegurar(await pa.evaluar(`typeof XLSX === "undefined"`), "SheetJS no se descarga al abrir la página");
   await pa.pulsar("#op-planes");
   await pa.esperar(`document.querySelectorAll("#tb-tablero tr").length === 8 && [...document.querySelectorAll("#tb-tablero .pill")].every(p => p.textContent === "Registrado")`,
-    "el tablero lista las 8 carreras, leídas del xlsx de fondo");
+    "el tablero lista las 8 carreras, leídas de sus hojas");
   let filas = await pa.filasTablero();
-  asegurar(filas.every(f => f.celdas[1] === "Registrado" && f.celdas[6] === "v1"), "todas Registrado v1, leídas del xlsx");
+  asegurar(filas.every(f => f.celdas[1] === "Registrado" && f.celdas[6] === "v1"), "todas Registrado v1, sembradas desde el xlsx");
   asegurar(filas.reduce((n, f) => n + Number(f.celdas[4]), 0) === 365, "suman 365 grupos");
   await pa.captura("01-tablero.png");
 
   await pa.pulsar("#btn-releer");
-  await pa.esperar(`[...document.querySelectorAll("#brindis div")].some(d => d.textContent === "Excel revisado")`, "«Releer Excel» revisa la carpeta");
+  await pa.esperar(`[...document.querySelectorAll("#brindis div")].some(d => d.textContent === "Hojas releídas")`, "«Releer hojas» vuelve a leer el libro");
 
   const antesConsulta = await pa.evaluar("window.__llamadas.length");
   await pa.pulsar('#tb-tablero tr[data-sig="DER"]');
@@ -186,6 +186,8 @@ async function recorrido(srv) {
 
   const horas = () => pa.evaluar(`[...document.querySelector('#bloques tr[data-ci="1"][data-gi="0"]').cells].slice(4, 6).map(c => c.textContent)`);
   const antes = await horas();
+  /* ING ya trae las fusiones anotadas en OBSERVACIONES (P118): se cuenta la que se añade. */
+  const fusionesAntes = (await pa.resumen()).Fusiones;
   await pa.pulsar('[data-acc="fusionar"]');
   await pa.esperar(`document.querySelector("#dlg").open`, "diálogo de fusión");
   await pa.evaluar(`(() => { const s = document.querySelector("#f-grupos"); [...s.options].forEach(o => { o.selected = o.value === "0:0" || o.value === "1:0"; }); document.querySelector("#f-principal").value = "0:0"; })()`);
@@ -193,14 +195,14 @@ async function recorrido(srv) {
   await pa.esperar(`document.querySelector("#dlg").open && document.querySelector("#dlg-titulo").textContent.includes("advertencias")`, "aviso A05 por grupos distintos");
   await pa.captura("02-fusion-a05.png");
   await pa.dialogo("Entendido");
-  asegurar((await pa.resumen()).Fusiones === 1, "el resumen cuenta 1 fusión");
+  asegurar((await pa.resumen()).Fusiones === fusionesAntes + 1, "el resumen cuenta una fusión más (" + fusionesAntes + " → " + (fusionesAntes + 1) + ")");
   const fusionado = await horas();
   asegurar(JSON.stringify(fusionado) !== JSON.stringify(antes), "el grupo fusionado toma las horas del principal (" + antes + " → " + fusionado + ")");
   await pa.pulsar('#bloques tr[data-ci="1"][data-gi="0"]');
   await pa.pulsar('[data-acc="deshacer-fusion"]');
   await pa.dialogo("Deshacer");
-  await pa.esperar(`!document.querySelector("#bloques .marca-c.fus")`, "se deshace la fusión");
-  asegurar((await pa.resumen()).Fusiones === 0, "el resumen vuelve a 0 fusiones");
+  await pa.esperar(`!document.querySelector('#bloques tr[data-ci="1"][data-gi="0"] .marca-c.fus')`, "se deshace la fusión");
+  asegurar((await pa.resumen()).Fusiones === fusionesAntes, "el resumen vuelve a " + fusionesAntes + " fusiones");
   asegurar(JSON.stringify(await horas()) === JSON.stringify(antes), "el grupo recupera sus horas (" + antes + ")");
 
   const gruposAntes = (await pa.resumen()).Grupos;
@@ -290,7 +292,7 @@ async function recorrido(srv) {
   }
 
   console.log("Coordinador y acceso denegado");
-  srv.entorno.hoja("Usuarios").getRange(8, 1, 1, 3).setNumberFormat("@").setValues([["coord@ulasalle.edu.pe", "coordinador", "ING"]]);
+  srv.entorno.hoja("_SYS_USUARIOS").getRange(8, 1, 1, 4).setNumberFormat("@").setValues([["coord@ulasalle.edu.pe", "coordinador", "ING", ""]]);
   const pc = await Pestana.abrir(url("coord@ulasalle.edu.pe"));
   await pc.esperar(`document.querySelector("#u-rol").textContent === "Coordinador de carrera · ING"`, "rol de coordinador de ING");
   await pc.pulsar("#op-planes");
