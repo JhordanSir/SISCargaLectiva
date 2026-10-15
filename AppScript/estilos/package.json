@@ -1,0 +1,14 @@
+{
+  "name": "siscargalectiva-estilos",
+  "private": true,
+  "description": "Genera Estilos.html (Tailwind compilado e incrustado, sin CDN) e Iconos.html para la interfaz de Apps Script.",
+  "type": "module",
+  "scripts": {
+    "construir": "node construir.mjs",
+    "iconos": "node iconos.mjs"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "4.3.3",
+    "tailwindcss": "4.3.3"
+  }
+}

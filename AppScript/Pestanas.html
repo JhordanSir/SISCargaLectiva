@@ -1,0 +1,140 @@
+<script>
+"use strict";
+/* ============================================================
+   Pestañas del navegador
+   Cada pestaña con la aplicación abierta avisa a las demás (BroadcastChannel) cuando
+   toma o suelta el bloqueo de un plan, cuando guarda una versión, cuando relee los
+   Excel y cuando guarda asignaciones. Las demás actualizan su tablero sin pedirlo al
+   servidor y muestran un aviso cuando les afecta. El servidor sigue siendo la fuente
+   de verdad: si el navegador no admite el canal, todo funciona igual sin estos avisos.
+   ============================================================ */
+const pestanas = {
+  id: Math.random().toString(36).slice(2, 10) + Date.now().toString(36),
+  canal: null,
+  editando: new Map()   // "ciclo|sig" → {de, correo, expira}: planes en edición en otras pestañas
+};
+
+function iniciarPestanas(){
+  if (!app.usuario || !("BroadcastChannel" in window)) return;
+  try { pestanas.canal = new BroadcastChannel("siscargalectiva"); } catch (e) { return; }
+  pestanas.canal.onmessage = ev => {
+    try { recibirDePestana(ev.data); } catch (e) { /* un mensaje inesperado no debe romper la página */ }
+  };
+  anunciar("hola");
+}
+
+function anunciar(tipo, datos){
+  if (!pestanas.canal) return;
+  try {
+    pestanas.canal.postMessage(Object.assign({ tipo: tipo, de: pestanas.id, correo: (app.usuario || {}).correo || "" }, datos || {}));
+  } catch (e) { /* p. ej., un contenido que no se puede copiar */ }
+}
+
+/* «nuevo» distingue la toma del bloqueo de sus renovaciones y de las respuestas a «hola». */
+function anunciarEdicion(nuevo){
+  if (!app.carrera || !edicion.temporizador) return;
+  if (nuevo || !edicion.desde) edicion.desde = new Date().toISOString();
+  anunciar("editando", {
+    ciclo: app.ciclo, sig: app.carrera, desde: edicion.desde,
+    expira: new Date(edicion.expira).toISOString(), nuevo: !!nuevo
+  });
+}
+
+function anunciarGuardado(sig, estado, version, asignaturas){
+  anunciar("guardado", {
+    ciclo: app.ciclo, sig: sig, estado: estado, version: version,
+    totales: totales(asignaturas), contenido: clonar(asignaturas)
+  });
+}
+
+/* ¿Esta misma cuenta edita el plan en otra pestaña? */
+function otraPestanaEditando(ciclo, sig){
+  const e = pestanas.editando.get(ciclo + "|" + sig);
+  return !!(e && app.usuario && e.correo === app.usuario.correo && Date.parse(e.expira) > Date.now());
+}
+
+/* Advertir, no prohibir: se puede editar de todos modos. */
+async function avisarOtraPestana(sig){
+  const r = await preguntar({
+    titulo: "Ya editas este plan en otra pestaña",
+    cuerpo: '<div class="nota aviso">El plan de <b>' + esc(nombreCarrera(sig)) + "</b> está abierto en edición en otra pestaña de este navegador. " +
+      "Si también lo editas aquí, lo que guardes en una pestaña puede pisar lo que guardes en la otra.</div>",
+    acciones: [{ texto:"Editar aquí de todos modos", valor:"editar" }, { texto:"Consultar en solo lectura", clase:"primario", valor:"leer" }]
+  });
+  if (r === "editar") return abrirEdicion(sig, true);
+  if (r === "leer") return abrirLectura(sig);
+}
+
+function aplicarBloqueoRemoto(ciclo, sig, bloqueo, correoQueSuelta){
+  if (app.tableroCiclo !== ciclo) return;
+  const f = app.tablero.find(x => x.sig === sig);
+  if (!f) return;
+  if (bloqueo) f.bloqueo = bloqueo;
+  else if (f.bloqueo && f.bloqueo.correo === correoQueSuelta) f.bloqueo = null;
+  else return;
+  if (app.ciclo === ciclo) {
+    pintarTablero();
+    if (app.vista === "menu") pintarInicio();
+  }
+}
+
+function recibirDePestana(m){
+  if (!m || typeof m !== "object" || m.de === pestanas.id || !app.usuario) return;
+  const yo = m.correo === app.usuario.correo;
+  const plan = m.sig ? nombreCarrera(m.sig) + " (" + m.ciclo + ")" : "";
+  const viendo = sig => app.vista === "lectura" && app.lectura === sig && app.ciclo === m.ciclo;
+
+  switch (m.tipo) {
+    case "hola":
+      anunciarEdicion(false);
+      break;
+
+    case "editando":
+      pestanas.editando.set(m.ciclo + "|" + m.sig, { de: m.de, correo: m.correo, expira: m.expira });
+      aplicarBloqueoRemoto(m.ciclo, m.sig, { correo: m.correo, desde: m.desde, expira: m.expira });
+      if (m.nuevo) aviso(yo ? "En otra pestaña empezaste a editar " + plan + "." : m.correo + " empezó a editar " + plan + ".", "pestana");
+      break;
+
+    case "soltado":
+      pestanas.editando.delete(m.ciclo + "|" + m.sig);
+      aplicarBloqueoRemoto(m.ciclo, m.sig, null, m.correo);
+      if (viendo(m.sig)) aviso(plan + " quedó libre: ya se puede editar.", "pestana");
+      break;
+
+    case "guardado":
+      if (app.tableroCiclo === m.ciclo && app.ciclo === m.ciclo) {
+        actualizarFilaTablero(m.sig, { estado: m.estado, version: m.version, totales: m.totales, contenido: m.contenido });
+        pintarTablero();
+        if (app.vista === "menu") pintarInicio();
+      }
+      if (viendo(m.sig)) {
+        abrirLectura(m.sig);
+        aviso("Otra pestaña guardó la v" + m.version + " de " + plan + ": ya la ves aquí.", "pestana");
+      } else if (app.plan && app.carrera === m.sig && app.ciclo === m.ciclo) {
+        aviso("Otra pestaña guardó la v" + m.version + " de este plan. Si guardas aquí, se te avisará antes.", "aviso");
+      }
+      break;
+
+    case "tablero":
+      if (app.tableroCiclo === m.ciclo) {
+        app.tableroHora = 0;
+        if (app.vista === "planes" && app.ciclo === m.ciclo) cargarTablero();
+      }
+      break;
+
+    case "asignaciones":
+      if (appDocentes.cargado && appDocentes.cargado.clave === m.ciclo + "|" + m.dpto) {
+        if (appDocentes.sucio) {
+          aviso("Otra pestaña guardó las asignaciones de " + m.dpto + ". Si guardas aquí, reemplazarás lo que guardó.", "aviso");
+        } else {
+          appDocentes.cargado.hora = 0;
+          if (app.vista === "docentes") {
+            cargarEstadoDocentes({ fondo: true });
+            aviso("Otra pestaña guardó las asignaciones de " + m.dpto + ": se actualizaron aquí.", "pestana");
+          }
+        }
+      }
+      break;
+  }
+}
+</script>

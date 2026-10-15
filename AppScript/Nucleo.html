@@ -1,0 +1,210 @@
+<script>
+"use strict";
+/* ============================================================
+   Núcleo de la interfaz: configuración, estado, utilidades, llamadas al
+   servidor (con la espera «Wayrasiming») y navegación entre secciones.
+   Cada pantalla vive en su propio módulo (Inicio, Tablero, CargaMasiva,
+   Grilla, Asignacion) y usa lo que se define aquí.
+   ============================================================ */
+const CONFIG = SIS.config || {};
+const { CARRERAS, DPTOS, ESTADOS, num, th, totales, matrizDesdeTexto, ubicarCabeceras, interpretar, nombreCarrera } = Dominio;
+
+/* ---------- estado de la página ---------- */
+const app = {
+  usuario: SIS.usuario || null,   // {correo, rol, carreras}
+  ciclo: CONFIG.ciclo,            // ciclo elegido; lo comparten el tablero y la asignación docente
+  tablero: [],                    // filas del tablero, con el contenido vigente de cada plan
+  tableroCiclo: null,             // ciclo al que pertenecen esas filas
+  tableroHora: 0,                 // cuándo se leyeron; 0 = hay que volver a leerlas
+  tableroPedido: 0,               // descarta las respuestas que llegan tarde
+  carrera: null,                  // sigla del plan en edición
+  plan: null,                     // {estado, version, asignaturas, sucio, confirmado}
+  seleccion: null,                // {ci, gi}
+  colapsados: new Set(),
+  matrizPegada: null,             // contenido pegado, ya dividido en filas y columnas
+  avisoImportacion: "",
+  lectura: null,                  // sigla del plan que se consulta en solo lectura
+  vista: null
+};
+
+/* Bloqueo de edición: la hora de caducidad la fija el servidor y el latido la renueva. */
+const edicion = { expira: 0, temporizador: null, ultimoLatido: 0, pedido: 0 };
+
+/* El tablero se vuelve a pedir si sus datos tienen más de esto. */
+const VIGENCIA_TABLERO_MS = 15000;
+
+/* ---------- utilidades ---------- */
+const $  = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const esc = t => String(t == null ? "" : t).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+const fecha = iso => { const d = new Date(iso); return isNaN(d) ? String(iso || "") : d.toLocaleString("es-PE", { dateStyle:"short", timeStyle:"short" }); };
+const hora = iso => { const d = new Date(iso); return isNaN(d) ? "" : d.toLocaleTimeString("es-PE", { hour:"2-digit", minute:"2-digit" }); };
+const clonar = x => JSON.parse(JSON.stringify(x));
+const alPulsar = (s, fn) => { const el = $(s); if (el) el.onclick = fn; };
+const alCambiar = (s, fn) => { const el = $(s); if (el) el.onchange = fn; };
+const icono = (nombre, clase) => '<svg class="ico' + (clase ? " " + clase : "") + '" aria-hidden="true" focusable="false"><use href="#i-' + nombre + '"></use></svg>';
+const reducirMovimiento = () => !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
+const carrerasDelUsuario = () => { const u = app.usuario || {}; return Array.isArray(u.carreras) ? u.carreras : []; };
+
+/* Lleva una cifra hasta su nuevo valor con una animación breve. El valor final queda
+   escrito aunque la pestaña esté oculta o el usuario prefiera menos movimiento. */
+const contadores = new WeakMap();
+function contarHasta(el, valor, sufijo){
+  if (!el) return;
+  const destino = Math.round(Number(valor) || 0), fin = sufijo || "";
+  const previo = contadores.get(el);
+  if (previo) { cancelAnimationFrame(previo.raf); clearTimeout(previo.respaldo); }
+  const desde = previo ? previo.actual : (parseInt(el.textContent, 10) || 0);
+  contadores.delete(el);
+  if (reducirMovimiento() || document.hidden || desde === destino) { el.textContent = destino + fin; return; }
+  const inicio = performance.now(), duracion = 700;
+  const estado = { raf: 0, respaldo: 0, actual: desde };
+  const terminar = () => { cancelAnimationFrame(estado.raf); clearTimeout(estado.respaldo); el.textContent = destino + fin; contadores.delete(el); };
+  const paso = ahora => {
+    const p = Math.min(1, (ahora - inicio) / duracion);
+    estado.actual = Math.round(desde + (destino - desde) * (1 - Math.pow(1 - p, 3)));
+    el.textContent = estado.actual + fin;
+    if (p < 1) estado.raf = requestAnimationFrame(paso); else terminar();
+  };
+  estado.raf = requestAnimationFrame(paso);
+  estado.respaldo = setTimeout(terminar, duracion + 400);
+  contadores.set(el, estado);
+}
+
+/* ============================================================
+   Vistas y secciones
+   ============================================================ */
+const VISTAS = ["instalar","denegado","menu","planes","carga","pegado","grilla","lectura","exito","docentes","docentes-carga"];
+const SECCION_DE = {
+  menu: "inicio",
+  planes: "planes", carga: "planes", pegado: "planes", grilla: "planes", lectura: "planes", exito: "planes",
+  docentes: "docentes", "docentes-carga": "docentes"
+};
+
+function mostrar(v){
+  const cambia = app.vista !== v;
+  VISTAS.forEach(x => {
+    const el = $("#v-" + x);
+    if (el) el.hidden = (x !== v);
+  });
+  app.vista = v;
+  if (v !== "lectura") app.lectura = null;
+  document.body.dataset.vista = v;
+  marcarSeccion(SECCION_DE[v] || "");
+  if (cambia) window.scrollTo({ top:0, behavior:"instant" });
+}
+
+function marcarSeccion(seccion){
+  $$(".nav-op").forEach(b => {
+    const activa = b.dataset.ir === seccion;
+    b.classList.toggle("activa", activa);
+    if (activa) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
+  });
+  moverIndicador();
+}
+
+/* La píldora de color se desliza hasta la sección activa. */
+function moverIndicador(){
+  const nav = $("#navegacion"), ind = $("#nav-indicador"), activa = $(".nav-op.activa");
+  if (!nav || !ind) return;
+  if (nav.hidden || !activa) { ind.style.opacity = "0"; return; }
+  ind.style.transform = "translateX(" + activa.offsetLeft + "px)";
+  ind.style.width = activa.offsetWidth + "px";
+  ind.style.opacity = "1";
+}
+window.addEventListener("resize", moverIndicador);
+
+/* Ir a una sección desde la cabecera, desde el inicio o desde un botón con data-ir.
+   Si hay un plan en edición, se pide confirmar la salida, que libera su bloqueo. */
+const enEdicion = () => !!(app.carrera && app.plan && ["carga","pegado","grilla"].includes(app.vista));
+async function irA(seccion){
+  if (enEdicion()) {
+    const ok = await confirmarSalidaEdicion();
+    if (!ok) return;
+    terminarEdicion();
+  }
+  if (seccion === "inicio") entrarInicio();
+  else if (seccion === "planes") mostrarTablero();
+  else if (seccion === "docentes") iniciarCargaDocentes();
+}
+
+document.addEventListener("click", e => {
+  const ir = e.target.closest("[data-ir]");
+  if (ir) { irA(ir.dataset.ir); return; }
+  const volver = e.target.closest("[data-volver]");
+  if (volver) {
+    if (volver.dataset.volver === "planes") mostrarTablero();
+    else mostrar(volver.dataset.volver);
+  }
+});
+alPulsar("#ir-inicio", () => { if (app.usuario) irA("inicio"); });
+
+/* ============================================================
+   Llamadas al servidor
+   ============================================================ */
+/* Tres modos: «bloquea» muestra la espera «Wayrasiming» e impide pulsar mientras tanto;
+   «fondo» solo muestra la barra de actividad; «silencio» no muestra nada.
+   La espera aparece si la respuesta tarda más de RETARDO_ESPERA_MS y, una vez visible,
+   se queda al menos MINIMO_ESPERA_MS para no parpadear. */
+const pendientes = { bloquea: 0, fondo: 0 };
+const espera = { temporizador: null, desde: 0, cierre: null };
+const RETARDO_ESPERA_MS = 260, MINIMO_ESPERA_MS = 420;
+
+function pintarActividad(){
+  $("#cargando").hidden = !(pendientes.bloquea + pendientes.fondo);
+  const ocupado = pendientes.bloquea > 0;
+  document.body.classList.toggle("ocupado", ocupado);
+  if (ocupado) mostrarEspera(); else ocultarEspera();
+}
+
+function mostrarEspera(){
+  clearTimeout(espera.cierre); espera.cierre = null;
+  if (espera.temporizador || espera.desde) return;
+  espera.temporizador = setTimeout(() => {
+    espera.temporizador = null;
+    espera.desde = Date.now();
+    const capa = $("#espera");
+    capa.hidden = false;
+    requestAnimationFrame(() => capa.classList.add("visible"));
+    $("#lienzo").setAttribute("aria-busy", "true");
+  }, RETARDO_ESPERA_MS);
+}
+
+function ocultarEspera(){
+  clearTimeout(espera.temporizador); espera.temporizador = null;
+  if (!espera.desde || espera.cierre) return;
+  const resta = Math.max(0, MINIMO_ESPERA_MS - (Date.now() - espera.desde));
+  espera.cierre = setTimeout(() => {
+    espera.cierre = null; espera.desde = 0;
+    const capa = $("#espera");
+    capa.classList.remove("visible");
+    $("#lienzo").removeAttribute("aria-busy");
+    setTimeout(() => { if (!espera.desde) capa.hidden = true; }, 240);
+  }, resta);
+}
+
+function invocar(nombre, args, modo){
+  const visible = modo !== "silencio";
+  if (visible) { pendientes[modo]++; pintarActividad(); }
+  return new Promise((ok, mal) => {
+    const fin = () => {
+      if (!visible) return;
+      pendientes[modo] = Math.max(0, pendientes[modo] - 1);
+      pintarActividad();
+    };
+    google.script.run
+      .withSuccessHandler(r => { fin(); ok(r); })
+      .withFailureHandler(e => { fin(); mal(e); })[nombre](...args);
+  });
+}
+const llamar = (nombre, ...args) => invocar(nombre, args, "bloquea");
+const llamarDeFondo = (nombre, ...args) => invocar(nombre, args, "fondo");
+const llamarEnSilencio = (nombre, ...args) => invocar(nombre, args, "silencio");
+
+/* Trabajo que hace el propio navegador y puede tardar (descargar SheetJS, leer un libro). */
+async function conEspera(trabajo){
+  pendientes.bloquea++; pintarActividad();
+  try { return await trabajo(); }
+  finally { pendientes.bloquea = Math.max(0, pendientes.bloquea - 1); pintarActividad(); }
+}
+</script>

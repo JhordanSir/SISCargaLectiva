@@ -137,7 +137,7 @@ async function main() {
       if (btnOk) btnOk.click();
     })()`);
     await p.esperar('!document.getElementById("dlg").open', "Modal de Cátedra Compartida cerrado tras confirmar");
-    await p.esperar('document.body.textContent.includes("Cátedra compartida (FA-001)")', "Insignia de Cátedra Compartida visible en la vista carrera");
+    await p.esperar('document.querySelector("#tb-vista-carrera").textContent.includes("Cátedra compartida")', "Insignia de Cátedra Compartida visible en la vista carrera");
 
     await p.pulsar("#btn-vista-dpto", "Volver a Vista por Departamento");
     await p.esperar('!document.getElementById("vista-dpto-contenedor").hidden', "Contenedor de vista departamento restaurado");

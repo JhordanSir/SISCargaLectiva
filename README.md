@@ -6,7 +6,7 @@ Hoy este proceso se lleva en varios Google Sheets separados, uno por carrera y o
 
 ## Estado del proyecto
 
-🚧 `AppScript/` es una copia exacta del **proyecto independiente de Google Apps Script** que está en script.google.com: una aplicación web con CU-001 y un prototipo de CU-002.
+🚧 `AppScript/` es el **proyecto independiente de Google Apps Script** que está en script.google.com: una aplicación web con CU-001 y un prototipo de CU-002. Su interfaz se rediseñó el 2026-10-15 con los colores de La Salle, en módulos por pantalla y con Tailwind compilado (P149–P151). script.google.com tendrá el rediseño después del próximo `clasp push`.
 
 | Caso de uso | Estado en `AppScript/` |
 |---|---|
@@ -26,7 +26,14 @@ El **Coordinador de carrera** (en sus carreras) o el **Director de departamento*
 - **Tablero** con el avance de todas las carreras del ciclo.
 - **Bloqueo de edición** por carrera, con expiración y autoguardado.
 
-**Asignación docente (prototipo de CU-002).** La opción «Asignar docentes al plan de ciclo» del menú lista, por ciclo y departamento, las asignaturas de los planes del ciclo. A esas asignaturas se les asignan docentes del catálogo de `CargaDeDocentes.xlsx`. Las asignaciones se guardan en la pestaña Asignaciones, con un bloqueo por departamento. El balance de horas de cada docente muestra las advertencias A07 a A13.
+**Asignación docente (prototipo de CU-002).** La sección «Asignar docentes al plan de ciclo» lista, por ciclo y departamento, las asignaturas de los planes del ciclo. A esas asignaturas se les asignan docentes del catálogo de `CargaDeDocentes.xlsx`. Las asignaciones se guardan en la pestaña Asignaciones, con un bloqueo por departamento. El balance de horas de cada docente muestra las advertencias A07 a A13.
+
+**Interfaz.** Una cabecera fija con el logotipo de La Salle lleva a Inicio, Registrar plan de ciclo y Asignar docentes, y el pie muestra «Powered by Wayrasimi S.A.C.S.».
+
+- **Entre secciones:** el ciclo elegido se comparte, lo ya leído no se vuelve a pedir y las asignaciones sin guardar se conservan al ir y volver.
+- **Entre pestañas del navegador:** las pestañas con la aplicación abierta se avisan entre sí cuando una toma o suelta el bloqueo de un plan, guarda una versión, relee los Excel o guarda asignaciones.
+- **Al esperar al servidor:** se muestra la espera «Wayrasiming».
+- **Modo claro y oscuro:** según la configuración del sistema.
 
 El detalle está en [requirements.md](docs/requerimientos/requirements.md) y en [CU-001](docs/CU/CU-001-Registrar-Plan-de-Ciclo.md).
 
@@ -35,6 +42,7 @@ El detalle está en [requirements.md](docs/requerimientos/requirements.md) y en 
 | Capa | Tecnología |
 |---|---|
 | Aplicación | Google Apps Script: servidor en `.js` y página con HtmlService |
+| Interfaz | Un módulo HTML por pantalla, Tailwind CSS 4 compilado con su CLI e incrustado en la página (sin CDN) e íconos Phosphor incrustados |
 | Datos | Los `.xlsx` de una carpeta de Google Drive (fuente, solo lectura) y una hoja de cálculo de Google, «SISCargaLectiva-BD», con los planes, las versiones, los bloqueos, los usuarios y las asignaciones docentes |
 | Acceso | Cuenta de Google del dominio `@ulasalle.edu.pe` |
 | Despliegue | `clasp`, la herramienta de línea de comandos de Apps Script |
@@ -48,9 +56,16 @@ El detalle está en [requirements.md](docs/requerimientos/requirements.md) y en 
 │   ├── Planes.js, Bloqueos.js        # Tablero, guardado, versiones y bloqueo de edición
 │   ├── FuenteDrive.js, LectorXlsx.js # Lectura de los .xlsx de Drive
 │   ├── Dominio.js                    # Interpretación, edición y balance docente, compartidos con el navegador
-│   ├── Docentes.js                   # Prototipo de CU-002: catálogo, asignaturas por departamento y asignaciones
+│   ├── Docentes.js                   # Asignación docente: catálogo, asignaturas por departamento y asignaciones
 │   ├── Acceso.js, Config.js, BaseDatos.js
-│   ├── Index.html, App.html, Estilos.html
+│   ├── Index.html                    # Esqueleto de la página: cabecera, pie e include() de cada módulo
+│   ├── Nucleo.html, Ventanas.html    # Estado, servidor, espera «Wayrasiming», navegación, diálogos y avisos
+│   ├── Inicio.html, Tablero.html     # Pantallas: inicio; tablero y consulta
+│   ├── CargaMasiva.html, Grilla.html # Pantallas: carga masiva; grilla, bloqueo, guardado y registro
+│   ├── Asignacion.html               # Pantalla: asignación docente y su carga masiva
+│   ├── Pestanas.html, Arranque.html  # Avisos entre pestañas del navegador y arranque
+│   ├── Estilos.html, Iconos.html     # Generados: Tailwind compilado con los logotipos, e íconos Phosphor
+│   ├── estilos/                      # Fuente de los estilos, logotipos y generadores (no se sube)
 │   └── pruebas/                      # Pruebas y vista previa local (no se sube)
 ├── docs/
 │   ├── plan/                         # Plan por fases y su avance
@@ -92,6 +107,19 @@ Vive en las propiedades del script (**Configuración del proyecto → Propiedade
 
 Los usuarios se gestionan en la pestaña **Usuarios** de la hoja del sistema, con tres columnas: `correo`, `rol` (`director` o `coordinador`) y `carreras` (siglas separadas por comas, solo para coordinadores). `instalar()` la siembra con las cuentas del equipo como Director. Un cambio en esa pestaña tarda hasta 5 minutos en aplicarse, porque el rol de cada cuenta se guarda en caché.
 
+### Estilos, íconos y logotipos
+
+`Estilos.html` e `Iconos.html` se generan: no se editan a mano. Tailwind toma las clases de los `.html` de `AppScript/`, así que hay que volver a generar los estilos cada vez que cambie el marcado, antes de `clasp push`:
+
+```bash
+cd AppScript/estilos
+npm install          # instala Tailwind CSS 4.3.3 (la primera vez)
+npm run construir    # compila entrada.css y escribe ../Estilos.html con los logotipos incrustados
+npm run iconos       # vuelve a generar ../Iconos.html si cambia la lista de íconos (necesita internet)
+```
+
+Los logotipos de `estilos/marca/` salen de `universidad-la-salle-logo.jpg` y `logoWayrasimi.png` con `estilos/marca/procesar-logos.ps1`, que usa Windows PowerShell.
+
 ### Probar sin Google
 
 ```bash
@@ -99,6 +127,7 @@ node --test AppScript/pruebas/*.test.mjs      # dominio, docentes, lector de .xl
 node AppScript/pruebas/servidor-local.mjs     # vista previa en http://127.0.0.1:8765/?usuario=<correo>
 node AppScript/pruebas/recorrido-ui.mjs       # recorrido de CU-001 en Chrome sin ventana (unos 2 minutos)
 node AppScript/pruebas/recorrido-cu002.mjs    # recorrido de la asignación docente en Chrome sin ventana
+node AppScript/pruebas/recorrido-fluidez.mjs  # navegación entre secciones y avisos entre pestañas del navegador
 ```
 
 La prueba del lector comprueba que los Excel reales dan la misma oferta que `docs/prototipo/funcional/datos-ejemplo.js`: 8 carreras, 345 asignaturas y 365 grupos.

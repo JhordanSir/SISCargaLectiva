@@ -1,4 +1,4 @@
-/* Módulo de CU-002: Carga de Docentes y Gestión de Asignaciones por Departamento.
+/* Módulo de asignación docente: carga de docentes y gestión de asignaciones por departamento.
    Lee el catálogo de profesores desde CargaDeDocentes.xlsx en Drive, obtiene las asignaturas
    solicitadas en los planes registrados de todas las carreras, y persiste las asignaciones
    en la pestaña 'Asignaciones' de la hoja del sistema con concurrencia controlada. */
@@ -206,7 +206,7 @@ function liberarBloqueoDpto(ciclo, dpto) {
 }
 
 /* ============================================================
-   5. Consulta y Estado Principal de CU-002
+   5. Consulta y estado principal de la asignación docente
    ============================================================ */
 
 function obtenerEstadoDocentes(ciclo, dpto) {

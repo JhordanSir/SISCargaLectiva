@@ -1,0 +1,111 @@
+<!-- ===== Inicio, sistema sin instalar y acceso denegado ===== -->
+<section class="vista" id="v-instalar" hidden>
+  <div class="tarjeta estado-acceso">
+    <span class="estado-ico aviso"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-warning"></use></svg></span>
+    <h1 class="titulo">El sistema todavía no está instalado</h1>
+    <p class="subtitulo">Faltan la carpeta de Drive y la hoja de cálculo del sistema. La cuenta propietaria del script debe instalarlas una vez.</p>
+    <ol class="pasos-guia">
+      <li><span>Abre el proyecto en el editor de Apps Script (<code>clasp open-script</code>).</span></li>
+      <li><span>Elige la función <code>instalar</code> y pulsa <b>Ejecutar</b>. Acepta los permisos que pide Google.</span></li>
+      <li><span>El registro de ejecución muestra el enlace de la carpeta <b>SISCargaLectiva</b>. Sube ahí los archivos <code>CargaXCarrera</code> y <code>CargaXDepartamento</code> (.xlsx, sin convertir).</span></li>
+      <li><span>Recarga esta página.</span></li>
+    </ol>
+  </div>
+</section>
+
+<section class="vista" id="v-denegado" hidden>
+  <div class="tarjeta estado-acceso">
+    <span class="estado-ico error"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-shield-warning"></use></svg></span>
+    <h1 class="titulo" id="denegado-titulo">Acceso denegado</h1>
+    <div class="nota error mt-4" id="denegado-msg"></div>
+    <p class="ayuda mt-4"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-info"></use></svg>Si tienes varias cuentas de Google abiertas, cambia a tu cuenta institucional y recarga la página.</p>
+  </div>
+</section>
+
+<section class="vista" id="v-menu" hidden>
+  <div class="hero">
+    <div class="hero-facetas" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+    <div>
+      <p class="hero-saludo"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-sparkle"></use></svg><span id="inicio-saludo">Hola</span></p>
+      <h1>Carga lectiva <span id="inicio-ciclo"></span></h1>
+      <p class="hero-sub">Registra la oferta de cada carrera y asigna a sus docentes. El sistema advierte, pero no te frena.</p>
+    </div>
+    <div class="hero-avance" role="img" id="inicio-avance" aria-label="Planes registrados">
+      <svg class="anillo" viewBox="0 0 120 120" aria-hidden="true">
+        <circle class="anillo-fondo" cx="60" cy="60" r="50" pathLength="100"></circle>
+        <circle class="anillo-valor" id="inicio-anillo" cx="60" cy="60" r="50" pathLength="100"></circle>
+      </svg>
+      <div class="anillo-texto" aria-hidden="true"><b id="inicio-registrados">0</b><span>de <span id="inicio-total">0</span> planes<br>registrados</span></div>
+    </div>
+  </div>
+
+  <div class="cifras">
+    <div class="cifra"><span class="cifra-ico"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-pencil-simple"></use></svg></span><div><b id="inicio-borrador">0</b><span>en borrador</span></div></div>
+    <div class="cifra"><span class="cifra-ico"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-hourglass-medium"></use></svg></span><div><b id="inicio-sin">0</b><span>sin iniciar</span></div></div>
+    <div class="cifra"><span class="cifra-ico"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-stack"></use></svg></span><div><b id="inicio-grupos">0</b><span>grupos ofertados</span></div></div>
+    <div class="cifra"><span class="cifra-ico"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-clock"></use></svg></span><div><b id="inicio-horas">0</b><span>horas de dictado</span></div></div>
+  </div>
+
+  <div class="menu">
+    <button type="button" class="menu-op" id="op-planes">
+      <span class="menu-ico"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-clipboard-text"></use></svg></span>
+      <span><b>Registrar plan de ciclo</b><small>Registra y edita la oferta académica de cada carrera: grupos, desdobles y fusiones.</small></span>
+      <span class="menu-pie">Ir al tablero<svg class="ico menu-flecha" aria-hidden="true" focusable="false"><use href="#i-arrow-right"></use></svg></span>
+    </button>
+    <button type="button" class="menu-op" id="op-docentes">
+      <span class="menu-ico"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-chalkboard-teacher"></use></svg></span>
+      <span><b>Asignar docentes al plan de ciclo</b><small>Carga docente y balance horario por departamento, con sus advertencias.</small></span>
+      <span class="menu-pie">Asignar docentes<svg class="ico menu-flecha" aria-hidden="true" focusable="false"><use href="#i-arrow-right"></use></svg></span>
+    </button>
+    <button type="button" class="menu-op" disabled>
+      <span class="menu-ico"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-chart-bar"></use></svg></span>
+      <span><b>Reporte de carga lectiva</b><small>Listados por carrera, departamento y docente.</small></span>
+      <span class="menu-pie"><span class="pronto">Próximamente</span></span>
+    </button>
+  </div>
+</section>
+
+<script>
+"use strict";
+/* ============================================================
+   Inicio: saludo, avance del ciclo y accesos a las dos secciones
+   ============================================================ */
+alPulsar("#op-planes", () => mostrarTablero());
+alPulsar("#op-docentes", () => iniciarCargaDocentes());
+
+/* Al entrar, el anillo arranca de cero para que se vea llenarse. */
+function entrarInicio(){
+  mostrar("menu");
+  const anillo = $("#inicio-anillo");
+  anillo.style.setProperty("--avance", 0);
+  anillo.getBoundingClientRect();
+  requestAnimationFrame(() => pintarInicio());
+  /* Si el ciclo cambió en otra sección, se lee su tablero de fondo. */
+  if (app.tableroCiclo !== app.ciclo) cargarTablero();
+}
+
+function saludo(){
+  const h = new Date().getHours();
+  return h < 12 ? "Buenos días" : h < 19 ? "Buenas tardes" : "Buenas noches";
+}
+
+/* Las cifras salen del tablero que trajo la página (o del último que se leyó). */
+function pintarInicio(){
+  const filas = app.tableroCiclo === app.ciclo ? app.tablero : [];
+  const cuenta = estado => filas.filter(f => f.estado === estado).length;
+  const registrados = cuenta(ESTADOS.REGISTRADO);
+  const suma = clave => filas.reduce((n, f) => n + (Number((f.totales || {})[clave]) || 0), 0);
+  const total = filas.length || CARRERAS.length;
+
+  $("#inicio-saludo").textContent = saludo() + (app.usuario && app.usuario.rol === "director" ? " · Director de departamento" : " · Coordinador de carrera");
+  $("#inicio-ciclo").textContent = app.ciclo || "";
+  $("#inicio-total").textContent = total;
+  $("#inicio-avance").setAttribute("aria-label", registrados + " de " + total + " planes registrados en " + (app.ciclo || ""));
+  contarHasta($("#inicio-registrados"), registrados);
+  contarHasta($("#inicio-borrador"), cuenta(ESTADOS.BORRADOR));
+  contarHasta($("#inicio-sin"), filas.length ? cuenta(ESTADOS.SIN) : 0);
+  contarHasta($("#inicio-grupos"), suma("grupos"));
+  contarHasta($("#inicio-horas"), suma("dictado"));
+  $("#inicio-anillo").style.setProperty("--avance", total ? Math.round(registrados / total * 100) : 0);
+}
+</script>

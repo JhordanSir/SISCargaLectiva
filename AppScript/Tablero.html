@@ -1,0 +1,187 @@
+<!-- ===== Tablero de planes de ciclo y consulta en solo lectura ===== -->
+<section class="vista" id="v-planes" hidden>
+  <header class="vista-cab">
+    <div>
+      <p class="sobretitulo"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-clipboard-text"></use></svg>Registrar plan de ciclo</p>
+      <h1 class="titulo">Planes de ciclo</h1>
+      <p class="subtitulo">El avance de cada carrera en el ciclo. Pulsa una fila para consultar su plan.</p>
+    </div>
+    <div class="vista-acciones">
+      <div class="campo campo-ciclo">
+        <label for="sel-ciclo">Ciclo académico</label>
+        <select id="sel-ciclo" class="control"></select>
+      </div>
+      <button type="button" class="btn" id="btn-releer" title="Vuelve a leer ahora los .xlsx de la carpeta de Drive"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-arrows-clockwise"></use></svg>Releer Excel</button>
+    </div>
+  </header>
+
+  <div id="avisos-tablero" class="avisos" hidden></div>
+
+  <div class="tarjeta avance">
+    <div class="avance-cab"><b id="avance-titulo">Avance del ciclo</b><span id="avance-detalle"></span></div>
+    <div class="avance-barra" aria-hidden="true"><span class="registrado" id="avance-registrado" style="width:0"></span><span class="borrador" id="avance-borrador" style="width:0"></span></div>
+    <ul class="avance-leyenda" id="avance-leyenda"></ul>
+  </div>
+
+  <div class="tarjeta tarjeta-tabla">
+    <div class="tabla-caja">
+      <table>
+        <thead><tr>
+          <th>Carrera</th><th>Estado</th><th class="num">Sem.</th><th class="num">Asig.</th>
+          <th class="num">Grupos</th><th class="num">Horas</th><th>Versión</th><th>Editando</th><th><span class="sr-only">Acciones</span></th>
+        </tr></thead>
+        <tbody id="tb-tablero"></tbody>
+      </table>
+    </div>
+  </div>
+  <p class="ayuda"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-info"></use></svg>Usa <b>Editar</b> en las carreras que tienes autorizadas. Mientras alguien edita un plan, los demás lo ven en solo lectura.</p>
+</section>
+
+<section class="vista" id="v-lectura" hidden>
+  <header class="vista-cab">
+    <div>
+      <button type="button" class="btn fantasma btn-sm volver" data-volver="planes"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-arrow-left"></use></svg>Volver al tablero</button>
+      <p class="sobretitulo"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-eye"></use></svg>Consulta en solo lectura</p>
+      <h1 class="titulo" id="lectura-titulo">Consulta del plan</h1>
+    </div>
+    <div class="vista-acciones">
+      <button type="button" class="btn primario" id="lectura-editar" hidden><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-pencil-simple"></use></svg>Editar este plan</button>
+    </div>
+  </header>
+  <div class="nota" id="lectura-nota"></div>
+  <dl class="resumen" id="lectura-resumen"></dl>
+  <div id="lectura-bloques" class="bloques"></div>
+</section>
+
+<script>
+"use strict";
+/* ============================================================
+   Tablero de planes de ciclo
+   ============================================================ */
+/* Las filas del tablero traen el contenido vigente de cada plan, así que consultar un plan
+   o empezar a editarlo no espera al servidor. Se muestra lo que haya y, si ya tiene unos
+   segundos, se vuelve a leer de fondo. */
+const tableroAlDia = () => app.tableroCiclo === app.ciclo && Date.now() - app.tableroHora < VIGENCIA_TABLERO_MS;
+const filaTablero = sig => app.tableroCiclo === app.ciclo ? app.tablero.find(f => f.sig === sig) || null : null;
+const bloqueoVigente = b => b && Date.parse(b.expira) > Date.now() ? b : null;
+
+$("#sel-ciclo").innerHTML = (CONFIG.ciclos || []).map(c => "<option" + (c === app.ciclo ? " selected" : "") + ">" + esc(c) + "</option>").join("");
+$("#sel-ciclo").onchange = e => { app.ciclo = e.target.value; mostrarTablero(); };
+$("#btn-releer").onclick = () => cargarTablero({ releer: true });
+
+function mostrarTablero(){
+  $("#sel-ciclo").value = app.ciclo;
+  pintarTablero();
+  mostrar("planes");
+  if (!tableroAlDia()) cargarTablero();
+}
+
+async function cargarTablero(opciones){
+  const ciclo = app.ciclo, pedido = ++app.tableroPedido;
+  const releer = !!(opciones && opciones.releer);
+  try {
+    const r = await (releer ? llamar : llamarDeFondo)("obtenerTablero", ciclo, { releer: releer });
+    if (pedido !== app.tableroPedido || ciclo !== app.ciclo) return;
+    fijarTablero(ciclo, r.filas, r.avisos);
+    if (releer) { aviso("Excel revisado", "info"); anunciar("tablero", { ciclo: ciclo }); }
+  } catch (e) {
+    if (pedido === app.tableroPedido) informarError(e);
+  }
+}
+
+function fijarTablero(ciclo, filas, avisos){
+  app.tablero = filas;
+  app.tableroCiclo = ciclo;
+  app.tableroHora = Date.now();
+  const lista = avisos || [];
+  $("#avisos-tablero").innerHTML = lista.map(a => '<div class="nota aviso">' + esc(a) + "</div>").join("");
+  $("#avisos-tablero").hidden = !lista.length;
+  pintarTablero();
+  if (app.vista === "menu") pintarInicio();
+}
+
+/* Tras guardar, la fila del plan se actualiza aquí mismo. La próxima vez que se muestre
+   el tablero se vuelve a leer, y las lecturas que ya estaban en camino se descartan. */
+function actualizarFilaTablero(sig, cambios){
+  app.tableroPedido++;
+  app.tableroHora = 0;
+  const f = filaTablero(sig);
+  if (f) Object.assign(f, cambios);
+}
+
+function pintarTablero(){
+  const filas = app.tableroCiclo === app.ciclo ? app.tablero : [];
+  const u = app.usuario || {};
+  const carreras = carrerasDelUsuario();
+  const tb = $("#tb-tablero");
+  if (!tb) return;
+  tb.innerHTML = filas.map(f => {
+    const t = f.totales || {};
+    const b = bloqueoVigente(f.bloqueo);
+    const otro = b && b.correo !== u.correo;
+    const cls = otro ? "bloqueado" : f.estado === ESTADOS.REGISTRADO ? "registrado" : f.estado === ESTADOS.BORRADOR ? "borrador" : "sin";
+    const puede = carreras.includes(f.sig);
+    return '<tr class="pulsable" data-sig="' + f.sig + '">' +
+      '<td><div class="carrera-celda"><span class="sigla">' + esc(f.sig) + "</span><b>" + esc(f.nombre) + "</b></div></td>" +
+      '<td><span class="pill ' + cls + '">' + (otro ? "Bloqueado" : esc(f.estado)) + "</span></td>" +
+      '<td class="num">' + (t.sem || "—") + '</td><td class="num">' + (t.asig || "—") + "</td>" +
+      '<td class="num">' + (t.grupos || "—") + '</td><td class="num">' + (t.dictado || "—") + "</td>" +
+      "<td>" + (f.version ? '<span class="version">v' + f.version + "</span>" : '<span class="tenue">—</span>') + "</td>" +
+      "<td>" + (b ? '<span class="editor">' + icono("lock-simple") + esc(b.correo) + "</span>" : '<span class="tenue">—</span>') + "</td>" +
+      '<td class="text-right">' + (puede
+        ? '<button type="button" class="btn btn-sm" data-editar="' + f.sig + '">' + icono("pencil-simple") + "Editar</button>"
+        : "") + "</td></tr>";
+  }).join("");
+
+  $$("#tb-tablero tr").forEach(tr => {
+    tr.onclick = e => { if (!e.target.closest("[data-editar]")) abrirLectura(tr.dataset.sig); };
+  });
+  $$("#tb-tablero [data-editar]").forEach(b => {
+    b.onclick = e => { e.stopPropagation(); abrirEdicion(b.dataset.editar); };
+  });
+  pintarAvance(filas);
+}
+
+function pintarAvance(filas){
+  const u = app.usuario || {};
+  const n = filas.length;
+  const cuenta = estado => filas.filter(f => f.estado === estado).length;
+  const reg = cuenta(ESTADOS.REGISTRADO), bor = cuenta(ESTADOS.BORRADOR), sin = cuenta(ESTADOS.SIN);
+  const bloq = filas.filter(f => { const b = bloqueoVigente(f.bloqueo); return b && b.correo !== u.correo; }).length;
+  $("#avance-registrado").style.width = (n ? reg / n * 100 : 0) + "%";
+  $("#avance-borrador").style.width = (n ? bor / n * 100 : 0) + "%";
+  $("#avance-titulo").textContent = n ? reg + " de " + n + " planes registrados" : "Avance del ciclo";
+  $("#avance-detalle").textContent = n ? "Ciclo " + app.ciclo : "Leyendo el tablero…";
+  const item = (clase, cifra, texto) => '<li><span class="punto ' + clase + '"></span><b>' + cifra + "</b> " + texto + "</li>";
+  $("#avance-leyenda").innerHTML = n
+    ? item("registrado", reg, "registrados") + item("borrador", bor, "en borrador") + item("sin", sin, "sin iniciar") +
+      (bloq ? item("bloqueado", bloq, bloq === 1 ? "en edición por otra cuenta" : "en edición por otras cuentas") : "")
+    : "";
+}
+
+/* ============================================================
+   Consulta en solo lectura
+   ============================================================ */
+async function abrirLectura(sig){
+  const f = filaTablero(sig);
+  let p = f && Array.isArray(f.contenido)
+    ? { estado: f.estado, version: f.version, asignaturas: f.contenido, bloqueo: bloqueoVigente(f.bloqueo) }
+    : null;
+  if (!p) {
+    try { p = await llamar("obtenerPlan", app.ciclo, sig); } catch (e) { return informarError(e); }
+  }
+  mostrar("lectura");
+  app.lectura = sig;
+  $("#lectura-titulo").textContent = "Consulta · " + nombreCarrera(sig) + " · " + app.ciclo;
+  $("#lectura-nota").innerHTML = p.asignaturas.length
+    ? "Plan en estado <b>" + esc(p.estado) + "</b>, versión <b>v" + p.version + "</b>. Vista de solo lectura." +
+      (p.bloqueo ? " Lo está editando <b>" + esc(p.bloqueo.correo) + "</b>." : "")
+    : "Esta carrera todavía no tiene ninguna asignatura registrada en " + esc(app.ciclo) + ".";
+  pintarResumen($("#lectura-resumen"), p.asignaturas);
+  $("#lectura-bloques").innerHTML = htmlBloques(p.asignaturas, false);
+  enlazarBloques($("#lectura-bloques"));
+  const editar = $("#lectura-editar");
+  editar.hidden = !carrerasDelUsuario().includes(sig);
+  editar.onclick = () => abrirEdicion(sig);
+}
+</script>

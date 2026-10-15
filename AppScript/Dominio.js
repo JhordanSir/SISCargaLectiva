@@ -399,7 +399,7 @@ function crearDominio() {
   }
 
   /* ============================================================
-     CU-002: Lógica de Asignación Docente y Balance Horario
+     Asignación docente: lógica de asignación y balance horario
      ============================================================ */
   const DPTOS_INFO = {
     DIMA: { sigla: "DIMA", nombre: "Departamento de Ingeniería y Matemáticas", alias: ["INGENIERIA Y MATEMATICAS", "INGENIERIA", "MATEMATICAS", "DIMA"] },

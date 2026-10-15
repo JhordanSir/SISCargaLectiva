@@ -5,7 +5,7 @@ function doGet() {
   t.inicial = JSON.stringify(datosIniciales_()).replace(/</g, "\\u003c");
   t.dominio = "(" + crearDominio.toString() + ")()";
   return t.evaluate()
-    .setTitle("SISCargaLectiva · Planes de Ciclo")
+    .setTitle("SISCargaLectiva · Universidad La Salle")
     .addMetaTag("viewport", "width=device-width, initial-scale=1");
 }
 

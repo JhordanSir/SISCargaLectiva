@@ -1,0 +1,84 @@
+<!-- ===== Ventanas: diálogo, avisos breves y espera «Wayrasiming» ===== -->
+<dialog id="dlg" class="ventana" aria-labelledby="dlg-titulo">
+  <div class="dlg-cab"><h3 id="dlg-titulo"></h3></div>
+  <div class="dlg-cuerpo" id="dlg-cuerpo"></div>
+  <div class="dlg-pie" id="dlg-pie"></div>
+</dialog>
+
+<div class="brindis" id="brindis" role="status" aria-live="polite"></div>
+
+<div class="espera" id="espera" hidden>
+  <div class="espera-tarjeta" role="status" aria-live="polite">
+    <div class="espera-anillo" aria-hidden="true"><span class="espera-marca"></span></div>
+    <p class="shimmer">Wayrasiming</p>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ============================================================
+   Ventanas: diálogo genérico, avisos breves y errores
+   ============================================================ */
+
+/* Aviso breve. tipo: "ok" (por defecto), "info", "aviso", "error" o "pestana".
+   El texto del elemento es solo el mensaje; el ícono lo pone la hoja de estilos. */
+function aviso(texto, tipo){
+  const d = document.createElement("div");
+  d.className = "brindis-msg " + (tipo || "ok");
+  d.textContent = texto;
+  $("#brindis").appendChild(d);
+  setTimeout(() => {
+    d.classList.add("saliendo");
+    setTimeout(() => d.remove(), 220);
+  }, 3400);
+}
+
+/* Diálogo genérico. acciones: [{texto, clase, valor}]. Devuelve una promesa.
+   Una pregunta nueva sustituye a la que esté abierta, que se resuelve con null. */
+const dlg = $("#dlg");
+let terminarPregunta = null;
+function preguntar({ titulo, cuerpo, acciones }){
+  if (terminarPregunta) terminarPregunta(null);
+  return new Promise(resolve => {
+    let resuelto = false;
+    /* El evento close llega después de cerrar; si para entonces ya se abrió otra
+       pregunta, pertenece a la anterior y se ignora. */
+    const alCerrar = () => { if (!dlg.open) terminar(null); };
+    function terminar(v){
+      if (resuelto) return;
+      resuelto = true;
+      dlg.removeEventListener("close", alCerrar);
+      if (terminarPregunta === terminar) terminarPregunta = null;
+      resolve(v);
+    }
+    terminarPregunta = terminar;
+
+    $("#dlg-titulo").textContent = titulo;
+    $("#dlg-cuerpo").innerHTML = cuerpo;
+    $("#dlg-cuerpo").scrollTop = 0;
+    const pie = $("#dlg-pie");
+    pie.innerHTML = "";
+    acciones.forEach(a => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "btn " + (a.clase || "");
+      b.textContent = a.texto;
+      /* Se resuelve antes de cerrar: el contenido sigue en el DOM, de modo que
+         un «valor» que sea función pueda leer los campos del formulario. */
+      b.onclick = () => { terminar(a.valor); dlg.close(); };
+      pie.appendChild(b);
+    });
+    dlg.addEventListener("close", alCerrar);
+    if (!dlg.open) dlg.showModal();
+  });
+}
+dlg.addEventListener("cancel", e => { e.preventDefault(); dlg.close(); });
+
+function informarError(e){
+  return preguntar({
+    titulo: "No se pudo completar la operación",
+    cuerpo: '<div class="nota error">' + esc((e && e.message) || e) + "</div>",
+    acciones: [{ texto:"Entendido", clase:"primario", valor:true }]
+  });
+}
+</script>
