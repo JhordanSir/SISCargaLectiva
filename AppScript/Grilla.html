@@ -2,12 +2,12 @@
 <section class="vista" id="v-grilla" hidden>
   <header class="vista-cab">
     <div>
-      <button type="button" class="btn fantasma btn-sm volver" id="volver-grilla"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-sign-out"></use></svg>Salir de la edición</button>
-      <p class="sobretitulo"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-pencil-simple"></use></svg>Edición del plan de ciclo</p>
+      <button type="button" class="btn fantasma btn-sm volver" id="volver-grilla"><?!= icono_("sign-out") ?>Salir de la edición</button>
+      <p class="sobretitulo"><?!= icono_("pencil-simple") ?>Edición del plan de ciclo</p>
       <h1 class="titulo" id="grilla-titulo">Vista previa del plan</h1>
     </div>
     <div class="vista-acciones">
-      <span class="chip-reloj"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-timer"></use></svg><span class="reloj" id="reloj-grilla"></span></span>
+      <span class="chip-reloj"><?!= icono_("timer") ?><span class="reloj" id="reloj-grilla"></span></span>
     </div>
   </header>
 
@@ -18,10 +18,10 @@
   <div class="barra-herramientas" role="toolbar" aria-label="Acciones del plan">
     <button type="button" class="btn btn-sm" id="btn-colapsar"></button>
     <span class="separador" aria-hidden="true"></span>
-    <button type="button" class="btn btn-sm" data-acc="agregar-asignatura"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-plus"></use></svg>Agregar asignatura</button>
-    <button type="button" class="btn btn-sm" data-acc="grupo-semestre"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-plus-circle"></use></svg>Agregar grupo al semestre</button>
-    <button type="button" class="btn btn-sm" data-acc="fusionar"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-git-merge"></use></svg>Fusionar grupos</button>
-    <button type="button" class="btn btn-sm" data-acc="historial"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-clock-counter-clockwise"></use></svg>Historial de versiones</button>
+    <button type="button" class="btn btn-sm" data-acc="agregar-asignatura"><?!= icono_("plus") ?>Agregar asignatura</button>
+    <button type="button" class="btn btn-sm" data-acc="grupo-semestre"><?!= icono_("plus-circle") ?>Agregar grupo al semestre</button>
+    <button type="button" class="btn btn-sm" data-acc="fusionar"><?!= icono_("git-merge") ?>Fusionar grupos</button>
+    <button type="button" class="btn btn-sm" data-acc="historial"><?!= icono_("clock-counter-clockwise") ?>Historial de versiones</button>
   </div>
 
   <div id="bloques" class="bloques"></div>
@@ -30,34 +30,34 @@
     <div class="dock-fila">
       <div class="dock-seleccion" id="dock-seleccion"></div>
       <div class="dock-guardar">
-        <button type="button" class="btn btn-sm" data-acc="reemplazar"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-swap"></use></svg>Reemplazar contenido</button>
-        <button type="button" class="btn btn-sm" id="btn-borrador"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-floppy-disk"></use></svg>Guardar borrador</button>
+        <button type="button" class="btn btn-sm" data-acc="reemplazar"><?!= icono_("swap") ?>Reemplazar contenido</button>
+        <button type="button" class="btn btn-sm" id="btn-borrador"><?!= icono_("floppy-disk") ?>Guardar borrador</button>
         <button type="button" class="btn primario" id="btn-registrar"></button>
       </div>
     </div>
     <div class="dock-acciones" id="acciones-fila" role="toolbar" aria-label="Acciones sobre el grupo seleccionado">
-      <button type="button" class="btn btn-sm" data-acc="editar" data-req="sel"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-pencil-simple"></use></svg>Editar HT / HP</button>
-      <button type="button" class="btn btn-sm" data-acc="editar-asignatura" data-req="sel"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-list-checks"></use></svg>Editar asignatura</button>
-      <button type="button" class="btn btn-sm" data-acc="agregar-grupo" data-req="sel"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-plus"></use></svg>Agregar grupo</button>
-      <button type="button" class="btn btn-sm" data-acc="desdoblar" data-req="sel"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-arrows-split"></use></svg>Desdoblar</button>
-      <button type="button" class="btn btn-sm" data-acc="quitar-desdoble" data-req="des"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-arrows-merge"></use></svg>Quitar desdoble</button>
-      <button type="button" class="btn btn-sm" data-acc="deshacer-fusion" data-req="fus"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-link-break"></use></svg>Deshacer fusión</button>
-      <button type="button" class="btn btn-sm peligro" data-acc="eliminar-grupo" data-req="sel"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-trash"></use></svg>Eliminar grupo</button>
-      <button type="button" class="btn btn-sm peligro" data-acc="eliminar-asignatura" data-req="sel"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-trash"></use></svg>Eliminar asignatura</button>
+      <button type="button" class="btn btn-sm" data-acc="editar" data-req="sel"><?!= icono_("pencil-simple") ?>Editar HT / HP</button>
+      <button type="button" class="btn btn-sm" data-acc="editar-asignatura" data-req="sel"><?!= icono_("list-checks") ?>Editar asignatura</button>
+      <button type="button" class="btn btn-sm" data-acc="agregar-grupo" data-req="sel"><?!= icono_("plus") ?>Agregar grupo</button>
+      <button type="button" class="btn btn-sm" data-acc="desdoblar" data-req="sel"><?!= icono_("arrows-split") ?>Desdoblar</button>
+      <button type="button" class="btn btn-sm" data-acc="quitar-desdoble" data-req="des"><?!= icono_("arrows-merge") ?>Quitar desdoble</button>
+      <button type="button" class="btn btn-sm" data-acc="deshacer-fusion" data-req="fus"><?!= icono_("link-break") ?>Deshacer fusión</button>
+      <button type="button" class="btn btn-sm peligro" data-acc="eliminar-grupo" data-req="sel"><?!= icono_("trash") ?>Eliminar grupo</button>
+      <button type="button" class="btn btn-sm peligro" data-acc="eliminar-asignatura" data-req="sel"><?!= icono_("trash") ?>Eliminar asignatura</button>
     </div>
   </div>
 </section>
 
 <section class="vista" id="v-exito" hidden>
   <div class="tarjeta exito">
-    <div class="exito-sello"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-seal-check"></use></svg></div>
+    <div class="exito-sello"><?!= icono_("seal-check") ?></div>
     <p class="sobretitulo">Registrar plan de ciclo</p>
     <h1 class="titulo">¡Plan registrado!</h1>
     <div class="nota ok" id="exito-nota"></div>
     <div class="exito-acciones">
-      <button type="button" class="btn" data-volver="planes"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-arrow-left"></use></svg>Volver al tablero</button>
-      <button type="button" class="btn" id="exito-editar"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-pencil-simple"></use></svg>Seguir editando el plan</button>
-      <button type="button" class="btn primario" data-ir="docentes"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-chalkboard-teacher"></use></svg>Asignar docentes</button>
+      <button type="button" class="btn" data-volver="planes"><?!= icono_("arrow-left") ?>Volver al tablero</button>
+      <button type="button" class="btn" id="exito-editar"><?!= icono_("pencil-simple") ?>Seguir editando el plan</button>
+      <button type="button" class="btn primario" data-ir="docentes"><?!= icono_("chalkboard-teacher") ?>Asignar docentes</button>
     </div>
   </div>
 </section>

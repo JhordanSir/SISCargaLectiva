@@ -71,6 +71,16 @@ function crearDominioComun_() {
   const nombreCarrera = sig => (CARRERAS.find(c => c.sig === sig) || {}).nombre || sig;
 
   /**
+   * Ícono del sprite (Iconos.html). Lo usan el navegador (icono) y las plantillas del
+   * servidor (icono_), así que el marcado es el mismo en los dos lados.
+   * @param {string} nombre Nombre en estilos/iconos.mjs, sin «i-».
+   * @param {string=} clase Clases que se añaden a «ico».
+   * @returns {string}
+   */
+  const htmlIcono = (nombre, clase) =>
+    '<svg class="ico' + (clase ? " " + clase : "") + '" aria-hidden="true" focusable="false"><use href="#i-' + nombre + '"></use></svg>';
+
+  /**
    * ============================================================
    * Normalización
    * ============================================================
@@ -402,7 +412,7 @@ function crearDominioComun_() {
 
   return {
     DPTOS, CARRERAS, COLUMNAS, SINONIMOS, ESTADOS, TIPO_VERSION, REF, TIPOS_AVISO, aviso, comoAviso,
-    nombreCarrera, normalizar, canonica, matrizDesdeTexto, ubicarCabeceras, entero, claveCarrera,
+    nombreCarrera, htmlIcono, normalizar, canonica, matrizDesdeTexto, ubicarCabeceras, entero, claveCarrera,
     formasCarrera, coincideCarrera, siglaDeCarrera, descomponerSemestre, num, th, idGrupo, esInternacional,
     LIMITES_DATOS, MARCA_FUSION, DESDOBLE, COMPONENTE, FECHA_ISO, objeto, recortar, textoONumero, idSeguro,
     marcaSegura, esSigla, errorDato, exigirLista, exigirTamano, sanearGrupo, sanearAsignaturas, sanearMarcas,
@@ -1488,7 +1498,7 @@ function crearDominio_() {
     claveDeDocente: t.claveDeDocente, calcularBalance: t.calcularBalance, excesosAlGuardar: t.excesosAlGuardar,
     sugerirDocentes: t.sugerirDocentes, interpretarCargaDepartamento: t.interpretarCargaDepartamento,
     CARRERAS: t.CARRERAS, ESTADOS: t.ESTADOS, TIPO_VERSION: t.TIPO_VERSION, REF: t.REF,
-    TIPOS_AVISO: t.TIPOS_AVISO, aviso: t.aviso, comoAviso: t.comoAviso,
+    TIPOS_AVISO: t.TIPOS_AVISO, aviso: t.aviso, comoAviso: t.comoAviso, htmlIcono: t.htmlIcono,
     nombreCarrera: t.nombreCarrera, normalizar: t.normalizar, canonica: t.canonica,
     matrizDesdeTexto: t.matrizDesdeTexto, ubicarCabeceras: t.ubicarCabeceras,
     siglaDeCarrera: t.siglaDeCarrera,

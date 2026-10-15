@@ -2,18 +2,18 @@
 <section class="vista" id="v-docentes" hidden>
   <header class="vista-cab">
     <div>
-      <p class="sobretitulo"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-chalkboard-teacher"></use></svg>Asignar docentes al plan de ciclo</p>
+      <p class="sobretitulo"><?!= icono_("chalkboard-teacher") ?>Asignar docentes al plan de ciclo</p>
       <h1 class="titulo" id="doc-titulo">Carga docente por departamento</h1>
       <p class="subtitulo" id="doc-subtitulo">Asigna docentes a las secciones que los planes registrados piden a tu departamento.</p>
     </div>
     <div class="vista-acciones">
-      <span class="badge-doc pendiente" id="doc-sin-guardar" hidden><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-warning"></use></svg>Cambios sin guardar</span>
-      <span class="chip-reloj" id="doc-chip-reloj" hidden><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-timer"></use></svg><span class="reloj" id="reloj-asignacion"></span></span>
-      <button type="button" class="btn primario" id="btn-doc-editar" hidden><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-pencil-simple"></use></svg>Editar asignaciones</button>
-      <button type="button" class="btn" id="btn-doc-historial"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-clock-counter-clockwise"></use></svg>Historial</button>
-      <button type="button" class="btn" id="btn-doc-masiva" hidden><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-upload-simple"></use></svg>Carga masiva</button>
-      <button type="button" class="btn" id="btn-doc-terminar" hidden><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-sign-out"></use></svg>Terminar edición</button>
-      <button type="button" class="btn primario" id="btn-doc-guardar" hidden><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-floppy-disk"></use></svg>Guardar asignaciones</button>
+      <span class="badge-doc pendiente" id="doc-sin-guardar" hidden><?!= icono_("warning") ?>Cambios sin guardar</span>
+      <span class="chip-reloj" id="doc-chip-reloj" hidden><?!= icono_("timer") ?><span class="reloj" id="reloj-asignacion"></span></span>
+      <button type="button" class="btn primario" id="btn-doc-editar" hidden><?!= icono_("pencil-simple") ?>Editar asignaciones</button>
+      <button type="button" class="btn" id="btn-doc-historial"><?!= icono_("clock-counter-clockwise") ?>Historial</button>
+      <button type="button" class="btn" id="btn-doc-masiva" hidden><?!= icono_("upload-simple") ?>Carga masiva</button>
+      <button type="button" class="btn" id="btn-doc-terminar" hidden><?!= icono_("sign-out") ?>Terminar edición</button>
+      <button type="button" class="btn primario" id="btn-doc-guardar" hidden><?!= icono_("floppy-disk") ?>Guardar asignaciones</button>
     </div>
   </header>
 
@@ -32,8 +32,8 @@
       </select>
     </div>
     <div class="conmutador-vistas" role="group" aria-label="Forma de ver la asignación">
-      <button type="button" class="btn activo" id="btn-vista-carrera" aria-pressed="true"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-graduation-cap"></use></svg>Por sección</button>
-      <button type="button" class="btn" id="btn-vista-dpto" aria-pressed="false"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-buildings"></use></svg>Por docente</button>
+      <button type="button" class="btn activo" id="btn-vista-carrera" aria-pressed="true"><?!= icono_("graduation-cap") ?>Por sección</button>
+      <button type="button" class="btn" id="btn-vista-dpto" aria-pressed="false"><?!= icono_("buildings") ?>Por docente</button>
     </div>
     <div class="filtros-extra">
       <div id="filtros-vista-carrera" class="flex flex-wrap items-center gap-2">
@@ -41,7 +41,7 @@
         <label class="casilla"><input type="checkbox" id="chk-solo-pendientes">Solo secciones sin docente</label>
       </div>
       <div id="filtros-vista-dpto" class="flex flex-wrap items-center gap-2" hidden>
-        <label for="sel-filtro-docentes" class="ayuda"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-funnel"></use></svg>Mostrar</label>
+        <label for="sel-filtro-docentes" class="ayuda"><?!= icono_("funnel") ?>Mostrar</label>
         <select id="sel-filtro-docentes" class="control">
           <option value="con-carga">Docentes con carga en el departamento</option>
           <option value="advertencias">Solo con advertencias</option>
@@ -55,24 +55,24 @@
 
   <div class="resumen-docentes">
     <div class="tarjeta-metrica">
-      <span class="cifra-ico"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-clock"></use></svg></span>
+      <span class="cifra-ico"><?!= icono_("clock") ?></span>
       <small>Horas pedidas</small><b id="met-doc-req">0</b>
     </div>
     <div class="tarjeta-metrica">
-      <span class="cifra-ico"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-check-circle"></use></svg></span>
+      <span class="cifra-ico"><?!= icono_("check-circle") ?></span>
       <small>Horas cubiertas</small><b id="met-doc-asig">0</b>
     </div>
     <div class="tarjeta-metrica">
-      <span class="cifra-ico"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-chart-pie-slice"></use></svg></span>
+      <span class="cifra-ico"><?!= icono_("chart-pie-slice") ?></span>
       <small>Cobertura</small><b id="met-doc-cob">0%</b>
       <div class="barra-cobertura" aria-hidden="true"><span id="met-doc-cob-barra"></span></div>
     </div>
     <div class="tarjeta-metrica">
-      <span class="cifra-ico"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-hourglass-medium"></use></svg></span>
+      <span class="cifra-ico"><?!= icono_("hourglass-medium") ?></span>
       <small>Secciones sin docente</small><b id="met-doc-pend">0</b>
     </div>
     <div class="tarjeta-metrica" id="caja-met-adv">
-      <span class="cifra-ico"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-warning"></use></svg></span>
+      <span class="cifra-ico"><?!= icono_("warning") ?></span>
       <small>Advertencias</small><b id="met-doc-adv">0</b>
     </div>
   </div>
@@ -109,7 +109,7 @@
 
   <div id="caja-sin-seccion" class="tarjeta tarjeta-tabla" hidden>
     <div class="p-4"><p class="text-sm font-bold">Asignaciones sin sección en el plan</p>
-      <p class="ayuda mt-1"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-info"></use></svg>El curso se eliminó del plan o no se encontró al cargar. Reasígnalas a una sección o quítalas.</p></div>
+      <p class="ayuda mt-1"><?!= icono_("info") ?>El curso se eliminó del plan o no se encontró al cargar. Reasígnalas a una sección o quítalas.</p></div>
     <div class="tabla-caja">
       <table>
         <thead><tr><th>Docente</th><th>Carrera</th><th>Código</th><th>Asignatura</th><th class="num">Grupo</th><th>Nota</th><th><span class="sr-only">Acciones</span></th></tr></thead>

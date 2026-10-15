@@ -14,13 +14,28 @@ function doGet() {
     .addMetaTag("viewport", "width=device-width, initial-scale=1");
 }
 
+/* Archivos generados que no tienen scriptlets: se incluyen tal cual, sin evaluarlos. */
+var SIN_PLANTILLA_ = ["Estilos", "Iconos"];
+
 /**
- * Contenido de un archivo HTML del proyecto, para incluirlo en la plantilla.
+ * Contenido de un archivo HTML del proyecto, para incluirlo en Index.html. Las pantallas
+ * son plantillas (usan icono_); Estilos e Iconos se copian tal cual.
  * @param {string} nombre
  * @returns {string}
  */
 function include_(nombre) {
-  return HtmlService.createHtmlOutputFromFile(nombre).getContent();
+  if (SIN_PLANTILLA_.indexOf(nombre) >= 0) return HtmlService.createHtmlOutputFromFile(nombre).getContent();
+  return HtmlService.createTemplateFromFile(nombre).evaluate().getContent();
+}
+
+/**
+ * Ícono del sprite para las plantillas: <?!= icono_("pencil-simple") ?>.
+ * @param {string} nombre
+ * @param {string=} clase
+ * @returns {string}
+ */
+function icono_(nombre, clase) {
+  return Dominio.htmlIcono(nombre, clase);
 }
 
 /**

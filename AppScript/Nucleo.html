@@ -44,7 +44,7 @@ const hora = iso => { const d = new Date(iso); return isNaN(d) ? "" : d.toLocale
 const clonar = x => JSON.parse(JSON.stringify(x));
 const alPulsar = (s, fn) => { const el = $(s); if (el) el.onclick = fn; };
 const alCambiar = (s, fn) => { const el = $(s); if (el) el.onchange = fn; };
-const icono = (nombre, clase) => '<svg class="ico' + (clase ? " " + clase : "") + '" aria-hidden="true" focusable="false"><use href="#i-' + nombre + '"></use></svg>';
+const icono = Dominio.htmlIcono;
 const reducirMovimiento = () => !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
 const carrerasDelUsuario = () => { const u = app.usuario || {}; return Array.isArray(u.carreras) ? u.carreras : []; };
 const departamentoDelUsuario = () => (app.usuario || {}).departamento || "";

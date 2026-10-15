@@ -1,7 +1,7 @@
 <!-- ===== Inicio, sistema sin instalar y acceso denegado ===== -->
 <section class="vista" id="v-instalar" hidden>
   <div class="tarjeta estado-acceso">
-    <span class="estado-ico aviso"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-warning"></use></svg></span>
+    <span class="estado-ico aviso"><?!= icono_("warning") ?></span>
     <h1 class="titulo">El sistema todavía no está instalado</h1>
     <p class="subtitulo">Faltan la carpeta de Drive y la hoja de cálculo del sistema. La cuenta propietaria del script debe instalarlas una vez.</p>
     <ol class="pasos-guia">
@@ -15,10 +15,10 @@
 
 <section class="vista" id="v-denegado" hidden>
   <div class="tarjeta estado-acceso">
-    <span class="estado-ico error"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-shield-warning"></use></svg></span>
+    <span class="estado-ico error"><?!= icono_("shield-warning") ?></span>
     <h1 class="titulo" id="denegado-titulo">Acceso denegado</h1>
     <div class="nota error mt-4" id="denegado-msg"></div>
-    <p class="ayuda mt-4"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-info"></use></svg>Si tienes varias cuentas de Google abiertas, cambia a tu cuenta institucional y recarga la página.</p>
+    <p class="ayuda mt-4"><?!= icono_("info") ?>Si tienes varias cuentas de Google abiertas, cambia a tu cuenta institucional y recarga la página.</p>
   </div>
 </section>
 
@@ -26,7 +26,7 @@
   <div class="hero">
     <div class="hero-facetas" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
     <div>
-      <p class="hero-saludo"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-sparkle"></use></svg><span id="inicio-saludo">Hola</span></p>
+      <p class="hero-saludo"><?!= icono_("sparkle") ?><span id="inicio-saludo">Hola</span></p>
       <h1>Carga lectiva <span id="inicio-ciclo"></span></h1>
       <p class="hero-sub">Registra la oferta de cada carrera y asigna a sus docentes. El sistema advierte, pero no te frena.</p>
     </div>
@@ -40,25 +40,25 @@
   </div>
 
   <div class="cifras">
-    <div class="cifra"><span class="cifra-ico"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-pencil-simple"></use></svg></span><div><b id="inicio-borrador">0</b><span>en borrador</span></div></div>
-    <div class="cifra"><span class="cifra-ico"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-hourglass-medium"></use></svg></span><div><b id="inicio-sin">0</b><span>sin iniciar</span></div></div>
-    <div class="cifra"><span class="cifra-ico"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-stack"></use></svg></span><div><b id="inicio-grupos">0</b><span>grupos ofertados</span></div></div>
-    <div class="cifra"><span class="cifra-ico"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-clock"></use></svg></span><div><b id="inicio-horas">0</b><span>horas de dictado</span></div></div>
+    <div class="cifra"><span class="cifra-ico"><?!= icono_("pencil-simple") ?></span><div><b id="inicio-borrador">0</b><span>en borrador</span></div></div>
+    <div class="cifra"><span class="cifra-ico"><?!= icono_("hourglass-medium") ?></span><div><b id="inicio-sin">0</b><span>sin iniciar</span></div></div>
+    <div class="cifra"><span class="cifra-ico"><?!= icono_("stack") ?></span><div><b id="inicio-grupos">0</b><span>grupos ofertados</span></div></div>
+    <div class="cifra"><span class="cifra-ico"><?!= icono_("clock") ?></span><div><b id="inicio-horas">0</b><span>horas de dictado</span></div></div>
   </div>
 
   <div class="menu">
     <button type="button" class="menu-op" id="op-planes">
-      <span class="menu-ico"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-clipboard-text"></use></svg></span>
+      <span class="menu-ico"><?!= icono_("clipboard-text") ?></span>
       <span><b>Registrar plan de ciclo</b><small>Registra y edita la oferta académica de cada carrera: grupos, desdobles y fusiones.</small></span>
-      <span class="menu-pie">Ir al tablero<svg class="ico menu-flecha" aria-hidden="true" focusable="false"><use href="#i-arrow-right"></use></svg></span>
+      <span class="menu-pie">Ir al tablero<?!= icono_("arrow-right", "menu-flecha") ?></span>
     </button>
     <button type="button" class="menu-op" id="op-docentes">
-      <span class="menu-ico"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-chalkboard-teacher"></use></svg></span>
+      <span class="menu-ico"><?!= icono_("chalkboard-teacher") ?></span>
       <span><b>Asignar docentes al plan de ciclo</b><small>Carga docente y balance horario por departamento, con sus advertencias.</small></span>
-      <span class="menu-pie">Asignar docentes<svg class="ico menu-flecha" aria-hidden="true" focusable="false"><use href="#i-arrow-right"></use></svg></span>
+      <span class="menu-pie">Asignar docentes<?!= icono_("arrow-right", "menu-flecha") ?></span>
     </button>
     <button type="button" class="menu-op" disabled>
-      <span class="menu-ico"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-chart-bar"></use></svg></span>
+      <span class="menu-ico"><?!= icono_("chart-bar") ?></span>
       <span><b>Reporte de carga lectiva</b><small>Listados por carrera, departamento y docente.</small></span>
       <span class="menu-pie"><span class="pronto">Próximamente</span></span>
     </button>

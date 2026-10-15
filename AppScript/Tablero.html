@@ -2,7 +2,7 @@
 <section class="vista" id="v-planes" hidden>
   <header class="vista-cab">
     <div>
-      <p class="sobretitulo"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-clipboard-text"></use></svg>Registrar plan de ciclo</p>
+      <p class="sobretitulo"><?!= icono_("clipboard-text") ?>Registrar plan de ciclo</p>
       <h1 class="titulo">Planes de ciclo</h1>
       <p class="subtitulo">El avance de cada carrera en el ciclo. Pulsa una fila para consultar su plan.</p>
     </div>
@@ -11,7 +11,7 @@
         <label for="sel-ciclo">Ciclo académico</label>
         <select id="sel-ciclo" class="control"></select>
       </div>
-      <button type="button" class="btn" id="btn-releer" title="Vuelve a leer ahora los .xlsx de la carpeta de Drive"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-arrows-clockwise"></use></svg>Releer Excel</button>
+      <button type="button" class="btn" id="btn-releer" title="Vuelve a leer ahora los .xlsx de la carpeta de Drive"><?!= icono_("arrows-clockwise") ?>Releer Excel</button>
     </div>
   </header>
 
@@ -34,18 +34,18 @@
       </table>
     </div>
   </div>
-  <p class="ayuda"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-info"></use></svg>Usa <b>Editar</b> en las carreras que tienes autorizadas. Mientras alguien edita un plan, los demás lo ven en solo lectura.</p>
+  <p class="ayuda"><?!= icono_("info") ?>Usa <b>Editar</b> en las carreras que tienes autorizadas. Mientras alguien edita un plan, los demás lo ven en solo lectura.</p>
 </section>
 
 <section class="vista" id="v-lectura" hidden>
   <header class="vista-cab">
     <div>
-      <button type="button" class="btn fantasma btn-sm volver" data-volver="planes"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-arrow-left"></use></svg>Volver al tablero</button>
-      <p class="sobretitulo"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-eye"></use></svg>Consulta en solo lectura</p>
+      <button type="button" class="btn fantasma btn-sm volver" data-volver="planes"><?!= icono_("arrow-left") ?>Volver al tablero</button>
+      <p class="sobretitulo"><?!= icono_("eye") ?>Consulta en solo lectura</p>
       <h1 class="titulo" id="lectura-titulo">Consulta del plan</h1>
     </div>
     <div class="vista-acciones">
-      <button type="button" class="btn primario" id="lectura-editar" hidden><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-pencil-simple"></use></svg>Editar este plan</button>
+      <button type="button" class="btn primario" id="lectura-editar" hidden><?!= icono_("pencil-simple") ?>Editar este plan</button>
     </div>
   </header>
   <div class="nota" id="lectura-nota"></div>

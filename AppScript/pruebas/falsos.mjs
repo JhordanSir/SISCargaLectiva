@@ -207,12 +207,14 @@ export function crearEntorno({ propietario = "mfloresl@ulasalle.edu.pe" } = {}) 
     }
   };
 
-  /* Plantillas de HtmlService: solo <?!= expr ?> y <?= expr ?>, que es lo que usa Index.html. */
+  /* Plantillas de HtmlService: solo <?!= expr ?> y <?= expr ?>, que es lo que usan Index.html
+     y las pantallas. Como en Apps Script, las expresiones ven las funciones globales del
+     servidor que usan las plantillas (include_ e icono_). */
   function plantilla(texto) {
     const t = {
       evaluate() {
         const html = texto.replace(/<\?(!?=)\s*([\s\S]*?)\s*\?>/g, (m, tipo, expr) => {
-          const v = String(new Function(...Object.keys(t), "include_", "return (" + expr + ");")(...Object.values(t), e.ctx.include_));
+          const v = String(new Function(...Object.keys(t), "include_", "icono_", "return (" + expr + ");")(...Object.values(t), e.ctx.include_, e.ctx.icono_));
           return tipo === "!=" ? v : v.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
         });
         return salida(html);

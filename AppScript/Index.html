@@ -24,13 +24,13 @@
     <nav class="navegacion" id="navegacion" aria-label="Secciones" hidden>
       <span class="nav-indicador" id="nav-indicador" aria-hidden="true"></span>
       <button type="button" class="nav-op" data-ir="inicio" aria-label="Inicio">
-        <svg class="ico" aria-hidden="true" focusable="false"><use href="#i-house"></use></svg><span aria-hidden="true">Inicio</span>
+        <?!= icono_("house") ?><span aria-hidden="true">Inicio</span>
       </button>
       <button type="button" class="nav-op" data-ir="planes" aria-label="Registrar plan de ciclo">
-        <svg class="ico" aria-hidden="true" focusable="false"><use href="#i-clipboard-text"></use></svg><span class="nav-largo" aria-hidden="true">Registrar plan de ciclo</span><span class="nav-corto" aria-hidden="true">Plan de ciclo</span>
+        <?!= icono_("clipboard-text") ?><span class="nav-largo" aria-hidden="true">Registrar plan de ciclo</span><span class="nav-corto" aria-hidden="true">Plan de ciclo</span>
       </button>
       <button type="button" class="nav-op" data-ir="docentes" aria-label="Asignar docentes al plan de ciclo">
-        <svg class="ico" aria-hidden="true" focusable="false"><use href="#i-chalkboard-teacher"></use></svg><span class="nav-largo" aria-hidden="true">Asignar docentes</span><span class="nav-corto" aria-hidden="true">Docentes</span>
+        <?!= icono_("chalkboard-teacher") ?><span class="nav-largo" aria-hidden="true">Asignar docentes</span><span class="nav-corto" aria-hidden="true">Docentes</span>
         <span class="nav-punto" id="nav-sucio" title="Hay asignaciones sin guardar" hidden></span>
       </button>
     </nav>

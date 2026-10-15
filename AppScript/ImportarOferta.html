@@ -2,13 +2,13 @@
 <section class="vista" id="v-carga" hidden>
   <header class="vista-cab">
     <div>
-      <button type="button" class="btn fantasma btn-sm volver" id="volver-carga"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-arrow-left"></use></svg>Volver al tablero</button>
-      <p class="sobretitulo"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-upload-simple"></use></svg>Registrar plan de ciclo</p>
+      <button type="button" class="btn fantasma btn-sm volver" id="volver-carga"><?!= icono_("arrow-left") ?>Volver al tablero</button>
+      <p class="sobretitulo"><?!= icono_("upload-simple") ?>Registrar plan de ciclo</p>
       <h1 class="titulo" id="carga-titulo">Carga masiva de la oferta</h1>
       <p class="subtitulo">Trae la oferta de una vez: el sistema interpreta lo que recibe y nunca rechaza una carga.</p>
     </div>
     <div class="vista-acciones">
-      <span class="chip-reloj"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-timer"></use></svg><span class="reloj" id="reloj-carga"></span></span>
+      <span class="chip-reloj"><?!= icono_("timer") ?><span class="reloj" id="reloj-carga"></span></span>
     </div>
   </header>
 
@@ -16,17 +16,17 @@
 
   <div class="opciones-carga">
     <button type="button" class="opcion destacada" id="op-pegar">
-      <span class="opcion-ico"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-clipboard"></use></svg></span>
+      <span class="opcion-ico"><?!= icono_("clipboard") ?></span>
       <b>Pegar desde Google Sheets</b>
       <small>Copia el rango con su fila de cabeceras y pégalo en una rejilla.</small>
     </button>
     <button type="button" class="opcion" id="op-archivo">
-      <span class="opcion-ico"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-upload-simple"></use></svg></span>
+      <span class="opcion-ico"><?!= icono_("upload-simple") ?></span>
       <b>Subir archivo</b>
       <small>.xlsx, .csv o texto; también puedes soltarlo aquí. Si el libro tiene varias hojas, eliges una.</small>
     </button>
     <button type="button" class="opcion" id="op-plantilla">
-      <span class="opcion-ico"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-download-simple"></use></svg></span>
+      <span class="opcion-ico"><?!= icono_("download-simple") ?></span>
       <b>Descargar plantilla oficial</b>
       <small>Un .csv con las columnas de la plantilla y una fila de ejemplo.</small>
     </button>
@@ -44,13 +44,13 @@
 <section class="vista" id="v-pegado" hidden>
   <header class="vista-cab">
     <div>
-      <button type="button" class="btn fantasma btn-sm volver" data-volver="carga"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-arrow-left"></use></svg>Volver a las opciones de carga</button>
-      <p class="sobretitulo"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-clipboard"></use></svg>Carga masiva</p>
+      <button type="button" class="btn fantasma btn-sm volver" data-volver="carga"><?!= icono_("arrow-left") ?>Volver a las opciones de carga</button>
+      <p class="sobretitulo"><?!= icono_("clipboard") ?>Carga masiva</p>
       <h1 class="titulo">Pegar desde Google Sheets</h1>
       <p class="subtitulo">Copia el rango completo en Google Sheets, incluida la fila de cabeceras, y pégalo en la rejilla.</p>
     </div>
     <div class="vista-acciones">
-      <span class="chip-reloj"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-timer"></use></svg><span class="reloj" id="reloj-pegado"></span></span>
+      <span class="chip-reloj"><?!= icono_("timer") ?><span class="reloj" id="reloj-pegado"></span></span>
     </div>
   </header>
 
@@ -58,7 +58,7 @@
     <div class="hoja" id="hoja-pegado" tabindex="0" role="group"
          aria-label="Área de pegado. Pulsa Ctrl+V para pegar el rango copiado.">
       <div class="hoja-vacia" id="hoja-vacia">
-        <span class="ico-hoja"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-table"></use></svg></span>
+        <span class="ico-hoja"><?!= icono_("table") ?></span>
         <b>Pega aquí el rango</b>
         <small>Ctrl+V &nbsp;·&nbsp; Cmd+V en Mac</small>
       </div>
@@ -68,8 +68,8 @@
   </div>
 
   <div class="barra-acciones">
-    <button type="button" class="btn primario" id="procesar-pegado" disabled><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-check"></use></svg>Procesar contenido</button>
-    <button type="button" class="btn" id="limpiar-pegado" disabled><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-x"></use></svg>Limpiar</button>
+    <button type="button" class="btn primario" id="procesar-pegado" disabled><?!= icono_("check") ?>Procesar contenido</button>
+    <button type="button" class="btn" id="limpiar-pegado" disabled><?!= icono_("x") ?>Limpiar</button>
   </div>
 </section>
 

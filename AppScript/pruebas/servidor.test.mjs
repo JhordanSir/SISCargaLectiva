@@ -366,5 +366,8 @@ test("doGet arma la página con los datos iniciales y el dominio compartido", ()
   assert.match(html, /var SIS = \{"estado":"ok"/);
   assert.match(html, /var Dominio = \(function \(\) \{\nfunction crearDominioComun_\(\)/);
   assert.doesNotMatch(html, /<\?/);
+  assert.doesNotMatch(html, /icono_\(/, "las pantallas se evalúan como plantillas");
+  const iconos = (html.match(/<svg class="ico[^"]*" aria-hidden="true" focusable="false"><use href="#i-[a-z0-9-]+"><\/use><\/svg>/g) || []).length;
+  assert.ok(iconos >= 82, "los íconos de las pantallas llegan dibujados (" + iconos + ")");
   assert.ok(!/<\/script/i.test(e.ctx.fuenteDominio_()), "el código compartido no puede cerrar la etiqueta <script>");
 });
