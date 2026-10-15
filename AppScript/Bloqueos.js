@@ -71,8 +71,8 @@ function falloBloqueado_(que, b) {
 function tomarBloqueo_(ciclo, ref, correo) {
   const b = leerBloqueos_().filter(function (x) { return x.ciclo === ciclo && x.ref === ref; })[0];
   if (bloqueoVigente_(b) && b.correo !== correo) return { ok: false, bloqueo: b };
-  const desde = bloqueoVigente_(b) ? b.desde : new Date().toISOString();
-  const expira = new Date(Date.now() + config_().minutosBloqueo * 60000).toISOString();
+  const desde = bloqueoVigente_(b) ? b.desde : Dominio.isoPeru();
+  const expira = Dominio.isoPeru(Date.now() + config_().minutosBloqueo * 60000);
   const valores = [ciclo, ref, correo, desde, expira];
   if (b) escribirFila_(TABLA_.BLOQUEOS, b._fila, valores);
   else agregarFila_(TABLA_.BLOQUEOS, valores);

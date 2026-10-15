@@ -67,47 +67,49 @@ test("guardarPlan guarda solo los campos del modelo y rechaza un volumen desmedi
 test("guardarCarga sanea cada asignación: campos, componente y horas", () => {
   const e = sistema();
   ejecutar(e, A, "obtenerTablero", CICLO);
-  const st = ejecutar(e, DIMA, "obtenerCargaDocente", CICLO, "DIMA");
-  const u = st.unidades.find(x => x.dpto === "DIMA");
-  ejecutar(e, DIMA, "abrirEdicionCarga", CICLO, "DIMA");
-  const r = ejecutar(e, DIMA, "guardarCarga", CICLO, "DIMA", { versionBase: 0, asignaciones: [
-    { unidad: u.id, componente: "T", docente: "  PRUEBA, UNO ", horas: "3 h", heredada: true, dptoCarga: "DAHUC", raro: 1 },
+  const st = ejecutar(e, DIMA, "obtenerCargaDocente", CICLO, "ING");
+  const u = st.unidades.find(x => x.carrera === "ING");
+  ejecutar(e, DIMA, "abrirEdicionCarga", CICLO, "ING");
+  const r = ejecutar(e, DIMA, "guardarCarga", CICLO, "ING", { versionBase: 0, asignaciones: [
+    { unidad: u.id, componente: "T", docente: "  PRUEBA, UNO ", horas: "3 h", heredada: true, cargaDe: "PSI", raro: 1 },
     { unidad: u.id, componente: "<img>", docente: "PRUEBA, DOS", horas: "-5", dni: "12 34" }
   ] });
   const [x, y] = r.asignaciones;
   assert.equal(x.docente, "PRUEBA, UNO");
   assert.equal(x.horas, 3);
   assert.equal(x.heredada, undefined);
+  assert.equal(x.cargaDe, undefined);
   assert.equal(x.raro, undefined);
   assert.ok(x.id);
   assert.equal(y.componente, "C");
   assert.equal(y.horas, 0, "las horas no bajan de 0");
   assert.equal(e.ctx.Dominio.sanearAsignaciones([{ horas: 500 }])[0].horas, 60, "ni pasan de 60");
   assert.equal(y.dni, "", "un DNI con caracteres no válidos se descarta");
-  assert.throws(() => ejecutar(e, DIMA, "guardarCarga", CICLO, "DIMA", { versionBase: 1, asignaciones: { no: "lista" } }), { codigo: "DATO_INVALIDO", message: /se esperaba una lista/ });
-  assert.throws(() => ejecutar(e, DIMA, "guardarRecuperacion", CICLO, "carga:DIMA", { contenido: "texto" }), { codigo: "DATO_INVALIDO", message: /se esperaba una lista/ });
+  assert.throws(() => ejecutar(e, DIMA, "guardarCarga", CICLO, "ING", { versionBase: 1, asignaciones: { no: "lista" } }), { codigo: "DATO_INVALIDO", message: /se esperaba una lista/ });
+  assert.throws(() => ejecutar(e, DIMA, "guardarRecuperacion", CICLO, "carga:ING", { contenido: "texto" }), { codigo: "DATO_INVALIDO", message: /se esperaba una lista/ });
 });
 
 test("el DNI solo llega al director del departamento, y solo el de los suyos", () => {
   const e = sistema();
   ejecutar(e, A, "obtenerTablero", CICLO);
-  const dimaSt = ejecutar(e, DIMA, "obtenerCargaDocente", CICLO, "DIMA");
+  const dimaSt = ejecutar(e, DIMA, "obtenerCargaDocente", CICLO, "ING");
   const conDni = dimaSt.catalogo.filter(d => d.dni);
   assert.ok(conDni.length > 0 && conDni.every(d => d.dpto === "DIMA"), "el director ve el DNI de los docentes de su departamento");
   assert.ok(dimaSt.catalogo.some(d => d.dpto !== "DIMA" && d.dni === undefined), "y no el de los demás");
 
   const docente = conDni[0];
-  const u = dimaSt.unidades.find(x => x.dpto === "DIMA");
-  ejecutar(e, DIMA, "abrirEdicionCarga", CICLO, "DIMA");
-  ejecutar(e, DIMA, "guardarCarga", CICLO, "DIMA", { versionBase: 0, asignaciones: [{ unidad: u.id, componente: "T", docente: docente.nombreCompleto, dni: docente.dni }] });
-  assert.equal(ejecutar(e, DIMA, "obtenerCargaDocente", CICLO, "DIMA").cargas.DIMA.asignaciones[0].dni, docente.dni);
+  const u = dimaSt.unidades.find(x => x.carrera === "ING");
+  ejecutar(e, DIMA, "abrirEdicionCarga", CICLO, "ING");
+  ejecutar(e, DIMA, "guardarCarga", CICLO, "ING", { versionBase: 0, asignaciones: [{ unidad: u.id, componente: "T", docente: docente.nombreCompleto, dni: docente.dni }] });
+  assert.equal(ejecutar(e, DIMA, "obtenerCargaDocente", CICLO, "ING").cargas.ING.asignaciones[0].dni, docente.dni);
+  assert.equal(ejecutar(e, DIMA, "obtenerCargaDocente", CICLO, "PSI").cargas.ING.asignaciones[0].dni, docente.dni, "lo ve en cualquier pantalla: la asignación es de su departamento");
 
-  const coord = ejecutar(e, A, "obtenerCargaDocente", CICLO, "DIMA");
+  const coord = ejecutar(e, A, "obtenerCargaDocente", CICLO, "ING");
   assert.ok(coord.catalogo.every(d => d.dni === undefined), "el coordinador no recibe DNI");
-  assert.equal(coord.cargas.DIMA.asignaciones[0].dni, undefined);
-  assert.equal(ejecutar(e, DAHUC, "obtenerCargaDocente", CICLO, "DIMA").cargas.DIMA.asignaciones[0].dni, undefined, "ni el director de otro departamento");
-  assert.equal(ejecutar(e, A, "obtenerVersionCarga", CICLO, "DIMA", 1)[0].dni, undefined);
-  assert.equal(ejecutar(e, DIMA, "obtenerVersionCarga", CICLO, "DIMA", 1)[0].dni, docente.dni);
+  assert.equal(coord.cargas.ING.asignaciones[0].dni, undefined);
+  assert.equal(ejecutar(e, DAHUC, "obtenerCargaDocente", CICLO, "ING").cargas.ING.asignaciones[0].dni, undefined, "ni el director de otro departamento");
+  assert.equal(ejecutar(e, A, "obtenerVersionCarga", CICLO, "ING", 1)[0].dni, undefined);
+  assert.equal(ejecutar(e, DIMA, "obtenerVersionCarga", CICLO, "ING", 1)[0].dni, docente.dni);
 });
 
 test("los xlsx se leen antes de tomar el candado", () => {

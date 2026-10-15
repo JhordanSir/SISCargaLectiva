@@ -130,26 +130,50 @@ function exigirEdicion_(usuario, sig) {
 }
 
 /**
- * Solo el director de un departamento edita su carga docente.
+ * La carga de una carrera la edita el director del departamento de la carrera. El de otro
+ * departamento solo si tiene cursos de esa carrera derivados a él; para saberlo hacen falta
+ * las secciones del ciclo (unidades).
  * @param {Usuario} usuario
- * @param {string} dpto
+ * @param {string} carrera
+ * @param {Seccion[]=} unidades
  * @returns {boolean}
  */
-function puedeEditarCarga_(usuario, dpto) {
-  return usuario.rol === "director" && !!usuario.departamento && usuario.departamento === dpto;
+function puedeEditarCarga_(usuario, carrera, unidades) {
+  if (usuario.rol !== "director" || !usuario.departamento) return false;
+  if (Dominio.dptoDeCarrera(carrera) === usuario.departamento) return true;
+  return (unidades || []).some(function (s) { return s.carrera === carrera && s.dpto === usuario.departamento; });
 }
 
 /**
- * Falla con SIN_PERMISO si la cuenta no es el director de ese departamento.
+ * Falla con SIN_PERMISO si la cuenta no puede editar la carga de esa carrera.
  * @param {Usuario} usuario
- * @param {string} dpto
+ * @param {string} carrera
+ * @param {Seccion[]=} unidades
  * @returns {void}
  */
-function exigirCarga_(usuario, dpto) {
-  if (puedeEditarCarga_(usuario, dpto)) return;
+function exigirCarga_(usuario, carrera, unidades) {
+  if (puedeEditarCarga_(usuario, carrera, unidades)) return;
   if (usuario.rol !== "director") fallo_("SIN_PERMISO", "El coordinador de carrera consulta la asignación docente en solo lectura.");
   if (!usuario.departamento) fallo_("SIN_PERMISO", "Tu cuenta de director no tiene departamento. Pide que lo escriban en la columna «departamento» de la pestaña Usuarios.");
-  fallo_("SIN_PERMISO", "Solo asignas docentes en " + usuario.departamento + ". La carga de " + dpto + " la consultas en solo lectura.");
+  const d = usuario.departamento;
+  fallo_("SIN_PERMISO", "Solo asignas docentes en las carreras de " + d + " (" + Dominio.carrerasDeDpto(d).join(", ") + ") y en los cursos derivados a " + d +
+                        ". La carga de " + Dominio.nombreCarrera(carrera) + " la consultas en solo lectura.");
+}
+
+/**
+ * Para lo que se repite mientras se edita (latido, copia de recuperación, restaurar):
+ * basta con ser el director de la carrera o tener su bloqueo, que solo se da tras
+ * comprobar el permiso completo. Si no, se comprueba con las secciones del ciclo.
+ * @param {Usuario} usuario
+ * @param {string} ciclo
+ * @param {string} carrera
+ * @returns {void}
+ */
+function exigirCargaEnEdicion_(usuario, ciclo, carrera) {
+  if (puedeEditarCarga_(usuario, carrera)) return;
+  const b = bloqueoDe_(ciclo, Dominio.REF.carga(carrera));
+  if (usuario.rol === "director" && b && b.correo === usuario.correo) return;
+  exigirCarga_(usuario, carrera, seccionesDelCiclo_(ciclo));
 }
 
 /**

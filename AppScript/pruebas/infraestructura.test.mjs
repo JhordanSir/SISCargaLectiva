@@ -25,10 +25,11 @@ function sistema() {
 test("los bloqueos de planes y de cargas se guardan con su referencia", () => {
   const e = sistema();
   ejecutar(e, A, "abrirEdicion", CICLO, "ING");
-  ejecutar(e, DIMA, "abrirEdicionCarga", CICLO, "DIMA");
-  assert.deepEqual(e.hoja("Bloqueos").filas().map(f => f[1]).sort(), ["carga:DIMA", "plan:ING"]);
+  ejecutar(e, DIMA, "abrirEdicionCarga", CICLO, "ING");
+  assert.deepEqual(e.hoja("Bloqueos").filas().map(f => f[1]).sort(), ["carga:ING", "plan:ING"]);
+  assert.match(e.hoja("Bloqueos").filas()[0][4], /-05:00$/, "la caducidad va en hora de Perú");
   ejecutar(e, A, "liberarBloqueo", CICLO, "ING");
-  ejecutar(e, DIMA, "liberarBloqueoCarga", CICLO, "DIMA");
+  ejecutar(e, DIMA, "liberarBloqueoCarga", CICLO, "ING");
   assert.equal(e.hoja("Bloqueos").filas().length, 0);
 });
 

@@ -127,7 +127,7 @@ function htmlBloques(asignaturas, editable, opciones){
           '<td class="num">' + esc(g.n) + '</td><td class="num">' + esc(g.ht) +
           '</td><td class="num">' + esc(g.hp) + "</td>" +
           '<td class="num"><b>' + th(g) + "</b></td>" +
-          '<td class="cod">' + esc(a.dpto) + "</td>" +
+          '<td class="cod">' + esc(a.dpto) + (a.derivado ? '<br><small class="tenue" title="Curso derivado: asigna el docente otro departamento">Asigna ' + esc(a.derivado) + "</small>" : "") + "</td>" +
           '<td class="obs">' + esc(a.obs || "—") + "</td>" +
           (docentes ? "<td>" + ((docentes[g.id] || []).map(esc).join("<br>") || '<span class="tenue">—</span>') + "</td>" : "") +
           (op.derivar ? "<td>" + (gi === 0 && op.derivar(a) ? '<button type="button" class="btn btn-sm" data-derivar="' + ci + '">' + icono("swap") + "Derivar</button>" : "") + "</td>" : "") +

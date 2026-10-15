@@ -1,6 +1,6 @@
 // @ts-check
 /* Documentos con versiones. Lo usan los planes de ciclo (una carrera en un ciclo) y las
-   cargas docentes (un departamento en un ciclo). Cada repositorio tiene dos tablas:
+   cargas docentes (una carrera en un ciclo). Cada repositorio tiene dos tablas:
      - el índice, con una fila por documento: su versión vigente y en qué fila de la
        tabla de versiones está (para leerla sin recorrerla);
      - las versiones, con una fila por guardado: sus datos y el contenido completo en JSON,
@@ -17,7 +17,7 @@
    Versiones y VersionesCarga solo la vigente y la última «registrar» de cada documento. */
 
 var REPO_PLAN_ = { indice: "Planes", versiones: "Versiones", clave: "carrera", cache: "v", nombre: "del plan" };
-var REPO_CARGA_ = { indice: "Cargas", versiones: "VersionesCarga", clave: "departamento", cache: "vc", nombre: "de la carga" };
+var REPO_CARGA_ = { indice: "Cargas", versiones: "VersionesCarga", clave: "carrera", cache: "vcc", nombre: "de la carga" };
 
 var SEGUNDOS_CACHE_VERSION_ = 21600;   // el máximo que admite CacheService
 var MAX_TEXTO_CACHE_ = 45000;          // holgura frente al límite de 100 KB por valor

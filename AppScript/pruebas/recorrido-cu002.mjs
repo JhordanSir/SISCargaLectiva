@@ -106,16 +106,21 @@ async function main() {
     const c = await Pestana.abrir(url(COORDINADOR));
     await c.esperar('!document.getElementById("v-menu").hidden', "Menú principal visible");
     await c.pulsar("#op-docentes", "Entrar en «Asignar docentes al plan de ciclo»");
-    await c.esperar('!document.getElementById("v-docentes").hidden && document.querySelectorAll("#tb-vista-carrera tr").length > 0', "Secciones del departamento listadas");
+    await c.esperar('!document.getElementById("v-docentes").hidden && document.querySelectorAll("#tb-vista-carrera tr").length > 0', "Secciones de la carrera listadas");
     await c.esperar('document.getElementById("btn-doc-editar").hidden && !document.querySelector("[data-acc-sec]")', "Sin botones de edición para el coordinador");
     asegurar(c.errores.length === 0, "Sin errores en la consola del coordinador (" + c.errores.join(", ") + ")");
 
-    console.log("Verificación 2: el director entra a su departamento");
+    console.log("Verificación 2: el director entra a la primera carrera de su departamento");
     const p = await Pestana.abrir(url(USUARIO));
     await p.esperar('document.getElementById("u-rol").textContent === "Director del DIMA · Ingeniería y Matemáticas"', "La cabecera dice de qué departamento es el director");
     await p.pulsar("#op-docentes", "Entrar en la asignación docente");
-    await p.esperar('document.getElementById("sel-doc-dpto").value === "DIMA" && parseInt(document.getElementById("met-doc-req").textContent, 10) > 0', "Abre en DIMA con las horas pedidas");
-    await p.esperar('!document.getElementById("btn-doc-editar").hidden', "Puede editar su departamento");
+    await p.esperar('document.getElementById("sel-doc-carrera").value === "ING" && parseInt(document.getElementById("met-doc-req").textContent, 10) > 0', "Abre en ING con las horas pedidas");
+    asegurar(await p.evaluar('[...document.querySelectorAll("#sel-doc-carrera optgroup")].map(g => g.label.split(" ")[0]).join(",") === "DIMA,DAHUC,DACJ,DACTE"'), "Las carreras se agrupan por el departamento que las asigna");
+    await p.esperar('!document.getElementById("btn-doc-editar").hidden', "Puede editar la carga de ING");
+    await p.evaluar('(() => { const s = document.getElementById("sel-doc-carrera"); s.value = "ADM"; s.dispatchEvent(new Event("change")); })()');
+    await p.esperar('appCarga.datos && appCarga.datos.carrera === "ADM" && document.getElementById("btn-doc-editar").hidden && /solo lectura/.test(document.getElementById("doc-subtitulo").textContent)', "ADM es de DACTE: la consulta en solo lectura");
+    await p.evaluar('(() => { const s = document.getElementById("sel-doc-carrera"); s.value = "ING"; s.dispatchEvent(new Event("change")); })()');
+    await p.esperar('appCarga.datos && appCarga.datos.carrera === "ING" && !document.getElementById("btn-doc-editar").hidden', "Vuelve a ING");
 
     console.log("Verificación 3: edición con bloqueo y asignación por componente");
     await p.pulsar("#btn-doc-editar", "Pulsar «Editar asignaciones»");

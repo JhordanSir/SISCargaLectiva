@@ -45,8 +45,8 @@ async function accion(tipo){
             opciones.map(d => '<option value="' + esc(d) + '"' + (d === actual ? " selected" : "") + ">" + esc(d) + "</option>").join("") + "</select></div></div>" +
           '<div class="campo"><label for="ea-nom">Asignatura</label><input type="text" id="ea-nom" value="' + esc(s.a.nombre) + '"></div>' +
           '<div class="campo"><label for="ea-obs">Observaciones</label><input type="text" id="ea-obs" value="' + esc(s.a.obs || "") + '" placeholder="INTERNACIONAL, VIRTUAL…"></div>' +
-          (doc.length ? '<div class="nota">Si cambias el departamento, los docentes ya asignados (' + doc.map(esc).join(", ") +
-            ") siguen al curso y el nuevo departamento los verá como asignados.</div>" : ""),
+          '<div class="nota">La columna DPTO es informativa: el docente lo asigna el departamento de la carrera (' + esc(Dominio.dptoDeCarrera(app.carrera)) +
+            ") o aquel al que el director derive el curso." + (doc.length ? " Docentes ya asignados: " + doc.map(esc).join(", ") + "." : "") + "</div>",
         acciones: [{ texto:"Cancelar", valor:null }, { texto:"Aplicar", clase:"primario", valor:() => ({
           codigo: $("#ea-cod").value.trim(), nombre: $("#ea-nom").value.trim(), dpto: $("#ea-dpto").value, obs: $("#ea-obs").value.trim() }) }]
       });

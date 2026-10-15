@@ -65,7 +65,7 @@ test("el tablero lee los xlsx de Drive: 8 carreras Registradas v1 con 365 grupos
   const versiones = e.hoja("Versiones").filas();
   assert.equal(versiones.length, 8);
   assert.ok(versiones.every(v => v[4] === "importación desde xlsx" && v[5] === "xlsx: SISCargaLectiva-Ejemplo-CargaXCarrera.xlsx"));
-  assert.equal(versiones[0][6], "2026-09-20T10:05:00.000Z");
+  assert.equal(versiones[0][6], "2026-09-20T05:05:00-05:00", "la fecha del Excel, en hora de Perú");
 
   const otra = ejecutar(e, B, "obtenerTablero", CICLO);
   assert.equal(e.hoja("Versiones").filas().length, 8, "una segunda lectura no crea versiones");
@@ -260,8 +260,8 @@ test("con la caché caliente, el tablero y la consulta no leen Versiones ni Usua
   const e = sistema();
   ejecutar(e, A, "obtenerTablero", CICLO);
   /* Con una carga docente guardada, ni el tablero ni la página leen Cargas ni VersionesCarga. */
-  ejecutar(e, DIRECTORES.DIMA, "abrirEdicionCarga", CICLO, "DIMA");
-  ejecutar(e, DIRECTORES.DIMA, "guardarCarga", CICLO, "DIMA", { asignaciones: [], versionBase: 0 });
+  ejecutar(e, DIRECTORES.DIMA, "abrirEdicionCarga", CICLO, "ING");
+  ejecutar(e, DIRECTORES.DIMA, "guardarCarga", CICLO, "ING", { asignaciones: [], versionBase: 0 });
   ejecutar(e, A, "obtenerTablero", CICLO);
   e.reiniciarCuentas();
   ejecutar(e, A, "obtenerTablero", CICLO);

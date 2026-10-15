@@ -88,6 +88,7 @@
  * @property {string} dpto
  * @property {string} obs
  * @property {Grupo[]} grupos
+ * @property {Dpto} [derivado] Departamento al que se derivó el curso; sin él, lo asigna el de la carrera.
  */
 
 /**
@@ -157,7 +158,9 @@
  * @property {string|number} sem
  * @property {string} malla
  * @property {string|number} n
- * @property {string} dpto
+ * @property {string} dpto Departamento que asigna el docente: el de la carrera o al que se derivó.
+ * @property {boolean} derivada El curso se derivó a otro departamento.
+ * @property {string} dptoAsignatura Lo que dice la columna DPTO (solo informativo).
  * @property {string} obs
  * @property {boolean} intl
  * @property {number} ht
@@ -178,7 +181,12 @@
  * @property {string} [dni]
  * @property {number|string|null} [horas]
  * @property {string} [condicion]
- * @property {string} [dptoCarga] Departamento cuya carga la trae (al calcular).
+ * @property {string} [carrera] Datos de la sección al asignarla, para mostrarla si deja de existir.
+ * @property {string} [codigo]
+ * @property {string} [asignatura]
+ * @property {string|number} [n]
+ * @property {string|number} [sem]
+ * @property {string} [cargaDe] Carga de la que sale (al calcular las vigentes).
  * @property {boolean} [heredada]
  */
 

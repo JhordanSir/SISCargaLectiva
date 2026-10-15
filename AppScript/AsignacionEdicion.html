@@ -5,7 +5,7 @@
    ============================================================ */
 const sesionCarga = crearSesionEdicion({
   relojes: "#reloj-asignacion",
-  renovar: () => llamarEnSilencio("renovarBloqueoCarga", appCarga.ciclo, appCarga.dpto),
+  renovar: () => llamarEnSilencio("renovarBloqueoCarga", appCarga.ciclo, appCarga.carrera),
   alPerder: correo => {
     appCarga.editando = false;
     marcarDocentesSucio(false);
@@ -15,14 +15,14 @@ const sesionCarga = crearSesionEdicion({
   },
   alExpirar: () => expirarCarga(),
   copia: () => appCarga.editando && appCarga.sucio ? { contenido: appCarga.trabajo, versionBase: appCarga.base } : null,
-  guardarCopia: d => llamarEnSilencio("guardarRecuperacion", appCarga.ciclo, Dominio.REF.carga(appCarga.dpto), d)
+  guardarCopia: d => llamarEnSilencio("guardarRecuperacion", appCarga.ciclo, Dominio.REF.carga(appCarga.carrera), d)
 });
 
 alPulsar("#btn-doc-editar", async () => {
   const d = appCarga.datos;
   let r;
   try {
-    r = await llamar("abrirEdicionCarga", appCarga.ciclo, appCarga.dpto, appCarga.base);
+    r = await llamar("abrirEdicionCarga", appCarga.ciclo, appCarga.carrera, appCarga.base);
   } catch (e) {
     if (e.codigo !== "BLOQUEADO") return informarError(e);
     d.bloqueo = e.detalle;
@@ -30,16 +30,16 @@ alPulsar("#btn-doc-editar", async () => {
     return informar("La carga está siendo editada", "La edita <b>" + esc(e.detalle.correo) + "</b> desde las " + esc(hora(e.detalle.desde)) + ". Puedes consultarla en solo lectura.");
   }
   if (Array.isArray(r.asignaciones)) {
-    d.cargas[appCarga.dpto] = Object.assign({}, d.cargas[appCarga.dpto], { version: r.version, asignaciones: r.asignaciones });
+    d.cargas[appCarga.carrera] = Object.assign({}, d.cargas[appCarga.carrera], { version: r.version, asignaciones: r.asignaciones });
     appCarga.trabajo = clonar(r.asignaciones);
     appCarga.base = r.version;
   }
   appCarga.editando = true;
   sesionCarga.iniciar(r.expira);
   if (r.recuperacion && Array.isArray(r.recuperacion.contenido)) {
-    const rec = await ofrecerRecuperacion(r.recuperacion, appCarga.base, "la carga de " + appCarga.dpto);
+    const rec = await ofrecerRecuperacion(r.recuperacion, appCarga.base, "la carga de " + appCarga.carrera);
     if (rec === true) { appCarga.trabajo = r.recuperacion.contenido; marcarDocentesSucio(true); aviso("Cambios recuperados: revísalos y guarda."); }
-    else if (rec === false) llamarEnSilencio("descartarRecuperacion", appCarga.ciclo, Dominio.REF.carga(appCarga.dpto)).catch(e => console.warn("descartarRecuperacion:", e));
+    else if (rec === false) llamarEnSilencio("descartarRecuperacion", appCarga.ciclo, Dominio.REF.carga(appCarga.carrera)).catch(e => console.warn("descartarRecuperacion:", e));
   }
   pintarVistaDocentes();
 });
@@ -47,19 +47,19 @@ alPulsar("#btn-doc-editar", async () => {
 function confirmarFinCarga(){
   return preguntar({
     titulo: "Terminar la edición",
-    cuerpo: '<div class="nota aviso">' + (appCarga.sucio ? "Se descartarán las asignaciones que no guardaste y se liberará la carga del departamento." : "Se liberará la carga del departamento.") + "</div>",
+    cuerpo: '<div class="nota aviso">' + (appCarga.sucio ? "Se descartarán las asignaciones que no guardaste y se liberará la carga de " + esc(appCarga.carrera) + "." : "Se liberará la carga de " + esc(appCarga.carrera) + ".") + "</div>",
     acciones: [{ texto:"Seguir editando", valor:null }, { texto:"Terminar", clase:"peligro", valor:true }]
   });
 }
 
 async function terminarEdicionCarga(){
-  const ciclo = appCarga.ciclo, dpto = appCarga.dpto;
+  const ciclo = appCarga.ciclo, carrera = appCarga.carrera;
   sesionCarga.detener();
   appCarga.editando = false;
-  if (appCarga.sucio) llamarEnSilencio("descartarRecuperacion", ciclo, Dominio.REF.carga(dpto)).catch(e => console.warn("descartarRecuperacion:", e));
+  if (appCarga.sucio) llamarEnSilencio("descartarRecuperacion", ciclo, Dominio.REF.carga(carrera)).catch(e => console.warn("descartarRecuperacion:", e));
   marcarDocentesSucio(false);
-  try { await llamarEnSilencio("liberarBloqueoCarga", ciclo, dpto); } catch (e) { /* caduca solo */ }
-  if (appCarga.datos) appCarga.trabajo = clonar(appCarga.datos.cargas[dpto].asignaciones || []);
+  try { await llamarEnSilencio("liberarBloqueoCarga", ciclo, carrera); } catch (e) { /* caduca solo */ }
+  if (appCarga.datos) appCarga.trabajo = clonar(appCarga.datos.cargas[carrera].asignaciones || []);
   pintarVistaDocentes();
 }
 alPulsar("#btn-doc-terminar", async () => { if (await confirmarFinCarga()) terminarEdicionCarga(); });
@@ -70,7 +70,7 @@ async function expirarCarga(){
   let texto = "No había cambios sin guardar.";
   if (appCarga.sucio) {
     try {
-      const r = await llamar("guardarCarga", appCarga.ciclo, appCarga.dpto, { asignaciones: limpiarParaGuardar(), versionBase: appCarga.base, tipo: Dominio.TIPO_VERSION.AUTOGUARDADO, forzar: true });
+      const r = await llamar("guardarCarga", appCarga.ciclo, appCarga.carrera, { asignaciones: limpiarParaGuardar(), versionBase: appCarga.base, tipo: Dominio.TIPO_VERSION.AUTOGUARDADO, forzar: true });
       fijarGuardado(r);
       texto = "Los cambios se guardaron como la versión v" + r.version + ".";
     } catch (e) {
@@ -79,14 +79,14 @@ async function expirarCarga(){
   }
   appCarga.editando = false;
   marcarDocentesSucio(false);
-  try { await llamarEnSilencio("liberarBloqueoCarga", appCarga.ciclo, appCarga.dpto); } catch (e) { /* caduca solo */ }
+  try { await llamarEnSilencio("liberarBloqueoCarga", appCarga.ciclo, appCarga.carrera); } catch (e) { /* caduca solo */ }
   pintarVistaDocentes();
   await informar("La sesión de edición ha expirado", "Transcurrieron " + CONFIG.minutosBloqueo + " minutos sin actividad. " + esc(texto));
 }
 
 window.addEventListener("pagehide", () => {
   /* Sin esperar respuesta: la página se cierra. */
-  if (appCarga.editando) google.script.run.liberarBloqueoCarga(appCarga.ciclo, appCarga.dpto);
+  if (appCarga.editando) google.script.run.liberarBloqueoCarga(appCarga.ciclo, appCarga.carrera);
 });
 
 /* ============================================================
@@ -107,8 +107,9 @@ const unidadPorId = id => (appCarga.datos.unidades || []).find(seccion => seccio
 const fotoUnidad = seccion => ({ unidad: seccion.id, fusion: seccion.fusion || null, carrera: seccion.carrera, codigo: seccion.codigo, asignatura: seccion.nombre, n: seccion.n, sem: seccion.sem });
 
 function datalistDocentes(id){
+  const dptoPreferido = miDpto() || Dominio.dptoDeCarrera(appCarga.carrera);
   const cat = (appCarga.datos.catalogo || []).slice().sort((a, b) =>
-    (a.dpto === appCarga.dpto ? 0 : 1) - (b.dpto === appCarga.dpto ? 0 : 1) || a.nombreCompleto.localeCompare(b.nombreCompleto));
+    (a.dpto === dptoPreferido ? 0 : 1) - (b.dpto === dptoPreferido ? 0 : 1) || a.nombreCompleto.localeCompare(b.nombreCompleto));
   return '<datalist id="' + id + '">' + cat.map(c => '<option value="' + esc(c.nombreCompleto) + '">' + esc((c.dpto || "—") + " · " + (c.dedicacion || "") + " · " + (c.condicion || "")) + "</option>").join("") + "</datalist>";
 }
 /* El nombre escrito se resuelve contra el catálogo; si no está, se acepta tal cual. */
@@ -180,7 +181,7 @@ async function asignarSeccion(seccion){
         if (previa && previa.historial) reg.historial = previa.historial;
         if (previa && previa.reemplazo) reg.reemplazo = previa.reemplazo;
         if (previas.some(a => a.componente === c.c && Dominio.esPendienteInternacional(a)))
-          reg.historial = (reg.historial || []).concat([{ tipo: "regularización", antes: "Pendiente internacional", fecha: new Date().toISOString(), usuario: app.usuario.correo }]);
+          reg.historial = (reg.historial || []).concat([{ tipo: "regularización", antes: "Pendiente internacional", fecha: Dominio.isoPeru(), usuario: app.usuario.correo }]);
         nuevas.push(reg);
       });
     });
@@ -200,7 +201,7 @@ function fichaUnidad(seccion){
    titular queda en el historial de la asignación. */
 async function reemplazar(asigs, titulo){
   if (!asigs.length) return aviso("No hay asignaciones que reemplazar.", "aviso");
-  const hoy = new Date().toISOString().slice(0, 10);
+  const hoy = Dominio.isoPeru().slice(0, 10);   // fecha de hoy en Perú
   const r = await preguntar({
     titulo: titulo,
     cuerpo: datalistDocentes("dl-sust") +
@@ -232,8 +233,8 @@ async function reemplazar(asigs, titulo){
     if (Dominio.claveDocente(asigs[i].docente) === Dominio.claveDocente(d.docente)) return;
     const a = (asigs[i].id && appCarga.trabajo.find(x => x.id === asigs[i].id)) || asigs[i];
     if (!appCarga.trabajo.includes(a)) appCarga.trabajo.push(a);   // una heredada pasa a esta carga
-    delete a.heredada; delete a.dptoCarga;
-    a.historial = (a.historial || []).concat([{ tipo: "reemplazo", docente: a.docente, dni: a.dni || "", hasta: v.fecha, motivo: motivo, fecha: new Date().toISOString(), usuario: app.usuario.correo }]);
+    delete a.heredada; delete a.cargaDe;
+    a.historial = (a.historial || []).concat([{ tipo: "reemplazo", docente: a.docente, dni: a.dni || "", hasta: v.fecha, motivo: motivo, fecha: Dominio.isoPeru(), usuario: app.usuario.correo }]);
     a.reemplazo = { de: a.docente, motivo: motivo, desde: v.fecha };
     a.docente = d.docente; a.dni = d.dni;
   });
@@ -244,8 +245,8 @@ async function reemplazar(asigs, titulo){
 async function asignarADocente(nombre){
   const vig = appCarga.balance.vigentes;
   const libres = [];
-  unidadesDpto().forEach(seccion => Dominio.coberturaUnidad(seccion, vig.porUnidad.get(seccion.id)).forEach(c => { if (!c.cubierto) libres.push({ seccion: seccion, c: c }); }));
-  if (!libres.length) return aviso("Todas las secciones del departamento tienen docente.", "info");
+  seccionesMias().forEach(seccion => Dominio.coberturaUnidad(seccion, vig.porUnidad.get(seccion.id)).forEach(c => { if (!c.cubierto) libres.push({ seccion: seccion, c: c }); }));
+  if (!libres.length) return aviso("Todas las secciones que asignas en " + appCarga.carrera + " tienen docente.", "info");
   const r = await preguntar({
     titulo: "Asignar un curso a " + nombre,
     cuerpo: '<div class="campo"><label for="dlg-libre">Sección y componente sin docente</label><select id="dlg-libre">' +
@@ -263,8 +264,8 @@ async function asignarADocente(nombre){
 
 async function reasignarHuerfana(a){
   const opciones = [];
-  unidadesDpto().forEach(seccion => seccion.componentes.forEach(c => opciones.push({ seccion: seccion, c: c })));
-  if (!opciones.length) return aviso("Este departamento no tiene secciones en el ciclo.", "aviso");
+  seccionesMias().forEach(seccion => seccion.componentes.forEach(c => opciones.push({ seccion: seccion, c: c })));
+  if (!opciones.length) return aviso("No asignas ninguna sección de " + appCarga.carrera + " en el ciclo.", "aviso");
   const r = await preguntar({
     titulo: "Reasignar a una sección",
     cuerpo: '<div class="ficha"><b>' + esc(a.docente || "—") + "</b> · " + esc(a.carrera || "") + " " + esc(a.codigo || "") + " " + esc(a.asignatura || "") + "</div>" +
@@ -292,7 +293,8 @@ const ACCIONES_DOCENTE = {
   reemplazar: nombre => {
     const suyas = [];
     appCarga.balance.vigentes.porUnidad.forEach((l, id) => {
-      if (unidadPorId(id).dpto !== appCarga.dpto) return;
+      const s = unidadPorId(id);
+      if (!s || s.carrera !== appCarga.carrera || !meToca(s)) return;
       l.forEach(a => { if (Dominio.claveDocente(a.docente) === Dominio.claveDocente(nombre)) suyas.push(a); });
     });
     reemplazar(suyas, "Reemplazar a " + nombre);
@@ -325,18 +327,20 @@ document.addEventListener("click", e => {
   }
 });
 
-/* El director deriva una sección a otro departamento: cambia el DPTO de la asignatura en
-   el plan (una versión nueva del plan). Sus docentes asignados la siguen. */
+/* El director deriva una sección a otro departamento, que pasa a asignarla: se anota en la
+   asignatura del plan (una versión nueva del plan). Derivarla al departamento de la carrera
+   quita la derivación. Sus docentes asignados la siguen. */
 async function derivarSeccion(seccion){
   if (appCarga.sucio) return aviso("Guarda o descarta primero los cambios de la carga.", "aviso");
   const p = seccion.miembros.find(m => m.grupoId === seccion.id) || seccion.miembros[0];
-  const r = await pedirNuevoDpto(seccion.dpto, seccion.codigo + " " + seccion.nombre + (seccion.miembros.length > 1 ? " (se deriva la asignatura del grupo principal, " + p.carrera + ")" : ""));
+  const r = await pedirNuevoDpto(seccion.dpto, seccion.codigo + " " + seccion.nombre + (seccion.miembros.length > 1 ? " (se deriva la asignatura del grupo principal, " + p.carrera + ")" : ""),
+                                 Dominio.dptoDeCarrera(p.carrera));
   if (!r) return;
   try {
     const res = await llamar("cambiarDepartamento", appCarga.ciclo, p.carrera, p.grupoId, r.dpto, r.motivo);
-    if (res.sinCambios) return aviso(seccion.codigo + " ya pedía docente a " + r.dpto + ".", "info");
+    if (res.sinCambios) return aviso("A " + seccion.codigo + " ya lo asigna " + r.dpto + ".", "info");
     actualizarFilaTablero(p.carrera, { version: res.version, estado: res.estado, totales: res.totales, contenido: res.contenido });
-    aviso(seccion.codigo + " ahora pide docente a " + r.dpto + ".");
+    aviso("Ahora " + seccion.codigo + " lo asigna " + r.dpto + ".");
   } catch (e) { return informarError(e); }
   if (appCarga.editando) {
     /* Se recargan las secciones conservando lo que se está editando. */
@@ -354,27 +358,27 @@ async function derivarSeccion(seccion){
    ============================================================ */
 const limpiarParaGuardar = () => appCarga.trabajo.map(a => {
   const x = Object.assign({}, a);
-  delete x.heredada; delete x.dptoCarga;
+  delete x.heredada; delete x.cargaDe;
   if (!x.id) x.id = nuevoId();
   return x;
 });
 
 function fijarGuardado(r){
   const d = appCarga.datos;
-  d.cargas[appCarga.dpto] = { version: r.version, asignaciones: r.asignaciones, usuario: app.usuario.correo, fecha: r.fecha };
+  d.cargas[appCarga.carrera] = { version: r.version, asignaciones: r.asignaciones, usuario: app.usuario.correo, fecha: r.fecha };
   appCarga.trabajo = clonar(r.asignaciones);
   appCarga.base = r.version;
   sesionCarga.olvidarCopia();
   sesionCarga.renovada(r.expira);
   d.avisos = (d.avisos || []).filter(a => a.tipo !== "PLAN_CAMBIADO");
   marcarDocentesSucio(false);
-  anunciar("asignaciones", { ciclo: appCarga.ciclo, dpto: appCarga.dpto });
+  anunciar("asignaciones", { ciclo: appCarga.ciclo, carrera: appCarga.carrera });
   if (appCarga.ciclo === app.ciclo) pedirDocentesGrupo();
 }
 
 alPulsar("#btn-doc-guardar", async () => {
   const d = appCarga.datos;
-  const antes = Dominio.calcularBalance(d.catalogo, d.unidades, Object.assign(cargasActuales(), { [appCarga.dpto]: d.cargas[appCarga.dpto].asignaciones || [] }));
+  const antes = Dominio.calcularBalance(d.catalogo, d.unidades, Object.assign(cargasActuales(), { [appCarga.carrera]: d.cargas[appCarga.carrera].asignaciones || [] }));
   const despues = calcular();
   const exc = Dominio.excesosAlGuardar(antes, despues);
   if (exc.bloqueos.length) return informarError(new Error("No se puede guardar: " + exc.bloqueos.map(x => x.docente + " (" + x.horas + " h)").join(", ") +
@@ -382,12 +386,12 @@ alPulsar("#btn-doc-guardar", async () => {
 
   const vig = despues.vigentes;
   let pendientes = 0;
-  unidadesDpto().forEach(seccion => Dominio.coberturaUnidad(seccion, vig.porUnidad.get(seccion.id)).forEach(c => { if (!c.cubierto) pendientes++; }));
+  seccionesMias().forEach(seccion => Dominio.coberturaUnidad(seccion, vig.porUnidad.get(seccion.id)).forEach(c => { if (!c.cubierto) pendientes++; }));
   const advs = [];
-  despues.docentes.filter(x => x.cursos.some(c => c.dpto === appCarga.dpto)).forEach(x => x.advertencias.forEach(a => { if (a.nivel !== "info") advs.push(x.nombre + " · " + a.codigo + ": " + a.mensaje); }));
+  despues.docentes.filter(x => x.cursos.some(c => c.carrera === appCarga.carrera)).forEach(x => x.advertencias.forEach(a => { if (a.nivel !== "info") advs.push(x.nombre + " · " + a.codigo + ": " + a.mensaje); }));
   const r = await preguntar({
-    titulo: "Guardar la carga de " + appCarga.dpto,
-    cuerpo: '<p class="ficha">Se guardará una versión nueva de la carga de <b>' + esc(appCarga.dpto) + "</b> en <b>" + esc(appCarga.ciclo) + "</b>.</p>" +
+    titulo: "Guardar la carga de " + appCarga.carrera,
+    cuerpo: '<p class="ficha">Se guardará una versión nueva de la carga de <b>' + esc(appCarga.carrera) + "</b> en <b>" + esc(appCarga.ciclo) + "</b>.</p>" +
       (pendientes ? '<div class="nota aviso"><b>A13</b> · Quedan ' + pendientes + " componentes sin docente. Puedes guardar el avance.</div>" : "") +
       (advs.length ? '<div class="nota aviso">Advertencias vigentes (no impiden guardar):</div><ul class="lista-err lista-adv">' + advs.map(a => "<li><span>" + esc(a) + "</span></li>").join("") + "</ul>" : "") +
       (exc.severos.length ? '<div class="nota error"><b>A12</b> · ' + exc.severos.map(x => esc(x.docente) + " (" + x.horas + " h, " + esc(x.cargo) + ")").join(", ") +
@@ -404,11 +408,11 @@ alPulsar("#btn-doc-guardar", async () => {
   try {
     let res;
     try {
-      res = await llamar("guardarCarga", appCarga.ciclo, appCarga.dpto, datos);
+      res = await llamar("guardarCarga", appCarga.ciclo, appCarga.carrera, datos);
     } catch (e) {
       if (e.codigo !== "CONFLICTO") throw e;
       if (!await confirmarConflicto(e.detalle, "de la carga")) return;
-      res = await llamar("guardarCarga", appCarga.ciclo, appCarga.dpto, Object.assign(datos, { forzar: true }));
+      res = await llamar("guardarCarga", appCarga.ciclo, appCarga.carrera, Object.assign(datos, { forzar: true }));
     }
     fijarGuardado(res);
     pintarVistaDocentes();
@@ -418,15 +422,15 @@ alPulsar("#btn-doc-guardar", async () => {
 
 alPulsar("#btn-doc-historial", async () => {
   let versiones;
-  try { versiones = await llamar("obtenerHistorialCarga", appCarga.ciclo, appCarga.dpto); } catch (e) { return informarError(e); }
+  try { versiones = await llamar("obtenerHistorialCarga", appCarga.ciclo, appCarga.carrera); } catch (e) { return informarError(e); }
   if (!versiones.length) return aviso("Todavía no hay versiones guardadas de esta carga.", "info");
-  const v = await dialogoHistorial({ titulo: "Historial de la carga de " + appCarga.dpto, versiones: versiones, ver: true, restaurar: appCarga.editando });
+  const v = await dialogoHistorial({ titulo: "Historial de la carga de " + appCarga.carrera, versiones: versiones, ver: true, restaurar: appCarga.editando });
   if (!v) return;
   if (v.ver) {
     let lista;
-    try { lista = await llamar("obtenerVersionCarga", appCarga.ciclo, appCarga.dpto, v.ver); } catch (e) { return informarError(e); }
+    try { lista = await llamar("obtenerVersionCarga", appCarga.ciclo, appCarga.carrera, v.ver); } catch (e) { return informarError(e); }
     return preguntar({
-      titulo: "Carga de " + appCarga.dpto + " · v" + v.ver,
+      titulo: "Carga de " + appCarga.carrera + " · v" + v.ver,
       cuerpo: '<div class="tabla-caja"><table><thead><tr><th>Carrera</th><th>Código</th><th>Asignatura</th><th class="num">Grupo</th><th>Comp.</th><th>Docente</th><th class="num">Horas</th></tr></thead><tbody>' +
         (lista.length ? lista.map(a => "<tr><td>" + esc(a.carrera) + '</td><td class="cod">' + esc(a.codigo) + "</td><td>" + esc(a.asignatura) + '</td><td class="num">' + esc(a.n) +
           "</td><td>" + esc(a.componente) + "</td><td><b>" + esc(a.docente || (Dominio.esPendienteInternacional(a) ? "Pendiente internacional" : "—")) + "</b>" +
@@ -441,7 +445,7 @@ alPulsar("#btn-doc-historial", async () => {
     if (!ok) return;
   }
   try {
-    const res = await llamar("restaurarCarga", appCarga.ciclo, appCarga.dpto, v.restaurar);
+    const res = await llamar("restaurarCarga", appCarga.ciclo, appCarga.carrera, v.restaurar);
     fijarGuardado(res);
     pintarVistaDocentes();
     aviso("Versión v" + v.restaurar + " restaurada como v" + res.version + ".");

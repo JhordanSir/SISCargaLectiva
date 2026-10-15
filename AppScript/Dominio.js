@@ -20,17 +20,20 @@ function crearDominioComun_() {
 
   /* «alias» recoge las formas con que cada carrera aparece en los Sheets y Excel
      reales (las siglas de la columna CARRERA y los nombres de las hojas). */
+  /* dpto: el departamento al que pertenece la carrera. Su director asigna los docentes de
+     todos los cursos del plan de la carrera, diga lo que diga la columna DPTO del Excel,
+     salvo los cursos que se deriven a otro departamento (asignatura.derivado). */
   const CARRERAS = [
-    { sig: "ING", nombre: "Ingeniería de Software", alias: ["Ing. Software"] },
-    { sig: "IND", nombre: "Ingeniería Industrial", alias: ["Ing. Industrial"] },
-    { sig: "ADM", nombre: "Administración de Empresas",
+    { sig: "ING", nombre: "Ingeniería de Software", dpto: "DIMA", alias: ["Ing. Software"] },
+    { sig: "IND", nombre: "Ingeniería Industrial", dpto: "DIMA", alias: ["Ing. Industrial"] },
+    { sig: "ADM", nombre: "Administración de Empresas", dpto: "DACTE",
       alias: ["Adm. Neg. Int.", "Administración de Negocios Internacionales"] },
-    { sig: "DER", nombre: "Derecho", alias: [] },
-    { sig: "ARQ", nombre: "Arquitectura", alias: [] },
-    { sig: "PSI", nombre: "Psicología", alias: [] },
-    { sig: "COM", nombre: "Comunicación",
+    { sig: "DER", nombre: "Derecho", dpto: "DACJ", alias: [] },
+    { sig: "ARQ", nombre: "Arquitectura", dpto: "DIMA", alias: [] },
+    { sig: "PSI", nombre: "Psicología", dpto: "DAHUC", alias: [] },
+    { sig: "COM", nombre: "Comunicación", dpto: "DAHUC",
       alias: ["Cs. de la Comunicación", "Ciencias de la Comunicación"] },
-    { sig: "ICO", nombre: "Ingeniería Comercial", alias: ["Ing. Comercial"] }
+    { sig: "ICO", nombre: "Ingeniería Comercial", dpto: "DIMA", alias: ["Ing. Comercial"] }
   ];
 
   const COLUMNAS = ["CARRERA", "MALLA", "SEMESTRE", "CODIGO", "ASIGNATURA", "GRUPO",
@@ -44,7 +47,7 @@ function crearDominioComun_() {
     BORRADOR: "guardar borrador", REGISTRAR: "registrar", CAMBIOS: "guardar cambios", AUTOGUARDADO: "autoguardado",
     FUSION: "fusión", CAMBIO_DPTO: "cambio de departamento",
     IMPORTACION_XLSX: "importación desde xlsx", ACTUALIZACION_XLSX: "actualización desde xlsx",
-    GUARDAR_CARGA: "guardar",
+    GUARDAR_CARGA: "guardar", MIGRACION_CARGA: "migración a carga por carrera",
     restauracion: n => "restauración de v" + n,
     esRestauracion: t => /^restauración de v\d+$/.test(String(t))
   };
@@ -69,6 +72,29 @@ function crearDominioComun_() {
   const comoAviso = a => a && typeof a === "object" && typeof a.texto === "string" ? a : aviso("TEXTO", a == null ? "" : a);
 
   const nombreCarrera = sig => (CARRERAS.find(c => c.sig === sig) || {}).nombre || sig;
+
+  /** @type {function(string): string} Departamento al que pertenece una carrera ("" si no se conoce). */
+  const dptoDeCarrera = sig => (CARRERAS.find(c => c.sig === sig) || {}).dpto || "";
+  /** @type {function(string): string[]} Siglas de las carreras de un departamento. */
+  const carrerasDeDpto = dpto => CARRERAS.filter(c => c.dpto === dpto).map(c => c.sig);
+
+  /* Hora de Perú (America/Lima: UTC−5 todo el año, sin horario de verano). Las fechas se
+     guardan en ISO 8601 con su desfase, «2026-10-15T11:01:11-05:00»: en la hoja se leen
+     como hora de Perú y Date.parse las entiende igual que las antiguas en UTC («…Z»). */
+  const DESFASE_PERU_MIN = -300;
+  /**
+   * Fecha en ISO 8601 con la hora de Perú, al segundo. Sin argumento, la hora actual.
+   * @param {Date|number|string=} fecha
+   * @returns {string}
+   */
+  const isoPeru = fecha => {
+    const t = fecha == null ? Date.now()
+      : typeof fecha === "number" ? fecha
+      : typeof fecha === "string" ? Date.parse(fecha)
+      : fecha && typeof fecha.getTime === "function" ? fecha.getTime() : NaN;
+    if (isNaN(t)) return String(fecha == null ? "" : fecha);
+    return new Date(t + DESFASE_PERU_MIN * 60000).toISOString().slice(0, 19) + "-05:00";
+  };
 
   /**
    * Ícono del sprite (Iconos.html). Lo usan el navegador (icono) y las plantillas del
@@ -304,8 +330,10 @@ function crearDominioComun_() {
     return lista.map(objeto).map(a => {
       const grupos = Array.isArray(a.grupos) ? a.grupos : [];
       exigirLista(grupos, LIMITES_DATOS.GRUPOS, "Los grupos de «" + recortar(a.nombre || a.codigo, 60) + "»");
-      return { sem: textoONumero(a.sem, 40), malla: textoONumero(a.malla, 20), codigo: recortar(a.codigo, 40), nombre: recortar(a.nombre, 250),
-               dpto: recortar(a.dpto, 60), obs: recortar(a.obs, 500), grupos: grupos.map(sanearGrupo) };
+      const r = { sem: textoONumero(a.sem, 40), malla: textoONumero(a.malla, 20), codigo: recortar(a.codigo, 40), nombre: recortar(a.nombre, 250),
+                  dpto: recortar(a.dpto, 60), obs: recortar(a.obs, 500), grupos: grupos.map(sanearGrupo) };
+      if (DPTOS.includes(a.derivado)) r.derivado = a.derivado;
+      return r;
     }).filter(a => a.grupos.length);
   }
 
@@ -412,7 +440,7 @@ function crearDominioComun_() {
 
   return {
     DPTOS, CARRERAS, COLUMNAS, SINONIMOS, ESTADOS, TIPO_VERSION, REF, TIPOS_AVISO, aviso, comoAviso,
-    nombreCarrera, htmlIcono, normalizar, canonica, matrizDesdeTexto, ubicarCabeceras, entero, claveCarrera,
+    nombreCarrera, htmlIcono, dptoDeCarrera, carrerasDeDpto, isoPeru, normalizar, canonica, matrizDesdeTexto, ubicarCabeceras, entero, claveCarrera,
     formasCarrera, coincideCarrera, siglaDeCarrera, descomponerSemestre, num, th, idGrupo, esInternacional,
     LIMITES_DATOS, MARCA_FUSION, DESDOBLE, COMPONENTE, FECHA_ISO, objeto, recortar, textoONumero, idSeguro,
     marcaSegura, esSigla, errorDato, exigirLista, exigirTamano, sanearGrupo, sanearAsignaturas, sanearMarcas,
@@ -849,6 +877,10 @@ function crearDominioPlan_(C) {
       const id = ids.get(String(a.codigo).trim() + "|" + String(g.n).trim());
       if (id && !usados.has(id)) { g.id = id; usados.add(id); }
     }));
+    /* La derivación de un curso a otro departamento no viene en el Excel: también se conserva. */
+    const derivados = new Map();
+    (anteriores || []).forEach(a => { if (a.derivado) derivados.set(String(a.codigo).trim(), a.derivado); });
+    (nuevas || []).forEach(a => { const d = derivados.get(String(a.codigo).trim()); if (d && !a.derivado) a.derivado = d; });
     return nuevas;
   }
 
@@ -1002,7 +1034,7 @@ function crearDominioCarga_(C) {
   "use strict";
 
   const {
-    descomponerSemestre, esInternacional, ESTADOS, normalizar, num, siglaDeCarrera
+    descomponerSemestre, dptoDeCarrera, DPTOS, esInternacional, ESTADOS, normalizar, num, siglaDeCarrera
   } = C;
 
   /* ============================================================
@@ -1113,10 +1145,13 @@ function crearDominioCarga_(C) {
       if (!miembros.some(y => y.registrado)) return;
       const p = miembros.find(y => y.g.fusionPrincipal) || miembros[0];
       const ht = num(p.g.ht), hp = num(p.g.hp);
+      const propio = dptoDeCarrera(p.sig);
+      const derivado = DPTOS.includes(p.a.derivado) && p.a.derivado !== propio ? p.a.derivado : null;
       unidades.push({
         id: p.g.id, fusion: miembros.length > 1 ? x.g.fusion : null,
         carrera: p.sig, codigo: p.a.codigo, nombre: p.a.nombre, sem: p.a.sem, malla: p.a.malla, n: p.g.n,
-        dpto: normalizarDpto(p.a.dpto) || String(p.a.dpto || "").trim(), obs: p.a.obs || "", intl: esInternacional(p.a),
+        dpto: derivado || propio, derivada: !!derivado, dptoAsignatura: normalizarDpto(p.a.dpto) || String(p.a.dpto || "").trim(),
+        obs: p.a.obs || "", intl: esInternacional(p.a),
         ht: ht, hp: hp, desdoble: p.g.desdoble || null,
         componentes: componentesDe(ht, hp, p.g.desdoble),
         miembros: miembros.map(y => ({ carrera: y.sig, grupoId: y.g.id, codigo: y.a.codigo, nombre: y.a.nombre, sem: y.a.sem, n: y.g.n, registrado: y.registrado }))
@@ -1145,10 +1180,11 @@ function crearDominioCarga_(C) {
   const unidadDe = (idx, asig) => (asig.unidad && idx.porGrupo.get(asig.unidad)) || (asig.fusion && idx.porMarca.get(asig.fusion)) || null;
 
   /**
-   * Asignaciones vigentes de cada sección a partir de las cargas de los cuatro
-   * departamentos ({DIMA: [asig…], …}). Una sección toma las asignaciones del departamento
-   * al que hoy pide el docente; si ese aún no tiene ninguna, conserva las que hizo otro
-   * departamento antes de un cambio de DPTO («heredadas»).
+   * Asignaciones vigentes de cada sección a partir de las cargas de todas las carreras
+   * ({ING: [asig…], …}). Una sección toma las asignaciones de la carga de su carrera (la del
+   * grupo principal); si esa aún no tiene ninguna, conserva las que estén en otra carga, por
+   * ejemplo si cambió el grupo principal de una fusión («heredadas»). Cada asignación lleva
+   * en cargaDe la carga de la que sale.
    * @param {Seccion[]} unidades
    * @param {Object<string, Asignacion[]>} cargas
    * @returns {{idx: ReturnType<typeof indiceUnidades>, porUnidad: Map<string, Asignacion[]>, sinSeccion: Object<string, Asignacion[]>}}
@@ -1163,7 +1199,7 @@ function crearDominioCarga_(C) {
       if (!u) { (sinSeccion[d] = sinSeccion[d] || []).push(asig); return; }
       let e = tmp.get(u.id);
       if (!e) tmp.set(u.id, e = { propias: [], ajenas: [] });
-      (u.dpto === d ? e.propias : e.ajenas).push(Object.assign({}, asig, { dptoCarga: d }));
+      (u.carrera === d ? e.propias : e.ajenas).push(Object.assign({}, asig, { cargaDe: d }));
     }));
     const porUnidad = new Map();
     tmp.forEach((e, id) => porUnidad.set(id, e.propias.length ? e.propias : e.ajenas.map(a => Object.assign(a, { heredada: true }))));
@@ -1426,15 +1462,18 @@ function crearDominioCarga_(C) {
    * Lee la hoja de un departamento tal como viene en CargaXDepartamento: el docente aparece
    * una vez y sus cursos debajo (celdas combinadas), con filas de TOTAL entre docentes.
    * El grupo sale de la columna GRUPO si la hay o de SEMESTRE («1-2» = semestre 1, grupo 2).
-   * Cada fila se cruza con las secciones del ciclo por carrera, código y grupo.
+   * Cada fila se cruza con las secciones del ciclo por carrera, código y grupo. Con
+   * destino.carrera, las filas de otra carrera quedan «otra-carrera»; con destino.dpto, las
+   * secciones que asigna otro departamento quedan «otro-dpto».
    * Devuelve las filas leídas; nunca rechaza el contenido.
    * @param {Array<Array<*>>} matriz
    * @param {Seccion[]} unidades
-   * @param {string} dpto
+   * @param {{carrera?: string, dpto?: string}|string} destino Un texto es el departamento (forma antigua).
    * @param {DocenteCatalogo[]} catalogo
    * @returns {{filas: Array<Object>, cabecera: number}}
    */
-  function interpretarCargaDepartamento(matriz, unidades, dpto, catalogo) {
+  function interpretarCargaDepartamento(matriz, unidades, destino, catalogo) {
+    const dest = typeof destino === "string" ? { dpto: destino } : (destino || {});
     const filas = matriz || [];
     const { cab, col } = ubicarColumnasCarga(filas);
     const val = (f, k) => col[k] !== undefined && f[col[k]] != null ? String(f[col[k]]).trim() : "";
@@ -1460,12 +1499,16 @@ function crearDominioCarga_(C) {
       const ht = num(val(f, "HT")), hp = num(val(f, "HP"));
       const seccion = (codigo && idx.get(carrera + "|C|" + codigo + "|" + n)) || (nombre && idx.get(carrera + "|N|" + normalizar(nombre) + "|" + n)) || null;
       const cat = delCatalogo.get(claveDocente(docente)) || null;
+      const deCarrera = seccion ? seccion.carrera : siglaDeCarrera(carreraTexto);
+      const estado = dest.carrera && deCarrera && deCarrera !== dest.carrera ? "otra-carrera"
+        : !seccion ? "fuera"
+        : dest.dpto && seccion.dpto !== dest.dpto ? "otro-dpto" : "ok";
       salida.push({
         fila: r + 1, docenteTexto: docente, docente: cat ? cat.nombreCompleto : null, dni: cat ? cat.dni : "",
         carrera: carrera, codigo: codigo, nombre: nombre, n: n, ht: ht, hp: hp, condicion: val(f, "CONDICION"),
         unidad: seccion ? seccion.id : null, fusion: seccion ? seccion.fusion : null,
         componentes: seccion ? componentesDeFila(seccion, ht, hp, usados) : [],
-        estado: !seccion ? "fuera" : (dpto && seccion.dpto !== dpto ? "otro-dpto" : "ok"), dptoUnidad: seccion ? seccion.dpto : ""
+        estado: estado, dptoUnidad: seccion ? seccion.dpto : "", carreraSeccion: deCarrera || ""
       });
     }
     return { filas: salida, cabecera: cab + 1 };
@@ -1499,6 +1542,7 @@ function crearDominio_() {
     sugerirDocentes: t.sugerirDocentes, interpretarCargaDepartamento: t.interpretarCargaDepartamento,
     CARRERAS: t.CARRERAS, ESTADOS: t.ESTADOS, TIPO_VERSION: t.TIPO_VERSION, REF: t.REF,
     TIPOS_AVISO: t.TIPOS_AVISO, aviso: t.aviso, comoAviso: t.comoAviso, htmlIcono: t.htmlIcono,
+    dptoDeCarrera: t.dptoDeCarrera, carrerasDeDpto: t.carrerasDeDpto, isoPeru: t.isoPeru,
     nombreCarrera: t.nombreCarrera, normalizar: t.normalizar, canonica: t.canonica,
     matrizDesdeTexto: t.matrizDesdeTexto, ubicarCabeceras: t.ubicarCabeceras,
     siglaDeCarrera: t.siglaDeCarrera,

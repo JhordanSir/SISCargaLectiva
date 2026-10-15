@@ -242,7 +242,7 @@ function guardarPlan(ciclo, sig, datos) {
       const conflicto = datos.forzar ? null : conflictoPlan_(c, s, p.version, datos.versionBase);
       if (conflicto) fallo_("CONFLICTO", "Mientras editabas se guardó la versión v" + conflicto.n + " del plan.", conflicto);
       const estado = resolverEstado_(p.estado, datos.estado);
-      const fecha = new Date().toISOString();
+      const fecha = Dominio.isoPeru();
       const antes = p.version ? contenidoPlan_(c, s, p.version, p.filaVersion) : [];
       const f = prepararFusiones_(c, s, antes, recibidas, disueltas, usuario);
       const n = registrarVersionPlan_(c, s, fila, {
@@ -293,7 +293,7 @@ function restaurarVersion(ciclo, sig, n) {
       const antes = contenidoPlan_(c, s, p.version, p.filaVersion);
       const f = prepararFusiones_(c, s, antes, contenidoPlan_(c, s, k, 0), [], usuario);
       const estado = resolverEstado_(p.estado, Dominio.ESTADOS.BORRADOR);
-      const fecha = new Date().toISOString();
+      const fecha = Dominio.isoPeru();
       const version = registrarVersionPlan_(c, s, fila, {
         estado: estado, tipo: Dominio.TIPO_VERSION.restauracion(k), usuario: usuario.correo,
         fecha: fecha, motivo: "", asignaturas: f.asignaturas
@@ -306,9 +306,11 @@ function restaurarVersion(ciclo, sig, n) {
 }
 
 /**
- * Deriva una asignatura a otro departamento sin abrir el plan. Lo hace el director del
- * departamento al que hoy se pide el docente o el coordinador de la carrera. Crea una
- * versión nueva del plan con el mismo estado. Las asignaciones de docentes la siguen.
+ * Deriva una asignatura a otro departamento sin abrir el plan: es la excepción a que el
+ * docente lo asigne el departamento de la carrera. Se anota en asignatura.derivado (la
+ * columna DPTO no cambia); derivarla al departamento de la carrera quita la derivación. Lo
+ * hace el director del departamento que hoy la asigna o el coordinador de la carrera. Crea
+ * una versión nueva del plan con el mismo estado. Las asignaciones de docentes la siguen.
  * @param {string} ciclo
  * @param {Sigla} sig
  * @param {string} grupoId
@@ -329,18 +331,20 @@ function cambiarDepartamento(ciclo, sig, grupoId, nuevo, motivo) {
       const asignaturas = contenidoPlan_(c, s, p.version, p.filaVersion);
       const a = asignaturas.filter(function (x) { return x.grupos.some(function (g) { return g.id === grupoId; }); })[0];
       if (!a) fallo_("NO_ENCONTRADO", "La asignatura ya no está en el plan de " + Dominio.nombreCarrera(s) + ". Actualiza la pantalla.");
-      const actual = Dominio.normalizarDpto(a.dpto) || String(a.dpto || "").trim();
+      const propio = Dominio.dptoDeCarrera(s);
+      const actual = Dominio.DPTOS.indexOf(a.derivado) >= 0 ? a.derivado : propio;
       const esDirector = usuario.rol === "director" && !!usuario.departamento && usuario.departamento === actual;
       if (!esDirector && usuario.carreras.indexOf(s) < 0)
         fallo_("SIN_PERMISO", usuario.rol === "director"
-          ? "Solo puedes derivar los cursos que se piden a tu departamento (" + (usuario.departamento || "sin departamento") + ")."
+          ? "Solo puedes derivar los cursos que asigna tu departamento (" + (usuario.departamento || "sin departamento") + ")."
           : "Solo el coordinador de " + Dominio.nombreCarrera(s) + " puede cambiar el departamento de sus asignaturas.");
       if (actual === d) return { version: p.version, estado: p.estado, totales: Dominio.totales(asignaturas), contenido: asignaturas, sinCambios: true };
       exigirSinBloqueoAjeno_(c, s, usuario, "el cambio de departamento no se guardó");
-      a.dpto = d;
+      if (d === propio) delete a.derivado; else a.derivado = d;
       const version = registrarVersionPlan_(c, s, fila, {
-        estado: p.estado, tipo: Dominio.TIPO_VERSION.CAMBIO_DPTO, usuario: usuario.correo, fecha: new Date().toISOString(),
-        motivo: (a.codigo + " " + a.nombre + ": " + (actual || "sin DPTO") + " → " + d + (motivo ? ". " + motivo : "")).slice(0, 500),
+        estado: p.estado, tipo: Dominio.TIPO_VERSION.CAMBIO_DPTO, usuario: usuario.correo, fecha: Dominio.isoPeru(),
+        motivo: (a.codigo + " " + a.nombre + ": " + actual + " → " + d + (d === propio ? " (vuelve al departamento de la carrera)" : "") +
+                 (motivo ? ". " + motivo : "")).slice(0, 500),
         asignaturas: asignaturas
       });
       return { version: version, estado: p.estado, totales: Dominio.totales(asignaturas), contenido: asignaturas };

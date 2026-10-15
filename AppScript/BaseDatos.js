@@ -8,10 +8,10 @@ var TABLAS_ = {
   /* «ref» es el documento bloqueado: «plan:ADM» o «carga:DIMA» (Dominio.REF). */
   Bloqueos: ["ciclo", "ref", "correo", "desde", "expira"],
   Fuentes: ["tipo", "archivo_id", "nombre", "modificado", "procesado_en", "avisos"],
-  /* Carga docente de cada departamento en cada ciclo: como Planes y Versiones. «planes»
+  /* Carga docente de cada carrera en cada ciclo: como Planes y Versiones. «planes»
      guarda la versión de cada plan que se tenía a la vista al guardar. */
-  Cargas: ["ciclo", "departamento", "version", "actualizado_por", "actualizado_en", "fila_version"],
-  VersionesCarga: ["ciclo", "departamento", "n", "tipo", "usuario", "fecha", "motivo", "planes", "contenido"],
+  Cargas: ["ciclo", "carrera", "version", "actualizado_por", "actualizado_en", "fila_version"],
+  VersionesCarga: ["ciclo", "carrera", "n", "tipo", "usuario", "fecha", "motivo", "planes", "contenido"],
   /* Copia de lo que se está editando y aún no se guardó, por si se cierra la página. */
   Recuperacion: ["ciclo", "ref", "correo", "fecha", "version_base", "contenido"]
 };

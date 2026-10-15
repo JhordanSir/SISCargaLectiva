@@ -43,7 +43,7 @@ function anunciar(tipo, datos){
  */
 function anunciarEdicion(nuevo){
   if (!app.carrera || !sesionPlan.activa) return;
-  if (nuevo || !sesionPlan.desde) sesionPlan.desde = new Date().toISOString();
+  if (nuevo || !sesionPlan.desde) sesionPlan.desde = Dominio.isoPeru();
   anunciar("editando", {
     ciclo: app.ciclo, sig: app.carrera, desde: sesionPlan.desde,
     expira: new Date(sesionPlan.expira).toISOString(), nuevo: !!nuevo
@@ -142,14 +142,14 @@ function recibirDePestana(m){
 
     case "asignaciones":
       if (m.ciclo === app.ciclo) pedirDocentesGrupo();
-      if (appCarga.cargado && appCarga.cargado.clave === m.ciclo + "|" + m.dpto) {
+      if (appCarga.cargado && appCarga.cargado.clave === m.ciclo + "|" + m.carrera) {
         if (appCarga.editando) {
-          aviso("Otra pestaña guardó la carga de " + m.dpto + ". Si guardas aquí, se te avisará antes.", "aviso");
+          aviso("Otra pestaña guardó la carga de " + m.carrera + ". Si guardas aquí, se te avisará antes.", "aviso");
         } else {
           appCarga.cargado.hora = 0;
           if (app.vista === "docentes") {
             cargarEstadoDocentes({ fondo: true });
-            aviso("Otra pestaña guardó la carga de " + m.dpto + ": se actualizó aquí.", "pestana");
+            aviso("Otra pestaña guardó la carga de " + m.carrera + ": se actualizó aquí.", "pestana");
           }
         }
       } else if (appCarga.cargado && appCarga.cargado.clave.startsWith(m.ciclo + "|")) {

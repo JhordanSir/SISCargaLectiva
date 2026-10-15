@@ -86,7 +86,7 @@ function leerCatalogoDocentes_(forzar) {
         noLectivas: col.noLect !== undefined ? Dominio.num(v(f, "noLect")) : null
       });
     }
-    res.leidoEn = new Date().toISOString();
+    res.leidoEn = Dominio.isoPeru();
     guardarEnCache_(clave, res, SEGUNDOS_CACHE_CATALOGO_);
   } catch (e) {
     res.avisos.push(Dominio.aviso("CATALOGO_ILEGIBLE", "No se pudo leer CargaDeDocentes: " + e.message));

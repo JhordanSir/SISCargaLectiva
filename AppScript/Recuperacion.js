@@ -26,11 +26,12 @@ function refRecuperacion_(ref) {
  * Solo quien puede editar el plan o la carga guarda su copia de recuperación.
  * @param {Usuario} usuario
  * @param {{tipo: string, clave: string}} r
+ * @param {string} ciclo
  * @returns {void}
  */
-function exigirRecuperacion_(usuario, r) {
+function exigirRecuperacion_(usuario, r, ciclo) {
   if (r.tipo === "plan") exigirEdicion_(usuario, validarCarrera_(r.clave));
-  else exigirCarga_(usuario, validarDpto_(r.clave));
+  else exigirCargaEnEdicion_(usuario, ciclo, validarCarrera_(r.clave));
 }
 
 /**
@@ -88,12 +89,12 @@ function guardarRecuperacion(ciclo, ref, datos) {
   return responder_(function () {
     const usuario = exigirUsuario_();
     const c = validarCiclo_(ciclo), r = refRecuperacion_(ref);
-    exigirRecuperacion_(usuario, r);
+    exigirRecuperacion_(usuario, r, c);
     const contenido = datos && datos.contenido != null ? datos.contenido : [];
     const texto = JSON.stringify(r.tipo === "plan" ? Dominio.sanearAsignaturas(contenido) : Dominio.sanearAsignaciones(contenido));
     const guardada = conCandadoSiLibre_(function () {
       const f = filaRecuperacion_(c, r.ref, usuario.correo);
-      const fecha = new Date().toISOString();
+      const fecha = Dominio.isoPeru();
       const valores = [c, r.ref, usuario.correo, fecha, String(parseInt(String(datos && datos.versionBase), 10) || 0)].concat(trocear_(texto));
       if (f) {
         const h = hojaBd_(TABLA_.RECUPERACION);

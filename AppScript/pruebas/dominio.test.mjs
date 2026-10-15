@@ -145,3 +145,20 @@ test("fuenteDominio_() recrea Dominio fuera de su archivo, como en el navegador"
   assert.equal(dominio.nombreCarrera("ING"), "Ingeniería de Software");
   assert.equal(dominio.interpretar([["3.1.1.24", "Cálculo diferencial", "2024", "1", "3", "2", "DIMA"]]).asignaturas.length, 1);
 });
+
+test("isoPeru escribe la hora de Perú (UTC−5) en ISO 8601, y Date.parse la lee igual", () => {
+  assert.equal(D.isoPeru("2026-10-15T16:01:11.000Z"), "2026-10-15T11:01:11-05:00");
+  assert.equal(D.isoPeru("2026-10-16T02:30:00Z"), "2026-10-15T21:30:00-05:00", "después de las 19:00 en Perú sigue siendo el mismo día");
+  assert.equal(D.isoPeru(Date.parse("2026-01-01T05:00:00Z")), "2026-01-01T00:00:00-05:00");
+  assert.equal(D.isoPeru(new Date("2026-07-01T12:00:00Z")), "2026-07-01T07:00:00-05:00", "sin horario de verano");
+  assert.equal(Date.parse(D.isoPeru("2026-10-15T16:01:11Z")), Date.parse("2026-10-15T16:01:11Z"));
+  assert.match(D.isoPeru(), /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}-05:00$/);
+  assert.equal(D.isoPeru("no es fecha"), "no es fecha");
+});
+
+test("cada carrera pertenece a un departamento", () => {
+  assert.deepEqual(JSON.parse(JSON.stringify(D.DPTOS.map(d => [d, D.carrerasDeDpto(d)]))),
+    [["DIMA", ["ING", "IND", "ARQ", "ICO"]], ["DAHUC", ["PSI", "COM"]], ["DACJ", ["DER"]], ["DACTE", ["ADM"]]]);
+  assert.equal(D.dptoDeCarrera("ICO"), "DIMA");
+  assert.equal(D.dptoDeCarrera("XXX"), "");
+});

@@ -62,7 +62,7 @@ function revisarFuentes_() {
       const otraVez = leerTabla_(TABLA_.FUENTES);
       if (fuentesIguales_(otraVez, actuales)) return avisosGuardados_(otraVez);
       const nuevos = aplicarOferta_(f, lectura);
-      const ahora = new Date().toISOString();
+      const ahora = Dominio.isoPeru();
       reemplazarFilas_(TABLA_.FUENTES, actuales.map(function (a) {
         return [a.tipo, a.archivo_id, a.nombre, a.modificado, ahora, a.tipo === "carrera" ? JSON.stringify(nuevos) : ""];
       }));
@@ -144,7 +144,7 @@ function localizarXlsx_(carpeta, avisos) {
  */
 function firmaFuentes_(f) {
   return ["carrera", "departamento", "docentes"].filter(function (t) { return f[t]; }).map(function (t) {
-    return { tipo: t, archivo_id: f[t].getId(), nombre: f[t].getName(), modificado: f[t].getLastUpdated().toISOString() };
+    return { tipo: t, archivo_id: f[t].getId(), nombre: f[t].getName(), modificado: Dominio.isoPeru(f[t].getLastUpdated()) };
   });
 }
 
@@ -198,7 +198,7 @@ function aplicarOferta_(f, r) {
     const antes = p.version ? contenidoPlan_(ciclo, sig, p.version, p.filaVersion) : [];
     Dominio.conservarIds(asignaturas, antes);
     const fus = prepararFusiones_(ciclo, sig, antes, asignaturas, [], null, { sinBloqueo: true });
-    const fecha = new Date(modificado).toISOString();
+    const fecha = Dominio.isoPeru(modificado);
     registrarVersionPlan_(ciclo, sig, fila, {
       estado: p.estado === Dominio.ESTADOS.SIN ? Dominio.ESTADOS.REGISTRADO : p.estado,
       tipo: p.version ? Dominio.TIPO_VERSION.ACTUALIZACION_XLSX : Dominio.TIPO_VERSION.IMPORTACION_XLSX,

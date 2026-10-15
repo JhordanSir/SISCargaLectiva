@@ -5,7 +5,7 @@
       <button type="button" class="btn fantasma btn-sm volver" id="volver-doc-carga"><?!= icono_("arrow-left") ?>Volver a la asignación docente</button>
       <p class="sobretitulo"><?!= icono_("upload-simple") ?>Asignar docentes al plan de ciclo</p>
       <h1 class="titulo" id="doc-carga-titulo">Carga masiva de asignaciones</h1>
-      <p class="subtitulo">Pega o sube la hoja de tu departamento de CargaXDepartamento. Solo se actualizan las secciones que trae; lo demás se conserva.</p>
+      <p class="subtitulo">Pega o sube la hoja de tu departamento de CargaXDepartamento. Solo se toman las filas de esta carrera y las secciones que asignas; lo demás se conserva.</p>
     </div>
     <div class="vista-acciones">
       <button type="button" class="btn primario" id="btn-doc-pegar-tab"><?!= icono_("clipboard") ?>Pegar desde Google Sheets</button>
@@ -68,7 +68,7 @@ function mostrarPegadoDocentes(){
 }
 alPulsar("#btn-doc-masiva", () => {
   cargarSheetJS();
-  $("#doc-carga-titulo").textContent = "Carga masiva · " + appCarga.dpto + " · " + appCarga.ciclo;
+  $("#doc-carga-titulo").textContent = "Carga masiva · " + appCarga.carrera + " · " + appCarga.ciclo;
   mostrar("docentes-carga");
   mostrarPegadoDocentes();
 });
@@ -88,11 +88,12 @@ alPulsar("#btn-doc-archivo-tab", () => $("#input-doc-archivo").click());
 alCambiar("#input-doc-archivo", e => { const f = e.target.files[0]; if (f) leerArchivoDocentes(f); e.target.value = ""; });
 alPulsar("#btn-limpiar-pegado-doc", () => rejillaDocentes.limpiar());
 
-/* Del libro CargaXDepartamento se toma la hoja del departamento (su nombre lleva la sigla);
-   si no se reconoce, se pregunta cuál. */
+/* Del libro CargaXDepartamento se toma la hoja del departamento de quien asigna (su nombre
+   lleva la sigla); si no se reconoce, se pregunta cuál. */
 async function leerArchivoDocentes(file){
+  const dpto = miDpto() || Dominio.dptoDeCarrera(appCarga.carrera);
   const r = await leerArchivoComoMatriz(file, nombres =>
-    Promise.resolve(nombres.find(n => Dominio.normalizar(n).split(/\s+/).includes(appCarga.dpto)))
+    Promise.resolve(nombres.find(n => Dominio.normalizar(n).split(/\s+/).includes(dpto)))
       .then(propia => propia || preguntarHoja(nombres, "Elige la hoja del departamento", "Leer la hoja")));
   if (!r) return;
   if (!r.matriz.length) return aviso("No se pudo sacar nada de «" + file.name + "».", "aviso");
@@ -103,16 +104,21 @@ async function leerArchivoDocentes(file){
 const ESTADO_FILA = {
   ok: '<span class="badge-doc ok">' + icono("check") + "Se asigna</span>",
   fuera: '<span class="badge-doc pendiente">No está en el plan: se agrega sin sección</span>',
-  "otro-dpto": '<span class="badge-doc info">Pide docente a otro departamento: se omite</span>'
+  "otro-dpto": '<span class="badge-doc info">La asigna otro departamento: se omite</span>',
+  "otra-carrera": '<span class="badge-doc info">De otra carrera: se omite</span>'
 };
+/* Filas que no se aplican a la carga a la vista. Las que no están en el plan solo las agrega
+   el director de la carrera. */
+const filaOmitida = f => f.estado === "otro-dpto" || f.estado === "otra-carrera" || (f.estado === "fuera" && !cargaPropia());
 
 alPulsar("#btn-procesar-pegado-doc", () => {
   if (!rejillaDocentes.matriz) return;
   const d = appCarga.datos;
-  const r = Dominio.interpretarCargaDepartamento(rejillaDocentes.matriz, d.unidades, appCarga.dpto, d.catalogo);
+  const r = Dominio.interpretarCargaDepartamento(rejillaDocentes.matriz, d.unidades, { carrera: appCarga.carrera, dpto: miDpto() }, d.catalogo);
+  if (!cargaPropia()) r.filas.forEach(f => { if (f.estado === "fuera") f.estado = "otro-dpto"; });
   appCarga.previa = r;
   const sinCatalogo = new Map();
-  r.filas.filter(f => !f.docente && f.estado !== "otro-dpto").forEach(f => {
+  r.filas.filter(f => !f.docente && !filaOmitida(f)).forEach(f => {
     const k = Dominio.claveDocente(f.docenteTexto);
     if (!sinCatalogo.has(k)) sinCatalogo.set(k, { texto: f.docenteTexto, filas: [] });
     sinCatalogo.get(k).filas.push(f.fila);
@@ -122,7 +128,8 @@ alPulsar("#btn-procesar-pegado-doc", () => {
   $("#caja-previa-doc").hidden = false;
   const cuenta = e => r.filas.filter(f => f.estado === e).length;
   $("#nota-previa-doc").innerHTML = "Se leyeron <b>" + r.filas.length + "</b> filas (cabecera en la fila " + r.cabecera + "): <b>" + cuenta("ok") + "</b> se asignan, <b>" +
-    cuenta("fuera") + "</b> no están en el plan y <b>" + cuenta("otro-dpto") + "</b> piden docente a otro departamento. Solo cambian las secciones y componentes que trae la hoja.";
+    cuenta("fuera") + "</b> no están en el plan, <b>" + cuenta("otra-carrera") + "</b> son de otra carrera y <b>" + cuenta("otro-dpto") +
+    "</b> las asigna otro departamento. Solo cambian las secciones y componentes de " + esc(appCarga.carrera) + " que trae la hoja.";
   $("#caja-resolver-doc").hidden = !sinCatalogo.size;
   $("#tb-resolver-doc").innerHTML = appCarga.previa.porResolver.map((x, i) => {
     const sug = Dominio.sugerirDocentes(x.texto, d.catalogo, 5);
@@ -134,7 +141,9 @@ alPulsar("#btn-procesar-pegado-doc", () => {
   $("#tb-previa-doc").innerHTML = r.filas.map(f => "<tr>" +
     '<td class="num">' + f.fila + "</td><td><b>" + esc(f.docenteTexto) + "</b>" + (f.docente ? "" : '<br><small class="tenue">no está en el catálogo</small>') + "</td>" +
     "<td>" + esc(f.carrera) + '</td><td class="cod">' + esc(f.codigo) + "</td><td>" + esc(f.nombre) + '</td><td class="num">' + esc(f.n) + "</td>" +
-    "<td>" + esc(f.componentes.join(", ") || "—") + "</td><td>" + ESTADO_FILA[f.estado] + (f.estado === "otro-dpto" ? " <small class=\"tenue\">(" + esc(f.dptoUnidad) + ")</small>" : "") + "</td></tr>").join("");
+    "<td>" + esc(f.componentes.join(", ") || "—") + "</td><td>" + ESTADO_FILA[f.estado] +
+    (f.estado === "otro-dpto" && f.dptoUnidad ? " <small class=\"tenue\">(" + esc(f.dptoUnidad) + ")</small>" : "") +
+    (f.estado === "otra-carrera" && f.carreraSeccion ? " <small class=\"tenue\">(" + esc(f.carreraSeccion) + ")</small>" : "") + "</td></tr>").join("");
 });
 alPulsar("#btn-cancelar-previa-doc", () => mostrarPegadoDocentes());
 
@@ -155,7 +164,7 @@ alPulsar("#btn-aplicar-previa-doc", () => {
   const tocados = new Set();
   let aplicadas = 0, sinSeccion = 0;
   p.filas.forEach(f => {
-    if (f.estado === "otro-dpto") return;
+    if (filaOmitida(f)) return;
     const d = f.docente ? { docente: f.docente, dni: f.dni } : resueltos.get(Dominio.claveDocente(f.docenteTexto));
     if (!d) return;
     if (f.estado === "fuera") {

@@ -83,17 +83,23 @@ function instalar() {
   props.setProperty("SIS_BD_ID", libro.getId());
   configCache_ = null;
   libroBdCache_ = null;
+  hojasCache_ = null;
 
   prepararTablas_(libro);
   const sembradas = sembrarUsuarios_(libro);
+  const migracion = conCandado_(function () {
+    return { fechas: convertirFechasAPeru_(), asignaciones: migrarCargasPorCarrera_() };
+  });
 
   const resumen = [
     "SISCargaLectiva instalado.",
     "Carpeta de Drive: " + carpeta.getUrl(),
     "Hoja del sistema: " + libro.getUrl(),
     sembradas ? "Se añadieron " + sembradas + " cuentas a la pestaña Usuarios." : "La pestaña Usuarios ya tenía cuentas; no se tocó.",
+    migracion.fechas ? "Se pasaron " + migracion.fechas + " fechas a la hora de Perú." : "",
+    migracion.asignaciones ? "Se pasaron " + migracion.asignaciones + " asignaciones de las cargas por departamento a las cargas por carrera." : "",
     "Siguiente paso: sube a la carpeta los archivos CargaXCarrera y CargaXDepartamento (.xlsx, sin convertir)."
-  ].join("\n");
+  ].filter(Boolean).join("\n");
   Logger.log(resumen);
   return resumen;
 }
