@@ -19,9 +19,9 @@ function usuarioActual_() {
   let u;
 
   if (!correo) {
-    u = { denegado: "No se pudo identificar tu cuenta de Google. Abre la aplicación con tu correo institucional @" + cfg.dominio + "." };
+    u = { codigo: "NO_AUTENTICADO", denegado: "No se pudo identificar tu cuenta de Google. Abre la aplicación con tu correo institucional @" + cfg.dominio + "." };
   } else if (correo.split("@")[1] !== cfg.dominio) {
-    u = { correo: correo, denegado: "La cuenta " + correo + " no pertenece al dominio " + cfg.dominio +
+    u = { correo: correo, codigo: "FUERA_DEL_DOMINIO", denegado: "La cuenta " + correo + " no pertenece al dominio " + cfg.dominio +
           ". Inicia sesión con tu correo institucional." };
   } else {
     const clave = claveCache_("rol", correo);
@@ -39,7 +39,7 @@ function rolDeCuenta_(correo, cfg) {
   const fila = leerTabla_(TABLA_.USUARIOS).filter(function (f) { return f.correo.trim().toLowerCase() === correo; })[0];
   const rol = rolNormalizado_(fila ? fila.rol : cfg.rolPorDefecto);
   if (!rol) {
-    return { correo: correo, denegado: "La cuenta " + correo + " no tiene un rol en SISCargaLectiva. " +
+    return { correo: correo, codigo: "SIN_ROL", denegado: "La cuenta " + correo + " no tiene un rol en SISCargaLectiva. " +
              "Pide que la añadan a la pestaña Usuarios de la hoja del sistema." };
   }
   const coordina = rol === "coordinador" ? carrerasDeTexto_(fila ? fila.carreras : "") : [];
@@ -82,13 +82,13 @@ function departamentosDeTexto_(texto) {
 
 function exigirUsuario_() {
   const u = usuarioActual_();
-  if (u.denegado) throw new Error(u.denegado);
+  if (u.denegado) fallo_(u.codigo || "SIN_ROL", u.denegado);
   return u;
 }
 
 function exigirEdicion_(u, sig) {
   if (u.carreras.indexOf(sig) < 0)
-    throw new Error(u.rol === "director"
+    fallo_("SIN_PERMISO", u.rol === "director"
       ? "El director de departamento no edita los planes de ciclo: los consulta y puede derivar a otro departamento los cursos que piden al suyo."
       : "Tu cuenta no tiene permiso para editar el plan de " + Dominio.nombreCarrera(sig) + ": solo puedes consultarlo.");
 }
@@ -100,25 +100,25 @@ function puedeEditarCarga_(u, dpto) {
 
 function exigirCarga_(u, dpto) {
   if (puedeEditarCarga_(u, dpto)) return;
-  if (u.rol !== "director") throw new Error("El coordinador de carrera consulta la asignación docente en solo lectura.");
-  if (!u.departamento) throw new Error("Tu cuenta de director no tiene departamento. Pide que lo escriban en la columna «departamento» de la pestaña Usuarios.");
-  throw new Error("Solo asignas docentes en " + u.departamento + ". La carga de " + dpto + " la consultas en solo lectura.");
+  if (u.rol !== "director") fallo_("SIN_PERMISO", "El coordinador de carrera consulta la asignación docente en solo lectura.");
+  if (!u.departamento) fallo_("SIN_PERMISO", "Tu cuenta de director no tiene departamento. Pide que lo escriban en la columna «departamento» de la pestaña Usuarios.");
+  fallo_("SIN_PERMISO", "Solo asignas docentes en " + u.departamento + ". La carga de " + dpto + " la consultas en solo lectura.");
 }
 
 function validarCiclo_(ciclo) {
   const c = String(ciclo == null ? "" : ciclo);
-  if (config_().ciclos.indexOf(c) < 0) throw new Error("El ciclo «" + c + "» no está configurado.");
+  if (config_().ciclos.indexOf(c) < 0) fallo_("DATO_INVALIDO", "El ciclo «" + c + "» no está configurado.");
   return c;
 }
 
 function validarCarrera_(sig) {
   const s = String(sig == null ? "" : sig);
-  if (!Dominio.CARRERAS.some(function (c) { return c.sig === s; })) throw new Error("La carrera «" + s + "» no existe.");
+  if (!Dominio.CARRERAS.some(function (c) { return c.sig === s; })) fallo_("DATO_INVALIDO", "La carrera «" + s + "» no existe.");
   return s;
 }
 
 function validarDpto_(dpto) {
   const d = String(dpto == null ? "" : dpto);
-  if (Dominio.DPTOS.indexOf(d) < 0) throw new Error("El departamento «" + d + "» no existe.");
+  if (Dominio.DPTOS.indexOf(d) < 0) fallo_("DATO_INVALIDO", "El departamento «" + d + "» no existe.");
   return d;
 }

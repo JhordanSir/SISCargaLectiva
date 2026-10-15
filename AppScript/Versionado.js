@@ -104,7 +104,7 @@ function textoDeVersion_(repo, ciclo, clave, n, filaVersion) {
     const valores = h.getRange(v._fila, 1, 1, ancho).getValues()[0];
     if (esLaVersion_(repo, valores, ciclo, clave, n)) return unirDesde_(valores, columnaContenido_(repo));
   }
-  throw new Error("No se encontró la versión v" + n + " " + repo.nombre + ".");
+  fallo_("NO_ENCONTRADO", "No se encontró la versión v" + n + " " + repo.nombre + ".");
 }
 
 function contenidoVersion_(repo, ciclo, clave, n, filaVersion) {

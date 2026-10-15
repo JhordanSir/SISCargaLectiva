@@ -83,7 +83,7 @@ function leerTablero_(ciclo) {
 function exigirSinBloqueoAjeno_(ciclo, sig, u, accion) {
   const b = bloqueoDe_(ciclo, Dominio.REF.plan(sig));
   if (b && b.correo !== u.correo)
-    throw new Error("El plan de " + Dominio.nombreCarrera(sig) + " lo está editando " + b.correo + ", así que " + accion + ". Inténtalo cuando termine.");
+    fallo_("BLOQUEADO", "El plan de " + Dominio.nombreCarrera(sig) + " lo está editando " + b.correo + ", así que " + accion + ". Inténtalo cuando termine.");
   return b;
 }
 
@@ -93,40 +93,46 @@ function exigirSinBloqueoAjeno_(ciclo, sig, u, accion) {
 
 /* opciones.releer: mira los xlsx de Drive ahora, sin esperar al siguiente intervalo. */
 function obtenerTablero(ciclo, opciones) {
-  exigirUsuario_();
-  const c = validarCiclo_(ciclo);
-  const avisos = sincronizarFuentes_(!!(opciones && opciones.releer));
-  return { avisos: avisos, filas: leerTablero_(c) };
+  return responder_(function () {
+    exigirUsuario_();
+    const c = validarCiclo_(ciclo);
+    const avisos = sincronizarFuentes_(!!(opciones && opciones.releer));
+    return { avisos: avisos, filas: leerTablero_(c) };
+  });
 }
 
 function obtenerPlan(ciclo, sig) {
-  exigirUsuario_();
-  const c = validarCiclo_(ciclo), s = validarCarrera_(sig);
-  const p = estadoDePlan_(filaPlan_(c, s));
-  const b = bloqueoDe_(c, Dominio.REF.plan(s));
-  return {
-    estado: p.estado,
-    version: p.version,
-    asignaturas: p.version ? contenidoPlan_(c, s, p.version, p.filaVersion) : [],
-    bloqueo: b ? datosBloqueo_(b) : null
-  };
+  return responder_(function () {
+    exigirUsuario_();
+    const c = validarCiclo_(ciclo), s = validarCarrera_(sig);
+    const p = estadoDePlan_(filaPlan_(c, s));
+    const b = bloqueoDe_(c, Dominio.REF.plan(s));
+    return {
+      estado: p.estado,
+      version: p.version,
+      asignaturas: p.version ? contenidoPlan_(c, s, p.version, p.filaVersion) : [],
+      bloqueo: b ? datosBloqueo_(b) : null
+    };
+  });
 }
 
 /* versionConocida: la versión que el navegador ya tiene. Si sigue siendo la vigente,
    no se devuelve el contenido. */
 function abrirEdicion(ciclo, sig, versionConocida) {
-  const u = exigirUsuario_();
-  const c = validarCiclo_(ciclo), s = validarCarrera_(sig);
-  exigirEdicion_(u, s);
-  return conCandado_(function () {
-    const r = tomarBloqueo_(c, Dominio.REF.plan(s), u.correo);
-    if (!r.ok) return { bloqueado: datosBloqueo_(r.bloqueo) };
-    const p = estadoDePlan_(filaPlan_(c, s));
-    const res = { estado: p.estado, version: p.version, expira: r.expira };
-    if (versionConocida == null || parseInt(versionConocida, 10) !== p.version)
-      res.asignaturas = p.version ? contenidoPlan_(c, s, p.version, p.filaVersion) : [];
-    res.recuperacion = leerRecuperacion_(c, Dominio.REF.plan(s), u.correo);
-    return res;
+  return responder_(function () {
+    const u = exigirUsuario_();
+    const c = validarCiclo_(ciclo), s = validarCarrera_(sig);
+    exigirEdicion_(u, s);
+    return conCandado_(function () {
+      const r = tomarBloqueo_(c, Dominio.REF.plan(s), u.correo);
+      if (!r.ok) falloBloqueado_("El plan de " + Dominio.nombreCarrera(s), r.bloqueo);
+      const p = estadoDePlan_(filaPlan_(c, s));
+      const res = { estado: p.estado, version: p.version, expira: r.expira };
+      if (versionConocida == null || parseInt(versionConocida, 10) !== p.version)
+        res.asignaturas = p.version ? contenidoPlan_(c, s, p.version, p.filaVersion) : [];
+      res.recuperacion = leerRecuperacion_(c, Dominio.REF.plan(s), u.correo);
+      return res;
+    });
   });
 }
 
@@ -136,64 +142,70 @@ function abrirEdicion(ciclo, sig, versionConocida) {
    grupos de otras carreras se llevan a esos planes (Fusiones.js); el plan guardado vuelve
    en «asignaturas» y los planes ajenos tocados, en «otros». */
 function guardarPlan(ciclo, sig, datos) {
-  const u = exigirUsuario_();
-  const c = validarCiclo_(ciclo), s = validarCarrera_(sig);
-  exigirEdicion_(u, s);
-  const T = Dominio.TIPO_VERSION;
-  if (!datos || [T.BORRADOR, T.REGISTRAR, T.CAMBIOS, T.AUTOGUARDADO].indexOf(datos.tipo) < 0) throw new Error("Tipo de guardado desconocido.");
-  const recibidas = Dominio.sanearAsignaturas(datos.asignaturas);
-  const disueltas = Dominio.sanearMarcas(datos.fusionesDisueltas);
+  return responder_(function () {
+    const u = exigirUsuario_();
+    const c = validarCiclo_(ciclo), s = validarCarrera_(sig);
+    exigirEdicion_(u, s);
+    const T = Dominio.TIPO_VERSION;
+    if (!datos || [T.BORRADOR, T.REGISTRAR, T.CAMBIOS, T.AUTOGUARDADO].indexOf(datos.tipo) < 0) fallo_("DATO_INVALIDO", "Tipo de guardado desconocido.");
+    const recibidas = Dominio.sanearAsignaturas(datos.asignaturas);
+    const disueltas = Dominio.sanearMarcas(datos.fusionesDisueltas);
 
-  return conCandado_(function () {
-    const b = exigirSinBloqueoAjeno_(c, s, u, "no se guardó");
-    const fila = filaPlan_(c, s);
-    const p = estadoDePlan_(fila);
-    const conflicto = datos.forzar ? null : conflictoPlan_(c, s, p.version, datos.versionBase);
-    if (conflicto) return { conflicto: conflicto };
-    const estado = resolverEstado_(p.estado, datos.estado);
-    const fecha = new Date().toISOString();
-    const antes = p.version ? contenidoPlan_(c, s, p.version, p.filaVersion) : [];
-    const f = prepararFusiones_(c, s, antes, recibidas, disueltas, u);
-    const n = registrarVersionPlan_(c, s, fila, {
-      estado: estado, tipo: datos.tipo, usuario: u.correo, fecha: fecha,
-      motivo: String(datos.motivo || "").slice(0, 500), asignaturas: f.asignaturas
+    return conCandado_(function () {
+      const b = exigirSinBloqueoAjeno_(c, s, u, "no se guardó");
+      const fila = filaPlan_(c, s);
+      const p = estadoDePlan_(fila);
+      const conflicto = datos.forzar ? null : conflictoPlan_(c, s, p.version, datos.versionBase);
+      if (conflicto) fallo_("CONFLICTO", "Mientras editabas se guardó la versión v" + conflicto.n + " del plan.", conflicto);
+      const estado = resolverEstado_(p.estado, datos.estado);
+      const fecha = new Date().toISOString();
+      const antes = p.version ? contenidoPlan_(c, s, p.version, p.filaVersion) : [];
+      const f = prepararFusiones_(c, s, antes, recibidas, disueltas, u);
+      const n = registrarVersionPlan_(c, s, fila, {
+        estado: estado, tipo: datos.tipo, usuario: u.correo, fecha: fecha,
+        motivo: String(datos.motivo || "").slice(0, 500), asignaturas: f.asignaturas
+      });
+      const otros = guardarFusionesAjenas_(c, f.otros, u.correo, fecha);
+      borrarRecuperacion_(c, Dominio.REF.plan(s), u.correo);
+      const r = b ? tomarBloqueo_(c, Dominio.REF.plan(s), u.correo) : null;
+      return { version: n, estado: estado, fecha: fecha, expira: r && r.ok ? r.expira : null, asignaturas: f.asignaturas, otros: otros };
     });
-    const otros = guardarFusionesAjenas_(c, f.otros, u.correo, fecha);
-    borrarRecuperacion_(c, Dominio.REF.plan(s), u.correo);
-    const r = b ? tomarBloqueo_(c, Dominio.REF.plan(s), u.correo) : null;
-    return { version: n, estado: estado, fecha: fecha, expira: r && r.ok ? r.expira : null, asignaturas: f.asignaturas, otros: otros };
   });
 }
 
 function obtenerHistorial(ciclo, sig) {
-  exigirUsuario_();
-  const c = validarCiclo_(ciclo), s = validarCarrera_(sig);
-  return metaVersiones_(REPO_PLAN_, c, s, estadoDePlan_(filaPlan_(c, s)).version).map(sinFila_);
+  return responder_(function () {
+    exigirUsuario_();
+    const c = validarCiclo_(ciclo), s = validarCarrera_(sig);
+    return metaVersiones_(REPO_PLAN_, c, s, estadoDePlan_(filaPlan_(c, s)).version).map(sinFila_);
+  });
 }
 
 /* Restaurar no borra el historial: crea una versión nueva con el contenido recuperado. */
 function restaurarVersion(ciclo, sig, n) {
-  const u = exigirUsuario_();
-  const c = validarCiclo_(ciclo), s = validarCarrera_(sig);
-  exigirEdicion_(u, s);
-  const k = parseInt(n, 10);
+  return responder_(function () {
+    const u = exigirUsuario_();
+    const c = validarCiclo_(ciclo), s = validarCarrera_(sig);
+    exigirEdicion_(u, s);
+    const k = parseInt(n, 10);
 
-  return conCandado_(function () {
-    const b = exigirSinBloqueoAjeno_(c, s, u, "no se restauró");
-    const fila = filaPlan_(c, s);
-    const p = estadoDePlan_(fila);
-    if (!(k >= 1 && k <= p.version)) throw new Error("La versión v" + n + " no existe.");
-    const antes = contenidoPlan_(c, s, p.version, p.filaVersion);
-    const f = prepararFusiones_(c, s, antes, contenidoPlan_(c, s, k, 0), [], u);
-    const estado = resolverEstado_(p.estado, Dominio.ESTADOS.BORRADOR);
-    const fecha = new Date().toISOString();
-    const version = registrarVersionPlan_(c, s, fila, {
-      estado: estado, tipo: Dominio.TIPO_VERSION.restauracion(k), usuario: u.correo,
-      fecha: fecha, motivo: "", asignaturas: f.asignaturas
+    return conCandado_(function () {
+      const b = exigirSinBloqueoAjeno_(c, s, u, "no se restauró");
+      const fila = filaPlan_(c, s);
+      const p = estadoDePlan_(fila);
+      if (!(k >= 1 && k <= p.version)) fallo_("NO_ENCONTRADO", "La versión v" + n + " no existe.");
+      const antes = contenidoPlan_(c, s, p.version, p.filaVersion);
+      const f = prepararFusiones_(c, s, antes, contenidoPlan_(c, s, k, 0), [], u);
+      const estado = resolverEstado_(p.estado, Dominio.ESTADOS.BORRADOR);
+      const fecha = new Date().toISOString();
+      const version = registrarVersionPlan_(c, s, fila, {
+        estado: estado, tipo: Dominio.TIPO_VERSION.restauracion(k), usuario: u.correo,
+        fecha: fecha, motivo: "", asignaturas: f.asignaturas
+      });
+      const otros = guardarFusionesAjenas_(c, f.otros, u.correo, fecha);
+      const r = b ? tomarBloqueo_(c, Dominio.REF.plan(s), u.correo) : null;
+      return { version: version, estado: estado, asignaturas: f.asignaturas, otros: otros, expira: r && r.ok ? r.expira : null };
     });
-    const otros = guardarFusionesAjenas_(c, f.otros, u.correo, fecha);
-    const r = b ? tomarBloqueo_(c, Dominio.REF.plan(s), u.correo) : null;
-    return { version: version, estado: estado, asignaturas: f.asignaturas, otros: otros, expira: r && r.ok ? r.expira : null };
   });
 }
 
@@ -201,31 +213,33 @@ function restaurarVersion(ciclo, sig, n) {
    departamento al que hoy se pide el docente o el coordinador de la carrera. Crea una
    versión nueva del plan con el mismo estado. Las asignaciones de docentes la siguen. */
 function cambiarDepartamento(ciclo, sig, grupoId, nuevo, motivo) {
-  const u = exigirUsuario_();
-  const c = validarCiclo_(ciclo), s = validarCarrera_(sig), d = validarDpto_(nuevo);
-  if (!/^[A-Za-z0-9_-]{1,40}$/.test(String(grupoId || ""))) throw new Error("Grupo no válido.");
-  motivo = String(motivo || "").slice(0, 300);
-  return conCandado_(function () {
-    const fila = filaPlan_(c, s);
-    const p = estadoDePlan_(fila);
-    if (!p.version) throw new Error("El plan de " + Dominio.nombreCarrera(s) + " no tiene asignaturas.");
-    const asignaturas = contenidoPlan_(c, s, p.version, p.filaVersion);
-    const a = asignaturas.filter(function (x) { return x.grupos.some(function (g) { return g.id === grupoId; }); })[0];
-    if (!a) throw new Error("La asignatura ya no está en el plan de " + Dominio.nombreCarrera(s) + ". Actualiza la pantalla.");
-    const actual = Dominio.normalizarDpto(a.dpto) || String(a.dpto || "").trim();
-    const esDirector = u.rol === "director" && !!u.departamento && u.departamento === actual;
-    if (!esDirector && u.carreras.indexOf(s) < 0)
-      throw new Error(u.rol === "director"
-        ? "Solo puedes derivar los cursos que se piden a tu departamento (" + (u.departamento || "sin departamento") + ")."
-        : "Solo el coordinador de " + Dominio.nombreCarrera(s) + " puede cambiar el departamento de sus asignaturas.");
-    if (actual === d) return { version: p.version, estado: p.estado, sinCambios: true };
-    exigirSinBloqueoAjeno_(c, s, u, "el cambio de departamento no se guardó");
-    a.dpto = d;
-    const version = registrarVersionPlan_(c, s, fila, {
-      estado: p.estado, tipo: Dominio.TIPO_VERSION.CAMBIO_DPTO, usuario: u.correo, fecha: new Date().toISOString(),
-      motivo: (a.codigo + " " + a.nombre + ": " + (actual || "sin DPTO") + " → " + d + (motivo ? ". " + motivo : "")).slice(0, 500),
-      asignaturas: asignaturas
+  return responder_(function () {
+    const u = exigirUsuario_();
+    const c = validarCiclo_(ciclo), s = validarCarrera_(sig), d = validarDpto_(nuevo);
+    if (!/^[A-Za-z0-9_-]{1,40}$/.test(String(grupoId || ""))) fallo_("DATO_INVALIDO", "Grupo no válido.");
+    motivo = String(motivo || "").slice(0, 300);
+    return conCandado_(function () {
+      const fila = filaPlan_(c, s);
+      const p = estadoDePlan_(fila);
+      if (!p.version) fallo_("NO_ENCONTRADO", "El plan de " + Dominio.nombreCarrera(s) + " no tiene asignaturas.");
+      const asignaturas = contenidoPlan_(c, s, p.version, p.filaVersion);
+      const a = asignaturas.filter(function (x) { return x.grupos.some(function (g) { return g.id === grupoId; }); })[0];
+      if (!a) fallo_("NO_ENCONTRADO", "La asignatura ya no está en el plan de " + Dominio.nombreCarrera(s) + ". Actualiza la pantalla.");
+      const actual = Dominio.normalizarDpto(a.dpto) || String(a.dpto || "").trim();
+      const esDirector = u.rol === "director" && !!u.departamento && u.departamento === actual;
+      if (!esDirector && u.carreras.indexOf(s) < 0)
+        fallo_("SIN_PERMISO", u.rol === "director"
+          ? "Solo puedes derivar los cursos que se piden a tu departamento (" + (u.departamento || "sin departamento") + ")."
+          : "Solo el coordinador de " + Dominio.nombreCarrera(s) + " puede cambiar el departamento de sus asignaturas.");
+      if (actual === d) return { version: p.version, estado: p.estado, totales: Dominio.totales(asignaturas), contenido: asignaturas, sinCambios: true };
+      exigirSinBloqueoAjeno_(c, s, u, "el cambio de departamento no se guardó");
+      a.dpto = d;
+      const version = registrarVersionPlan_(c, s, fila, {
+        estado: p.estado, tipo: Dominio.TIPO_VERSION.CAMBIO_DPTO, usuario: u.correo, fecha: new Date().toISOString(),
+        motivo: (a.codigo + " " + a.nombre + ": " + (actual || "sin DPTO") + " → " + d + (motivo ? ". " + motivo : "")).slice(0, 500),
+        asignaturas: asignaturas
+      });
+      return { version: version, estado: p.estado, totales: Dominio.totales(asignaturas), contenido: asignaturas };
     });
-    return { version: version, estado: p.estado, totales: Dominio.totales(asignaturas), contenido: asignaturas };
   });
 }

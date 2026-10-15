@@ -57,11 +57,11 @@ test("guardarPlan guarda solo los campos del modelo y rechaza un volumen desmedi
   assert.equal(g.grupos[0].fusion, null);
   assert.match(g.grupos[0].id, /^[A-Za-z0-9_-]+$/, "un identificador no válido se reemplaza");
 
-  assert.throws(() => ejecutar(e, A, "guardarPlan", CICLO, "ARQ", { asignaturas: "nada", tipo: "guardar cambios", versionBase: 2 }), /se esperaba una lista/);
+  assert.throws(() => ejecutar(e, A, "guardarPlan", CICLO, "ARQ", { asignaturas: "nada", tipo: "guardar cambios", versionBase: 2 }), { codigo: "DATO_INVALIDO", message: /se esperaba una lista/ });
   const enorme = [{ sem: 1, codigo: "X", nombre: "Y", obs: "z".repeat(500), grupos: Array.from({ length: 61 }, (_, i) => ({ id: "g" + i, n: i, ht: 1, hp: 1 })) }];
-  assert.throws(() => ejecutar(e, A, "guardarPlan", CICLO, "ARQ", { asignaturas: enorme, tipo: "guardar cambios", versionBase: 2 }), /máximo es 60/);
+  assert.throws(() => ejecutar(e, A, "guardarPlan", CICLO, "ARQ", { asignaturas: enorme, tipo: "guardar cambios", versionBase: 2 }), { codigo: "DATO_INVALIDO", message: /máximo es 60/ });
   const pesado = Array.from({ length: 1500 }, (_, i) => ({ sem: 1, codigo: "C" + i, nombre: "n".repeat(240), obs: "o".repeat(490), grupos: [{ id: "g" + i, n: 1, ht: 1, hp: 1 }] }));
-  assert.throws(() => ejecutar(e, A, "guardarPlan", CICLO, "ARQ", { asignaturas: pesado, tipo: "guardar cambios", versionBase: 2 }), /demasiado grande/);
+  assert.throws(() => ejecutar(e, A, "guardarPlan", CICLO, "ARQ", { asignaturas: pesado, tipo: "guardar cambios", versionBase: 2 }), { codigo: "DATO_INVALIDO", message: /demasiado grande/ });
 });
 
 test("guardarCarga sanea cada asignación: campos, componente y horas", () => {
@@ -84,8 +84,8 @@ test("guardarCarga sanea cada asignación: campos, componente y horas", () => {
   assert.equal(y.horas, 0, "las horas no bajan de 0");
   assert.equal(e.ctx.Dominio.sanearAsignaciones([{ horas: 500 }])[0].horas, 60, "ni pasan de 60");
   assert.equal(y.dni, "", "un DNI con caracteres no válidos se descarta");
-  assert.throws(() => ejecutar(e, DIMA, "guardarCarga", CICLO, "DIMA", { versionBase: 1, asignaciones: { no: "lista" } }), /se esperaba una lista/);
-  assert.throws(() => ejecutar(e, DIMA, "guardarRecuperacion", CICLO, "carga:DIMA", { contenido: "texto" }), /se esperaba una lista/);
+  assert.throws(() => ejecutar(e, DIMA, "guardarCarga", CICLO, "DIMA", { versionBase: 1, asignaciones: { no: "lista" } }), { codigo: "DATO_INVALIDO", message: /se esperaba una lista/ });
+  assert.throws(() => ejecutar(e, DIMA, "guardarRecuperacion", CICLO, "carga:DIMA", { contenido: "texto" }), { codigo: "DATO_INVALIDO", message: /se esperaba una lista/ });
 });
 
 test("el DNI solo llega al director del departamento, y solo el de los suyos", () => {

@@ -203,54 +203,62 @@ function cargasVisibles_(cargas, u, dpto) {
    ============================================================ */
 
 function obtenerEstadoDocentes(ciclo, dpto) {
-  const u = exigirUsuario_();
-  const c = validarCiclo_(ciclo || config_().cicloXlsx);
-  const d = validarDpto_(dpto || u.departamento || "DIMA");
-  const catalogo = leerCatalogoDocentes_(false);
-  const planes = planesDelCiclo_(c);
-  const unidades = Dominio.unidadesDelCiclo(planes);
-  const cargas = cargasVigentes_(c);
-  const vig = Dominio.asignacionesVigentes(unidades, soloAsignaciones_(cargas));
-  const metas = cargas[d].version ? metaVersionesCarga_(c, d, cargas[d].version) : [];
-  const b = bloqueoDe_(c, Dominio.REF.carga(d));
-  return {
-    ciclo: c, departamento: d, departamentoNombre: Dominio.nombreDpto(d),
-    puedeEditar: puedeEditarCarga_(u, d),
-    catalogo: catalogoVisible_(catalogo.docentes, u, d), avisoCatalogo: catalogo.aviso, columnasCatalogo: catalogo.columnas,
-    unidades: unidades, cargas: cargasVisibles_(cargas, u, d),
-    planes: planes.map(function (p) { return { sig: p.sig, estado: p.estado, version: p.version }; }),
-    avisos: avisosDeCarga_(d, planes, metas[metas.length - 1] || null, vig.sinSeccion),
-    bloqueo: b ? datosBloqueo_(b) : null
-  };
+  return responder_(function () {
+    const u = exigirUsuario_();
+    const c = validarCiclo_(ciclo || config_().cicloXlsx);
+    const d = validarDpto_(dpto || u.departamento || "DIMA");
+    const catalogo = leerCatalogoDocentes_(false);
+    const planes = planesDelCiclo_(c);
+    const unidades = Dominio.unidadesDelCiclo(planes);
+    const cargas = cargasVigentes_(c);
+    const vig = Dominio.asignacionesVigentes(unidades, soloAsignaciones_(cargas));
+    const metas = cargas[d].version ? metaVersionesCarga_(c, d, cargas[d].version) : [];
+    const b = bloqueoDe_(c, Dominio.REF.carga(d));
+    return {
+      ciclo: c, departamento: d, departamentoNombre: Dominio.nombreDpto(d),
+      puedeEditar: puedeEditarCarga_(u, d),
+      catalogo: catalogoVisible_(catalogo.docentes, u, d), avisoCatalogo: catalogo.aviso, columnasCatalogo: catalogo.columnas,
+      unidades: unidades, cargas: cargasVisibles_(cargas, u, d),
+      planes: planes.map(function (p) { return { sig: p.sig, estado: p.estado, version: p.version }; }),
+      avisos: avisosDeCarga_(d, planes, metas[metas.length - 1] || null, vig.sinSeccion),
+      bloqueo: b ? datosBloqueo_(b) : null
+    };
+  });
 }
 
 /* Toma el bloqueo de la carga. Devuelve {bloqueado} si la edita otra cuenta. */
 function abrirEdicionCarga(ciclo, dpto, versionConocida) {
-  const u = exigirUsuario_();
-  const c = validarCiclo_(ciclo), d = validarDpto_(dpto);
-  exigirCarga_(u, d);
-  return conCandado_(function () {
-    const r = tomarBloqueo_(c, Dominio.REF.carga(d), u.correo);
-    if (!r.ok) return { bloqueado: datosBloqueo_(r.bloqueo) };
-    const v = vigente_(filaCarga_(c, d));
-    const res = { version: v.version, expira: r.expira, recuperacion: leerRecuperacion_(c, Dominio.REF.carga(d), u.correo) };
-    if (versionConocida == null || parseInt(versionConocida, 10) !== v.version)
-      res.asignaciones = v.version ? contenidoCarga_(c, d, v.version, v.filaVersion) : [];
-    return res;
+  return responder_(function () {
+    const u = exigirUsuario_();
+    const c = validarCiclo_(ciclo), d = validarDpto_(dpto);
+    exigirCarga_(u, d);
+    return conCandado_(function () {
+      const r = tomarBloqueo_(c, Dominio.REF.carga(d), u.correo);
+      if (!r.ok) falloBloqueado_("La carga de " + d, r.bloqueo);
+      const v = vigente_(filaCarga_(c, d));
+      const res = { version: v.version, expira: r.expira, recuperacion: leerRecuperacion_(c, Dominio.REF.carga(d), u.correo) };
+      if (versionConocida == null || parseInt(versionConocida, 10) !== v.version)
+        res.asignaciones = v.version ? contenidoCarga_(c, d, v.version, v.filaVersion) : [];
+      return res;
+    });
   });
 }
 
 function renovarBloqueoCarga(ciclo, dpto) {
-  const u = exigirUsuario_();
-  const c = validarCiclo_(ciclo), d = validarDpto_(dpto);
-  exigirCarga_(u, d);
-  return renovarBloqueo_(c, Dominio.REF.carga(d), u.correo);
+  return responder_(function () {
+    const u = exigirUsuario_();
+    const c = validarCiclo_(ciclo), d = validarDpto_(dpto);
+    exigirCarga_(u, d);
+    return renovarBloqueo_(c, Dominio.REF.carga(d), u.correo);
+  });
 }
 
 function liberarBloqueoCarga(ciclo, dpto) {
-  const u = exigirUsuario_();
-  const c = validarCiclo_(ciclo), d = validarDpto_(dpto);
-  return soltarBloqueo_(c, Dominio.REF.carga(d), u.correo);
+  return responder_(function () {
+    const u = exigirUsuario_();
+    const c = validarCiclo_(ciclo), d = validarDpto_(dpto);
+    return soltarBloqueo_(c, Dominio.REF.carga(d), u.correo);
+  });
 }
 
 /* Quita de la carga las asignaciones de secciones que hoy piden docente a otro
@@ -264,14 +272,18 @@ function depurarCarga_(dpto, asignaciones, unidades, cargas) {
   });
 }
 
+function guardarCarga(ciclo, dpto, datos) {
+  return responder_(function () { return guardarCarga_(ciclo, dpto, datos); });
+}
+
 /* datos: {asignaciones, versionBase, tipo («guardar» o «autoguardado»), motivo,
    motivoExceso, forzar}. Nadie puede pasar de 40 h lectivas (A07): si un docente lo
    haría, no se guarda. Un docente con cargo que pase de 24 h exige motivoExceso. */
-function guardarCarga(ciclo, dpto, datos) {
+function guardarCarga_(ciclo, dpto, datos) {
   const u = exigirUsuario_();
   const c = validarCiclo_(ciclo), d = validarDpto_(dpto);
   exigirCarga_(u, d);
-  if (!datos) throw new Error("No llegó la carga que se quería guardar.");
+  if (!datos) fallo_("DATO_INVALIDO", "No llegó la carga que se quería guardar.");
   const recibidas = Dominio.sanearAsignaciones(datos.asignaciones);
   const T = Dominio.TIPO_VERSION;
   const tipo = datos.tipo === T.AUTOGUARDADO || T.esRestauracion(datos.tipo) ? datos.tipo : T.GUARDAR_CARGA;
@@ -279,12 +291,13 @@ function guardarCarga(ciclo, dpto, datos) {
   return conCandado_(function () {
     const b = bloqueoDe_(c, Dominio.REF.carga(d));
     if (b && b.correo !== u.correo)
-      throw new Error("La carga de " + d + " la está editando " + b.correo + ", así que no se guardó.");
+      fallo_("BLOQUEADO", "La carga de " + d + " la está editando " + b.correo + ", así que no se guardó.");
     const fila = filaCarga_(c, d);
     const vigente = vigente_(fila).version;
     if (!datos.forzar && vigente > (parseInt(datos.versionBase, 10) || 0)) {
       const ultima = metaVersionesCarga_(c, d, vigente).filter(function (v) { return v.n === vigente; })[0];
-      return { conflicto: ultima ? { n: ultima.n, tipo: ultima.tipo, usuario: ultima.usuario, fecha: ultima.fecha } : { n: vigente } };
+      fallo_("CONFLICTO", "Mientras editabas se guardó la versión v" + vigente + " de la carga.",
+             ultima ? { n: ultima.n, tipo: ultima.tipo, usuario: ultima.usuario, fecha: ultima.fecha } : { n: vigente });
     }
 
     const planes = planesDelCiclo_(c);
@@ -296,11 +309,11 @@ function guardarCarga(ciclo, dpto, datos) {
     nuevas[d] = asignaciones;
     const exc = Dominio.excesosAlGuardar(Dominio.calcularBalance(catalogo, unidades, cargas), Dominio.calcularBalance(catalogo, unidades, nuevas));
     if (exc.bloqueos.length)
-      throw new Error("No se guardó: " + exc.bloqueos.map(function (x) { return x.docente + " (" + x.horas + " h)"; }).join(", ") +
+      fallo_("EXCESO_HORAS", "No se guardó: " + exc.bloqueos.map(function (x) { return x.docente + " (" + x.horas + " h)"; }).join(", ") +
                       (exc.bloqueos.length === 1 ? " superaría" : " superarían") + " las " + Dominio.LIMITES.MAXIMO + " h lectivas semanales (A07).");
     const motivoExceso = String(datos.motivoExceso || "").trim().slice(0, 300);
     if (exc.severos.length && !motivoExceso)
-      throw new Error("Falta el motivo: " + exc.severos.map(function (x) { return x.docente + " (" + x.horas + " h)"; }).join(", ") +
+      fallo_("FALTA_MOTIVO", "Falta el motivo: " + exc.severos.map(function (x) { return x.docente + " (" + x.horas + " h)"; }).join(", ") +
                       " tiene cargo administrativo y pasaría de " + Dominio.LIMITES.CARGO_SEVERO + " h (A12).");
 
     const fecha = new Date().toISOString();
@@ -315,27 +328,33 @@ function guardarCarga(ciclo, dpto, datos) {
 }
 
 function obtenerHistorialCarga(ciclo, dpto) {
-  exigirUsuario_();
-  const c = validarCiclo_(ciclo), d = validarDpto_(dpto);
-  return metaVersionesCarga_(c, d, vigente_(filaCarga_(c, d)).version).map(function (v) { return { n: v.n, tipo: v.tipo, usuario: v.usuario, fecha: v.fecha, motivo: v.motivo }; });
+  return responder_(function () {
+    exigirUsuario_();
+    const c = validarCiclo_(ciclo), d = validarDpto_(dpto);
+    return metaVersionesCarga_(c, d, vigente_(filaCarga_(c, d)).version).map(function (v) { return { n: v.n, tipo: v.tipo, usuario: v.usuario, fecha: v.fecha, motivo: v.motivo }; });
+  });
 }
 
 function obtenerVersionCarga(ciclo, dpto, n) {
-  const u = exigirUsuario_();
-  const c = validarCiclo_(ciclo), d = validarDpto_(dpto);
-  const lista = contenidoCarga_(c, d, parseInt(n, 10), 0);
-  return puedeEditarCarga_(u, d) ? lista : lista.map(sinDni_);
+  return responder_(function () {
+    const u = exigirUsuario_();
+    const c = validarCiclo_(ciclo), d = validarDpto_(dpto);
+    const lista = contenidoCarga_(c, d, parseInt(n, 10), 0);
+    return puedeEditarCarga_(u, d) ? lista : lista.map(sinDni_);
+  });
 }
 
 /* Restaurar no borra el historial: crea una versión nueva con el contenido recuperado,
    con las mismas reglas de un guardado. */
 function restaurarCarga(ciclo, dpto, n) {
-  const u = exigirUsuario_();
-  const c = validarCiclo_(ciclo), d = validarDpto_(dpto);
-  exigirCarga_(u, d);
-  const k = parseInt(n, 10);
-  const vigente = vigente_(filaCarga_(c, d)).version;
-  if (!(k >= 1 && k <= vigente)) throw new Error("La versión v" + n + " no existe.");
-  const asignaciones = contenidoCarga_(c, d, k, 0);
-  return guardarCarga(c, d, { asignaciones: asignaciones, versionBase: vigente, tipo: Dominio.TIPO_VERSION.restauracion(k), motivoExceso: Dominio.TIPO_VERSION.restauracion(k) });
+  return responder_(function () {
+    const u = exigirUsuario_();
+    const c = validarCiclo_(ciclo), d = validarDpto_(dpto);
+    exigirCarga_(u, d);
+    const k = parseInt(n, 10);
+    const vigente = vigente_(filaCarga_(c, d)).version;
+    if (!(k >= 1 && k <= vigente)) fallo_("NO_ENCONTRADO", "La versión v" + n + " no existe.");
+    const asignaciones = contenidoCarga_(c, d, k, 0);
+    return guardarCarga_(c, d, { asignaciones: asignaciones, versionBase: vigente, tipo: Dominio.TIPO_VERSION.restauracion(k), motivoExceso: Dominio.TIPO_VERSION.restauracion(k) });
+  });
 }

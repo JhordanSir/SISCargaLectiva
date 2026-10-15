@@ -27,6 +27,11 @@ function datosBloqueo_(b) {
   return { correo: b.correo, desde: b.desde, expira: b.expira };
 }
 
+/* Corta la operación porque otra cuenta edita el documento. que: «El plan de Derecho». */
+function falloBloqueado_(que, b) {
+  fallo_("BLOQUEADO", que + " lo está editando " + b.correo + ".", datosBloqueo_(b));
+}
+
 /* Debe llamarse dentro de conCandado_. Toma o renueva el bloqueo de la cuenta. */
 function tomarBloqueo_(ciclo, ref, correo) {
   const b = leerBloqueos_().filter(function (x) { return x.ciclo === ciclo && x.ref === ref; })[0];
@@ -43,7 +48,8 @@ function tomarBloqueo_(ciclo, ref, correo) {
 function renovarBloqueo_(ciclo, ref, correo) {
   return conCandado_(function () {
     const r = tomarBloqueo_(ciclo, ref, correo);
-    return r.ok ? { expira: r.expira } : { perdido: { correo: r.bloqueo.correo } };
+    if (!r.ok) fallo_("BLOQUEO_PERDIDO", "Tu bloqueo caducó y ahora lo está editando " + r.bloqueo.correo + ".", { correo: r.bloqueo.correo });
+    return { expira: r.expira };
   });
 }
 
@@ -60,14 +66,18 @@ function soltarBloqueo_(ciclo, ref, correo) {
    ============================================================ */
 
 function renovarBloqueo(ciclo, sig) {
-  const u = exigirUsuario_();
-  const c = validarCiclo_(ciclo), s = validarCarrera_(sig);
-  exigirEdicion_(u, s);
-  return renovarBloqueo_(c, Dominio.REF.plan(s), u.correo);
+  return responder_(function () {
+    const u = exigirUsuario_();
+    const c = validarCiclo_(ciclo), s = validarCarrera_(sig);
+    exigirEdicion_(u, s);
+    return renovarBloqueo_(c, Dominio.REF.plan(s), u.correo);
+  });
 }
 
 function liberarBloqueo(ciclo, sig) {
-  const u = exigirUsuario_();
-  const c = validarCiclo_(ciclo), s = validarCarrera_(sig);
-  return soltarBloqueo_(c, Dominio.REF.plan(s), u.correo);
+  return responder_(function () {
+    const u = exigirUsuario_();
+    const c = validarCiclo_(ciclo), s = validarCarrera_(sig);
+    return soltarBloqueo_(c, Dominio.REF.plan(s), u.correo);
+  });
 }

@@ -207,6 +207,16 @@ function ocultarEspera(){
   }, resta);
 }
 
+/* El servidor responde {ok: true, datos} o {ok: false, codigo, mensaje, detalle}
+   (Respuesta.js). La promesa se resuelve con los datos o se rechaza con un Error que lleva
+   el código y el detalle, para decidir por el código y no por el texto. Una respuesta sin
+   «ok» (servidor anterior al contrato) se entrega tal cual. */
+function respuesta(r, ok, mal){
+  if (r && typeof r === "object" && r.ok === false)
+    return mal(Object.assign(new Error(r.mensaje || "No se pudo completar la operación."), { codigo: r.codigo, detalle: r.detalle || null }));
+  ok(r && typeof r === "object" && r.ok === true ? r.datos : r);
+}
+
 function invocar(nombre, args, modo){
   const visible = modo !== "silencio";
   if (visible) { pendientes[modo]++; pintarActividad(); }
@@ -217,7 +227,7 @@ function invocar(nombre, args, modo){
       pintarActividad();
     };
     google.script.run
-      .withSuccessHandler(r => { fin(); ok(r); })
+      .withSuccessHandler(r => { fin(); respuesta(r, ok, mal); })
       .withFailureHandler(e => { fin(); mal(e); })[nombre](...args);
   });
 }

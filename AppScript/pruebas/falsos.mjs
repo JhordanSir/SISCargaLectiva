@@ -249,12 +249,32 @@ export function cargarServidor(entorno) {
 
 /* Cada llamada de google.script.run es una ejecución nueva: se vacían las cachés
    globales y se fija la cuenta que llama. */
-export function ejecutar(entorno, usuario, funcion, ...args) {
+export function ejecutarCrudo(entorno, usuario, funcion, ...args) {
   const ctx = entorno.ctx;
   entorno.usuario = usuario;
   ctx.configCache_ = null; ctx.libroBdCache_ = null; ctx.usuarioCache_ = null; ctx.hojasCache_ = null;
   const r = ctx[funcion](...args.map(a => (a === undefined ? a : plano(a))));
   return r === undefined ? r : plano(r);
+}
+
+/* Las funciones públicas (las que puede llamar el navegador) responden con el contrato
+   {ok, datos} / {ok:false, codigo, mensaje, detalle} de Respuesta.js. ejecutar() lo
+   desenvuelve como hace invocar() en el navegador: devuelve los datos o lanza un error con
+   el código. doGet e instalar no siguen el contrato. */
+const SIN_CONTRATO = ["doGet", "instalar"];
+
+/* Para comprobar un fallo previsto: devuelve {codigo, mensaje, detalle} o falla si salió bien. */
+export function ejecutarFallo(entorno, usuario, funcion, ...args) {
+  const r = ejecutarCrudo(entorno, usuario, funcion, ...args);
+  if (!r || r.ok !== false) throw new Error(funcion + " debía fallar y respondió " + JSON.stringify(r));
+  return r;
+}
+export function ejecutar(entorno, usuario, funcion, ...args) {
+  const r = ejecutarCrudo(entorno, usuario, funcion, ...args);
+  if (funcion.endsWith("_") || SIN_CONTRATO.includes(funcion)) return r;
+  if (!r || typeof r.ok !== "boolean") throw new Error(funcion + " no respondió con el contrato {ok, …}: " + JSON.stringify(r));
+  if (r.ok) return r.datos;
+  throw Object.assign(new Error(r.mensaje), { codigo: r.codigo, detalle: r.detalle });
 }
 
 /* Cuentas de las pruebas: dos coordinadores de todas las carreras y un director por

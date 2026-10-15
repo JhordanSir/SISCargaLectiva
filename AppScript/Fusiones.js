@@ -17,7 +17,7 @@ function prepararFusiones_(ciclo, sig, antes, despues, disueltas, u, opciones) {
     tocados.forEach(function (s) {
       const b = bloqueoDe_(ciclo, Dominio.REF.plan(s));
       if (b && b.correo !== u.correo)
-        throw new Error("No se guardó: la fusión cambia el plan de " + Dominio.nombreCarrera(s) + ", que está editando " +
+        fallo_("BLOQUEADO", "No se guardó: la fusión cambia el plan de " + Dominio.nombreCarrera(s) + ", que está editando " +
                         b.correo + ". Espera a que termine o deshaz esa fusión.");
     });
   }

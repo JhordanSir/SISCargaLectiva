@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { crearEntorno, cargarServidor, ejecutar, fijarUsuarios, USUARIOS_PRUEBA, DIRECTORES } from "./falsos.mjs";
+import { crearEntorno, cargarServidor, ejecutar, ejecutarFallo, fijarUsuarios, USUARIOS_PRUEBA, DIRECTORES } from "./falsos.mjs";
 import { cargar, partesXlsx, plano, XLSX_CARRERA, XLSX_DEPARTAMENTO } from "./soporte.mjs";
 
 const A = "mfloresl@ulasalle.edu.pe";
@@ -86,11 +86,11 @@ test("el bloqueo es por carrera: el segundo usuario abre en solo lectura", () =>
   const ra = ejecutar(e, A, "abrirEdicion", CICLO, "ING");
   assert.equal(ra.version, 1);
   assert.ok(Date.parse(ra.expira) > Date.now() + 29 * 60000);
-  const rb = ejecutar(e, B, "abrirEdicion", CICLO, "ING");
-  assert.equal(rb.bloqueado.correo, A);
+  const rb = ejecutarFallo(e, B, "abrirEdicion", CICLO, "ING");
+  assert.deepEqual([rb.codigo, rb.detalle.correo], ["BLOQUEADO", A]);
   assert.equal(fila(ejecutar(e, B, "obtenerTablero", CICLO), "ING").bloqueo.correo, A);
   assert.ok(ejecutar(e, B, "abrirEdicion", CICLO, "ADM").expira, "otra carrera sí se puede editar");
-  assert.throws(() => ejecutar(e, B, "guardarPlan", CICLO, "ING", { asignaturas: [], tipo: "guardar cambios", versionBase: 1 }), /lo está editando/);
+  assert.throws(() => ejecutar(e, B, "guardarPlan", CICLO, "ING", { asignaturas: [], tipo: "guardar cambios", versionBase: 1 }), { codigo: "BLOQUEADO", message: /lo está editando/ });
 });
 
 test("el bloqueo caduca por inactividad y el latido lo renueva", () => {
@@ -100,10 +100,11 @@ test("el bloqueo caduca por inactividad y el latido lo renueva", () => {
   e.desfase = 20 * 60000;
   assert.ok(ejecutar(e, A, "renovarBloqueo", CICLO, "ING").expira);
   e.desfase = 45 * 60000;
-  assert.equal(ejecutar(e, B, "abrirEdicion", CICLO, "ING").bloqueado.correo, A, "a los 25 min del latido sigue vigente");
+  assert.equal(ejecutarFallo(e, B, "abrirEdicion", CICLO, "ING").detalle.correo, A, "a los 25 min del latido sigue vigente");
   e.desfase = 51 * 60000;
   assert.ok(ejecutar(e, B, "abrirEdicion", CICLO, "ING").expira, "caducado, lo toma otra cuenta");
-  assert.equal(ejecutar(e, A, "renovarBloqueo", CICLO, "ING").perdido.correo, B);
+  const perdido = ejecutarFallo(e, A, "renovarBloqueo", CICLO, "ING");
+  assert.deepEqual([perdido.codigo, perdido.detalle.correo], ["BLOQUEO_PERDIDO", B]);
   ejecutar(e, B, "liberarBloqueo", CICLO, "ING");
   assert.equal(e.hoja("Bloqueos").filas().length, 0);
 });
@@ -139,9 +140,10 @@ test("si llegó una versión nueva mientras se editaba, se advierte y se puede g
   ejecutar(e, A, "obtenerTablero", CICLO);
   const p = ejecutar(e, A, "abrirEdicion", CICLO, "PSI");
   ejecutar(e, A, "guardarPlan", CICLO, "PSI", { asignaturas: p.asignaturas, estado: "Registrado", tipo: "guardar cambios", versionBase: 1 });
-  const r = ejecutar(e, A, "guardarPlan", CICLO, "PSI", { asignaturas: p.asignaturas, estado: "Registrado", tipo: "autoguardado", versionBase: 1 });
-  assert.equal(r.conflicto.n, 2);
-  assert.equal(r.conflicto.tipo, "guardar cambios");
+  const r = ejecutarFallo(e, A, "guardarPlan", CICLO, "PSI", { asignaturas: p.asignaturas, estado: "Registrado", tipo: "autoguardado", versionBase: 1 });
+  assert.equal(r.codigo, "CONFLICTO");
+  assert.equal(r.detalle.n, 2);
+  assert.equal(r.detalle.tipo, "guardar cambios");
   const f = ejecutar(e, A, "guardarPlan", CICLO, "PSI", { asignaturas: p.asignaturas, estado: "Registrado", tipo: "autoguardado", versionBase: 1, forzar: true });
   assert.equal(f.version, 3);
 });
@@ -157,7 +159,7 @@ test("restaurar crea una versión nueva con el contenido recuperado", () => {
   assert.deepEqual([r.version, r.estado], [3, "Registrado"]);
   assert.deepEqual(r.asignaturas, original);
   assert.equal(ejecutar(e, A, "obtenerHistorial", CICLO, "IND")[2].tipo, "restauración de v1");
-  assert.throws(() => ejecutar(e, A, "restaurarVersion", CICLO, "IND", 9), /no existe/);
+  assert.throws(() => ejecutar(e, A, "restaurarVersion", CICLO, "IND", 9), { codigo: "NO_ENCONTRADO", message: /no existe/ });
 });
 
 test("un plan grande se reparte en varias celdas y se lee igual", () => {
@@ -179,8 +181,8 @@ test("el coordinador edita solo sus carreras y consulta todas", () => {
   const d = ejecutar(e, "coord@ulasalle.edu.pe", "datosIniciales_");
   assert.deepEqual([d.estado, d.usuario.rol, d.usuario.carreras], ["ok", "coordinador", ["ING", "IND"]]);
   assert.ok(ejecutar(e, "coord@ulasalle.edu.pe", "abrirEdicion", CICLO, "IND").expira);
-  assert.throws(() => ejecutar(e, "coord@ulasalle.edu.pe", "abrirEdicion", CICLO, "ADM"), /no tiene permiso/);
-  assert.throws(() => ejecutar(e, "coord@ulasalle.edu.pe", "guardarPlan", CICLO, "ADM", { asignaturas: [], tipo: "registrar" }), /no tiene permiso/);
+  assert.throws(() => ejecutar(e, "coord@ulasalle.edu.pe", "abrirEdicion", CICLO, "ADM"), { codigo: "SIN_PERMISO", message: /no tiene permiso/ });
+  assert.throws(() => ejecutar(e, "coord@ulasalle.edu.pe", "guardarPlan", CICLO, "ADM", { asignaturas: [], tipo: "registrar" }), { codigo: "SIN_PERMISO", message: /no tiene permiso/ });
   assert.equal(ejecutar(e, "coord@ulasalle.edu.pe", "obtenerPlan", CICLO, "ADM").asignaturas.length, 60);
 });
 
@@ -194,7 +196,7 @@ test("el director lleva su departamento y el coordinador las carreras que coordi
   assert.deepEqual([d.rol, d.departamento, d.coordina, d.carreras], ["director", "DAHUC", [], []], "el director no edita planes");
   const c = ejecutar(e, "coord@ulasalle.edu.pe", "datosIniciales_").usuario;
   assert.deepEqual([c.rol, c.coordina, c.carreras, c.departamento], ["coordinador", ["ING"], ["ING"], ""]);
-  assert.throws(() => ejecutar(e, "dir@ulasalle.edu.pe", "abrirEdicion", CICLO, "ADM"), /no edita los planes/);
+  assert.throws(() => ejecutar(e, "dir@ulasalle.edu.pe", "abrirEdicion", CICLO, "ADM"), { codigo: "SIN_PERMISO", message: /no edita los planes/ });
 });
 
 test("otro dominio o una cuenta sin rol reciben acceso denegado", () => {
@@ -202,7 +204,7 @@ test("otro dominio o una cuenta sin rol reciben acceso denegado", () => {
   const d = ejecutar(e, "alguien@gmail.com", "datosIniciales_");
   assert.equal(d.estado, "denegado");
   assert.match(d.motivo, /no pertenece al dominio ulasalle\.edu\.pe/);
-  assert.throws(() => ejecutar(e, "alguien@gmail.com", "obtenerTablero", CICLO), /no pertenece/);
+  assert.throws(() => ejecutar(e, "alguien@gmail.com", "obtenerTablero", CICLO), { codigo: "FUERA_DEL_DOMINIO", message: /no pertenece/ });
   assert.equal(e.propiedades.SIS_ROL_POR_DEFECTO, "ninguno", "instalar() deniega por defecto");
   assert.match(ejecutar(e, "nuevo@ulasalle.edu.pe", "datosIniciales_").motivo, /no tiene un rol/);
   e.propiedades.SIS_ROL_POR_DEFECTO = "director";
@@ -219,7 +221,7 @@ test("un cambio en la pestaña Usuarios se aplica cuando caduca la caché, a los
   assert.deepEqual(ejecutar(e, coord, "datosIniciales_").usuario.carreras, ["ING"]);
   e.hoja("Usuarios").getRange(8, 3, 1, 1).setNumberFormat("@").setValues([["ING, ADM"]]);
   e.desfase = 4 * 60000;
-  assert.throws(() => ejecutar(e, coord, "abrirEdicion", CICLO, "ADM"), /no tiene permiso/);
+  assert.throws(() => ejecutar(e, coord, "abrirEdicion", CICLO, "ADM"), { codigo: "SIN_PERMISO", message: /no tiene permiso/ });
   e.desfase = 6 * 60000;
   assert.ok(ejecutar(e, coord, "abrirEdicion", CICLO, "ADM").expira);
 });
@@ -285,7 +287,7 @@ test("abrirEdicion solo devuelve el contenido si la versión que tiene el navega
   assert.equal(nueva.version, 2);
   const r2 = ejecutar(e, A, "abrirEdicion", CICLO, "ARQ", 1);
   assert.deepEqual([r2.version, r2.asignaturas], [2, []]);
-  assert.equal(ejecutar(e, B, "abrirEdicion", CICLO, "ARQ", 2).bloqueado.correo, A);
+  assert.equal(ejecutarFallo(e, B, "abrirEdicion", CICLO, "ARQ", 2).detalle.correo, A);
 });
 
 test("la página llega con el tablero y avisa si falta revisar los xlsx", () => {

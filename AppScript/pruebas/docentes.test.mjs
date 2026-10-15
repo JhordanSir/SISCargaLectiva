@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { crearEntorno, cargarServidor, ejecutar, fijarUsuarios, USUARIOS_PRUEBA, DIRECTORES } from "./falsos.mjs";
+import { crearEntorno, cargarServidor, ejecutar, ejecutarFallo, fijarUsuarios, USUARIOS_PRUEBA, DIRECTORES } from "./falsos.mjs";
 import { XLSX_CARRERA, XLSX_DEPARTAMENTO, XLSX_DOCENTES, plano, partesXlsx } from "./soporte.mjs";
 
 const A = "mfloresl@ulasalle.edu.pe";      // coordinador de todas las carreras
@@ -54,8 +54,8 @@ test("solo el director del departamento edita su carga; los demás la consultan"
   const e = sistema();
   assert.equal(ejecutar(e, DAHUC, "obtenerEstadoDocentes", CICLO, "DIMA").puedeEditar, false);
   assert.equal(ejecutar(e, A, "obtenerEstadoDocentes", CICLO, "DIMA").puedeEditar, false);
-  assert.throws(() => ejecutar(e, A, "abrirEdicionCarga", CICLO, "DIMA"), /coordinador de carrera consulta/);
-  assert.throws(() => ejecutar(e, DAHUC, "guardarCarga", CICLO, "DIMA", { asignaciones: [] }), /Solo asignas docentes en DAHUC/);
+  assert.throws(() => ejecutar(e, A, "abrirEdicionCarga", CICLO, "DIMA"), { codigo: "SIN_PERMISO", message: /coordinador de carrera consulta/ });
+  assert.throws(() => ejecutar(e, DAHUC, "guardarCarga", CICLO, "DIMA", { asignaciones: [] }), { codigo: "SIN_PERMISO", message: /Solo asignas docentes en DAHUC/ });
   const r = ejecutar(e, DIMA, "abrirEdicionCarga", CICLO, "DIMA");
   assert.equal(r.version, 0);
   assert.ok(r.expira);
@@ -69,13 +69,13 @@ test("la carga se versiona, se bloquea por departamento y avisa del conflicto", 
   const asig = [{ unidad: u.id, componente: "T", docente: "VELASQUEZ DOIG, MIGUEL EDUARDO", horas: null }];
   const r1 = ejecutar(e, DIMA, "guardarCarga", CICLO, "DIMA", { asignaciones: asig, versionBase: 0 });
   assert.equal(r1.version, 1);
-  const r2 = ejecutar(e, DIMA, "guardarCarga", CICLO, "DIMA", { asignaciones: asig, versionBase: 0 });
-  assert.equal(r2.conflicto.n, 1, "se guardó otra versión después de la base");
+  const r2 = ejecutarFallo(e, DIMA, "guardarCarga", CICLO, "DIMA", { asignaciones: asig, versionBase: 0 });
+  assert.deepEqual([r2.codigo, r2.detalle.n], ["CONFLICTO", 1], "se guardó otra versión después de la base");
 
   /* Otra cuenta no puede tomar el bloqueo mientras dure. */
   fijarUsuarios(e, USUARIOS_PRUEBA.concat([["otro.dima@ulasalle.edu.pe", "director", "", "DIMA"]]));
-  assert.equal(ejecutar(e, "otro.dima@ulasalle.edu.pe", "abrirEdicionCarga", CICLO, "DIMA").bloqueado.correo, DIMA);
-  assert.throws(() => ejecutar(e, "otro.dima@ulasalle.edu.pe", "guardarCarga", CICLO, "DIMA", { asignaciones: [], versionBase: 1 }), /la está editando/);
+  assert.equal(ejecutarFallo(e, "otro.dima@ulasalle.edu.pe", "abrirEdicionCarga", CICLO, "DIMA").detalle.correo, DIMA);
+  assert.throws(() => ejecutar(e, "otro.dima@ulasalle.edu.pe", "guardarCarga", CICLO, "DIMA", { asignaciones: [], versionBase: 1 }), { codigo: "BLOQUEADO", message: /la está editando/ });
   ejecutar(e, DIMA, "liberarBloqueoCarga", CICLO, "DIMA");
   assert.ok(ejecutar(e, "otro.dima@ulasalle.edu.pe", "abrirEdicionCarga", CICLO, "DIMA").expira);
 
@@ -91,7 +91,7 @@ test("nadie pasa de 40 h; un docente con cargo sobre 24 h exige motivo", () => {
   const docente = "PRUEBA, DOCENTE";
   const asignar = lista => lista.flatMap(u => u.componentes.map(c => ({ unidad: u.id, componente: c.c, docente: docente, horas: null })));
   ejecutar(e, DIMA, "abrirEdicionCarga", CICLO, "DIMA");
-  assert.throws(() => ejecutar(e, DIMA, "guardarCarga", CICLO, "DIMA", { asignaciones: asignar(secciones), versionBase: 0 }), /superaría las 40 h/);
+  assert.throws(() => ejecutar(e, DIMA, "guardarCarga", CICLO, "DIMA", { asignaciones: asignar(secciones), versionBase: 0 }), { codigo: "EXCESO_HORAS", message: /superaría las 40 h/ });
 
   /* Con cargo: 26 h pide motivo; con motivo se guarda. */
   const Dominio = e.ctx.Dominio;
@@ -159,7 +159,7 @@ test("una asignación sigue a su sección si cambia el departamento del curso", 
   ejecutar(e, DIMA, "guardarCarga", CICLO, "DIMA", { asignaciones: [{ unidad: u.id, componente: "T", docente: "ALFARO BEJARANO, JULIO CARLO", horas: null }], versionBase: 0 });
 
   /* El director de DAHUC no puede derivar un curso de DIMA; el de DIMA sí. */
-  assert.throws(() => ejecutar(e, DAHUC, "cambiarDepartamento", CICLO, "ADM", u.id, "DAHUC", ""), /Solo puedes derivar/);
+  assert.throws(() => ejecutar(e, DAHUC, "cambiarDepartamento", CICLO, "ADM", u.id, "DAHUC", ""), { codigo: "SIN_PERMISO", message: /Solo puedes derivar/ });
   const r = ejecutar(e, DIMA, "cambiarDepartamento", CICLO, "ADM", u.id, "DAHUC", "préstamo");
   assert.equal(r.version, 2);
   assert.match(ejecutar(e, B, "obtenerHistorial", CICLO, "ADM")[1].motivo, /DIMA → DAHUC/);
@@ -225,7 +225,7 @@ test("la fusión no toca el plan de otra carrera mientras otra cuenta lo edita",
   const lista = plano(p.asignaturas);
   const ci = lista.findIndex(a => a.codigo === "3.4.6.24");
   e.ctx.Dominio.fusionar(lista, [ci + ":0"], ci + ":0", [{ carrera: "PSI", grupoId: g.id, codigo: ext.codigo, nombre: ext.nombre, n: g.n, ht: g.ht, hp: g.hp }]);
-  assert.throws(() => ejecutar(e, A, "guardarPlan", CICLO, "ING", { asignaturas: lista, estado: "Registrado", tipo: "guardar cambios", versionBase: 1 }), /está editando fmaresg/);
+  assert.throws(() => ejecutar(e, A, "guardarPlan", CICLO, "ING", { asignaturas: lista, estado: "Registrado", tipo: "guardar cambios", versionBase: 1 }), { codigo: "BLOQUEADO", message: /está editando fmaresg/ });
   assert.equal(ejecutar(e, B, "obtenerPlan", CICLO, "ING").version, 1, "no se guardó nada");
 });
 
@@ -236,7 +236,7 @@ test("el tablero dice qué grupos tienen docente y la recuperación se guarda y 
   ejecutar(e, DIMA, "abrirEdicionCarga", CICLO, "DIMA");
   ejecutar(e, DIMA, "guardarRecuperacion", CICLO, "carga:DIMA", { contenido: [{ unidad: u.id, componente: "T", docente: "X" }], versionBase: 0 });
   assert.equal(ejecutar(e, DIMA, "abrirEdicionCarga", CICLO, "DIMA").recuperacion.contenido[0].docente, "X");
-  assert.throws(() => ejecutar(e, A, "guardarRecuperacion", CICLO, "carga:DIMA", { contenido: [] }), /consulta la asignación/);
+  assert.throws(() => ejecutar(e, A, "guardarRecuperacion", CICLO, "carga:DIMA", { contenido: [] }), { codigo: "SIN_PERMISO", message: /consulta la asignación/ });
   ejecutar(e, DIMA, "guardarCarga", CICLO, "DIMA", { asignaciones: [{ unidad: u.id, componente: "T", docente: "VELASQUEZ DOIG, MIGUEL EDUARDO" }], versionBase: 0 });
   assert.equal(ejecutar(e, DIMA, "abrirEdicionCarga", CICLO, "DIMA").recuperacion, null, "al guardar se borra");
   const t = ejecutar(e, A, "obtenerTablero", CICLO);

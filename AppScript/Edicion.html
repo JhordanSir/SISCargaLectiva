@@ -10,7 +10,7 @@
 
 /* op: {
      relojes:      selector de los elementos donde se pinta el tiempo que queda,
-     renovar:      () => Promise<{expira} | {perdido: {correo}}>,
+     renovar:      () => Promise<{expira}>; se rechaza con codigo BLOQUEO_PERDIDO si otra cuenta lo tomó,
      alPerder:     correo => void, cuando otra cuenta tomó el bloqueo,
      alExpirar:    () => void, cuando pasó el tiempo sin actividad,
      alRenovar:    () => void (opcional), tras cada renovación,
@@ -61,9 +61,14 @@ function crearSesionEdicion(op){
     s.ultimoLatido = Date.now();
     const generacion = s.generacion;
     let r;
-    try { r = await op.renovar(); } catch (e) { return; }   // la siguiente actividad lo reintenta
+    try {
+      r = await op.renovar();
+    } catch (e) {
+      if (generacion !== s.generacion || !s.temporizador) return;
+      if (e && e.codigo === "BLOQUEO_PERDIDO") { detener(); return op.alPerder(e.detalle ? e.detalle.correo : ""); }
+      return;   // un fallo de red u otro: la siguiente actividad lo reintenta
+    }
     if (generacion !== s.generacion || !s.temporizador) return;
-    if (r.perdido) { detener(); return op.alPerder(r.perdido.correo); }
     s.expira = Date.parse(r.expira);
     pintar();
     if (op.alRenovar) op.alRenovar();

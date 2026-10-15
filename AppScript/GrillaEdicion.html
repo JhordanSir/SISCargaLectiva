@@ -116,26 +116,28 @@ async function abrirEdicion(sig, sinAvisoDePestana){
   try {
     r = await llamarDeFondo("abrirEdicion", app.ciclo, sig, f.version);
   } catch (e) {
-    if (pedido === pedidoEdicion && app.carrera === sig) { salirSinGuardar(); mostrarTablero(); informarError(e); }
-    return;
+    if (pedido !== pedidoEdicion || app.carrera !== sig) return;
+    const habiaCambios = app.plan.sucio;
+    salirSinGuardar();
+    if (e.codigo === "BLOQUEADO") return avisarBloqueado(sig, e.detalle, habiaCambios);
+    mostrarTablero();
+    return informarError(e);
   }
   if (pedido !== pedidoEdicion || app.carrera !== sig) {
     /* Ya se salió de este plan: el bloqueo que se acaba de tomar se devuelve. */
-    if (!r.bloqueado && app.carrera !== sig) llamarEnSilencio("liberarBloqueo", app.ciclo, sig).catch(() => {});
+    if (app.carrera !== sig) llamarEnSilencio("liberarBloqueo", app.ciclo, sig).catch(e => console.warn("liberarBloqueo:", e));
     return;
-  }
-  if (r.bloqueado) {
-    const habiaCambios = app.plan.sucio;
-    salirSinGuardar();
-    return avisarBloqueado(sig, r.bloqueado, habiaCambios);
   }
   confirmarEdicion(sig, r);
 }
 
 async function abrirEdicionEsperando(sig){
   let r;
-  try { r = await llamar("abrirEdicion", app.ciclo, sig); } catch (e) { return informarError(e); }
-  if (r.bloqueado) return avisarBloqueado(sig, r.bloqueado, false);
+  try {
+    r = await llamar("abrirEdicion", app.ciclo, sig);
+  } catch (e) {
+    return e.codigo === "BLOQUEADO" ? avisarBloqueado(sig, e.detalle, false) : informarError(e);
+  }
   ++pedidoEdicion;
   entrarEnEdicion(sig, { estado: r.estado, version: r.version, asignaturas: r.asignaturas });
   confirmarEdicion(sig, r);
@@ -221,9 +223,12 @@ function aplicarOtros(otros){
 async function guardar(datos){
   const p = app.plan, sig = app.carrera;
   const base = { asignaturas: p.asignaturas, versionBase: p.version, fusionesDisueltas: p.fusionesDisueltas || [] };
-  let r = await llamar("guardarPlan", app.ciclo, sig, Object.assign({}, base, datos));
-  if (r.conflicto) {
-    if (!await confirmarConflicto(r.conflicto, "del plan")) return null;
+  let r;
+  try {
+    r = await llamar("guardarPlan", app.ciclo, sig, Object.assign({}, base, datos));
+  } catch (e) {
+    if (e.codigo !== "CONFLICTO") throw e;
+    if (!await confirmarConflicto(e.detalle, "del plan")) return null;
     r = await llamar("guardarPlan", app.ciclo, sig, Object.assign({}, base, datos, { forzar: true }));
   }
   Object.assign(p, { version: r.version, estado: r.estado, sucio: false, fusionesDisueltas: [] });

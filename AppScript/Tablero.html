@@ -216,6 +216,7 @@ async function derivarAsignatura(sig, a){
   if (!r) return;
   let res;
   try { res = await llamar("cambiarDepartamento", app.ciclo, sig, a.grupos[0].id, r.dpto, r.motivo); } catch (e) { return informarError(e); }
+  if (res.sinCambios) return aviso(a.codigo + " ya pedía docente a " + r.dpto + ".", "info");
   actualizarFilaTablero(sig, { version: res.version, estado: res.estado, totales: res.totales, contenido: res.contenido });
   if (appDocentes.cargado) appDocentes.cargado.hora = 0;
   aviso(a.codigo + " ahora pide docente a " + r.dpto + ".");

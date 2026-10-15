@@ -5,7 +5,7 @@
 function refRecuperacion_(ref) {
   const r = String(ref || "");
   const m = r.match(/^(plan|carga):([A-Z]+)$/);
-  if (!m) throw new Error("Referencia de recuperación no válida.");
+  if (!m) fallo_("DATO_INVALIDO", "Referencia de recuperación no válida.");
   return { tipo: m[1], clave: m[2], ref: Dominio.REF[m[1]](m[2]) };
 }
 
@@ -41,26 +41,30 @@ function borrarRecuperacion_(ciclo, ref, correo) {
 
 /* datos: {contenido, versionBase}. */
 function guardarRecuperacion(ciclo, ref, datos) {
-  const u = exigirUsuario_();
-  const c = validarCiclo_(ciclo), r = refRecuperacion_(ref);
-  exigirRecuperacion_(u, r);
-  const contenido = datos && datos.contenido != null ? datos.contenido : [];
-  const texto = JSON.stringify(r.tipo === "plan" ? Dominio.sanearAsignaturas(contenido) : Dominio.sanearAsignaciones(contenido));
-  return conCandado_(function () {
-    const f = filaRecuperacion_(c, r.ref, u.correo);
-    const fecha = new Date().toISOString();
-    const valores = [c, r.ref, u.correo, fecha, String(parseInt(datos && datos.versionBase, 10) || 0)].concat(trocear_(texto));
-    if (f) {
-      const h = hojaBd_(TABLA_.RECUPERACION);
-      if (h.getLastColumn() > valores.length) h.getRange(f._fila, valores.length + 1, 1, h.getLastColumn() - valores.length).clearContent();
-      escribirFila_(TABLA_.RECUPERACION, f._fila, valores);
-    } else agregarFila_(TABLA_.RECUPERACION, valores);
-    return { fecha: fecha };
+  return responder_(function () {
+    const u = exigirUsuario_();
+    const c = validarCiclo_(ciclo), r = refRecuperacion_(ref);
+    exigirRecuperacion_(u, r);
+    const contenido = datos && datos.contenido != null ? datos.contenido : [];
+    const texto = JSON.stringify(r.tipo === "plan" ? Dominio.sanearAsignaturas(contenido) : Dominio.sanearAsignaciones(contenido));
+    return conCandado_(function () {
+      const f = filaRecuperacion_(c, r.ref, u.correo);
+      const fecha = new Date().toISOString();
+      const valores = [c, r.ref, u.correo, fecha, String(parseInt(datos && datos.versionBase, 10) || 0)].concat(trocear_(texto));
+      if (f) {
+        const h = hojaBd_(TABLA_.RECUPERACION);
+        if (h.getLastColumn() > valores.length) h.getRange(f._fila, valores.length + 1, 1, h.getLastColumn() - valores.length).clearContent();
+        escribirFila_(TABLA_.RECUPERACION, f._fila, valores);
+      } else agregarFila_(TABLA_.RECUPERACION, valores);
+      return { fecha: fecha };
+    });
   });
 }
 
 function descartarRecuperacion(ciclo, ref) {
-  const u = exigirUsuario_();
-  const c = validarCiclo_(ciclo), r = refRecuperacion_(ref);
-  return conCandado_(function () { borrarRecuperacion_(c, r.ref, u.correo); return true; });
+  return responder_(function () {
+    const u = exigirUsuario_();
+    const c = validarCiclo_(ciclo), r = refRecuperacion_(ref);
+    return conCandado_(function () { borrarRecuperacion_(c, r.ref, u.correo); return true; });
+  });
 }

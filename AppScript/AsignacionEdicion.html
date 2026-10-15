@@ -21,11 +21,13 @@ const sesionCarga = crearSesionEdicion({
 alPulsar("#btn-doc-editar", async () => {
   const d = appDocentes.datos;
   let r;
-  try { r = await llamar("abrirEdicionCarga", appDocentes.ciclo, appDocentes.dpto, appDocentes.base); } catch (e) { return informarError(e); }
-  if (r.bloqueado) {
-    d.bloqueo = r.bloqueado;
+  try {
+    r = await llamar("abrirEdicionCarga", appDocentes.ciclo, appDocentes.dpto, appDocentes.base);
+  } catch (e) {
+    if (e.codigo !== "BLOQUEADO") return informarError(e);
+    d.bloqueo = e.detalle;
     pintarVistaDocentes();
-    return informar("La carga está siendo editada", "La edita <b>" + esc(r.bloqueado.correo) + "</b> desde las " + esc(hora(r.bloqueado.desde)) + ". Puedes consultarla en solo lectura.");
+    return informar("La carga está siendo editada", "La edita <b>" + esc(e.detalle.correo) + "</b> desde las " + esc(hora(e.detalle.desde)) + ". Puedes consultarla en solo lectura.");
   }
   if (Array.isArray(r.asignaciones)) {
     d.cargas[appDocentes.dpto] = Object.assign({}, d.cargas[appDocentes.dpto], { version: r.version, asignaciones: r.asignaciones });
@@ -318,6 +320,7 @@ async function derivarSeccion(u){
   if (!r) return;
   try {
     const res = await llamar("cambiarDepartamento", appDocentes.ciclo, p.carrera, p.grupoId, r.dpto, r.motivo);
+    if (res.sinCambios) return aviso(u.codigo + " ya pedía docente a " + r.dpto + ".", "info");
     actualizarFilaTablero(p.carrera, { version: res.version, estado: res.estado, totales: res.totales, contenido: res.contenido });
     aviso(u.codigo + " ahora pide docente a " + r.dpto + ".");
   } catch (e) { return informarError(e); }
@@ -384,9 +387,12 @@ alPulsar("#btn-doc-guardar", async () => {
   if (exc.severos.length && !v.exceso) return aviso("Escribe el motivo del exceso de carga.", "aviso");
   const datos = { asignaciones: limpiarParaGuardar(), versionBase: appDocentes.base, motivo: v.motivo, motivoExceso: v.exceso };
   try {
-    let res = await llamar("guardarCarga", appDocentes.ciclo, appDocentes.dpto, datos);
-    if (res.conflicto) {
-      if (!await confirmarConflicto(res.conflicto, "de la carga")) return;
+    let res;
+    try {
+      res = await llamar("guardarCarga", appDocentes.ciclo, appDocentes.dpto, datos);
+    } catch (e) {
+      if (e.codigo !== "CONFLICTO") throw e;
+      if (!await confirmarConflicto(e.detalle, "de la carga")) return;
       res = await llamar("guardarCarga", appDocentes.ciclo, appDocentes.dpto, Object.assign(datos, { forzar: true }));
     }
     fijarGuardado(res);

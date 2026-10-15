@@ -10,7 +10,7 @@
 import http from "node:http";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
-import { crearEntorno, cargarServidor, ejecutar, fijarUsuarios, USUARIOS_PRUEBA } from "./falsos.mjs";
+import { crearEntorno, cargarServidor, ejecutar, ejecutarCrudo, fijarUsuarios, USUARIOS_PRUEBA } from "./falsos.mjs";
 import { XLSX_CARRERA, XLSX_DEPARTAMENTO, XLSX_DOCENTES } from "./soporte.mjs";
 
 const USUARIO_POR_DEFECTO = "mfloresl@ulasalle.edu.pe";
@@ -68,7 +68,8 @@ export function iniciarServidorLocal({ puerto = 8765, conXlsx = true } = {}) {
           if (m[1].endsWith("_") || typeof ctx[m[1]] !== "function") throw new Error("Función no disponible: " + m[1]);
           const args = JSON.parse(cuerpo || "[]");
           let respuesta;
-          try { respuesta = { valor: ejecutar(e, usuario, m[1], ...args) ?? null }; }
+          /* Como Apps Script: la respuesta llega tal cual, con el contrato {ok, …} de Respuesta.js. */
+          try { respuesta = { valor: ejecutarCrudo(e, usuario, m[1], ...args) ?? null }; }
           catch (err) { respuesta = { error: err.message }; }
           res.writeHead(200, { "content-type": "application/json" });
           return res.end(JSON.stringify(respuesta));

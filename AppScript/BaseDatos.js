@@ -31,7 +31,7 @@ var hojasCache_ = null;   // pestañas ya abiertas en esta ejecución
 function libroBd_() {
   if (libroBdCache_) return libroBdCache_;
   const id = config_().bdId;
-  if (!id) throw new Error("El sistema no está instalado: falta la propiedad SIS_BD_ID. Ejecuta instalar() desde el editor.");
+  if (!id) fallo_("NO_INSTALADO", "El sistema no está instalado: falta la propiedad SIS_BD_ID. Ejecuta instalar() desde el editor.");
   libroBdCache_ = SpreadsheetApp.openById(id);
   return libroBdCache_;
 }
@@ -44,7 +44,7 @@ function hojaBd_(nombre) {
   const libro = libroBd_();
   let h = libro.getSheetByName(nombre);
   if (!h) {
-    if (!TABLAS_[nombre]) throw new Error("Falta la pestaña «" + nombre + "» en la hoja del sistema. Ejecuta instalar() desde el editor.");
+    if (!TABLAS_[nombre]) fallo_("NO_INSTALADO", "Falta la pestaña «" + nombre + "» en la hoja del sistema. Ejecuta instalar() desde el editor.");
     h = prepararTabla_(libro, nombre);
   }
   hojasCache_[nombre] = h;
@@ -190,7 +190,7 @@ function guardarEnCache_(clave, valor, segundos) {
 function conCandado_(fn) {
   const candado = LockService.getScriptLock();
   if (!candado.tryLock(30000))
-    throw new Error("El sistema está ocupado con otra operación. Inténtalo de nuevo en unos segundos.");
+    fallo_("OCUPADO", "El sistema está ocupado con otra operación. Inténtalo de nuevo en unos segundos.");
   try {
     return fn();
   } finally {

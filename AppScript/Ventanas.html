@@ -77,7 +77,8 @@ dlg.addEventListener("cancel", e => { e.preventDefault(); dlg.close(); });
 function informarError(e){
   return preguntar({
     titulo: "No se pudo completar la operación",
-    cuerpo: '<div class="nota error">' + esc((e && e.message) || e) + "</div>",
+    cuerpo: '<div class="nota error">' + esc((e && e.message) || e) + "</div>" +
+      (e && e.codigo === "INTERNO" ? '<p class="ayuda mt-3">Si vuelve a ocurrir, avisa a la administración del sistema.</p>' : ""),
     acciones: [{ texto:"Entendido", clase:"primario", valor:true }]
   });
 }

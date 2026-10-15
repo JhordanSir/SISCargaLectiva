@@ -585,15 +585,18 @@ function crearDominio_() {
   const marcaSegura = v => MARCA_FUSION.test(String(v == null ? "" : v)) ? String(v) : null;
   const esSigla = v => CARRERAS.some(c => c.sig === v);
 
+  /* Error de datos con el código del contrato de respuestas (Respuesta.js). */
+  const errorDato = mensaje => Object.assign(new Error(mensaje), { codigo: "DATO_INVALIDO" });
+
   function exigirLista(v, max, que) {
-    if (!Array.isArray(v)) throw new Error(que + ": se esperaba una lista.");
-    if (v.length > max) throw new Error(que + ": tiene " + v.length + " elementos y el máximo es " + max + ".");
+    if (!Array.isArray(v)) throw errorDato(que + ": se esperaba una lista.");
+    if (v.length > max) throw errorDato(que + ": tiene " + v.length + " elementos y el máximo es " + max + ".");
   }
 
   function exigirTamano(v, que) {
     const n = JSON.stringify(v).length;
     if (n > LIMITES_DATOS.CARACTERES)
-      throw new Error(que + " es demasiado grande (" + Math.round(n / 1024) + " KB; el máximo es " + Math.round(LIMITES_DATOS.CARACTERES / 1024) + " KB).");
+      throw errorDato(que + " es demasiado grande (" + Math.round(n / 1024) + " KB; el máximo es " + Math.round(LIMITES_DATOS.CARACTERES / 1024) + " KB).");
   }
 
   function sanearGrupo(g) {
