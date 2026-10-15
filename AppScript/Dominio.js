@@ -1,7 +1,11 @@
 /* Lógica de dominio de CU-001 y CU-002, compartida por el servidor y el navegador.
-   El navegador recibe el texto de crearDominio_() y lo ejecuta tal cual, así que
-   la función no puede usar nada definido fuera de ella. */
-function crearDominio_() {
+   Son tres fábricas: lo común (datos maestros, normalización, saneadores y firma), el
+   plan de ciclo (CU-001) y la carga docente (CU-002). crearDominio_() las combina y
+   decide qué es público. El navegador recibe el texto de las cuatro funciones
+   (fuenteDominio_) y lo ejecuta tal cual, así que no pueden usar nada definido fuera
+   de ellas. */
+
+function crearDominioComun_() {
   "use strict";
 
   /* ============================================================
@@ -154,6 +158,180 @@ function crearDominio_() {
   }
 
   /* ============================================================
+     Números, identificadores y asignaturas internacionales: los usan el
+     plan, la carga y los saneadores
+     ============================================================ */
+  function num(v) {
+    if (typeof v === "number") return isFinite(v) ? v : 0;
+    const m = String(v == null ? "" : v).replace(",", ".").match(/-?\d+(\.\d+)?/);
+    return m ? parseFloat(m[0]) : 0;
+  }
+  const th = g => num(g.ht) + num(g.hp);
+
+  const idGrupo = () => "g" + Math.random().toString(36).slice(2);
+  const esInternacional = a => /INTERNACIONAL|VIRTUAL/i.test(a.obs || "");
+
+  /* ============================================================
+     Saneamiento de lo que llega del navegador antes de guardarlo. No reinterpreta el
+     contenido (el texto que no se entiende se conserva, como en la carga), pero se queda
+     solo con los campos del modelo, recorta los textos y rechaza lo que no se puede
+     guardar: algo que no es una lista o un volumen desmedido.
+     ============================================================ */
+  const LIMITES_DATOS = { ASIGNATURAS: 2000, GRUPOS: 60, ASIGNACIONES: 6000, HISTORIAL: 50, FUSION_CON: 30, MARCAS: 200, CARACTERES: 600000 };
+  const MARCA_FUSION = /^F[A-Z0-9]{1,12}$/;
+  const DESDOBLE = /^(PRA|TEO)×\d{1,2}$/;
+  const COMPONENTE = /^(C|T\d{0,2}|P\d{0,2})$/;
+  const FECHA_ISO = /^\d{4}-\d{2}-\d{2}$/;
+
+  const objeto = v => v && typeof v === "object" && !Array.isArray(v) ? v : {};
+  const recortar = (v, max) => v == null ? "" : String(v).slice(0, max);
+  const textoONumero = (v, max) => typeof v === "number" && isFinite(v) ? v : recortar(v, max);
+  const idSeguro = v => /^[A-Za-z0-9_-]{1,40}$/.test(String(v == null ? "" : v)) ? String(v) : null;
+  const marcaSegura = v => MARCA_FUSION.test(String(v == null ? "" : v)) ? String(v) : null;
+  const esSigla = v => CARRERAS.some(c => c.sig === v);
+
+  /* Error de datos con el código del contrato de respuestas (Respuesta.js). */
+  const errorDato = mensaje => Object.assign(new Error(mensaje), { codigo: "DATO_INVALIDO" });
+
+  function exigirLista(v, max, que) {
+    if (!Array.isArray(v)) throw errorDato(que + ": se esperaba una lista.");
+    if (v.length > max) throw errorDato(que + ": tiene " + v.length + " elementos y el máximo es " + max + ".");
+  }
+
+  function exigirTamano(v, que) {
+    const n = JSON.stringify(v).length;
+    if (n > LIMITES_DATOS.CARACTERES)
+      throw errorDato(que + " es demasiado grande (" + Math.round(n / 1024) + " KB; el máximo es " + Math.round(LIMITES_DATOS.CARACTERES / 1024) + " KB).");
+  }
+
+  function sanearGrupo(g) {
+    g = objeto(g);
+    const r = {
+      id: idSeguro(g.id) || idGrupo(), n: textoONumero(g.n, 10), ht: textoONumero(g.ht, 20), hp: textoONumero(g.hp, 20),
+      desdoble: DESDOBLE.test(String(g.desdoble || "")) ? String(g.desdoble) : null,
+      fusion: marcaSegura(g.fusion)
+    };
+    if (r.fusion && g.fusionPrincipal === true) r.fusionPrincipal = true;
+    if (r.fusion && Array.isArray(g.fusionCon)) {
+      const con = g.fusionCon.slice(0, LIMITES_DATOS.FUSION_CON).map(objeto)
+        .filter(x => esSigla(x.carrera) && idSeguro(x.grupoId))
+        .map(x => ({ carrera: x.carrera, grupoId: x.grupoId, codigo: recortar(x.codigo, 40), nombre: recortar(x.nombre, 250),
+                     n: textoONumero(x.n, 10), principal: x.principal === true }));
+      if (con.length) r.fusionCon = con;
+    }
+    if (g.previas && typeof g.previas === "object")
+      r.previas = { ht: textoONumero(g.previas.ht, 20), hp: textoONumero(g.previas.hp, 20) };
+    return r;
+  }
+
+  /* Contenido de un plan. Una asignatura sin grupos no es válida y se descarta. */
+  function sanearAsignaturas(lista) {
+    exigirLista(lista, LIMITES_DATOS.ASIGNATURAS, "El plan");
+    exigirTamano(lista, "El plan");
+    return lista.map(objeto).map(a => {
+      const grupos = Array.isArray(a.grupos) ? a.grupos : [];
+      exigirLista(grupos, LIMITES_DATOS.GRUPOS, "Los grupos de «" + recortar(a.nombre || a.codigo, 60) + "»");
+      return { sem: textoONumero(a.sem, 40), malla: textoONumero(a.malla, 20), codigo: recortar(a.codigo, 40), nombre: recortar(a.nombre, 250),
+               dpto: recortar(a.dpto, 60), obs: recortar(a.obs, 500), grupos: grupos.map(sanearGrupo) };
+    }).filter(a => a.grupos.length);
+  }
+
+  function sanearMarcas(lista) {
+    if (lista == null) return [];
+    exigirLista(lista, LIMITES_DATOS.MARCAS, "Las fusiones deshechas");
+    return lista.map(marcaSegura).filter(Boolean);
+  }
+
+  /* Horas de una asignación: null es «las del componente»; si no, un número entre 0 y 60. */
+  function horasSeguras(v) {
+    if (v === null || v === undefined || String(v).trim() === "") return null;
+    return Math.round(Math.min(60, Math.max(0, num(v))) * 100) / 100;
+  }
+
+  function sanearHistorial(lista) {
+    if (!Array.isArray(lista) || !lista.length) return null;
+    return lista.slice(-LIMITES_DATOS.HISTORIAL).map(objeto).map(h => {
+      const r = { tipo: recortar(h.tipo, 30), fecha: recortar(h.fecha, 30), usuario: recortar(h.usuario, 120) };
+      if (h.docente != null) r.docente = recortar(h.docente, 150);
+      if (h.dni != null) r.dni = recortar(h.dni, 20);
+      if (h.antes != null) r.antes = recortar(h.antes, 150);
+      if (h.motivo != null) r.motivo = recortar(h.motivo, 300);
+      if (FECHA_ISO.test(String(h.hasta || ""))) r.hasta = h.hasta;
+      return r;
+    });
+  }
+
+  /* Asignaciones de una carga docente. Descarta los campos que solo usa la pantalla
+     (heredada, dptoCarga) y cualquier otro que no sea del modelo. */
+  function sanearAsignaciones(lista) {
+    exigirLista(lista, LIMITES_DATOS.ASIGNACIONES, "La carga");
+    exigirTamano(lista, "La carga");
+    return lista.map(objeto).map(a => {
+      const r = {
+        id: idSeguro(a.id) || ("a" + Math.random().toString(36).slice(2, 10)),
+        unidad: idSeguro(a.unidad), fusion: marcaSegura(a.fusion),
+        componente: COMPONENTE.test(String(a.componente || "")) ? String(a.componente) : "C",
+        docente: recortar(a.docente, 150).trim(),
+        dni: /^[0-9A-Za-z-]{1,20}$/.test(String(a.dni || "")) ? String(a.dni) : "",
+        horas: horasSeguras(a.horas),
+        condicion: recortar(a.condicion, 150),
+        carrera: recortar(a.carrera, 20), codigo: recortar(a.codigo, 40), asignatura: recortar(a.asignatura, 250),
+        n: textoONumero(a.n, 10), sem: textoONumero(a.sem, 40)
+      };
+      if (a.nota) r.nota = recortar(a.nota, 300);
+      if (a.reemplazo && typeof a.reemplazo === "object")
+        r.reemplazo = { de: recortar(a.reemplazo.de, 150), motivo: recortar(a.reemplazo.motivo, 300),
+                        desde: FECHA_ISO.test(String(a.reemplazo.desde || "")) ? a.reemplazo.desde : "" };
+      const historial = sanearHistorial(a.historial);
+      if (historial) r.historial = historial;
+      return r;
+    });
+  }
+
+  /* ============================================================
+     Firma del contenido, para saber si un plan cambió entre dos lecturas
+     ============================================================ */
+  function contenidoCanonico(asignaturas) {
+    return JSON.stringify((asignaturas || []).map(a => [
+      a.sem, a.malla, a.codigo, a.nombre, a.dpto, a.obs,
+      a.grupos.map(g => [g.n, g.ht, g.hp, g.desdoble || null, g.fusion || null])
+    ]));
+  }
+
+  /* cyrb53: hash de 53 bits, suficiente para detectar cambios. */
+  function hash(texto) {
+    let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+    for (let i = 0; i < texto.length; i++) {
+      const ch = texto.charCodeAt(i);
+      h1 = Math.imul(h1 ^ ch, 2654435761);
+      h2 = Math.imul(h2 ^ ch, 1597334677);
+    }
+    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+    return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(16);
+  }
+
+  return {
+    DPTOS, CARRERAS, COLUMNAS, SINONIMOS, ESTADOS, TIPO_VERSION, REF, TIPOS_AVISO, aviso, comoAviso,
+    nombreCarrera, normalizar, canonica, matrizDesdeTexto, ubicarCabeceras, entero, claveCarrera,
+    formasCarrera, coincideCarrera, siglaDeCarrera, descomponerSemestre, num, th, idGrupo, esInternacional,
+    LIMITES_DATOS, MARCA_FUSION, DESDOBLE, COMPONENTE, FECHA_ISO, objeto, recortar, textoONumero, idSeguro,
+    marcaSegura, esSigla, errorDato, exigirLista, exigirTamano, sanearGrupo, sanearAsignaturas, sanearMarcas,
+    horasSeguras, sanearHistorial, sanearAsignaciones, contenidoCanonico, hash
+  };
+}
+
+/* CU-001 «Registrar plan de ciclo»: interpretar lo importado, totales, operaciones de
+   edición y fusiones. C: lo que devuelve crearDominioComun_(). */
+function crearDominioPlan_(C) {
+  "use strict";
+
+  const {
+    CARRERAS, coincideCarrera, descomponerSemestre, DPTOS, esInternacional, idGrupo, normalizar, num, th,
+    ubicarCabeceras
+  } = C;
+
+  /* ============================================================
      Deducción de columnas: la cabecera manda y lo que quede suelto
      se reconoce por su contenido. Nunca se rechaza nada.
      ============================================================ */
@@ -218,14 +396,6 @@ function crearDominio_() {
      Interpretación: no valida, no rechaza y no corrige. Los números solo
      se interpretan para sumar; el texto original se conserva.
      ============================================================ */
-  function num(v) {
-    if (typeof v === "number") return isFinite(v) ? v : 0;
-    const m = String(v == null ? "" : v).replace(",", ".").match(/-?\d+(\.\d+)?/);
-    return m ? parseFloat(m[0]) : 0;
-  }
-  const th = g => num(g.ht) + num(g.hp);
-
-  const idGrupo = () => "g" + Math.random().toString(36).slice(2);
   const nuevoGrupo = (n, ht, hp) => ({ id: idGrupo(), n: n, ht: ht, hp: hp, desdoble: null, fusion: null });
 
   function ordenar(asignaturas) {
@@ -289,8 +459,6 @@ function crearDominio_() {
   /* ============================================================
      Totales
      ============================================================ */
-  const esInternacional = a => /INTERNACIONAL|VIRTUAL/i.test(a.obs || "");
-
   /* Una sección fusionada dicta sus horas una sola vez. Si su grupo principal está en el
      plan de otra carrera, ese plan es el que las cuenta y este no suma nada. */
   function totales(asignaturas) {
@@ -581,145 +749,22 @@ function crearDominio_() {
     return { asignaturas: despues, cambios: cambios };
   }
 
-  /* ============================================================
-     Saneamiento de lo que llega del navegador antes de guardarlo. No reinterpreta el
-     contenido (el texto que no se entiende se conserva, como en la carga), pero se queda
-     solo con los campos del modelo, recorta los textos y rechaza lo que no se puede
-     guardar: algo que no es una lista o un volumen desmedido.
-     ============================================================ */
-  const LIMITES_DATOS = { ASIGNATURAS: 2000, GRUPOS: 60, ASIGNACIONES: 6000, HISTORIAL: 50, FUSION_CON: 30, MARCAS: 200, CARACTERES: 600000 };
-  const MARCA_FUSION = /^F[A-Z0-9]{1,12}$/;
-  const DESDOBLE = /^(PRA|TEO)×\d{1,2}$/;
-  const COMPONENTE = /^(C|T\d{0,2}|P\d{0,2})$/;
-  const FECHA_ISO = /^\d{4}-\d{2}-\d{2}$/;
+  return {
+    PISTAS, puntuar, filaConDatos, deducirColumnas, nuevoGrupo, ordenar, interpretar, totales, siguienteN,
+    agregarAsignatura, eliminarAsignatura, agregarGrupo, agregarGrupoSemestre, eliminarGrupo, desdoblar,
+    quitarDesdoble, restaurarHoras, nuevaMarca, difiereDe, quitarDeFusion, fusionar, deshacerFusion,
+    limpiarFusionHuerfana, conservarIds, marcasAfectadas, buscarGrupoPorId, reconciliarFusiones
+  };
+}
 
-  const objeto = v => v && typeof v === "object" && !Array.isArray(v) ? v : {};
-  const recortar = (v, max) => v == null ? "" : String(v).slice(0, max);
-  const textoONumero = (v, max) => typeof v === "number" && isFinite(v) ? v : recortar(v, max);
-  const idSeguro = v => /^[A-Za-z0-9_-]{1,40}$/.test(String(v == null ? "" : v)) ? String(v) : null;
-  const marcaSegura = v => MARCA_FUSION.test(String(v == null ? "" : v)) ? String(v) : null;
-  const esSigla = v => CARRERAS.some(c => c.sig === v);
+/* CU-002 «Asignar docentes al plan de ciclo»: secciones, balance, advertencias y lectura
+   de CargaXDepartamento. C: lo que devuelve crearDominioComun_(). */
+function crearDominioCarga_(C) {
+  "use strict";
 
-  /* Error de datos con el código del contrato de respuestas (Respuesta.js). */
-  const errorDato = mensaje => Object.assign(new Error(mensaje), { codigo: "DATO_INVALIDO" });
-
-  function exigirLista(v, max, que) {
-    if (!Array.isArray(v)) throw errorDato(que + ": se esperaba una lista.");
-    if (v.length > max) throw errorDato(que + ": tiene " + v.length + " elementos y el máximo es " + max + ".");
-  }
-
-  function exigirTamano(v, que) {
-    const n = JSON.stringify(v).length;
-    if (n > LIMITES_DATOS.CARACTERES)
-      throw errorDato(que + " es demasiado grande (" + Math.round(n / 1024) + " KB; el máximo es " + Math.round(LIMITES_DATOS.CARACTERES / 1024) + " KB).");
-  }
-
-  function sanearGrupo(g) {
-    g = objeto(g);
-    const r = {
-      id: idSeguro(g.id) || idGrupo(), n: textoONumero(g.n, 10), ht: textoONumero(g.ht, 20), hp: textoONumero(g.hp, 20),
-      desdoble: DESDOBLE.test(String(g.desdoble || "")) ? String(g.desdoble) : null,
-      fusion: marcaSegura(g.fusion)
-    };
-    if (r.fusion && g.fusionPrincipal === true) r.fusionPrincipal = true;
-    if (r.fusion && Array.isArray(g.fusionCon)) {
-      const con = g.fusionCon.slice(0, LIMITES_DATOS.FUSION_CON).map(objeto)
-        .filter(x => esSigla(x.carrera) && idSeguro(x.grupoId))
-        .map(x => ({ carrera: x.carrera, grupoId: x.grupoId, codigo: recortar(x.codigo, 40), nombre: recortar(x.nombre, 250),
-                     n: textoONumero(x.n, 10), principal: x.principal === true }));
-      if (con.length) r.fusionCon = con;
-    }
-    if (g.previas && typeof g.previas === "object")
-      r.previas = { ht: textoONumero(g.previas.ht, 20), hp: textoONumero(g.previas.hp, 20) };
-    return r;
-  }
-
-  /* Contenido de un plan. Una asignatura sin grupos no es válida y se descarta. */
-  function sanearAsignaturas(lista) {
-    exigirLista(lista, LIMITES_DATOS.ASIGNATURAS, "El plan");
-    exigirTamano(lista, "El plan");
-    return lista.map(objeto).map(a => {
-      const grupos = Array.isArray(a.grupos) ? a.grupos : [];
-      exigirLista(grupos, LIMITES_DATOS.GRUPOS, "Los grupos de «" + recortar(a.nombre || a.codigo, 60) + "»");
-      return { sem: textoONumero(a.sem, 40), malla: textoONumero(a.malla, 20), codigo: recortar(a.codigo, 40), nombre: recortar(a.nombre, 250),
-               dpto: recortar(a.dpto, 60), obs: recortar(a.obs, 500), grupos: grupos.map(sanearGrupo) };
-    }).filter(a => a.grupos.length);
-  }
-
-  function sanearMarcas(lista) {
-    if (lista == null) return [];
-    exigirLista(lista, LIMITES_DATOS.MARCAS, "Las fusiones deshechas");
-    return lista.map(marcaSegura).filter(Boolean);
-  }
-
-  /* Horas de una asignación: null es «las del componente»; si no, un número entre 0 y 60. */
-  function horasSeguras(v) {
-    if (v === null || v === undefined || String(v).trim() === "") return null;
-    return Math.round(Math.min(60, Math.max(0, num(v))) * 100) / 100;
-  }
-
-  function sanearHistorial(lista) {
-    if (!Array.isArray(lista) || !lista.length) return null;
-    return lista.slice(-LIMITES_DATOS.HISTORIAL).map(objeto).map(h => {
-      const r = { tipo: recortar(h.tipo, 30), fecha: recortar(h.fecha, 30), usuario: recortar(h.usuario, 120) };
-      if (h.docente != null) r.docente = recortar(h.docente, 150);
-      if (h.dni != null) r.dni = recortar(h.dni, 20);
-      if (h.antes != null) r.antes = recortar(h.antes, 150);
-      if (h.motivo != null) r.motivo = recortar(h.motivo, 300);
-      if (FECHA_ISO.test(String(h.hasta || ""))) r.hasta = h.hasta;
-      return r;
-    });
-  }
-
-  /* Asignaciones de una carga docente. Descarta los campos que solo usa la pantalla
-     (heredada, dptoCarga) y cualquier otro que no sea del modelo. */
-  function sanearAsignaciones(lista) {
-    exigirLista(lista, LIMITES_DATOS.ASIGNACIONES, "La carga");
-    exigirTamano(lista, "La carga");
-    return lista.map(objeto).map(a => {
-      const r = {
-        id: idSeguro(a.id) || ("a" + Math.random().toString(36).slice(2, 10)),
-        unidad: idSeguro(a.unidad), fusion: marcaSegura(a.fusion),
-        componente: COMPONENTE.test(String(a.componente || "")) ? String(a.componente) : "C",
-        docente: recortar(a.docente, 150).trim(),
-        dni: /^[0-9A-Za-z-]{1,20}$/.test(String(a.dni || "")) ? String(a.dni) : "",
-        horas: horasSeguras(a.horas),
-        condicion: recortar(a.condicion, 150),
-        carrera: recortar(a.carrera, 20), codigo: recortar(a.codigo, 40), asignatura: recortar(a.asignatura, 250),
-        n: textoONumero(a.n, 10), sem: textoONumero(a.sem, 40)
-      };
-      if (a.nota) r.nota = recortar(a.nota, 300);
-      if (a.reemplazo && typeof a.reemplazo === "object")
-        r.reemplazo = { de: recortar(a.reemplazo.de, 150), motivo: recortar(a.reemplazo.motivo, 300),
-                        desde: FECHA_ISO.test(String(a.reemplazo.desde || "")) ? a.reemplazo.desde : "" };
-      const historial = sanearHistorial(a.historial);
-      if (historial) r.historial = historial;
-      return r;
-    });
-  }
-
-  /* ============================================================
-     Firma del contenido, para saber si un plan cambió entre dos lecturas
-     ============================================================ */
-  function contenidoCanonico(asignaturas) {
-    return JSON.stringify((asignaturas || []).map(a => [
-      a.sem, a.malla, a.codigo, a.nombre, a.dpto, a.obs,
-      a.grupos.map(g => [g.n, g.ht, g.hp, g.desdoble || null, g.fusion || null])
-    ]));
-  }
-
-  /* cyrb53: hash de 53 bits, suficiente para detectar cambios. */
-  function hash(texto) {
-    let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
-    for (let i = 0; i < texto.length; i++) {
-      const ch = texto.charCodeAt(i);
-      h1 = Math.imul(h1 ^ ch, 2654435761);
-      h2 = Math.imul(h2 ^ ch, 1597334677);
-    }
-    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
-    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
-    return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(16);
-  }
+  const {
+    descomponerSemestre, esInternacional, ESTADOS, normalizar, num, siglaDeCarrera
+  } = C;
 
   /* ============================================================
      Asignación docente: secciones que se asignan, balance y advertencias
@@ -994,14 +1039,13 @@ function crearDominio_() {
      El grupo sale de la columna GRUPO si la hay o de SEMESTRE («1-2» = semestre 1, grupo 2).
      Cada fila se cruza con las secciones del ciclo por carrera, código y grupo.
      Devuelve las filas leídas; nunca rechaza el contenido. */
-  function interpretarCargaDepartamento(matriz, unidades, dpto, catalogo) {
-    const filas = matriz || [];
-    let cab = -1;
-    const col = {};
-    for (let i = 0; i < Math.min(15, filas.length) && cab < 0; i++) {
-      const f = (filas[i] || []).map(normalizar);
+  /* Cabecera de una hoja de CargaXDepartamento: la primera fila (de las 15 primeras) que
+     tenga DOCENTE y CODIGO o ASIGNATURA. Sin ella, las columnas del formato habitual.
+     Devuelve {cab: índice de la cabecera, col: {DOCENTE: j, …}}. */
+  function ubicarColumnasCarga(filas) {
+    for (let i = 0; i < Math.min(15, filas.length); i++) {
       const pos = {};
-      f.forEach((c, j) => {
+      (filas[i] || []).map(normalizar).forEach((c, j) => {
         const fijar = (k, cond) => { if (cond && pos[k] === undefined) pos[k] = j; };
         fijar("DOCENTE", c.indexOf("DOCENTE") >= 0 || c.indexOf("PROFESOR") >= 0);
         fijar("CARRERA", c === "CARRERA" || c === "CARR");
@@ -1014,19 +1058,48 @@ function crearDominio_() {
         fijar("CONDICION", c.indexOf("CONDICION") >= 0);
         fijar("GRUPO", c === "GRUPO" || c === "GRP");
       });
-      if (pos.DOCENTE !== undefined && (pos.CODIGO !== undefined || pos.ASIGNATURA !== undefined)) { cab = i; Object.assign(col, pos); }
+      if (pos.DOCENTE !== undefined && (pos.CODIGO !== undefined || pos.ASIGNATURA !== undefined)) return { cab: i, col: pos };
     }
-    if (cab < 0) {
-      Object.assign(col, { DOCENTE: 0, CARRERA: 1, MALLA: 2, SEMESTRE: 3, CODIGO: 4, ASIGNATURA: 5, HT: 6, HP: 7, CONDICION: 9 });
-      cab = 0;
-    }
-    const val = (f, k) => col[k] !== undefined && f[col[k]] != null ? String(f[col[k]]).trim() : "";
+    return { cab: 0, col: { DOCENTE: 0, CARRERA: 1, MALLA: 2, SEMESTRE: 3, CODIGO: 4, ASIGNATURA: 5, HT: 6, HP: 7, CONDICION: 9 } };
+  }
 
+  /* Secciones del ciclo por carrera, código (o nombre) y grupo de cada miembro. */
+  function indiceSeccionesCarga(unidades) {
     const idx = new Map();
     (unidades || []).forEach(u => u.miembros.forEach(m => {
       idx.set(m.carrera + "|C|" + String(m.codigo).trim() + "|" + String(m.n).trim(), u);
       idx.set(m.carrera + "|N|" + normalizar(m.nombre) + "|" + String(m.n).trim(), u);
     }));
+    return idx;
+  }
+
+  /* Componentes de la sección que cubre una fila: teoría si trae HT, práctica si trae HP.
+     En un desdoble, cada fila toma el siguiente subgrupo libre de esa sección (usados
+     cuenta los ya tomados en esta lectura). Sin horas, toda la sección. */
+  function componentesDeFila(seccion, ht, hp, usados) {
+    const tomar = tipo => {
+      const de = seccion.componentes.filter(c => c.tipo === tipo);
+      if (de.length <= 1) return de.map(c => c.c);
+      const k = seccion.id + "|" + tipo;
+      const ya = usados.get(k) || 0;
+      usados.set(k, ya + 1);
+      return [de[Math.min(ya, de.length - 1)].c];
+    };
+    const componentes = (ht > 0 ? tomar("T") : []).concat(hp > 0 ? tomar("P") : []);
+    return componentes.length ? componentes : seccion.componentes.map(c => c.c);
+  }
+
+  /* Lee la hoja de un departamento tal como viene en CargaXDepartamento: el docente aparece
+     una vez y sus cursos debajo (celdas combinadas), con filas de TOTAL entre docentes.
+     El grupo sale de la columna GRUPO si la hay o de SEMESTRE («1-2» = semestre 1, grupo 2).
+     Cada fila se cruza con las secciones del ciclo por carrera, código y grupo.
+     Devuelve las filas leídas; nunca rechaza el contenido. */
+  function interpretarCargaDepartamento(matriz, unidades, dpto, catalogo) {
+    const filas = matriz || [];
+    const { cab, col } = ubicarColumnasCarga(filas);
+    const val = (f, k) => col[k] !== undefined && f[col[k]] != null ? String(f[col[k]]).trim() : "";
+    const vacia = c => String(c == null ? "" : c).trim() === "";
+    const idx = indiceSeccionesCarga(unidades);
     const delCatalogo = new Map((catalogo || []).map(d => [claveDocente(d.nombreCompleto), d]));
     const usados = new Map();   // sección|tipo → subgrupos ya tomados en esta lectura
 
@@ -1034,13 +1107,10 @@ function crearDominio_() {
     let docente = "";
     for (let r = cab + 1; r < filas.length; r++) {
       const f = filas[r] || [];
-      if (!f.some(c => String(c == null ? "" : c).trim() !== "")) continue;
-      if (f.some(c => /^\s*TOTAL/i.test(String(c == null ? "" : c)))) continue;
-      const celdaDoc = val(f, "DOCENTE");
-      if (celdaDoc) docente = celdaDoc;
+      if (f.every(vacia) || f.some(c => /^\s*TOTAL/i.test(String(c == null ? "" : c)))) continue;
+      docente = val(f, "DOCENTE") || docente;
       const codigo = val(f, "CODIGO"), nombre = val(f, "ASIGNATURA");
-      if (!codigo && !nombre) continue;
-      if (!docente) continue;
+      if (!docente || (!codigo && !nombre)) continue;
 
       const carreraTexto = val(f, "CARRERA");
       const carrera = siglaDeCarrera(carreraTexto) || carreraTexto;
@@ -1048,57 +1118,63 @@ function crearDominio_() {
       const grupoCol = val(f, "GRUPO");
       const n = grupoCol !== "" ? String(num(grupoCol) || grupoCol) : String(!isNaN(ds.grupo) ? ds.grupo : 1);
       const ht = num(val(f, "HT")), hp = num(val(f, "HP"));
-      const u = (codigo && idx.get(carrera + "|C|" + codigo + "|" + n)) || (nombre && idx.get(carrera + "|N|" + normalizar(nombre) + "|" + n)) || null;
-
-      let componentes = [];
-      if (u) {
-        const tomar = tipo => {
-          const de = u.componentes.filter(c => c.tipo === tipo);
-          if (!de.length) return [];
-          if (de.length === 1) return [de[0].c];
-          const k = u.id + "|" + tipo;
-          const ya = usados.get(k) || 0;
-          usados.set(k, ya + 1);
-          return [de[Math.min(ya, de.length - 1)].c];
-        };
-        if (ht > 0) componentes = componentes.concat(tomar("T"));
-        if (hp > 0) componentes = componentes.concat(tomar("P"));
-        if (!componentes.length) componentes = u.componentes.map(c => c.c);
-      }
+      const seccion = (codigo && idx.get(carrera + "|C|" + codigo + "|" + n)) || (nombre && idx.get(carrera + "|N|" + normalizar(nombre) + "|" + n)) || null;
       const cat = delCatalogo.get(claveDocente(docente)) || null;
       salida.push({
         fila: r + 1, docenteTexto: docente, docente: cat ? cat.nombreCompleto : null, dni: cat ? cat.dni : "",
         carrera: carrera, codigo: codigo, nombre: nombre, n: n, ht: ht, hp: hp, condicion: val(f, "CONDICION"),
-        unidad: u ? u.id : null, fusion: u ? u.fusion : null, componentes: componentes,
-        estado: !u ? "fuera" : (dpto && u.dpto !== dpto ? "otro-dpto" : "ok"), dptoUnidad: u ? u.dpto : ""
+        unidad: seccion ? seccion.id : null, fusion: seccion ? seccion.fusion : null,
+        componentes: seccion ? componentesDeFila(seccion, ht, hp, usados) : [],
+        estado: !seccion ? "fuera" : (dpto && seccion.dpto !== dpto ? "otro-dpto" : "ok"), dptoUnidad: seccion ? seccion.dpto : ""
       });
     }
     return { filas: salida, cabecera: cab + 1 };
   }
 
   return {
-    DPTOS: DPTOS, normalizarDpto: normalizarDpto, nombreDpto: nombreDpto,
-    claveDocente: claveDocente, LIMITES: LIMITES, PENDIENTE_INTERNACIONAL: PENDIENTE_INTERNACIONAL,
-    esPendienteInternacional: esPendienteInternacional,
-    unidadesDelCiclo: unidadesDelCiclo, indiceUnidades: indiceUnidades, unidadDe: unidadDe,
-    asignacionesVigentes: asignacionesVigentes, coberturaUnidad: coberturaUnidad,
-    claveDeDocente: claveDeDocente, calcularBalance: calcularBalance, excesosAlGuardar: excesosAlGuardar,
-    sugerirDocentes: sugerirDocentes, interpretarCargaDepartamento: interpretarCargaDepartamento,
-    CARRERAS: CARRERAS, ESTADOS: ESTADOS, TIPO_VERSION: TIPO_VERSION, REF: REF,
-    TIPOS_AVISO: TIPOS_AVISO, aviso: aviso, comoAviso: comoAviso,
-    nombreCarrera: nombreCarrera, normalizar: normalizar, canonica: canonica,
-    matrizDesdeTexto: matrizDesdeTexto, ubicarCabeceras: ubicarCabeceras,
-    siglaDeCarrera: siglaDeCarrera,
-    interpretar: interpretar, num: num, th: th, totales: totales, esInternacional: esInternacional,
-    agregarAsignatura: agregarAsignatura, eliminarAsignatura: eliminarAsignatura,
-    agregarGrupo: agregarGrupo, agregarGrupoSemestre: agregarGrupoSemestre,
-    eliminarGrupo: eliminarGrupo, desdoblar: desdoblar, quitarDesdoble: quitarDesdoble,
-    fusionar: fusionar, deshacerFusion: deshacerFusion,
-    conservarIds: conservarIds,
-    marcasAfectadas: marcasAfectadas, reconciliarFusiones: reconciliarFusiones,
-    sanearAsignaturas: sanearAsignaturas, sanearAsignaciones: sanearAsignaciones, sanearMarcas: sanearMarcas,
-    contenidoCanonico: contenidoCanonico, hash: hash
+    DPTOS_INFO, normalizarDpto, nombreDpto, claveDocente, LIMITES, PENDIENTE_INTERNACIONAL,
+    esPendienteInternacional, componentesDe, unidadesDelCiclo, indiceUnidades, unidadDe,
+    asignacionesVigentes, horasAsignacion, coberturaUnidad, claveDeDocente, calcularBalance,
+    excesosAlGuardar, similitudNombres, sugerirDocentes, ubicarColumnasCarga, indiceSeccionesCarga,
+    componentesDeFila, interpretarCargaDepartamento
   };
+}
+
+/* Combina las tres fábricas. Lo que devuelve es lo único público de Dominio. */
+function crearDominio_() {
+  "use strict";
+  const comun = crearDominioComun_();
+  const plan = crearDominioPlan_(comun);
+  const t = Object.assign({}, comun, plan, crearDominioCarga_(comun));
+  return {
+    DPTOS: t.DPTOS, normalizarDpto: t.normalizarDpto, nombreDpto: t.nombreDpto,
+    claveDocente: t.claveDocente, LIMITES: t.LIMITES, PENDIENTE_INTERNACIONAL: t.PENDIENTE_INTERNACIONAL,
+    esPendienteInternacional: t.esPendienteInternacional,
+    unidadesDelCiclo: t.unidadesDelCiclo, indiceUnidades: t.indiceUnidades, unidadDe: t.unidadDe,
+    asignacionesVigentes: t.asignacionesVigentes, coberturaUnidad: t.coberturaUnidad,
+    claveDeDocente: t.claveDeDocente, calcularBalance: t.calcularBalance, excesosAlGuardar: t.excesosAlGuardar,
+    sugerirDocentes: t.sugerirDocentes, interpretarCargaDepartamento: t.interpretarCargaDepartamento,
+    CARRERAS: t.CARRERAS, ESTADOS: t.ESTADOS, TIPO_VERSION: t.TIPO_VERSION, REF: t.REF,
+    TIPOS_AVISO: t.TIPOS_AVISO, aviso: t.aviso, comoAviso: t.comoAviso,
+    nombreCarrera: t.nombreCarrera, normalizar: t.normalizar, canonica: t.canonica,
+    matrizDesdeTexto: t.matrizDesdeTexto, ubicarCabeceras: t.ubicarCabeceras,
+    siglaDeCarrera: t.siglaDeCarrera,
+    interpretar: t.interpretar, num: t.num, th: t.th, totales: t.totales, esInternacional: t.esInternacional,
+    agregarAsignatura: t.agregarAsignatura, eliminarAsignatura: t.eliminarAsignatura,
+    agregarGrupo: t.agregarGrupo, agregarGrupoSemestre: t.agregarGrupoSemestre,
+    eliminarGrupo: t.eliminarGrupo, desdoblar: t.desdoblar, quitarDesdoble: t.quitarDesdoble,
+    fusionar: t.fusionar, deshacerFusion: t.deshacerFusion,
+    conservarIds: t.conservarIds,
+    marcasAfectadas: t.marcasAfectadas, reconciliarFusiones: t.reconciliarFusiones,
+    sanearAsignaturas: t.sanearAsignaturas, sanearAsignaciones: t.sanearAsignaciones, sanearMarcas: t.sanearMarcas,
+    contenidoCanonico: t.contenidoCanonico, hash: t.hash
+  };
+}
+
+/* Texto que recrea Dominio en el navegador (Principal.js lo inserta en la página). */
+function fuenteDominio_() {
+  return "(function () {\n" + [crearDominioComun_, crearDominioPlan_, crearDominioCarga_, crearDominio_].map(String).join("\n\n") +
+         "\nreturn crearDominio_();\n})()";
 }
 
 var Dominio = crearDominio_();

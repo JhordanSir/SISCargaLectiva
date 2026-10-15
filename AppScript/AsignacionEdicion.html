@@ -279,35 +279,49 @@ async function reasignarHuerfana(a){
   cambiado("Asignación reasignada a " + x.seccion.codigo + ".");
 }
 
+/* Botones de las tablas de la asignación, que se repintan a menudo: un solo delegado.
+   Cada atributo data-acc-* elige su mapa de acciones; el botón dice cuál con su valor. */
+const conDocente = l => l.filter(a => String(a.docente || "").trim());
+const ACCIONES_SECCION = {
+  asignar: seccion => asignarSeccion(seccion),
+  reemplazar: seccion => reemplazar(conDocente(appCarga.balance.vigentes.porUnidad.get(seccion.id) || []), "Reemplazar docente en " + seccion.codigo),
+  derivar: seccion => derivarSeccion(seccion)
+};
+const ACCIONES_DOCENTE = {
+  asignar: nombre => asignarADocente(nombre),
+  reemplazar: nombre => {
+    const suyas = [];
+    appCarga.balance.vigentes.porUnidad.forEach((l, id) => {
+      if (unidadPorId(id).dpto !== appCarga.dpto) return;
+      l.forEach(a => { if (Dominio.claveDocente(a.docente) === Dominio.claveDocente(nombre)) suyas.push(a); });
+    });
+    reemplazar(suyas, "Reemplazar a " + nombre);
+  }
+};
+const ACCIONES_HUERFANA = {
+  quitar: a => { appCarga.trabajo = appCarga.trabajo.filter(x => x !== a); cambiado("Asignación quitada."); },
+  mover: a => reasignarHuerfana(a)
+};
+
 document.addEventListener("click", e => {
   const sec = e.target.closest("[data-acc-sec]");
   if (sec) {
     const seccion = unidadPorId(sec.dataset.u);
-    if (!seccion) return;
-    if (sec.dataset.accSec === "asignar") asignarSeccion(seccion);
-    else if (sec.dataset.accSec === "reemplazar")
-      reemplazar((appCarga.balance.vigentes.porUnidad.get(seccion.id) || []).filter(a => String(a.docente || "").trim()), "Reemplazar docente en " + seccion.codigo);
-    else if (sec.dataset.accSec === "derivar") derivarSeccion(seccion);
+    const accion = ACCIONES_SECCION[sec.dataset.accSec];
+    if (seccion && accion) accion(seccion);
     return;
   }
   const doc = e.target.closest("[data-acc-doc]");
   if (doc) {
-    const nombre = doc.dataset.doc;
-    if (doc.dataset.accDoc === "asignar") asignarADocente(nombre);
-    else {
-      const vig = appCarga.balance.vigentes;
-      const suyas = [];
-      vig.porUnidad.forEach((l, id) => { if (unidadPorId(id).dpto === appCarga.dpto) l.forEach(a => { if (Dominio.claveDocente(a.docente) === Dominio.claveDocente(nombre)) suyas.push(a); }); });
-      reemplazar(suyas, "Reemplazar a " + nombre);
-    }
+    const accion = ACCIONES_DOCENTE[doc.dataset.accDoc];
+    if (accion) accion(doc.dataset.doc);
     return;
   }
   const h = e.target.closest("[data-acc-huerf]");
   if (h) {
     const a = appCarga.trabajo.find(x => x.id === h.dataset.id);
-    if (!a) return;
-    if (h.dataset.accHuerf === "quitar") { appCarga.trabajo = appCarga.trabajo.filter(x => x !== a); cambiado("Asignación quitada."); }
-    else reasignarHuerfana(a);
+    const accion = ACCIONES_HUERFANA[h.dataset.accHuerf];
+    if (a && accion) accion(a);
   }
 });
 

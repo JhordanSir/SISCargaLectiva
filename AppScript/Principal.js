@@ -3,7 +3,7 @@
 function doGet() {
   const t = HtmlService.createTemplateFromFile("Index");
   t.inicial = JSON.stringify(datosIniciales_()).replace(/</g, "\\u003c");
-  t.dominio = "(" + crearDominio_.toString() + ")()";
+  t.dominio = fuenteDominio_();
   return t.evaluate()
     .setTitle("SISCargaLectiva · Universidad La Salle")
     .addMetaTag("viewport", "width=device-width, initial-scale=1");

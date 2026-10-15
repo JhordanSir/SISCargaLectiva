@@ -364,7 +364,7 @@ test("doGet arma la página con los datos iniciales y el dominio compartido", ()
   const e = sistema();
   const html = e.ctx.doGet().getContent();
   assert.match(html, /var SIS = \{"estado":"ok"/);
-  assert.match(html, /var Dominio = \(function crearDominio_\(\)/);
+  assert.match(html, /var Dominio = \(function \(\) \{\nfunction crearDominioComun_\(\)/);
   assert.doesNotMatch(html, /<\?/);
-  assert.ok(!/<\/script/i.test(e.ctx.crearDominio_.toString()), "el código compartido no puede cerrar la etiqueta <script>");
+  assert.ok(!/<\/script/i.test(e.ctx.fuenteDominio_()), "el código compartido no puede cerrar la etiqueta <script>");
 });
