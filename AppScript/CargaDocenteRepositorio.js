@@ -81,12 +81,12 @@ function docentesPorGrupo_(ciclo) {
   if (unidades.length) {
     const vig = Dominio.asignacionesVigentes(unidades, soloAsignaciones_(cargasVigentes_(ciclo, filasCarga)));
     vig.porUnidad.forEach(function (asigs, id) {
-      const u = vig.idx.porId.get(id);
+      const seccion = vig.idx.porId.get(id);
       const nombres = asigs.filter(function (a) { return String(a.docente || "").trim(); })
         .map(function (a) { return a.docente + " (" + a.dptoCarga + ")"; })
         .filter(function (x, i, l) { return l.indexOf(x) === i; });
       if (!nombres.length) return;
-      u.miembros.forEach(function (m) { (res[m.carrera] = res[m.carrera] || {})[m.grupoId] = nombres; });
+      seccion.miembros.forEach(function (m) { (res[m.carrera] = res[m.carrera] || {})[m.grupoId] = nombres; });
     });
   }
   guardarEnCache_(clave, res, SEGUNDOS_CACHE_VERSION_);
@@ -116,9 +116,9 @@ function avisosDeCarga_(dpto, planes, meta, sinSeccion) {
 function depurarCarga_(dpto, asignaciones, unidades, cargas) {
   const idx = Dominio.indiceUnidades(unidades);
   return asignaciones.filter(function (a) {
-    const u = Dominio.unidadDe(idx, a);
-    if (!u || u.dpto === dpto) return true;
-    return !(cargas[u.dpto] || []).some(function (x) { const v = Dominio.unidadDe(idx, x); return v && v.id === u.id; });
+    const seccion = Dominio.unidadDe(idx, a);
+    if (!seccion || seccion.dpto === dpto) return true;
+    return !(cargas[seccion.dpto] || []).some(function (x) { const v = Dominio.unidadDe(idx, x); return v && v.id === seccion.id; });
   });
 }
 
@@ -132,13 +132,13 @@ function sinDni_(x) {
   return c;
 }
 
-function catalogoVisible_(docentes, u, dpto) {
-  const puede = puedeEditarCarga_(u, dpto);
+function catalogoVisible_(docentes, usuario, dpto) {
+  const puede = puedeEditarCarga_(usuario, dpto);
   return docentes.map(function (doc) { return puede && doc.dpto === dpto ? doc : sinDni_(doc); });
 }
 
-function cargasVisibles_(cargas, u, dpto) {
-  const puede = puedeEditarCarga_(u, dpto);
+function cargasVisibles_(cargas, usuario, dpto) {
+  const puede = puedeEditarCarga_(usuario, dpto);
   const r = {};
   Object.keys(cargas).forEach(function (k) {
     r[k] = Object.assign({}, cargas[k], { asignaciones: puede && k === dpto ? cargas[k].asignaciones : cargas[k].asignaciones.map(sinDni_) });

@@ -9,9 +9,9 @@ function refRecuperacion_(ref) {
   return { tipo: m[1], clave: m[2], ref: Dominio.REF[m[1]](m[2]) };
 }
 
-function exigirRecuperacion_(u, r) {
-  if (r.tipo === "plan") exigirEdicion_(u, validarCarrera_(r.clave));
-  else exigirCarga_(u, validarDpto_(r.clave));
+function exigirRecuperacion_(usuario, r) {
+  if (r.tipo === "plan") exigirEdicion_(usuario, validarCarrera_(r.clave));
+  else exigirCarga_(usuario, validarDpto_(r.clave));
 }
 
 function filaRecuperacion_(ciclo, ref, correo) {
@@ -42,15 +42,15 @@ function borrarRecuperacion_(ciclo, ref, correo) {
 /* datos: {contenido, versionBase}. */
 function guardarRecuperacion(ciclo, ref, datos) {
   return responder_(function () {
-    const u = exigirUsuario_();
+    const usuario = exigirUsuario_();
     const c = validarCiclo_(ciclo), r = refRecuperacion_(ref);
-    exigirRecuperacion_(u, r);
+    exigirRecuperacion_(usuario, r);
     const contenido = datos && datos.contenido != null ? datos.contenido : [];
     const texto = JSON.stringify(r.tipo === "plan" ? Dominio.sanearAsignaturas(contenido) : Dominio.sanearAsignaciones(contenido));
     return conCandado_(function () {
-      const f = filaRecuperacion_(c, r.ref, u.correo);
+      const f = filaRecuperacion_(c, r.ref, usuario.correo);
       const fecha = new Date().toISOString();
-      const valores = [c, r.ref, u.correo, fecha, String(parseInt(datos && datos.versionBase, 10) || 0)].concat(trocear_(texto));
+      const valores = [c, r.ref, usuario.correo, fecha, String(parseInt(datos && datos.versionBase, 10) || 0)].concat(trocear_(texto));
       if (f) {
         const h = hojaBd_(TABLA_.RECUPERACION);
         if (h.getLastColumn() > valores.length) h.getRange(f._fila, valores.length + 1, 1, h.getLastColumn() - valores.length).clearContent();
@@ -63,8 +63,8 @@ function guardarRecuperacion(ciclo, ref, datos) {
 
 function descartarRecuperacion(ciclo, ref) {
   return responder_(function () {
-    const u = exigirUsuario_();
+    const usuario = exigirUsuario_();
     const c = validarCiclo_(ciclo), r = refRecuperacion_(ref);
-    return conCandado_(function () { borrarRecuperacion_(c, r.ref, u.correo); return true; });
+    return conCandado_(function () { borrarRecuperacion_(c, r.ref, usuario.correo); return true; });
   });
 }

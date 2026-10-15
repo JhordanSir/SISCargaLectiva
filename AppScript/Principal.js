@@ -24,13 +24,13 @@ function datosIniciales_() {
   };
   if (!cfg.carpetaId || !cfg.bdId) return { estado: "sin-instalar", config: config };
   try {
-    const u = usuarioActual_();
-    if (u.denegado) return { estado: "denegado", motivo: u.denegado, config: config };
+    const usuario = usuarioActual_();
+    if (usuario.denegado) return { estado: "denegado", motivo: usuario.denegado, config: config };
     /* La página llega con el tablero ya leído. No se mira Drive aquí para no retrasarla:
        si hace falta revisar los xlsx, el navegador lo pide en segundo plano (pendiente). */
     const revisado = xlsxRevisadoHacePoco_();
     return {
-      estado: "ok", usuario: u, config: config,
+      estado: "ok", usuario: usuario, config: config,
       tablero: { ciclo: config.ciclo, filas: leerTablero_(config.ciclo), avisos: revisado ? revisado.avisos.map(Dominio.comoAviso) : [], pendiente: !revisado }
     };
   } catch (e) {

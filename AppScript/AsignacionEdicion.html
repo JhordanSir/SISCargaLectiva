@@ -5,24 +5,24 @@
    ============================================================ */
 const sesionCarga = crearSesionEdicion({
   relojes: "#reloj-asignacion",
-  renovar: () => llamarEnSilencio("renovarBloqueoCarga", appDocentes.ciclo, appDocentes.dpto),
+  renovar: () => llamarEnSilencio("renovarBloqueoCarga", appCarga.ciclo, appCarga.dpto),
   alPerder: correo => {
-    appDocentes.editando = false;
+    appCarga.editando = false;
     marcarDocentesSucio(false);
     cargarEstadoDocentes();
     informar("Se perdió el bloqueo de edición", "Tu bloqueo caducó y ahora la carga la edita <b>" + esc(correo) +
       "</b>. Lo que no guardaste queda en la copia de recuperación: podrás recuperarlo la próxima vez que la edites.");
   },
   alExpirar: () => expirarCarga(),
-  copia: () => appDocentes.editando && appDocentes.sucio ? { contenido: appDocentes.trabajo, versionBase: appDocentes.base } : null,
-  guardarCopia: d => llamarEnSilencio("guardarRecuperacion", appDocentes.ciclo, Dominio.REF.carga(appDocentes.dpto), d)
+  copia: () => appCarga.editando && appCarga.sucio ? { contenido: appCarga.trabajo, versionBase: appCarga.base } : null,
+  guardarCopia: d => llamarEnSilencio("guardarRecuperacion", appCarga.ciclo, Dominio.REF.carga(appCarga.dpto), d)
 });
 
 alPulsar("#btn-doc-editar", async () => {
-  const d = appDocentes.datos;
+  const d = appCarga.datos;
   let r;
   try {
-    r = await llamar("abrirEdicionCarga", appDocentes.ciclo, appDocentes.dpto, appDocentes.base);
+    r = await llamar("abrirEdicionCarga", appCarga.ciclo, appCarga.dpto, appCarga.base);
   } catch (e) {
     if (e.codigo !== "BLOQUEADO") return informarError(e);
     d.bloqueo = e.detalle;
@@ -30,16 +30,16 @@ alPulsar("#btn-doc-editar", async () => {
     return informar("La carga está siendo editada", "La edita <b>" + esc(e.detalle.correo) + "</b> desde las " + esc(hora(e.detalle.desde)) + ". Puedes consultarla en solo lectura.");
   }
   if (Array.isArray(r.asignaciones)) {
-    d.cargas[appDocentes.dpto] = Object.assign({}, d.cargas[appDocentes.dpto], { version: r.version, asignaciones: r.asignaciones });
-    appDocentes.trabajo = clonar(r.asignaciones);
-    appDocentes.base = r.version;
+    d.cargas[appCarga.dpto] = Object.assign({}, d.cargas[appCarga.dpto], { version: r.version, asignaciones: r.asignaciones });
+    appCarga.trabajo = clonar(r.asignaciones);
+    appCarga.base = r.version;
   }
-  appDocentes.editando = true;
+  appCarga.editando = true;
   sesionCarga.iniciar(r.expira);
   if (r.recuperacion && Array.isArray(r.recuperacion.contenido)) {
-    const rec = await ofrecerRecuperacion(r.recuperacion, appDocentes.base, "la carga de " + appDocentes.dpto);
-    if (rec === true) { appDocentes.trabajo = r.recuperacion.contenido; marcarDocentesSucio(true); aviso("Cambios recuperados: revísalos y guarda."); }
-    else if (rec === false) llamarEnSilencio("descartarRecuperacion", appDocentes.ciclo, Dominio.REF.carga(appDocentes.dpto)).catch(() => {});
+    const rec = await ofrecerRecuperacion(r.recuperacion, appCarga.base, "la carga de " + appCarga.dpto);
+    if (rec === true) { appCarga.trabajo = r.recuperacion.contenido; marcarDocentesSucio(true); aviso("Cambios recuperados: revísalos y guarda."); }
+    else if (rec === false) llamarEnSilencio("descartarRecuperacion", appCarga.ciclo, Dominio.REF.carga(appCarga.dpto)).catch(() => {});
   }
   pintarVistaDocentes();
 });
@@ -47,46 +47,46 @@ alPulsar("#btn-doc-editar", async () => {
 function confirmarFinCarga(){
   return preguntar({
     titulo: "Terminar la edición",
-    cuerpo: '<div class="nota aviso">' + (appDocentes.sucio ? "Se descartarán las asignaciones que no guardaste y se liberará la carga del departamento." : "Se liberará la carga del departamento.") + "</div>",
+    cuerpo: '<div class="nota aviso">' + (appCarga.sucio ? "Se descartarán las asignaciones que no guardaste y se liberará la carga del departamento." : "Se liberará la carga del departamento.") + "</div>",
     acciones: [{ texto:"Seguir editando", valor:null }, { texto:"Terminar", clase:"peligro", valor:true }]
   });
 }
 
 async function terminarEdicionCarga(){
-  const ciclo = appDocentes.ciclo, dpto = appDocentes.dpto;
+  const ciclo = appCarga.ciclo, dpto = appCarga.dpto;
   sesionCarga.detener();
-  appDocentes.editando = false;
-  if (appDocentes.sucio) llamarEnSilencio("descartarRecuperacion", ciclo, Dominio.REF.carga(dpto)).catch(() => {});
+  appCarga.editando = false;
+  if (appCarga.sucio) llamarEnSilencio("descartarRecuperacion", ciclo, Dominio.REF.carga(dpto)).catch(() => {});
   marcarDocentesSucio(false);
   try { await llamarEnSilencio("liberarBloqueoCarga", ciclo, dpto); } catch (e) { /* caduca solo */ }
-  if (appDocentes.datos) appDocentes.trabajo = clonar(appDocentes.datos.cargas[dpto].asignaciones || []);
+  if (appCarga.datos) appCarga.trabajo = clonar(appCarga.datos.cargas[dpto].asignaciones || []);
   pintarVistaDocentes();
 }
 alPulsar("#btn-doc-terminar", async () => { if (await confirmarFinCarga()) terminarEdicionCarga(); });
 
 /* Pasó el tiempo sin actividad: se guarda lo pendiente como una versión nueva y se suelta la carga. */
 async function expirarCarga(){
-  if (!appDocentes.editando) return;
+  if (!appCarga.editando) return;
   let texto = "No había cambios sin guardar.";
-  if (appDocentes.sucio) {
+  if (appCarga.sucio) {
     try {
-      const r = await llamar("guardarCarga", appDocentes.ciclo, appDocentes.dpto, { asignaciones: limpiarParaGuardar(), versionBase: appDocentes.base, tipo: Dominio.TIPO_VERSION.AUTOGUARDADO, forzar: true });
+      const r = await llamar("guardarCarga", appCarga.ciclo, appCarga.dpto, { asignaciones: limpiarParaGuardar(), versionBase: appCarga.base, tipo: Dominio.TIPO_VERSION.AUTOGUARDADO, forzar: true });
       fijarGuardado(r);
       texto = "Los cambios se guardaron como la versión v" + r.version + ".";
     } catch (e) {
       texto = "No se pudieron guardar (" + ((e && e.message) || e) + "). Quedan en la copia de recuperación: al volver a editar podrás recuperarlos.";
     }
   }
-  appDocentes.editando = false;
+  appCarga.editando = false;
   marcarDocentesSucio(false);
-  try { await llamarEnSilencio("liberarBloqueoCarga", appDocentes.ciclo, appDocentes.dpto); } catch (e) { /* caduca solo */ }
+  try { await llamarEnSilencio("liberarBloqueoCarga", appCarga.ciclo, appCarga.dpto); } catch (e) { /* caduca solo */ }
   pintarVistaDocentes();
   await informar("La sesión de edición ha expirado", "Transcurrieron " + CONFIG.minutosBloqueo + " minutos sin actividad. " + esc(texto));
 }
 
 window.addEventListener("pagehide", () => {
   /* Sin esperar respuesta: la página se cierra. */
-  if (appDocentes.editando) google.script.run.liberarBloqueoCarga(appDocentes.ciclo, appDocentes.dpto);
+  if (appCarga.editando) google.script.run.liberarBloqueoCarga(appCarga.ciclo, appCarga.dpto);
 });
 
 /* ============================================================
@@ -99,16 +99,16 @@ function cambiado(mensaje){
 }
 
 /* Asignaciones de la carga en edición que pertenecen a una sección (por su grupo o su fusión). */
-function propiasDe(u){
-  const idx = appDocentes.balance.vigentes.idx;
-  return appDocentes.trabajo.filter(a => { const v = Dominio.unidadDe(idx, a); return v && v.id === u.id; });
+function propiasDe(seccion){
+  const idx = appCarga.balance.vigentes.idx;
+  return appCarga.trabajo.filter(a => { const v = Dominio.unidadDe(idx, a); return v && v.id === seccion.id; });
 }
-const unidadPorId = id => (appDocentes.datos.unidades || []).find(u => u.id === id);
-const fotoUnidad = u => ({ unidad: u.id, fusion: u.fusion || null, carrera: u.carrera, codigo: u.codigo, asignatura: u.nombre, n: u.n, sem: u.sem });
+const unidadPorId = id => (appCarga.datos.unidades || []).find(seccion => seccion.id === id);
+const fotoUnidad = seccion => ({ unidad: seccion.id, fusion: seccion.fusion || null, carrera: seccion.carrera, codigo: seccion.codigo, asignatura: seccion.nombre, n: seccion.n, sem: seccion.sem });
 
 function datalistDocentes(id){
-  const cat = (appDocentes.datos.catalogo || []).slice().sort((a, b) =>
-    (a.dpto === appDocentes.dpto ? 0 : 1) - (b.dpto === appDocentes.dpto ? 0 : 1) || a.nombreCompleto.localeCompare(b.nombreCompleto));
+  const cat = (appCarga.datos.catalogo || []).slice().sort((a, b) =>
+    (a.dpto === appCarga.dpto ? 0 : 1) - (b.dpto === appCarga.dpto ? 0 : 1) || a.nombreCompleto.localeCompare(b.nombreCompleto));
   return '<datalist id="' + id + '">' + cat.map(c => '<option value="' + esc(c.nombreCompleto) + '">' + esc((c.dpto || "—") + " · " + (c.dedicacion || "") + " · " + (c.condicion || "")) + "</option>").join("") + "</datalist>";
 }
 /* El nombre escrito se resuelve contra el catálogo; si no está, se acepta tal cual. */
@@ -120,14 +120,14 @@ function resolverDocente(texto){
 }
 
 /* Ventana de asignación de una sección: por cada componente, uno o más docentes con sus horas. */
-async function asignarSeccion(u){
-  const vig = appDocentes.balance.vigentes;
-  const actuales = vig.porUnidad.get(u.id) || [];
+async function asignarSeccion(seccion){
+  const vig = appCarga.balance.vigentes;
+  const actuales = vig.porUnidad.get(seccion.id) || [];
   const pendienteIntl = actuales.some(Dominio.esPendienteInternacional);
   const filaDoc = (c, a, i) => '<div class="fila-campos" data-fila="' + c.c + '">' +
     '<div class="campo"><label>' + (i ? "Otro docente" : "Docente") + '</label><input type="text" list="dl-docentes" data-doc value="' + esc(a ? a.docente : "") + '" placeholder="Apellidos, nombres"></div>' +
     '<div class="campo"><label>Horas</label><input type="number" min="0" step="0.5" data-horas value="' + esc(a && a.horas != null && a.horas !== "" ? a.horas : c.horas) + '"></div></div>';
-  const bloques = u.componentes.map(c => {
+  const bloques = seccion.componentes.map(c => {
     const de = actuales.filter(a => a.componente === c.c && String(a.docente || "").trim());
     return '<fieldset class="tarjeta p-4 mt-3" data-comp="' + c.c + '"><legend class="text-sm font-bold">' + esc(c.nombre) + " · " + c.horas + " h</legend>" +
       '<div data-filas="' + c.c + '">' + (de.length ? de : [null]).map((a, i) => filaDoc(c, a, i)).join("") + "</div>" +
@@ -135,17 +135,17 @@ async function asignarSeccion(u){
   }).join("");
   const p = preguntar({
     titulo: "Asignar docentes a la sección",
-    cuerpo: fichaUnidad(u) + datalistDocentes("dl-docentes") +
-      (u.componentes.length > 1 ? '<div class="fila-campos mt-3"><div class="campo"><label for="dlg-todo">Un docente para toda la sección</label><input type="text" id="dlg-todo" list="dl-docentes" placeholder="Apellidos, nombres"></div>' +
+    cuerpo: fichaUnidad(seccion) + datalistDocentes("dl-docentes") +
+      (seccion.componentes.length > 1 ? '<div class="fila-campos mt-3"><div class="campo"><label for="dlg-todo">Un docente para toda la sección</label><input type="text" id="dlg-todo" list="dl-docentes" placeholder="Apellidos, nombres"></div>' +
         '<div class="campo"><label>&nbsp;</label><button type="button" class="btn btn-sm" id="dlg-aplicar-todo">' + icono("check") + "Ponerlo en todos los componentes</button></div></div>" : "") +
       bloques +
-      (u.intl ? '<div class="campo mt-3"><label class="casilla"><input type="checkbox" id="dlg-intl"' + (pendienteIntl ? " checked" : "") + '>Reservar como <b>pendiente internacional</b>: cubre el curso sin docente ni horas hasta que se contrate</label></div>' : "") +
+      (seccion.intl ? '<div class="campo mt-3"><label class="casilla"><input type="checkbox" id="dlg-intl"' + (pendienteIntl ? " checked" : "") + '>Reservar como <b>pendiente internacional</b>: cubre el curso sin docente ni horas hasta que se contrate</label></div>' : "") +
       '<div class="nota mt-3">Si varios docentes comparten un componente, reparte sus horas: el sistema avisa si no suman las del componente. Puedes elegir docentes de otros departamentos o escribir uno que no esté en el catálogo.</div>',
     acciones: [{ texto:"Cancelar", valor:null }, { texto:"Guardar en la carga", clase:"primario", valor:() => leerVentana() }]
   });
   const cuerpo = $("#dlg-cuerpo");
   cuerpo.querySelectorAll("[data-otro]").forEach(b => { b.onclick = () => {
-    const c = u.componentes.find(x => x.c === b.dataset.otro);
+    const c = seccion.componentes.find(x => x.c === b.dataset.otro);
     const cont = cuerpo.querySelector('[data-filas="' + c.c + '"]');
     const usadas = [...cont.querySelectorAll("[data-horas]")].reduce((s, i) => s + num(i.value), 0);
     cont.insertAdjacentHTML("beforeend", filaDoc(c, { docente: "", horas: Math.max(0, c.horas - usadas) }, 1));
@@ -163,13 +163,13 @@ async function asignarSeccion(u){
   const r = await p;
   if (!r) return;
   const { filas, intl } = r();
-  const previas = propiasDe(u);
-  const base = fotoUnidad(u);
+  const previas = propiasDe(seccion);
+  const base = fotoUnidad(seccion);
   const nuevas = [];
   if (intl) {
-    u.componentes.forEach(c => nuevas.push(Object.assign({ id: nuevoId(), componente: c.c, docente: "", dni: "", horas: null, condicion: Dominio.PENDIENTE_INTERNACIONAL }, base)));
+    seccion.componentes.forEach(c => nuevas.push(Object.assign({ id: nuevoId(), componente: c.c, docente: "", dni: "", horas: null, condicion: Dominio.PENDIENTE_INTERNACIONAL }, base)));
   } else {
-    u.componentes.forEach(c => {
+    seccion.componentes.forEach(c => {
       const de = filas.filter(f => f.c === c.c && f.docente);
       de.forEach(f => {
         const d = resolverDocente(f.docente);
@@ -186,14 +186,14 @@ async function asignarSeccion(u){
     });
   }
   const ids = new Set(previas.map(a => a.id));
-  appDocentes.trabajo = appDocentes.trabajo.filter(a => !ids.has(a.id) && !previas.includes(a)).concat(nuevas);
+  appCarga.trabajo = appCarga.trabajo.filter(a => !ids.has(a.id) && !previas.includes(a)).concat(nuevas);
   cambiado(nuevas.length ? "Sección actualizada en la carga." : "Se quitaron los docentes de la sección.");
 }
 
-function fichaUnidad(u){
-  return '<div class="ficha"><b>' + u.miembros.map(m => esc(m.carrera) + " · sem. " + esc(m.sem) + " · " + esc(m.codigo) + " (grupo " + esc(m.n) + ")").join("<br>") + "</b><br>" +
-    esc(u.nombre) + (u.miembros.length > 1 ? " · <b>sección fusionada</b>" : "") + "<br>" +
-    '<span class="tenue">Horas: ' + u.ht + " HT + " + u.hp + " HP" + (u.desdoble ? " · desdoble " + esc(u.desdoble) : "") + "</span></div>";
+function fichaUnidad(seccion){
+  return '<div class="ficha"><b>' + seccion.miembros.map(m => esc(m.carrera) + " · sem. " + esc(m.sem) + " · " + esc(m.codigo) + " (grupo " + esc(m.n) + ")").join("<br>") + "</b><br>" +
+    esc(seccion.nombre) + (seccion.miembros.length > 1 ? " · <b>sección fusionada</b>" : "") + "<br>" +
+    '<span class="tenue">Horas: ' + seccion.ht + " HT + " + seccion.hp + " HP" + (seccion.desdoble ? " · desdoble " + esc(seccion.desdoble) : "") + "</span></div>";
 }
 
 /* Reemplazo: el sustituto toma el componente entero desde la fecha de efectividad; el
@@ -205,9 +205,9 @@ async function reemplazar(asigs, titulo){
     titulo: titulo,
     cuerpo: datalistDocentes("dl-sust") +
       '<div class="campo"><label>Cursos que pasan al sustituto</label>' + asigs.map((a, i) => {
-        const u = unidadPorId((Dominio.unidadDe(appDocentes.balance.vigentes.idx, a) || {}).id);
+        const seccion = unidadPorId((Dominio.unidadDe(appCarga.balance.vigentes.idx, a) || {}).id);
         return '<label class="casilla"><input type="checkbox" data-reemp="' + i + '" checked>' + esc(a.docente) + " · " + esc(a.carrera) + " " + esc(a.codigo) +
-          " G" + esc(a.n) + " · " + esc(u ? nombreComp(u, a.componente) : a.componente) + "</label>";
+          " G" + esc(a.n) + " · " + esc(seccion ? nombreComp(seccion, a.componente) : a.componente) + "</label>";
       }).join("") + "</div>" +
       '<div class="campo"><label for="dlg-sust">Docente sustituto</label><input type="text" id="dlg-sust" list="dl-sust" placeholder="Apellidos, nombres"></div>' +
       '<div class="fila-campos"><div class="campo"><label for="dlg-motivo">Motivo</label><select id="dlg-motivo">' +
@@ -230,8 +230,8 @@ async function reemplazar(asigs, titulo){
   const motivo = v.motivo + (v.detalle ? ": " + v.detalle : "");
   v.marcados.forEach(i => {
     if (Dominio.claveDocente(asigs[i].docente) === Dominio.claveDocente(d.docente)) return;
-    const a = (asigs[i].id && appDocentes.trabajo.find(x => x.id === asigs[i].id)) || asigs[i];
-    if (!appDocentes.trabajo.includes(a)) appDocentes.trabajo.push(a);   // una heredada pasa a esta carga
+    const a = (asigs[i].id && appCarga.trabajo.find(x => x.id === asigs[i].id)) || asigs[i];
+    if (!appCarga.trabajo.includes(a)) appCarga.trabajo.push(a);   // una heredada pasa a esta carga
     delete a.heredada; delete a.dptoCarga;
     a.historial = (a.historial || []).concat([{ tipo: "reemplazo", docente: a.docente, dni: a.dni || "", hasta: v.fecha, motivo: motivo, fecha: new Date().toISOString(), usuario: app.usuario.correo }]);
     a.reemplazo = { de: a.docente, motivo: motivo, desde: v.fecha };
@@ -242,52 +242,52 @@ async function reemplazar(asigs, titulo){
 
 /* Asigna a un docente un componente de una sección que aún no tiene docente. */
 async function asignarADocente(nombre){
-  const vig = appDocentes.balance.vigentes;
+  const vig = appCarga.balance.vigentes;
   const libres = [];
-  unidadesDpto().forEach(u => Dominio.coberturaUnidad(u, vig.porUnidad.get(u.id)).forEach(c => { if (!c.cubierto) libres.push({ u: u, c: c }); }));
+  unidadesDpto().forEach(seccion => Dominio.coberturaUnidad(seccion, vig.porUnidad.get(seccion.id)).forEach(c => { if (!c.cubierto) libres.push({ seccion: seccion, c: c }); }));
   if (!libres.length) return aviso("Todas las secciones del departamento tienen docente.", "info");
   const r = await preguntar({
     titulo: "Asignar un curso a " + nombre,
     cuerpo: '<div class="campo"><label for="dlg-libre">Sección y componente sin docente</label><select id="dlg-libre">' +
-      libres.map((x, i) => '<option value="' + i + '">' + esc(x.u.miembros.map(m => m.carrera).join("+") + " · " + x.u.codigo + " " + x.u.nombre + " · G" + x.u.n + " · " + x.c.nombre + " (" + x.c.horas + " h)") + "</option>").join("") +
+      libres.map((x, i) => '<option value="' + i + '">' + esc(x.seccion.miembros.map(m => m.carrera).join("+") + " · " + x.seccion.codigo + " " + x.seccion.nombre + " · G" + x.seccion.n + " · " + x.c.nombre + " (" + x.c.horas + " h)") + "</option>").join("") +
       "</select></div>",
     acciones: [{ texto:"Cancelar", valor:null }, { texto:"Asignar", clase:"primario", valor:() => $("#dlg-libre").value }]
   });
   if (!r) return;
   const x = libres[parseInt(r(), 10)];
   const d = resolverDocente(nombre);
-  appDocentes.trabajo = appDocentes.trabajo.filter(a => !(a.componente === x.c.c && propiasDe(x.u).includes(a) && Dominio.esPendienteInternacional(a)));
-  appDocentes.trabajo.push(Object.assign({ id: nuevoId(), componente: x.c.c, docente: d.docente, dni: d.dni, horas: null, condicion: "" }, fotoUnidad(x.u)));
-  cambiado(x.u.codigo + " · " + x.c.nombre + " asignado a " + d.docente + ".");
+  appCarga.trabajo = appCarga.trabajo.filter(a => !(a.componente === x.c.c && propiasDe(x.seccion).includes(a) && Dominio.esPendienteInternacional(a)));
+  appCarga.trabajo.push(Object.assign({ id: nuevoId(), componente: x.c.c, docente: d.docente, dni: d.dni, horas: null, condicion: "" }, fotoUnidad(x.seccion)));
+  cambiado(x.seccion.codigo + " · " + x.c.nombre + " asignado a " + d.docente + ".");
 }
 
 async function reasignarHuerfana(a){
   const opciones = [];
-  unidadesDpto().forEach(u => u.componentes.forEach(c => opciones.push({ u: u, c: c })));
+  unidadesDpto().forEach(seccion => seccion.componentes.forEach(c => opciones.push({ seccion: seccion, c: c })));
   if (!opciones.length) return aviso("Este departamento no tiene secciones en el ciclo.", "aviso");
   const r = await preguntar({
     titulo: "Reasignar a una sección",
     cuerpo: '<div class="ficha"><b>' + esc(a.docente || "—") + "</b> · " + esc(a.carrera || "") + " " + esc(a.codigo || "") + " " + esc(a.asignatura || "") + "</div>" +
       '<div class="campo"><label for="dlg-destino">Sección y componente</label><select id="dlg-destino">' +
-      opciones.map((x, i) => '<option value="' + i + '">' + esc(x.u.miembros.map(m => m.carrera).join("+") + " · " + x.u.codigo + " " + x.u.nombre + " · G" + x.u.n + " · " + x.c.nombre) + "</option>").join("") +
+      opciones.map((x, i) => '<option value="' + i + '">' + esc(x.seccion.miembros.map(m => m.carrera).join("+") + " · " + x.seccion.codigo + " " + x.seccion.nombre + " · G" + x.seccion.n + " · " + x.c.nombre) + "</option>").join("") +
       "</select></div>",
     acciones: [{ texto:"Cancelar", valor:null }, { texto:"Reasignar", clase:"primario", valor:() => $("#dlg-destino").value }]
   });
   if (!r) return;
   const x = opciones[parseInt(r(), 10)];
-  Object.assign(a, fotoUnidad(x.u), { componente: x.c.c, nota: "" });
-  cambiado("Asignación reasignada a " + x.u.codigo + ".");
+  Object.assign(a, fotoUnidad(x.seccion), { componente: x.c.c, nota: "" });
+  cambiado("Asignación reasignada a " + x.seccion.codigo + ".");
 }
 
 document.addEventListener("click", e => {
   const sec = e.target.closest("[data-acc-sec]");
   if (sec) {
-    const u = unidadPorId(sec.dataset.u);
-    if (!u) return;
-    if (sec.dataset.accSec === "asignar") asignarSeccion(u);
+    const seccion = unidadPorId(sec.dataset.u);
+    if (!seccion) return;
+    if (sec.dataset.accSec === "asignar") asignarSeccion(seccion);
     else if (sec.dataset.accSec === "reemplazar")
-      reemplazar((appDocentes.balance.vigentes.porUnidad.get(u.id) || []).filter(a => String(a.docente || "").trim()), "Reemplazar docente en " + u.codigo);
-    else if (sec.dataset.accSec === "derivar") derivarSeccion(u);
+      reemplazar((appCarga.balance.vigentes.porUnidad.get(seccion.id) || []).filter(a => String(a.docente || "").trim()), "Reemplazar docente en " + seccion.codigo);
+    else if (sec.dataset.accSec === "derivar") derivarSeccion(seccion);
     return;
   }
   const doc = e.target.closest("[data-acc-doc]");
@@ -295,41 +295,41 @@ document.addEventListener("click", e => {
     const nombre = doc.dataset.doc;
     if (doc.dataset.accDoc === "asignar") asignarADocente(nombre);
     else {
-      const vig = appDocentes.balance.vigentes;
+      const vig = appCarga.balance.vigentes;
       const suyas = [];
-      vig.porUnidad.forEach((l, id) => { if (unidadPorId(id).dpto === appDocentes.dpto) l.forEach(a => { if (Dominio.claveDocente(a.docente) === Dominio.claveDocente(nombre)) suyas.push(a); }); });
+      vig.porUnidad.forEach((l, id) => { if (unidadPorId(id).dpto === appCarga.dpto) l.forEach(a => { if (Dominio.claveDocente(a.docente) === Dominio.claveDocente(nombre)) suyas.push(a); }); });
       reemplazar(suyas, "Reemplazar a " + nombre);
     }
     return;
   }
   const h = e.target.closest("[data-acc-huerf]");
   if (h) {
-    const a = appDocentes.trabajo.find(x => x.id === h.dataset.id);
+    const a = appCarga.trabajo.find(x => x.id === h.dataset.id);
     if (!a) return;
-    if (h.dataset.accHuerf === "quitar") { appDocentes.trabajo = appDocentes.trabajo.filter(x => x !== a); cambiado("Asignación quitada."); }
+    if (h.dataset.accHuerf === "quitar") { appCarga.trabajo = appCarga.trabajo.filter(x => x !== a); cambiado("Asignación quitada."); }
     else reasignarHuerfana(a);
   }
 });
 
 /* El director deriva una sección a otro departamento: cambia el DPTO de la asignatura en
    el plan (una versión nueva del plan). Sus docentes asignados la siguen. */
-async function derivarSeccion(u){
-  if (appDocentes.sucio) return aviso("Guarda o descarta primero los cambios de la carga.", "aviso");
-  const p = u.miembros.find(m => m.grupoId === u.id) || u.miembros[0];
-  const r = await pedirNuevoDpto(u.dpto, u.codigo + " " + u.nombre + (u.miembros.length > 1 ? " (se deriva la asignatura del grupo principal, " + p.carrera + ")" : ""));
+async function derivarSeccion(seccion){
+  if (appCarga.sucio) return aviso("Guarda o descarta primero los cambios de la carga.", "aviso");
+  const p = seccion.miembros.find(m => m.grupoId === seccion.id) || seccion.miembros[0];
+  const r = await pedirNuevoDpto(seccion.dpto, seccion.codigo + " " + seccion.nombre + (seccion.miembros.length > 1 ? " (se deriva la asignatura del grupo principal, " + p.carrera + ")" : ""));
   if (!r) return;
   try {
-    const res = await llamar("cambiarDepartamento", appDocentes.ciclo, p.carrera, p.grupoId, r.dpto, r.motivo);
-    if (res.sinCambios) return aviso(u.codigo + " ya pedía docente a " + r.dpto + ".", "info");
+    const res = await llamar("cambiarDepartamento", appCarga.ciclo, p.carrera, p.grupoId, r.dpto, r.motivo);
+    if (res.sinCambios) return aviso(seccion.codigo + " ya pedía docente a " + r.dpto + ".", "info");
     actualizarFilaTablero(p.carrera, { version: res.version, estado: res.estado, totales: res.totales, contenido: res.contenido });
-    aviso(u.codigo + " ahora pide docente a " + r.dpto + ".");
+    aviso(seccion.codigo + " ahora pide docente a " + r.dpto + ".");
   } catch (e) { return informarError(e); }
-  if (appDocentes.editando) {
+  if (appCarga.editando) {
     /* Se recargan las secciones conservando lo que se está editando. */
-    const trabajo = appDocentes.trabajo, base = appDocentes.base, sucio = appDocentes.sucio;
-    appDocentes.editando = false;
+    const trabajo = appCarga.trabajo, base = appCarga.base, sucio = appCarga.sucio;
+    appCarga.editando = false;
     await cargarEstadoDocentes();
-    Object.assign(appDocentes, { trabajo: trabajo, base: base, editando: true });
+    Object.assign(appCarga, { trabajo: trabajo, base: base, editando: true });
     marcarDocentesSucio(sucio);
     pintarVistaDocentes();
   } else cargarEstadoDocentes();
@@ -338,7 +338,7 @@ async function derivarSeccion(u){
 /* ============================================================
    Guardado, historial y restauración
    ============================================================ */
-const limpiarParaGuardar = () => appDocentes.trabajo.map(a => {
+const limpiarParaGuardar = () => appCarga.trabajo.map(a => {
   const x = Object.assign({}, a);
   delete x.heredada; delete x.dptoCarga;
   if (!x.id) x.id = nuevoId();
@@ -346,21 +346,21 @@ const limpiarParaGuardar = () => appDocentes.trabajo.map(a => {
 });
 
 function fijarGuardado(r){
-  const d = appDocentes.datos;
-  d.cargas[appDocentes.dpto] = { version: r.version, asignaciones: r.asignaciones, usuario: app.usuario.correo, fecha: r.fecha };
-  appDocentes.trabajo = clonar(r.asignaciones);
-  appDocentes.base = r.version;
+  const d = appCarga.datos;
+  d.cargas[appCarga.dpto] = { version: r.version, asignaciones: r.asignaciones, usuario: app.usuario.correo, fecha: r.fecha };
+  appCarga.trabajo = clonar(r.asignaciones);
+  appCarga.base = r.version;
   sesionCarga.olvidarCopia();
   sesionCarga.renovada(r.expira);
   d.avisos = (d.avisos || []).filter(a => a.tipo !== "PLAN_CAMBIADO");
   marcarDocentesSucio(false);
-  anunciar("asignaciones", { ciclo: appDocentes.ciclo, dpto: appDocentes.dpto });
-  if (appDocentes.ciclo === app.ciclo) pedirDocentesGrupo();
+  anunciar("asignaciones", { ciclo: appCarga.ciclo, dpto: appCarga.dpto });
+  if (appCarga.ciclo === app.ciclo) pedirDocentesGrupo();
 }
 
 alPulsar("#btn-doc-guardar", async () => {
-  const d = appDocentes.datos;
-  const antes = Dominio.calcularBalance(d.catalogo, d.unidades, Object.assign(cargasActuales(), { [appDocentes.dpto]: d.cargas[appDocentes.dpto].asignaciones || [] }));
+  const d = appCarga.datos;
+  const antes = Dominio.calcularBalance(d.catalogo, d.unidades, Object.assign(cargasActuales(), { [appCarga.dpto]: d.cargas[appCarga.dpto].asignaciones || [] }));
   const despues = calcular();
   const exc = Dominio.excesosAlGuardar(antes, despues);
   if (exc.bloqueos.length) return informarError(new Error("No se puede guardar: " + exc.bloqueos.map(x => x.docente + " (" + x.horas + " h)").join(", ") +
@@ -368,12 +368,12 @@ alPulsar("#btn-doc-guardar", async () => {
 
   const vig = despues.vigentes;
   let pendientes = 0;
-  unidadesDpto().forEach(u => Dominio.coberturaUnidad(u, vig.porUnidad.get(u.id)).forEach(c => { if (!c.cubierto) pendientes++; }));
+  unidadesDpto().forEach(seccion => Dominio.coberturaUnidad(seccion, vig.porUnidad.get(seccion.id)).forEach(c => { if (!c.cubierto) pendientes++; }));
   const advs = [];
-  despues.docentes.filter(x => x.cursos.some(c => c.dpto === appDocentes.dpto)).forEach(x => x.advertencias.forEach(a => { if (a.nivel !== "info") advs.push(x.nombre + " · " + a.codigo + ": " + a.mensaje); }));
+  despues.docentes.filter(x => x.cursos.some(c => c.dpto === appCarga.dpto)).forEach(x => x.advertencias.forEach(a => { if (a.nivel !== "info") advs.push(x.nombre + " · " + a.codigo + ": " + a.mensaje); }));
   const r = await preguntar({
-    titulo: "Guardar la carga de " + appDocentes.dpto,
-    cuerpo: '<p class="ficha">Se guardará una versión nueva de la carga de <b>' + esc(appDocentes.dpto) + "</b> en <b>" + esc(appDocentes.ciclo) + "</b>.</p>" +
+    titulo: "Guardar la carga de " + appCarga.dpto,
+    cuerpo: '<p class="ficha">Se guardará una versión nueva de la carga de <b>' + esc(appCarga.dpto) + "</b> en <b>" + esc(appCarga.ciclo) + "</b>.</p>" +
       (pendientes ? '<div class="nota aviso"><b>A13</b> · Quedan ' + pendientes + " componentes sin docente. Puedes guardar el avance.</div>" : "") +
       (advs.length ? '<div class="nota aviso">Advertencias vigentes (no impiden guardar):</div><ul class="lista-err lista-adv">' + advs.map(a => "<li><span>" + esc(a) + "</span></li>").join("") + "</ul>" : "") +
       (exc.severos.length ? '<div class="nota error"><b>A12</b> · ' + exc.severos.map(x => esc(x.docente) + " (" + x.horas + " h, " + esc(x.cargo) + ")").join(", ") +
@@ -386,15 +386,15 @@ alPulsar("#btn-doc-guardar", async () => {
   if (!r) return;
   const v = r();
   if (exc.severos.length && !v.exceso) return aviso("Escribe el motivo del exceso de carga.", "aviso");
-  const datos = { asignaciones: limpiarParaGuardar(), versionBase: appDocentes.base, motivo: v.motivo, motivoExceso: v.exceso };
+  const datos = { asignaciones: limpiarParaGuardar(), versionBase: appCarga.base, motivo: v.motivo, motivoExceso: v.exceso };
   try {
     let res;
     try {
-      res = await llamar("guardarCarga", appDocentes.ciclo, appDocentes.dpto, datos);
+      res = await llamar("guardarCarga", appCarga.ciclo, appCarga.dpto, datos);
     } catch (e) {
       if (e.codigo !== "CONFLICTO") throw e;
       if (!await confirmarConflicto(e.detalle, "de la carga")) return;
-      res = await llamar("guardarCarga", appDocentes.ciclo, appDocentes.dpto, Object.assign(datos, { forzar: true }));
+      res = await llamar("guardarCarga", appCarga.ciclo, appCarga.dpto, Object.assign(datos, { forzar: true }));
     }
     fijarGuardado(res);
     pintarVistaDocentes();
@@ -404,15 +404,15 @@ alPulsar("#btn-doc-guardar", async () => {
 
 alPulsar("#btn-doc-historial", async () => {
   let versiones;
-  try { versiones = await llamar("obtenerHistorialCarga", appDocentes.ciclo, appDocentes.dpto); } catch (e) { return informarError(e); }
+  try { versiones = await llamar("obtenerHistorialCarga", appCarga.ciclo, appCarga.dpto); } catch (e) { return informarError(e); }
   if (!versiones.length) return aviso("Todavía no hay versiones guardadas de esta carga.", "info");
-  const v = await dialogoHistorial({ titulo: "Historial de la carga de " + appDocentes.dpto, versiones: versiones, ver: true, restaurar: appDocentes.editando });
+  const v = await dialogoHistorial({ titulo: "Historial de la carga de " + appCarga.dpto, versiones: versiones, ver: true, restaurar: appCarga.editando });
   if (!v) return;
   if (v.ver) {
     let lista;
-    try { lista = await llamar("obtenerVersionCarga", appDocentes.ciclo, appDocentes.dpto, v.ver); } catch (e) { return informarError(e); }
+    try { lista = await llamar("obtenerVersionCarga", appCarga.ciclo, appCarga.dpto, v.ver); } catch (e) { return informarError(e); }
     return preguntar({
-      titulo: "Carga de " + appDocentes.dpto + " · v" + v.ver,
+      titulo: "Carga de " + appCarga.dpto + " · v" + v.ver,
       cuerpo: '<div class="tabla-caja"><table><thead><tr><th>Carrera</th><th>Código</th><th>Asignatura</th><th class="num">Grupo</th><th>Comp.</th><th>Docente</th><th class="num">Horas</th></tr></thead><tbody>' +
         (lista.length ? lista.map(a => "<tr><td>" + esc(a.carrera) + '</td><td class="cod">' + esc(a.codigo) + "</td><td>" + esc(a.asignatura) + '</td><td class="num">' + esc(a.n) +
           "</td><td>" + esc(a.componente) + "</td><td><b>" + esc(a.docente || (Dominio.esPendienteInternacional(a) ? "Pendiente internacional" : "—")) + "</b>" +
@@ -421,13 +421,13 @@ alPulsar("#btn-doc-historial", async () => {
       acciones: [{ texto:"Cerrar", clase:"primario", valor:true }]
     });
   }
-  if (appDocentes.sucio) {
+  if (appCarga.sucio) {
     const ok = await preguntar({ titulo: "Restaurar versión", cuerpo: '<div class="nota aviso">Se descartarán los cambios que no guardaste.</div>',
       acciones: [{ texto:"Cancelar", valor:null }, { texto:"Restaurar", clase:"primario", valor:true }] });
     if (!ok) return;
   }
   try {
-    const res = await llamar("restaurarCarga", appDocentes.ciclo, appDocentes.dpto, v.restaurar);
+    const res = await llamar("restaurarCarga", appCarga.ciclo, appCarga.dpto, v.restaurar);
     fijarGuardado(res);
     pintarVistaDocentes();
     aviso("Versión v" + v.restaurar + " restaurada como v" + res.version + ".");

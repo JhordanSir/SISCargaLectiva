@@ -27,7 +27,7 @@ const PUBLICAS = [
   "doGet", "instalar",
   "obtenerTablero", "obtenerPlan", "abrirEdicion", "guardarPlan", "obtenerHistorial", "restaurarVersion", "cambiarDepartamento",
   "renovarBloqueo", "liberarBloqueo",
-  "obtenerEstadoDocentes", "obtenerDocentesPorGrupo", "abrirEdicionCarga", "renovarBloqueoCarga", "liberarBloqueoCarga", "guardarCarga",
+  "obtenerCargaDocente", "obtenerDocentesPorGrupo", "abrirEdicionCarga", "renovarBloqueoCarga", "liberarBloqueoCarga", "guardarCarga",
   "obtenerHistorialCarga", "obtenerVersionCarga", "restaurarCarga",
   "guardarRecuperacion", "descartarRecuperacion"
 ].sort();
@@ -67,7 +67,7 @@ test("guardarPlan guarda solo los campos del modelo y rechaza un volumen desmedi
 test("guardarCarga sanea cada asignación: campos, componente y horas", () => {
   const e = sistema();
   ejecutar(e, A, "obtenerTablero", CICLO);
-  const st = ejecutar(e, DIMA, "obtenerEstadoDocentes", CICLO, "DIMA");
+  const st = ejecutar(e, DIMA, "obtenerCargaDocente", CICLO, "DIMA");
   const u = st.unidades.find(x => x.dpto === "DIMA");
   ejecutar(e, DIMA, "abrirEdicionCarga", CICLO, "DIMA");
   const r = ejecutar(e, DIMA, "guardarCarga", CICLO, "DIMA", { versionBase: 0, asignaciones: [
@@ -91,7 +91,7 @@ test("guardarCarga sanea cada asignación: campos, componente y horas", () => {
 test("el DNI solo llega al director del departamento, y solo el de los suyos", () => {
   const e = sistema();
   ejecutar(e, A, "obtenerTablero", CICLO);
-  const dimaSt = ejecutar(e, DIMA, "obtenerEstadoDocentes", CICLO, "DIMA");
+  const dimaSt = ejecutar(e, DIMA, "obtenerCargaDocente", CICLO, "DIMA");
   const conDni = dimaSt.catalogo.filter(d => d.dni);
   assert.ok(conDni.length > 0 && conDni.every(d => d.dpto === "DIMA"), "el director ve el DNI de los docentes de su departamento");
   assert.ok(dimaSt.catalogo.some(d => d.dpto !== "DIMA" && d.dni === undefined), "y no el de los demás");
@@ -100,12 +100,12 @@ test("el DNI solo llega al director del departamento, y solo el de los suyos", (
   const u = dimaSt.unidades.find(x => x.dpto === "DIMA");
   ejecutar(e, DIMA, "abrirEdicionCarga", CICLO, "DIMA");
   ejecutar(e, DIMA, "guardarCarga", CICLO, "DIMA", { versionBase: 0, asignaciones: [{ unidad: u.id, componente: "T", docente: docente.nombreCompleto, dni: docente.dni }] });
-  assert.equal(ejecutar(e, DIMA, "obtenerEstadoDocentes", CICLO, "DIMA").cargas.DIMA.asignaciones[0].dni, docente.dni);
+  assert.equal(ejecutar(e, DIMA, "obtenerCargaDocente", CICLO, "DIMA").cargas.DIMA.asignaciones[0].dni, docente.dni);
 
-  const coord = ejecutar(e, A, "obtenerEstadoDocentes", CICLO, "DIMA");
+  const coord = ejecutar(e, A, "obtenerCargaDocente", CICLO, "DIMA");
   assert.ok(coord.catalogo.every(d => d.dni === undefined), "el coordinador no recibe DNI");
   assert.equal(coord.cargas.DIMA.asignaciones[0].dni, undefined);
-  assert.equal(ejecutar(e, DAHUC, "obtenerEstadoDocentes", CICLO, "DIMA").cargas.DIMA.asignaciones[0].dni, undefined, "ni el director de otro departamento");
+  assert.equal(ejecutar(e, DAHUC, "obtenerCargaDocente", CICLO, "DIMA").cargas.DIMA.asignaciones[0].dni, undefined, "ni el director de otro departamento");
   assert.equal(ejecutar(e, A, "obtenerVersionCarga", CICLO, "DIMA", 1)[0].dni, undefined);
   assert.equal(ejecutar(e, DIMA, "obtenerVersionCarga", CICLO, "DIMA", 1)[0].dni, docente.dni);
 });

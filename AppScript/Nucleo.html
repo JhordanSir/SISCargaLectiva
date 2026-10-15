@@ -3,7 +3,7 @@
 /* ============================================================
    Núcleo de la interfaz: configuración, estado, utilidades, llamadas al
    servidor (con la espera «Wayrasiming») y navegación entre secciones.
-   Cada pantalla vive en su propio módulo (Inicio, Tablero, CargaMasiva,
+   Cada pantalla vive en su propio módulo (Inicio, Tablero, ImportarOferta,
    Grilla, Asignacion) y usa lo que se define aquí.
    ============================================================ */
 const CONFIG = SIS.config || {};
@@ -159,7 +159,7 @@ alPulsar("#ir-inicio", () => { if (app.usuario) irA("inicio"); });
 /* Antes de cerrar o recargar la página con cambios sin guardar, el navegador pregunta. */
 window.addEventListener("beforeunload", e => {
   const plan = !!(app.plan && app.plan.sucio);
-  const carga = typeof appDocentes !== "undefined" && appDocentes.sucio;
+  const carga = typeof appCarga !== "undefined" && appCarga.sucio;
   if (plan || carga) { e.preventDefault(); e.returnValue = ""; }
 });
 

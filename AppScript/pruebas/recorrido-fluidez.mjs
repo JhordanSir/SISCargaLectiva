@@ -129,25 +129,25 @@ try {
   await pd.pulsar('[data-ir="docentes"]');
   await pd.esperar(`!document.querySelector("#btn-doc-editar").hidden`, "puede editar la carga de su departamento");
   await pd.pulsar("#btn-doc-editar");
-  await pd.esperar(`appDocentes.editando && !!document.querySelector('[data-acc-sec="asignar"]')`, "edita con bloqueo");
+  await pd.esperar(`appCarga.editando && !!document.querySelector('[data-acc-sec="asignar"]')`, "edita con bloqueo");
   await pd.pulsar('[data-acc-sec="asignar"]');
   await pd.esperar(`document.querySelector("#dlg").open`, "ventana de asignación");
   await pd.evaluar(`document.querySelectorAll("#dlg-cuerpo [data-doc]").forEach(i => { i.value = "PRUEBA, DOCENTE"; })`);
   await pd.dialogo("Guardar en la carga");
-  const asignadas = await pd.evaluar(`appDocentes.trabajo.length`);
+  const asignadas = await pd.evaluar(`appCarga.trabajo.length`);
   asegurar(await pd.evaluar(`!document.querySelector("#nav-sucio").hidden && !document.querySelector("#doc-sin-guardar").hidden`), "la cabecera marca que hay cambios sin guardar");
   const llamadasAntes = await pd.evaluar(`window.__llamadas.length`);
   await pd.pulsar('[data-ir="planes"]');
   await pd.esperar(`!document.querySelector("#v-planes").hidden`, "va al tablero sin perder la edición");
   await pd.pulsar('[data-ir="docentes"]');
   await pd.esperar(`!document.querySelector("#v-docentes").hidden`, "vuelve a la asignación docente");
-  asegurar(await pd.evaluar(`appDocentes.trabajo.length`) === asignadas && await pd.evaluar(`appDocentes.editando`), "las asignaciones sin guardar siguen ahí (" + asignadas + ")");
-  asegurar(!(await pd.evaluar(`window.__llamadas.slice(${llamadasAntes})`)).includes("obtenerEstadoDocentes"), "volver no vuelve a pedir los datos al servidor");
+  asegurar(await pd.evaluar(`appCarga.trabajo.length`) === asignadas && await pd.evaluar(`appCarga.editando`), "las asignaciones sin guardar siguen ahí (" + asignadas + ")");
+  asegurar(!(await pd.evaluar(`window.__llamadas.slice(${llamadasAntes})`)).includes("obtenerCargaDocente"), "volver no vuelve a pedir los datos al servidor");
 
   await pd.evaluar(`(() => { const s = document.querySelector("#sel-doc-dpto"); s.value = "DACJ"; s.dispatchEvent(new Event("change")); })()`);
   await pd.esperar(`document.querySelector("#dlg").open && document.querySelector("#dlg-titulo").textContent === "Terminar la edición"`, "cambiar de departamento mientras edita pide terminar la edición");
   await pd.dialogo("Seguir editando");
-  asegurar(await pd.evaluar(`document.querySelector("#sel-doc-dpto").value === "DIMA" && appDocentes.dpto === "DIMA"`), "«Seguir editando» conserva el departamento");
+  asegurar(await pd.evaluar(`document.querySelector("#sel-doc-dpto").value === "DIMA" && appCarga.dpto === "DIMA"`), "«Seguir editando» conserva el departamento");
 
   console.log("Otra cuenta en el mismo navegador");
   pb = await Pestana.abrir(url(B));

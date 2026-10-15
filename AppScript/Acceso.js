@@ -16,23 +16,23 @@ function usuarioActual_() {
   if (usuarioCache_) return usuarioCache_;
   const cfg = config_();
   const correo = String(Session.getActiveUser().getEmail() || "").trim().toLowerCase();
-  let u;
+  let usuario;
 
   if (!correo) {
-    u = { codigo: "NO_AUTENTICADO", denegado: "No se pudo identificar tu cuenta de Google. Abre la aplicación con tu correo institucional @" + cfg.dominio + "." };
+    usuario = { codigo: "NO_AUTENTICADO", denegado: "No se pudo identificar tu cuenta de Google. Abre la aplicación con tu correo institucional @" + cfg.dominio + "." };
   } else if (correo.split("@")[1] !== cfg.dominio) {
-    u = { correo: correo, codigo: "FUERA_DEL_DOMINIO", denegado: "La cuenta " + correo + " no pertenece al dominio " + cfg.dominio +
+    usuario = { correo: correo, codigo: "FUERA_DEL_DOMINIO", denegado: "La cuenta " + correo + " no pertenece al dominio " + cfg.dominio +
           ". Inicia sesión con tu correo institucional." };
   } else {
     const clave = claveCache_("rol", correo);
-    u = leerDeCache_(clave);
-    if (!u) {
-      u = rolDeCuenta_(correo, cfg);
-      guardarEnCache_(clave, u, SEGUNDOS_CACHE_USUARIO_);
+    usuario = leerDeCache_(clave);
+    if (!usuario) {
+      usuario = rolDeCuenta_(correo, cfg);
+      guardarEnCache_(clave, usuario, SEGUNDOS_CACHE_USUARIO_);
     }
   }
-  usuarioCache_ = u;
-  return u;
+  usuarioCache_ = usuario;
+  return usuario;
 }
 
 function rolDeCuenta_(correo, cfg) {
@@ -81,28 +81,28 @@ function departamentosDeTexto_(texto) {
 }
 
 function exigirUsuario_() {
-  const u = usuarioActual_();
-  if (u.denegado) fallo_(u.codigo || "SIN_ROL", u.denegado);
-  return u;
+  const usuario = usuarioActual_();
+  if (usuario.denegado) fallo_(usuario.codigo || "SIN_ROL", usuario.denegado);
+  return usuario;
 }
 
-function exigirEdicion_(u, sig) {
-  if (u.carreras.indexOf(sig) < 0)
-    fallo_("SIN_PERMISO", u.rol === "director"
+function exigirEdicion_(usuario, sig) {
+  if (usuario.carreras.indexOf(sig) < 0)
+    fallo_("SIN_PERMISO", usuario.rol === "director"
       ? "El director de departamento no edita los planes de ciclo: los consulta y puede derivar a otro departamento los cursos que piden al suyo."
       : "Tu cuenta no tiene permiso para editar el plan de " + Dominio.nombreCarrera(sig) + ": solo puedes consultarlo.");
 }
 
 /* Solo el director de un departamento edita su carga docente. */
-function puedeEditarCarga_(u, dpto) {
-  return u.rol === "director" && !!u.departamento && u.departamento === dpto;
+function puedeEditarCarga_(usuario, dpto) {
+  return usuario.rol === "director" && !!usuario.departamento && usuario.departamento === dpto;
 }
 
-function exigirCarga_(u, dpto) {
-  if (puedeEditarCarga_(u, dpto)) return;
-  if (u.rol !== "director") fallo_("SIN_PERMISO", "El coordinador de carrera consulta la asignación docente en solo lectura.");
-  if (!u.departamento) fallo_("SIN_PERMISO", "Tu cuenta de director no tiene departamento. Pide que lo escriban en la columna «departamento» de la pestaña Usuarios.");
-  fallo_("SIN_PERMISO", "Solo asignas docentes en " + u.departamento + ". La carga de " + dpto + " la consultas en solo lectura.");
+function exigirCarga_(usuario, dpto) {
+  if (puedeEditarCarga_(usuario, dpto)) return;
+  if (usuario.rol !== "director") fallo_("SIN_PERMISO", "El coordinador de carrera consulta la asignación docente en solo lectura.");
+  if (!usuario.departamento) fallo_("SIN_PERMISO", "Tu cuenta de director no tiene departamento. Pide que lo escriban en la columna «departamento» de la pestaña Usuarios.");
+  fallo_("SIN_PERMISO", "Solo asignas docentes en " + usuario.departamento + ". La carga de " + dpto + " la consultas en solo lectura.");
 }
 
 function validarCiclo_(ciclo) {

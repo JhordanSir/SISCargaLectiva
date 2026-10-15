@@ -67,17 +67,17 @@ function soltarBloqueo_(ciclo, ref, correo) {
 
 function renovarBloqueo(ciclo, sig) {
   return responder_(function () {
-    const u = exigirUsuario_();
+    const usuario = exigirUsuario_();
     const c = validarCiclo_(ciclo), s = validarCarrera_(sig);
-    exigirEdicion_(u, s);
-    return renovarBloqueo_(c, Dominio.REF.plan(s), u.correo);
+    exigirEdicion_(usuario, s);
+    return renovarBloqueo_(c, Dominio.REF.plan(s), usuario.correo);
   });
 }
 
 function liberarBloqueo(ciclo, sig) {
   return responder_(function () {
-    const u = exigirUsuario_();
+    const usuario = exigirUsuario_();
     const c = validarCiclo_(ciclo), s = validarCarrera_(sig);
-    return soltarBloqueo_(c, Dominio.REF.plan(s), u.correo);
+    return soltarBloqueo_(c, Dominio.REF.plan(s), usuario.correo);
   });
 }

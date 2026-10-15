@@ -68,7 +68,7 @@ function mostrarPegadoDocentes(){
 }
 alPulsar("#btn-doc-masiva", () => {
   cargarSheetJS();
-  $("#doc-carga-titulo").textContent = "Carga masiva · " + appDocentes.dpto + " · " + appDocentes.ciclo;
+  $("#doc-carga-titulo").textContent = "Carga masiva · " + appCarga.dpto + " · " + appCarga.ciclo;
   mostrar("docentes-carga");
   mostrarPegadoDocentes();
 });
@@ -92,7 +92,7 @@ alPulsar("#btn-limpiar-pegado-doc", () => rejillaDocentes.limpiar());
    si no se reconoce, se pregunta cuál. */
 async function leerArchivoDocentes(file){
   const r = await leerArchivoComoMatriz(file, nombres =>
-    Promise.resolve(nombres.find(n => Dominio.normalizar(n).split(/\s+/).includes(appDocentes.dpto)))
+    Promise.resolve(nombres.find(n => Dominio.normalizar(n).split(/\s+/).includes(appCarga.dpto)))
       .then(propia => propia || preguntarHoja(nombres, "Elige la hoja del departamento", "Leer la hoja")));
   if (!r) return;
   if (!r.matriz.length) return aviso("No se pudo sacar nada de «" + file.name + "».", "aviso");
@@ -108,23 +108,23 @@ const ESTADO_FILA = {
 
 alPulsar("#btn-procesar-pegado-doc", () => {
   if (!rejillaDocentes.matriz) return;
-  const d = appDocentes.datos;
-  const r = Dominio.interpretarCargaDepartamento(rejillaDocentes.matriz, d.unidades, appDocentes.dpto, d.catalogo);
-  appDocentes.previa = r;
+  const d = appCarga.datos;
+  const r = Dominio.interpretarCargaDepartamento(rejillaDocentes.matriz, d.unidades, appCarga.dpto, d.catalogo);
+  appCarga.previa = r;
   const sinCatalogo = new Map();
   r.filas.filter(f => !f.docente && f.estado !== "otro-dpto").forEach(f => {
     const k = Dominio.claveDocente(f.docenteTexto);
     if (!sinCatalogo.has(k)) sinCatalogo.set(k, { texto: f.docenteTexto, filas: [] });
     sinCatalogo.get(k).filas.push(f.fila);
   });
-  appDocentes.previa.porResolver = [...sinCatalogo.values()];
+  appCarga.previa.porResolver = [...sinCatalogo.values()];
   $("#caja-pegar-doc").hidden = true;
   $("#caja-previa-doc").hidden = false;
   const cuenta = e => r.filas.filter(f => f.estado === e).length;
   $("#nota-previa-doc").innerHTML = "Se leyeron <b>" + r.filas.length + "</b> filas (cabecera en la fila " + r.cabecera + "): <b>" + cuenta("ok") + "</b> se asignan, <b>" +
     cuenta("fuera") + "</b> no están en el plan y <b>" + cuenta("otro-dpto") + "</b> piden docente a otro departamento. Solo cambian las secciones y componentes que trae la hoja.";
   $("#caja-resolver-doc").hidden = !sinCatalogo.size;
-  $("#tb-resolver-doc").innerHTML = appDocentes.previa.porResolver.map((x, i) => {
+  $("#tb-resolver-doc").innerHTML = appCarga.previa.porResolver.map((x, i) => {
     const sug = Dominio.sugerirDocentes(x.texto, d.catalogo, 5);
     return "<tr><td><b>" + esc(x.texto) + "</b></td><td>" + x.filas.slice(0, 8).join(", ") + (x.filas.length > 8 ? "…" : "") + "</td>" +
       '<td><select class="control" data-resolver="' + i + '"><option value="">Elige al docente…</option>' +
@@ -139,7 +139,7 @@ alPulsar("#btn-procesar-pegado-doc", () => {
 alPulsar("#btn-cancelar-previa-doc", () => mostrarPegadoDocentes());
 
 alPulsar("#btn-aplicar-previa-doc", () => {
-  const p = appDocentes.previa;
+  const p = appCarga.previa;
   if (!p || !p.filas.length) return;
   const resueltos = new Map();
   let falta = false;
@@ -151,7 +151,7 @@ alPulsar("#btn-aplicar-previa-doc", () => {
   });
   if (falta) return aviso("Elige a quién corresponde cada nombre que no está en el catálogo.", "aviso");
 
-  const idx = Dominio.indiceUnidades(appDocentes.datos.unidades);
+  const idx = Dominio.indiceUnidades(appCarga.datos.unidades);
   const tocados = new Set();
   let aplicadas = 0, sinSeccion = 0;
   p.filas.forEach(f => {
@@ -159,20 +159,20 @@ alPulsar("#btn-aplicar-previa-doc", () => {
     const d = f.docente ? { docente: f.docente, dni: f.dni } : resueltos.get(Dominio.claveDocente(f.docenteTexto));
     if (!d) return;
     if (f.estado === "fuera") {
-      const ya = appDocentes.trabajo.some(a => !Dominio.unidadDe(idx, a) && a.codigo === f.codigo && String(a.n) === String(f.n) && Dominio.claveDocente(a.docente) === Dominio.claveDocente(d.docente));
-      if (!ya) { appDocentes.trabajo.push({ id: nuevoId(), unidad: null, fusion: null, componente: "C", docente: d.docente, dni: d.dni, horas: (f.ht + f.hp) || null,
+      const ya = appCarga.trabajo.some(a => !Dominio.unidadDe(idx, a) && a.codigo === f.codigo && String(a.n) === String(f.n) && Dominio.claveDocente(a.docente) === Dominio.claveDocente(d.docente));
+      if (!ya) { appCarga.trabajo.push({ id: nuevoId(), unidad: null, fusion: null, componente: "C", docente: d.docente, dni: d.dni, horas: (f.ht + f.hp) || null,
         condicion: f.condicion, carrera: f.carrera, codigo: f.codigo, asignatura: f.nombre, n: f.n, nota: "Fuera del plan (carga masiva, fila " + f.fila + ")" }); sinSeccion++; }
       return;
     }
-    const u = idx.porId.get(f.unidad);
+    const seccion = idx.porId.get(f.unidad);
     f.componentes.forEach(c => {
-      const k = u.id + "|" + c;
+      const k = seccion.id + "|" + c;
       if (!tocados.has(k)) {
-        appDocentes.trabajo = appDocentes.trabajo.filter(a => { const v = Dominio.unidadDe(idx, a); return !(v && v.id === u.id && a.componente === c); });
+        appCarga.trabajo = appCarga.trabajo.filter(a => { const v = Dominio.unidadDe(idx, a); return !(v && v.id === seccion.id && a.componente === c); });
         tocados.add(k);
       }
-      if (appDocentes.trabajo.some(a => a.unidad === u.id && a.componente === c && Dominio.claveDocente(a.docente) === Dominio.claveDocente(d.docente))) return;
-      appDocentes.trabajo.push(Object.assign({ id: nuevoId(), componente: c, docente: d.docente, dni: d.dni, horas: null, condicion: f.condicion }, fotoUnidad(u)));
+      if (appCarga.trabajo.some(a => a.unidad === seccion.id && a.componente === c && Dominio.claveDocente(a.docente) === Dominio.claveDocente(d.docente))) return;
+      appCarga.trabajo.push(Object.assign({ id: nuevoId(), componente: c, docente: d.docente, dni: d.dni, horas: null, condicion: f.condicion }, fotoUnidad(seccion)));
       aplicadas++;
     });
   });

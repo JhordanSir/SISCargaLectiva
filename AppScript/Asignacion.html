@@ -128,11 +128,11 @@
    grupo o una fusión entera. Solo el director del departamento la edita, con bloqueo; los
    demás la consultan. El balance de cada docente suma sus horas en los cuatro departamentos.
    ============================================================ */
-const appDocentes = {
+const appCarga = {
   ciclo: CONFIG.ciclo,
   dpto: departamentoDelUsuario() || "DIMA",
   vista: "carrera",
-  datos: null,                  // respuesta de obtenerEstadoDocentes
+  datos: null,                  // respuesta de obtenerCargaDocente
   trabajo: [],                  // asignaciones del departamento, con los cambios sin guardar
   base: 0,                      // versión de la carga sobre la que se trabaja
   editando: false,
@@ -143,45 +143,45 @@ const appDocentes = {
   pedido: 0
 };
 const VIGENCIA_DOCENTES_MS = 60000;
-const claveDocentes = () => appDocentes.ciclo + "|" + appDocentes.dpto;
+const claveDocentes = () => appCarga.ciclo + "|" + appCarga.dpto;
 
 $("#sel-doc-ciclo").innerHTML = (CONFIG.ciclos || []).map(c => '<option value="' + esc(c) + '">' + esc(c) + "</option>").join("");
 $("#sel-filtro-carrera").innerHTML += CARRERAS.map(c => '<option value="' + c.sig + '">' + esc(c.sig + " · " + c.nombre) + "</option>").join("");
 
 /* ---------- datos derivados ---------- */
 const nuevoId = () => "a" + Math.random().toString(36).slice(2, 10);
-const unidadesDpto = () => ((appDocentes.datos || {}).unidades || []).filter(u => u.dpto === appDocentes.dpto);
+const unidadesDpto = () => ((appCarga.datos || {}).unidades || []).filter(seccion => seccion.dpto === appCarga.dpto);
 function cargasActuales(){
-  const d = appDocentes.datos;
+  const d = appCarga.datos;
   const r = {};
   if (!d) return r;
   Object.keys(d.cargas).forEach(k => { r[k] = d.cargas[k].asignaciones || []; });
-  r[appDocentes.dpto] = appDocentes.trabajo;
+  r[appCarga.dpto] = appCarga.trabajo;
   return r;
 }
 function calcular(){
-  const d = appDocentes.datos;
+  const d = appCarga.datos;
   if (!d) return null;
   return Dominio.calcularBalance(d.catalogo, d.unidades, cargasActuales());
 }
-const catalogoPorNombre = () => new Map(((appDocentes.datos || {}).catalogo || []).map(x => [Dominio.claveDocente(x.nombreCompleto), x]));
+const catalogoPorNombre = () => new Map(((appCarga.datos || {}).catalogo || []).map(x => [Dominio.claveDocente(x.nombreCompleto), x]));
 
 function marcarDocentesSucio(sucio){
-  appDocentes.sucio = sucio;
+  appCarga.sucio = sucio;
   $("#doc-sin-guardar").hidden = !sucio;
   $("#nav-sucio").hidden = !sucio;
 }
 
 /* ---------- carga de datos ---------- */
 async function iniciarCargaDocentes(){
-  if (!appDocentes.editando && app.ciclo && appDocentes.ciclo !== app.ciclo) appDocentes.ciclo = app.ciclo;
-  $("#sel-doc-ciclo").value = appDocentes.ciclo;
-  $("#sel-doc-dpto").value = appDocentes.dpto;
+  if (!appCarga.editando && app.ciclo && appCarga.ciclo !== app.ciclo) appCarga.ciclo = app.ciclo;
+  $("#sel-doc-ciclo").value = appCarga.ciclo;
+  $("#sel-doc-dpto").value = appCarga.dpto;
   mostrar("docentes");
-  const c = appDocentes.cargado;
-  if (c && c.clave === claveDocentes() && appDocentes.datos) {
+  const c = appCarga.cargado;
+  if (c && c.clave === claveDocentes() && appCarga.datos) {
     pintarVistaDocentes();
-    if (!appDocentes.editando && Date.now() - c.hora > VIGENCIA_DOCENTES_MS) cargarEstadoDocentes({ fondo: true });
+    if (!appCarga.editando && Date.now() - c.hora > VIGENCIA_DOCENTES_MS) cargarEstadoDocentes({ fondo: true });
     return;
   }
   await cargarEstadoDocentes();
@@ -189,18 +189,18 @@ async function iniciarCargaDocentes(){
 
 async function cargarEstadoDocentes(opciones){
   const fondo = !!(opciones && opciones.fondo);
-  const ciclo = appDocentes.ciclo, dpto = appDocentes.dpto, pedido = ++appDocentes.pedido;
+  const ciclo = appCarga.ciclo, dpto = appCarga.dpto, pedido = ++appCarga.pedido;
   try {
-    const res = await (fondo ? llamarDeFondo : llamar)("obtenerEstadoDocentes", ciclo, dpto);
-    if (pedido !== appDocentes.pedido || appDocentes.editando) return;
-    appDocentes.datos = res;
-    appDocentes.trabajo = clonar(res.cargas[dpto].asignaciones || []);
-    appDocentes.base = res.cargas[dpto].version;
-    appDocentes.cargado = { clave: ciclo + "|" + dpto, hora: Date.now() };
+    const res = await (fondo ? llamarDeFondo : llamar)("obtenerCargaDocente", ciclo, dpto);
+    if (pedido !== appCarga.pedido || appCarga.editando) return;
+    appCarga.datos = res;
+    appCarga.trabajo = clonar(res.cargas[dpto].asignaciones || []);
+    appCarga.base = res.cargas[dpto].version;
+    appCarga.cargado = { clave: ciclo + "|" + dpto, hora: Date.now() };
     marcarDocentesSucio(false);
     pintarVistaDocentes();
   } catch (err) {
-    if (pedido === appDocentes.pedido) informarError(err);
+    if (pedido === appCarga.pedido) informarError(err);
   }
 }
 
@@ -208,9 +208,9 @@ async function cargarEstadoDocentes(opciones){
 const NIVEL_CLASE = { bloqueo: "alerta", severa: "alerta", alerta: "pendiente", info: "info" };
 
 function pintarVistaDocentes(){
-  const d = appDocentes.datos;
+  const d = appCarga.datos;
   if (!d) return;
-  const ed = appDocentes.editando, puede = !!d.puedeEditar;
+  const ed = appCarga.editando, puede = !!d.puedeEditar;
   $("#doc-titulo").textContent = "Carga docente · " + d.departamento + " · " + d.ciclo;
   $("#doc-subtitulo").textContent = puede
     ? (ed ? "Editas la carga de tu departamento. Guarda para crear una versión nueva." : "Pulsa «Editar asignaciones» para asignar docentes; mientras editas, nadie más puede hacerlo.")
@@ -222,19 +222,19 @@ function pintarVistaDocentes(){
   $("#doc-chip-reloj").hidden = !ed;
 
   const bal = calcular();
-  appDocentes.balance = bal;
+  appCarga.balance = bal;
   const unidades = unidadesDpto();
   const vig = bal.vigentes;
 
   /* Métricas: horas pedidas por componente y las que tienen docente (sin pasarse de lo pedido). */
   let req = 0, cub = 0, pend = 0;
-  unidades.forEach(u => {
-    const cob = Dominio.coberturaUnidad(u, vig.porUnidad.get(u.id));
+  unidades.forEach(seccion => {
+    const cob = Dominio.coberturaUnidad(seccion, vig.porUnidad.get(seccion.id));
     cob.forEach(c => { req += c.horas; cub += c.pendienteIntl ? c.horas : Math.min(c.horas, c.asignadas); });
     if (cob.some(c => !c.cubierto)) pend++;
   });
   const cobertura = req ? Math.round(cub / req * 100) : 0;
-  const docentesDpto = bal.docentes.filter(x => x.cursos.some(c => c.dpto === appDocentes.dpto));
+  const docentesDpto = bal.docentes.filter(x => x.cursos.some(c => c.dpto === appCarga.dpto));
   const alertas = [];
   docentesDpto.forEach(x => x.advertencias.forEach(a => alertas.push(Object.assign({ docente: x.nombre }, a))));
   contarHasta($("#met-doc-req"), req);
@@ -260,30 +260,30 @@ function pintarVistaDocentes(){
       "<ul>" + alertas.map(a => '<li><span class="badge-doc ' + NIVEL_CLASE[a.nivel] + '">' + esc(a.codigo) + "</span><span><b>" + esc(a.docente) + ":</b> " + esc(a.mensaje) + "</span></li>").join("") + "</ul>";
   } else { caja.hidden = true; caja.innerHTML = ""; }
 
-  if (appDocentes.vista === "carrera") pintarTablaSecciones(); else pintarTablaDocentes();
+  if (appCarga.vista === "carrera") pintarTablaSecciones(); else pintarTablaDocentes();
   pintarSinSeccion();
 }
 
 const rolActual = () => (app.usuario || {}).rol || "";
-const nombreComp = (u, c) => (u.componentes.find(x => x.c === c) || { nombre: c }).nombre;
+const nombreComp = (seccion, c) => (seccion.componentes.find(x => x.c === c) || { nombre: c }).nombre;
 
-function htmlCarreras(u){
-  return u.miembros.length > 1
-    ? u.miembros.map(m => "<b>" + esc(m.carrera) + "</b>").join(" + ") + '<br><span class="marca-c fus" title="Sección fusionada">FUS</span>'
-    : "<b>" + esc(u.carrera) + "</b>";
+function htmlCarreras(seccion){
+  return seccion.miembros.length > 1
+    ? seccion.miembros.map(m => "<b>" + esc(m.carrera) + "</b>").join(" + ") + '<br><span class="marca-c fus" title="Sección fusionada">FUS</span>'
+    : "<b>" + esc(seccion.carrera) + "</b>";
 }
 
 function pintarTablaSecciones(){
   const tb = $("#tb-vista-carrera");
-  const vig = appDocentes.balance.vigentes;
-  const ed = appDocentes.editando;
+  const vig = appCarga.balance.vigentes;
+  const ed = appCarga.editando;
   const filas = [];
-  unidadesDpto().forEach(u => {
-    if (appDocentes.filtroCarrera && !u.miembros.some(m => m.carrera === appDocentes.filtroCarrera)) return;
-    const asigs = vig.porUnidad.get(u.id) || [];
-    const cob = Dominio.coberturaUnidad(u, asigs);
+  unidadesDpto().forEach(seccion => {
+    if (appCarga.filtroCarrera && !seccion.miembros.some(m => m.carrera === appCarga.filtroCarrera)) return;
+    const asigs = vig.porUnidad.get(seccion.id) || [];
+    const cob = Dominio.coberturaUnidad(seccion, asigs);
     const cubierta = cob.every(c => c.cubierto), alguna = cob.some(c => c.cubierto);
-    if (appDocentes.soloPendientes && cubierta) return;
+    if (appCarga.soloPendientes && cubierta) return;
     const heredada = asigs.some(a => a.heredada);
     const comp = cob.map(c => {
       const quien = c.pendienteIntl
@@ -296,20 +296,20 @@ function pintarTablaSecciones(){
         (c.descuadre ? ' <span class="badge-doc alerta" title="Las horas asignadas no suman las del componente">' + c.asignadas + " de " + c.horas + " h</span>" : "") + "</div>";
     }).join("");
     filas.push("<tr>" +
-      "<td>" + htmlCarreras(u) + "</td>" +
-      "<td>" + esc(u.sem) + "</td>" +
-      '<td class="cod">' + esc(u.codigo) + "</td>" +
-      "<td><b>" + esc(u.nombre) + "</b>" + (u.intl ? '<span class="marca-c intl">INTL</span>' : "") +
-        (u.desdoble ? '<span class="marca-c des">' + esc(u.desdoble) + "</span>" : "") +
+      "<td>" + htmlCarreras(seccion) + "</td>" +
+      "<td>" + esc(seccion.sem) + "</td>" +
+      '<td class="cod">' + esc(seccion.codigo) + "</td>" +
+      "<td><b>" + esc(seccion.nombre) + "</b>" + (seccion.intl ? '<span class="marca-c intl">INTL</span>' : "") +
+        (seccion.desdoble ? '<span class="marca-c des">' + esc(seccion.desdoble) + "</span>" : "") +
         (heredada ? '<br><small class="tenue">Asignada por ' + esc(asigs[0].dptoCarga) + " antes del cambio de departamento</small>" : "") + "</td>" +
-      '<td class="num">' + esc(u.n) + "</td>" +
+      '<td class="num">' + esc(seccion.n) + "</td>" +
       "<td>" + comp + "</td>" +
       "<td>" + (cubierta ? '<span class="badge-doc ok">' + icono("check") + "Cubierta</span>"
                 : alguna ? '<span class="badge-doc pendiente">Parcial</span>' : '<span class="badge-doc pendiente">Sin docente</span>') + "</td>" +
       '<td><div class="acciones-fila">' +
-        (ed ? '<button type="button" class="btn btn-sm' + (alguna ? "" : " primario") + '" data-acc-sec="asignar" data-u="' + esc(u.id) + '">' + icono("user-plus") + (alguna ? "Cambiar" : "Asignar") + "</button>" : "") +
-        (ed && asigs.some(a => String(a.docente || "").trim()) ? '<button type="button" class="btn btn-sm" data-acc-sec="reemplazar" data-u="' + esc(u.id) + '">' + icono("user-switch") + "Reemplazar</button>" : "") +
-        (appDocentes.datos.puedeEditar ? '<button type="button" class="btn btn-sm" data-acc-sec="derivar" data-u="' + esc(u.id) + '" title="Pedir el docente de esta asignatura a otro departamento">' + icono("swap") + "Derivar</button>" : "") +
+        (ed ? '<button type="button" class="btn btn-sm' + (alguna ? "" : " primario") + '" data-acc-sec="asignar" data-u="' + esc(seccion.id) + '">' + icono("user-plus") + (alguna ? "Cambiar" : "Asignar") + "</button>" : "") +
+        (ed && asigs.some(a => String(a.docente || "").trim()) ? '<button type="button" class="btn btn-sm" data-acc-sec="reemplazar" data-u="' + esc(seccion.id) + '">' + icono("user-switch") + "Reemplazar</button>" : "") +
+        (appCarga.datos.puedeEditar ? '<button type="button" class="btn btn-sm" data-acc-sec="derivar" data-u="' + esc(seccion.id) + '" title="Pedir el docente de esta asignatura a otro departamento">' + icono("swap") + "Derivar</button>" : "") +
       "</div></td></tr>");
   });
   tb.innerHTML = filas.length ? filas.join("")
@@ -318,12 +318,12 @@ function pintarTablaSecciones(){
 
 function pintarTablaDocentes(){
   const tb = $("#tb-vista-dpto");
-  const bal = appDocentes.balance, dpto = appDocentes.dpto, ed = appDocentes.editando;
+  const bal = appCarga.balance, dpto = appCarga.dpto, ed = appCarga.editando;
   let lista = bal.docentes.filter(x => x.cursos.some(c => c.dpto === dpto));
-  if (appDocentes.filtroDocentes === "advertencias") lista = lista.filter(x => x.advertencias.length);
-  if (appDocentes.filtroDocentes === "plana") {
+  if (appCarga.filtroDocentes === "advertencias") lista = lista.filter(x => x.advertencias.length);
+  if (appCarga.filtroDocentes === "plana") {
     const ya = new Set(lista.map(x => x.clave));
-    (appDocentes.datos.catalogo || []).filter(c => c.dpto === dpto).forEach(c => {
+    (appCarga.datos.catalogo || []).filter(c => c.dpto === dpto).forEach(c => {
       const k = Dominio.claveDeDocente(c.dni, c.nombreCompleto);
       if (ya.has(k)) return;
       const enOtro = bal.docentes.find(x => x.clave === k);
@@ -358,9 +358,9 @@ function pintarTablaDocentes(){
 }
 
 function pintarSinSeccion(){
-  const lista = (appDocentes.balance.vigentes.sinSeccion[appDocentes.dpto] || []);
+  const lista = (appCarga.balance.vigentes.sinSeccion[appCarga.dpto] || []);
   $("#caja-sin-seccion").hidden = !lista.length;
-  const ed = appDocentes.editando;
+  const ed = appCarga.editando;
   $("#tb-sin-seccion").innerHTML = lista.map(a => "<tr>" +
     "<td><b>" + esc(a.docente || "—") + "</b></td><td>" + esc(a.carrera || "—") + '</td><td class="cod">' + esc(a.codigo || "—") +
     "</td><td>" + esc(a.asignatura || "—") + '</td><td class="num">' + esc(a.n || "—") + "</td><td><small class=\"tenue\">" + esc(a.nota || "El curso ya no está en el plan") + "</small></td>" +
@@ -372,7 +372,7 @@ function pintarSinSeccion(){
 
 /* ---------- vistas y filtros ---------- */
 function elegirVistaDocentes(vista){
-  appDocentes.vista = vista;
+  appCarga.vista = vista;
   const porCarrera = vista === "carrera";
   $("#btn-vista-carrera").classList.toggle("activo", porCarrera);
   $("#btn-vista-dpto").classList.toggle("activo", !porCarrera);
@@ -382,22 +382,22 @@ function elegirVistaDocentes(vista){
   $("#vista-dpto-contenedor").hidden = porCarrera;
   $("#filtros-vista-carrera").hidden = !porCarrera;
   $("#filtros-vista-dpto").hidden = porCarrera;
-  if (appDocentes.datos) pintarVistaDocentes();
+  if (appCarga.datos) pintarVistaDocentes();
 }
 alPulsar("#btn-vista-carrera", () => elegirVistaDocentes("carrera"));
 alPulsar("#btn-vista-dpto", () => elegirVistaDocentes("dpto"));
-alCambiar("#sel-filtro-carrera", e => { appDocentes.filtroCarrera = e.target.value; pintarTablaSecciones(); });
-alCambiar("#chk-solo-pendientes", e => { appDocentes.soloPendientes = e.target.checked; pintarTablaSecciones(); });
-alCambiar("#sel-filtro-docentes", e => { appDocentes.filtroDocentes = e.target.value; pintarTablaDocentes(); });
+alCambiar("#sel-filtro-carrera", e => { appCarga.filtroCarrera = e.target.value; pintarTablaSecciones(); });
+alCambiar("#chk-solo-pendientes", e => { appCarga.soloPendientes = e.target.checked; pintarTablaSecciones(); });
+alCambiar("#sel-filtro-docentes", e => { appCarga.filtroDocentes = e.target.value; pintarTablaDocentes(); });
 
 /* Mientras se edita no se cambia de ciclo ni de departamento: primero hay que terminar. */
 async function cambiarFiltroDocentes(campo, valor, select){
-  if (appDocentes.editando) {
+  if (appCarga.editando) {
     const ok = await confirmarFinCarga();
-    if (!ok) { select.value = appDocentes[campo]; return; }
+    if (!ok) { select.value = appCarga[campo]; return; }
     await terminarEdicionCarga();
   }
-  appDocentes[campo] = valor;
+  appCarga[campo] = valor;
   if (campo === "ciclo") app.ciclo = valor;
   cargarEstadoDocentes();
 }

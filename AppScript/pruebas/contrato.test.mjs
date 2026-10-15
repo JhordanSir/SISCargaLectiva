@@ -38,7 +38,7 @@ function llamadasValidas(e) {
     [A, "restaurarVersion", CICLO, "ING", 1],
     [A, "liberarBloqueo", CICLO, "ING"],
     [A, "cambiarDepartamento", CICLO, "ADM", grupoAdm, "DACTE", "prueba"],
-    [DIMA, "obtenerEstadoDocentes", CICLO, "DIMA"],
+    [DIMA, "obtenerCargaDocente", CICLO, "DIMA"],
     [A, "obtenerDocentesPorGrupo", CICLO],
     [DIMA, "abrirEdicionCarga", CICLO, "DIMA"],
     [DIMA, "renovarBloqueoCarga", CICLO, "DIMA"],

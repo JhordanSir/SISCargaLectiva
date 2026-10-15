@@ -5,11 +5,11 @@
    consultan. Este archivo tiene las funciones que llama el navegador; el catálogo está en
    CargaDocenteCatalogo.js y los datos, en CargaDocenteRepositorio.js. */
 
-function obtenerEstadoDocentes(ciclo, dpto) {
+function obtenerCargaDocente(ciclo, dpto) {
   return responder_(function () {
-    const u = exigirUsuario_();
+    const usuario = exigirUsuario_();
     const c = validarCiclo_(ciclo || config_().cicloXlsx);
-    const d = validarDpto_(dpto || u.departamento || "DIMA");
+    const d = validarDpto_(dpto || usuario.departamento || "DIMA");
     const catalogo = leerCatalogoDocentes_(false);
     const planes = planesDelCiclo_(c);
     const unidades = Dominio.unidadesDelCiclo(planes);
@@ -19,9 +19,9 @@ function obtenerEstadoDocentes(ciclo, dpto) {
     const b = bloqueoDe_(c, Dominio.REF.carga(d));
     return {
       ciclo: c, departamento: d, departamentoNombre: Dominio.nombreDpto(d),
-      puedeEditar: puedeEditarCarga_(u, d),
-      catalogo: catalogoVisible_(catalogo.docentes, u, d), columnasCatalogo: catalogo.columnas,
-      unidades: unidades, cargas: cargasVisibles_(cargas, u, d),
+      puedeEditar: puedeEditarCarga_(usuario, d),
+      catalogo: catalogoVisible_(catalogo.docentes, usuario, d), columnasCatalogo: catalogo.columnas,
+      unidades: unidades, cargas: cargasVisibles_(cargas, usuario, d),
       planes: planes.map(function (p) { return { sig: p.sig, estado: p.estado, version: p.version }; }),
       avisos: (catalogo.avisos || []).concat(avisosDeCarga_(d, planes, metas[metas.length - 1] || null, vig.sinSeccion)),
       bloqueo: b ? datosBloqueo_(b) : null
@@ -42,14 +42,14 @@ function obtenerDocentesPorGrupo(ciclo) {
 /* Toma el bloqueo de la carga. Si la edita otra cuenta, falla con BLOQUEADO. */
 function abrirEdicionCarga(ciclo, dpto, versionConocida) {
   return responder_(function () {
-    const u = exigirUsuario_();
+    const usuario = exigirUsuario_();
     const c = validarCiclo_(ciclo), d = validarDpto_(dpto);
-    exigirCarga_(u, d);
+    exigirCarga_(usuario, d);
     return conCandado_(function () {
-      const r = tomarBloqueo_(c, Dominio.REF.carga(d), u.correo);
+      const r = tomarBloqueo_(c, Dominio.REF.carga(d), usuario.correo);
       if (!r.ok) falloBloqueado_("La carga de " + d, r.bloqueo);
       const v = vigente_(filaCarga_(c, d));
-      const res = { version: v.version, expira: r.expira, recuperacion: leerRecuperacion_(c, Dominio.REF.carga(d), u.correo) };
+      const res = { version: v.version, expira: r.expira, recuperacion: leerRecuperacion_(c, Dominio.REF.carga(d), usuario.correo) };
       if (versionConocida == null || parseInt(versionConocida, 10) !== v.version)
         res.asignaciones = v.version ? contenidoCarga_(c, d, v.version, v.filaVersion) : [];
       return res;
@@ -59,18 +59,18 @@ function abrirEdicionCarga(ciclo, dpto, versionConocida) {
 
 function renovarBloqueoCarga(ciclo, dpto) {
   return responder_(function () {
-    const u = exigirUsuario_();
+    const usuario = exigirUsuario_();
     const c = validarCiclo_(ciclo), d = validarDpto_(dpto);
-    exigirCarga_(u, d);
-    return renovarBloqueo_(c, Dominio.REF.carga(d), u.correo);
+    exigirCarga_(usuario, d);
+    return renovarBloqueo_(c, Dominio.REF.carga(d), usuario.correo);
   });
 }
 
 function liberarBloqueoCarga(ciclo, dpto) {
   return responder_(function () {
-    const u = exigirUsuario_();
+    const usuario = exigirUsuario_();
     const c = validarCiclo_(ciclo), d = validarDpto_(dpto);
-    return soltarBloqueo_(c, Dominio.REF.carga(d), u.correo);
+    return soltarBloqueo_(c, Dominio.REF.carga(d), usuario.correo);
   });
 }
 
@@ -82,9 +82,9 @@ function guardarCarga(ciclo, dpto, datos) {
    motivoExceso, forzar}. Orquesta: permiso, bloqueo, conflicto, depuración, excesos de
    horas y guardado. */
 function guardarCarga_(ciclo, dpto, datos) {
-  const u = exigirUsuario_();
+  const usuario = exigirUsuario_();
   const c = validarCiclo_(ciclo), d = validarDpto_(dpto);
-  exigirCarga_(u, d);
+  exigirCarga_(usuario, d);
   if (!datos) fallo_("DATO_INVALIDO", "No llegó la carga que se quería guardar.");
   const recibidas = Dominio.sanearAsignaciones(datos.asignaciones);
   const T = Dominio.TIPO_VERSION;
@@ -92,7 +92,7 @@ function guardarCarga_(ciclo, dpto, datos) {
 
   return conCandado_(function () {
     const b = bloqueoDe_(c, Dominio.REF.carga(d));
-    if (b && b.correo !== u.correo)
+    if (b && b.correo !== usuario.correo)
       fallo_("BLOQUEADO", "La carga de " + d + " la está editando " + b.correo + ", así que no se guardó.");
     const fila = filaCarga_(c, d);
     if (!datos.forzar) exigirSinConflictoCarga_(c, d, vigente_(fila).version, datos.versionBase);
@@ -102,8 +102,8 @@ function guardarCarga_(ciclo, dpto, datos) {
     const cargas = soloAsignaciones_(cargasVigentes_(c));
     const asignaciones = depurarCarga_(d, recibidas, unidades, cargas);
     const motivoExceso = validarExcesos_(leerCatalogoDocentes_(false).docentes, unidades, cargas, d, asignaciones, datos.motivoExceso);
-    const g = persistirCarga_(c, d, fila, { tipo: tipo, usuario: u.correo, motivo: datos.motivo, motivoExceso: motivoExceso, planes: planes, asignaciones: asignaciones });
-    const r = b ? tomarBloqueo_(c, Dominio.REF.carga(d), u.correo) : null;
+    const g = persistirCarga_(c, d, fila, { tipo: tipo, usuario: usuario.correo, motivo: datos.motivo, motivoExceso: motivoExceso, planes: planes, asignaciones: asignaciones });
+    const r = b ? tomarBloqueo_(c, Dominio.REF.carga(d), usuario.correo) : null;
     return { version: g.version, fecha: g.fecha, asignaciones: asignaciones, expira: r && r.ok ? r.expira : null };
   });
 }
@@ -161,10 +161,10 @@ function obtenerHistorialCarga(ciclo, dpto) {
 
 function obtenerVersionCarga(ciclo, dpto, n) {
   return responder_(function () {
-    const u = exigirUsuario_();
+    const usuario = exigirUsuario_();
     const c = validarCiclo_(ciclo), d = validarDpto_(dpto);
     const lista = contenidoCarga_(c, d, parseInt(n, 10), 0);
-    return puedeEditarCarga_(u, d) ? lista : lista.map(sinDni_);
+    return puedeEditarCarga_(usuario, d) ? lista : lista.map(sinDni_);
   });
 }
 
@@ -172,9 +172,9 @@ function obtenerVersionCarga(ciclo, dpto, n) {
    con las mismas reglas de un guardado. */
 function restaurarCarga(ciclo, dpto, n) {
   return responder_(function () {
-    const u = exigirUsuario_();
+    const usuario = exigirUsuario_();
     const c = validarCiclo_(ciclo), d = validarDpto_(dpto);
-    exigirCarga_(u, d);
+    exigirCarga_(usuario, d);
     const k = parseInt(n, 10);
     const vigente = vigente_(filaCarga_(c, d)).version;
     if (!(k >= 1 && k <= vigente)) fallo_("NO_ENCONTRADO", "La versión v" + n + " no existe.");

@@ -7,7 +7,7 @@
    se va a guardar (se ajusta aquí); disueltas: marcas que el usuario deshizo.
    opciones.sinBloqueo: no comprueba los bloqueos ajenos (lectura automática del xlsx).
    Devuelve {asignaturas, otros: [{sig, asignaturas, motivo}]}. */
-function prepararFusiones_(ciclo, sig, antes, despues, disueltas, u, opciones) {
+function prepararFusiones_(ciclo, sig, antes, despues, disueltas, usuario, opciones) {
   if (!Dominio.marcasAfectadas(antes, despues, disueltas).length) return { asignaturas: despues, otros: [] };
 
   const filas = leerPlanes_().filter(function (p) { return p.ciclo === ciclo && p.carrera !== sig; });
@@ -16,7 +16,7 @@ function prepararFusiones_(ciclo, sig, antes, despues, disueltas, u, opciones) {
   if (!(opciones && opciones.sinBloqueo)) {
     tocados.forEach(function (s) {
       const b = bloqueoDe_(ciclo, Dominio.REF.plan(s));
-      if (b && b.correo !== u.correo)
+      if (b && b.correo !== usuario.correo)
         fallo_("BLOQUEADO", "No se guardó: la fusión cambia el plan de " + Dominio.nombreCarrera(s) + ", que está editando " +
                         b.correo + ". Espera a que termine o deshaz esa fusión.");
     });

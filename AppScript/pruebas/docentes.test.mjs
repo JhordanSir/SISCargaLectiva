@@ -35,7 +35,7 @@ test("el catálogo sale de CargaDeDocentes con su departamento y dedicación", (
 
 test("las secciones salen de los planes Registrados y cada una lleva sus componentes", () => {
   const e = sistema();
-  const st = ejecutar(e, DIMA, "obtenerEstadoDocentes", CICLO, "DIMA");
+  const st = ejecutar(e, DIMA, "obtenerCargaDocente", CICLO, "DIMA");
   assert.equal(st.puedeEditar, true);
   assert.equal(st.unidades.length, 365);
   const dima = st.unidades.filter(u => u.dpto === "DIMA");
@@ -47,13 +47,13 @@ test("las secciones salen de los planes Registrados y cada una lleva sus compone
   const p = ejecutar(e, A, "abrirEdicion", "2026-2", "ING");
   ejecutar(e, A, "guardarPlan", "2026-2", "ING", { asignaturas: [{ sem: 1, malla: "2024", codigo: "X.1", nombre: "Prueba", dpto: "DIMA", obs: "",
     grupos: [{ id: "g1", n: 1, ht: "2", hp: "0", desdoble: null, fusion: null }] }], estado: "Borrador", tipo: "guardar borrador", versionBase: p.version });
-  assert.equal(ejecutar(e, DIMA, "obtenerEstadoDocentes", "2026-2", "DIMA").unidades.length, 0);
+  assert.equal(ejecutar(e, DIMA, "obtenerCargaDocente", "2026-2", "DIMA").unidades.length, 0);
 });
 
 test("solo el director del departamento edita su carga; los demás la consultan", () => {
   const e = sistema();
-  assert.equal(ejecutar(e, DAHUC, "obtenerEstadoDocentes", CICLO, "DIMA").puedeEditar, false);
-  assert.equal(ejecutar(e, A, "obtenerEstadoDocentes", CICLO, "DIMA").puedeEditar, false);
+  assert.equal(ejecutar(e, DAHUC, "obtenerCargaDocente", CICLO, "DIMA").puedeEditar, false);
+  assert.equal(ejecutar(e, A, "obtenerCargaDocente", CICLO, "DIMA").puedeEditar, false);
   assert.throws(() => ejecutar(e, A, "abrirEdicionCarga", CICLO, "DIMA"), { codigo: "SIN_PERMISO", message: /coordinador de carrera consulta/ });
   assert.throws(() => ejecutar(e, DAHUC, "guardarCarga", CICLO, "DIMA", { asignaciones: [] }), { codigo: "SIN_PERMISO", message: /Solo asignas docentes en DAHUC/ });
   const r = ejecutar(e, DIMA, "abrirEdicionCarga", CICLO, "DIMA");
@@ -63,7 +63,7 @@ test("solo el director del departamento edita su carga; los demás la consultan"
 
 test("la carga se versiona, se bloquea por departamento y avisa del conflicto", () => {
   const e = sistema();
-  const st = ejecutar(e, DIMA, "obtenerEstadoDocentes", CICLO, "DIMA");
+  const st = ejecutar(e, DIMA, "obtenerCargaDocente", CICLO, "DIMA");
   const u = unidad(st, "ING", "3.4.4.24");
   ejecutar(e, DIMA, "abrirEdicionCarga", CICLO, "DIMA");
   const asig = [{ unidad: u.id, componente: "T", docente: "VELASQUEZ DOIG, MIGUEL EDUARDO", horas: null }];
@@ -86,7 +86,7 @@ test("la carga se versiona, se bloquea por departamento y avisa del conflicto", 
 
 test("nadie pasa de 40 h; un docente con cargo sobre 24 h exige motivo", () => {
   const e = sistema();
-  const st = ejecutar(e, DIMA, "obtenerEstadoDocentes", CICLO, "DIMA");
+  const st = ejecutar(e, DIMA, "obtenerCargaDocente", CICLO, "DIMA");
   const secciones = st.unidades.filter(u => u.dpto === "DIMA" && u.ht + u.hp >= 4).slice(0, 11);
   const docente = "PRUEBA, DOCENTE";
   const asignar = lista => lista.flatMap(u => u.componentes.map(c => ({ unidad: u.id, componente: c.c, docente: docente, horas: null })));
@@ -110,7 +110,7 @@ test("nadie pasa de 40 h; un docente con cargo sobre 24 h exige motivo", () => {
 test("advertencias A10, A11 y A14 del balance", () => {
   const e = sistema();
   const Dominio = e.ctx.Dominio;
-  const st = ejecutar(e, DIMA, "obtenerEstadoDocentes", CICLO, "DIMA");
+  const st = ejecutar(e, DIMA, "obtenerCargaDocente", CICLO, "DIMA");
   const catalogo = [
     { dni: "1", nombreCompleto: "TP, POCAS", dpto: "DIMA", dedicacion: "TP", condicion: "Contratado" },
     { dni: "2", nombreCompleto: "CRUCE, DOS", dpto: "DAHUC", dedicacion: "TC", condicion: "Contratado", noLectivas: 10 }
@@ -135,7 +135,7 @@ test("advertencias A10, A11 y A14 del balance", () => {
 test("lee la hoja real de CargaXDepartamento: grupo desde SEMESTRE y cursos fuera del plan", () => {
   const e = sistema();
   const Dominio = e.ctx.Dominio;
-  const st = ejecutar(e, DIMA, "obtenerEstadoDocentes", CICLO, "DACJ");
+  const st = ejecutar(e, DIMA, "obtenerCargaDocente", CICLO, "DACJ");
   const libro = e.ctx.leerLibroXlsx_(partesXlsx(XLSX_DEPARTAMENTO));
   const hoja = libro.find(h => /DACJ/.test(h.nombre));
   const r = plano(Dominio.interpretarCargaDepartamento(hoja.filas, st.unidades, "DACJ", st.catalogo));
@@ -152,7 +152,7 @@ test("lee la hoja real de CargaXDepartamento: grupo desde SEMESTRE y cursos fuer
 
 test("la carga avisa con tipo si el plan cambió después de guardarla o una asignación quedó sin sección", () => {
   const e = sistema({ conDocentes: false });
-  let st = ejecutar(e, DIMA, "obtenerEstadoDocentes", CICLO, "DIMA");
+  let st = ejecutar(e, DIMA, "obtenerCargaDocente", CICLO, "DIMA");
   assert.deepEqual(st.avisos.map(a => a.tipo), ["CATALOGO_FALTA"], "sin CargaDeDocentes, el aviso va con los demás");
   const u = unidad(st, "ING", "3.4.4.24");
   ejecutar(e, DIMA, "abrirEdicionCarga", CICLO, "DIMA");
@@ -164,7 +164,7 @@ test("la carga avisa con tipo si el plan cambió después de guardarla o una asi
   ejecutar(e, A, "guardarPlan", CICLO, "ING", { asignaturas: plan.asignaturas.filter(a => a.codigo !== "3.4.4.24"),
     estado: "Registrado", tipo: "guardar cambios", versionBase: plan.version });
 
-  st = ejecutar(e, DIMA, "obtenerEstadoDocentes", CICLO, "DIMA");
+  st = ejecutar(e, DIMA, "obtenerCargaDocente", CICLO, "DIMA");
   const cambio = st.avisos.find(a => a.tipo === "PLAN_CAMBIADO");
   assert.deepEqual(cambio.datos, { carrera: "ING", antes: 1, ahora: 2, usuario: A });
   assert.match(cambio.texto, /Ingeniería de Software cambió después del último guardado/);
@@ -174,7 +174,7 @@ test("la carga avisa con tipo si el plan cambió después de guardarla o una asi
 
 test("una asignación sigue a su sección si cambia el departamento del curso", () => {
   const e = sistema();
-  let st = ejecutar(e, DIMA, "obtenerEstadoDocentes", CICLO, "DIMA");
+  let st = ejecutar(e, DIMA, "obtenerCargaDocente", CICLO, "DIMA");
   const u = unidad(st, "ADM", "1.1.4.24");   // Matemática Básica, DIMA
   assert.equal(u.dpto, "DIMA");
   ejecutar(e, DIMA, "abrirEdicionCarga", CICLO, "DIMA");
@@ -186,7 +186,7 @@ test("una asignación sigue a su sección si cambia el departamento del curso", 
   assert.equal(r.version, 2);
   assert.match(ejecutar(e, B, "obtenerHistorial", CICLO, "ADM")[1].motivo, /DIMA → DAHUC/);
 
-  st = ejecutar(e, DAHUC, "obtenerEstadoDocentes", CICLO, "DAHUC");
+  st = ejecutar(e, DAHUC, "obtenerCargaDocente", CICLO, "DAHUC");
   const v = e.ctx.Dominio.asignacionesVigentes(st.unidades, { DIMA: st.cargas.DIMA.asignaciones, DAHUC: st.cargas.DAHUC.asignaciones });
   const heredadas = v.porUnidad.get(unidad(st, "ADM", "1.1.4.24").id);
   assert.equal(heredadas[0].docente, "ALFARO BEJARANO, JULIO CARLO");
@@ -219,7 +219,7 @@ test("la fusión con un grupo de otra carrera se lleva a su plan y cuenta las ho
   assert.equal(ejecutar(e, B, "obtenerHistorial", CICLO, "PSI")[1].tipo, "fusión");
 
   /* Una sola sección para asignar, con sus dos grupos. */
-  const st = ejecutar(e, DAHUC, "obtenerEstadoDocentes", CICLO, "DAHUC");
+  const st = ejecutar(e, DAHUC, "obtenerCargaDocente", CICLO, "DAHUC");
   const u = st.unidades.filter(x => x.fusion === res.marca);
   assert.equal(u.length, 1);
   assert.deepEqual(u[0].miembros.map(m => m.carrera).sort(), ["ING", "PSI"]);
@@ -253,7 +253,7 @@ test("la fusión no toca el plan de otra carrera mientras otra cuenta lo edita",
 
 test("el tablero dice qué grupos tienen docente y la recuperación se guarda y se borra", () => {
   const e = sistema();
-  const st = ejecutar(e, DIMA, "obtenerEstadoDocentes", CICLO, "DIMA");
+  const st = ejecutar(e, DIMA, "obtenerCargaDocente", CICLO, "DIMA");
   const u = unidad(st, "ING", "3.4.4.24");
   ejecutar(e, DIMA, "abrirEdicionCarga", CICLO, "DIMA");
   ejecutar(e, DIMA, "guardarRecuperacion", CICLO, "carga:DIMA", { contenido: [{ unidad: u.id, componente: "T", docente: "X" }], versionBase: 0 });
@@ -268,7 +268,7 @@ test("el tablero dice qué grupos tienen docente y la recuperación se guarda y 
 
 test("los docentes por grupo se guardan en caché con la versión de cada plan y cada carga", () => {
   const e = sistema();
-  const st = ejecutar(e, DIMA, "obtenerEstadoDocentes", CICLO, "DIMA");
+  const st = ejecutar(e, DIMA, "obtenerCargaDocente", CICLO, "DIMA");
   const u = unidad(st, "ING", "3.4.4.24");
   assert.deepEqual(ejecutar(e, A, "obtenerDocentesPorGrupo", CICLO), {});
   ejecutar(e, DIMA, "abrirEdicionCarga", CICLO, "DIMA");
