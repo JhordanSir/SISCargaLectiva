@@ -47,7 +47,8 @@ test("instalar() crea carpeta, hoja, pestañas y usuarios, y se puede repetir", 
 test("sin el xlsx en la carpeta, el tablero avisa y queda en Sin Iniciar", () => {
   const e = sistema({ conXlsx: false });
   const t = ejecutar(e, A, "obtenerTablero", CICLO);
-  assert.match(t.avisos.join(" "), /no tiene el archivo CargaXCarrera/);
+  assert.deepEqual(t.avisos.map(a => [a.tipo, a.nivel]), [["FALTA_CARGA_CARRERA", "aviso"]]);
+  assert.match(t.avisos[0].texto, /no tiene el archivo CargaXCarrera/);
   assert.ok(t.filas.every(f => f.estado === "Sin Iniciar" && f.version === 0));
 });
 
@@ -58,7 +59,9 @@ test("el tablero lee los xlsx de Drive: 8 carreras Registradas v1 con 365 grupos
   assert.ok(t.filas.every(f => f.estado === "Registrado" && f.version === 1), JSON.stringify(t.filas.map(f => [f.sig, f.estado, f.version])));
   assert.equal(t.filas.reduce((n, f) => n + f.totales.grupos, 0), 365);
   assert.equal(t.filas.reduce((n, f) => n + f.totales.asig, 0), 345);
-  assert.match(t.avisos.join(" "), /9\.2\.5\.24/);
+  const fila = t.avisos.find(a => a.tipo === "FILA_REPETIDA");
+  assert.match(fila.texto, /9\.2\.5\.24/);
+  assert.deepEqual([fila.datos.carrera, fila.datos.codigo], ["PSI", "9.2.5.24"]);
   const versiones = e.hoja("Versiones").filas();
   assert.equal(versiones.length, 8);
   assert.ok(versiones.every(v => v[4] === "importación desde xlsx" && v[5] === "xlsx: SISCargaLectiva-Ejemplo-CargaXCarrera.xlsx"));
@@ -300,7 +303,7 @@ test("la página llega con el tablero y avisa si falta revisar los xlsx", () => 
   const d2 = ejecutar(e, B, "datosIniciales_");
   assert.equal(d2.tablero.pendiente, false);
   assert.equal(d2.tablero.filas.find(f => f.sig === "ING").contenido.length, 68);
-  assert.match(d2.tablero.avisos.join(" "), /9\.2\.5\.24/);
+  assert.match(d2.tablero.avisos.map(a => a.texto).join(" "), /9\.2\.5\.24/);
 });
 
 test("cambiar solo la fecha del xlsx no crea versiones; cambiar su contenido sí", () => {
@@ -332,11 +335,24 @@ test("cambiar solo la fecha del xlsx no crea versiones; cambiar su contenido sí
   assert.equal(fila(t, "ING").contenido.find(a => a.codigo === "3.4.1.24").obs, "", "el tablero ya trae el contenido nuevo");
 });
 
+test("los avisos guardados como texto en Fuentes llegan como avisos con tipo TEXTO", () => {
+  const e = sistema();
+  ejecutar(e, A, "obtenerTablero", CICLO);
+  const hoja = e.hoja("Fuentes");
+  const filas = hoja.filas();
+  const i = filas.findIndex(f => f[0] === "carrera");
+  hoja.getRange(i + 2, 6).setNumberFormat("@").setValues([[JSON.stringify(["Aviso de antes"])]]);
+  const t = ejecutar(e, B, "obtenerTablero", CICLO, { releer: true });
+  assert.deepEqual(t.avisos.map(a => [a.tipo, a.nivel, a.texto]), [["TEXTO", "aviso", "Aviso de antes"]]);
+});
+
 test("un xlsx convertido a Hoja de cálculo de Google se señala y no se lee", () => {
   const e = sistema({ conXlsx: false });
   e.subir(e.propiedades.SIS_CARPETA_ID, "SISCargaLectiva-Ejemplo-CargaXCarrera", Buffer.from(""), { tipo: "application/vnd.google-apps.spreadsheet" });
   const t = ejecutar(e, A, "obtenerTablero", CICLO);
-  assert.match(t.avisos.join(" "), /convertido a Hoja de cálculo de Google/);
+  const conv = t.avisos.find(a => a.tipo === "XLSX_CONVERTIDO");
+  assert.match(conv.texto, /convertido a Hoja de cálculo de Google/);
+  assert.equal(conv.datos.archivo, "SISCargaLectiva-Ejemplo-CargaXCarrera");
 });
 
 test("doGet arma la página con los datos iniciales y el dominio compartido", () => {

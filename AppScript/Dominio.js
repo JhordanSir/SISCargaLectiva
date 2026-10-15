@@ -44,6 +44,21 @@ function crearDominio_() {
      docente de un departamento («carga:DIMA»). */
   const REF = { plan: sig => "plan:" + sig, carga: dpto => "carga:" + dpto };
 
+  /* Avisos que el servidor manda al navegador: {tipo, nivel, texto, datos}. El navegador
+     decide por el tipo, nunca por el texto. Cada tipo trae su nivel: "info", "aviso" o
+     "error". TEXTO es un aviso guardado antes de que los avisos tuvieran tipo. */
+  const TIPOS_AVISO = {
+    CARPETA_INACCESIBLE: "error", FALTA_CARGA_CARRERA: "aviso", LECTURA_XLSX_FALLIDA: "error",
+    XLSX_CONVERTIDO: "aviso", VARIOS_ARCHIVOS: "info",
+    HOJA_DESCONOCIDA: "aviso", HOJA_REPETIDA: "aviso", FILA_REPETIDA: "aviso",
+    PLAN_CAMBIADO: "aviso", SIN_SECCION: "aviso",
+    CATALOGO_SIN_CARPETA: "aviso", CATALOGO_FALTA: "aviso", CATALOGO_SIN_CABECERAS: "aviso", CATALOGO_ILEGIBLE: "aviso",
+    TEXTO: "aviso"
+  };
+  const aviso = (tipo, texto, datos, nivel) =>
+    ({ tipo: tipo, nivel: nivel || TIPOS_AVISO[tipo] || "aviso", texto: String(texto), datos: datos || null });
+  const comoAviso = a => a && typeof a === "object" && typeof a.texto === "string" ? a : aviso("TEXTO", a == null ? "" : a);
+
   const nombreCarrera = sig => (CARRERAS.find(c => c.sig === sig) || {}).nombre || sig;
 
   /* ============================================================
@@ -1070,6 +1085,7 @@ function crearDominio_() {
     claveDeDocente: claveDeDocente, calcularBalance: calcularBalance, excesosAlGuardar: excesosAlGuardar,
     sugerirDocentes: sugerirDocentes, interpretarCargaDepartamento: interpretarCargaDepartamento,
     CARRERAS: CARRERAS, ESTADOS: ESTADOS, TIPO_VERSION: TIPO_VERSION, REF: REF,
+    TIPOS_AVISO: TIPOS_AVISO, aviso: aviso, comoAviso: comoAviso,
     nombreCarrera: nombreCarrera, normalizar: normalizar, canonica: canonica,
     matrizDesdeTexto: matrizDesdeTexto, ubicarCabeceras: ubicarCabeceras,
     siglaDeCarrera: siglaDeCarrera,

@@ -31,7 +31,7 @@ function datosIniciales_() {
     const revisado = xlsxRevisadoHacePoco_();
     return {
       estado: "ok", usuario: u, config: config,
-      tablero: { ciclo: config.ciclo, filas: leerTablero_(config.ciclo), avisos: revisado ? revisado.avisos : [], pendiente: !revisado }
+      tablero: { ciclo: config.ciclo, filas: leerTablero_(config.ciclo), avisos: revisado ? revisado.avisos.map(Dominio.comoAviso) : [], pendiente: !revisado }
     };
   } catch (e) {
     return { estado: "error", motivo: e.message, config: config };

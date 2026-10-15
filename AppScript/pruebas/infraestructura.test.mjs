@@ -3,8 +3,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import path from "node:path";
 import { crearEntorno, cargarServidor, ejecutar, fijarUsuarios, USUARIOS_PRUEBA, DIRECTORES } from "./falsos.mjs";
-import { cargar, plano, XLSX_CARRERA, XLSX_DEPARTAMENTO } from "./soporte.mjs";
+import { cargar, plano, RAIZ, XLSX_CARRERA, XLSX_DEPARTAMENTO } from "./soporte.mjs";
 
 const A = "mfloresl@ulasalle.edu.pe", B = "fmaresg@ulasalle.edu.pe";
 const DIMA = DIRECTORES.DIMA;
@@ -97,6 +98,18 @@ test("reconciliarFusiones funciona sin la hoja: incorpora, elige principal y dis
   const r2 = plano(Dominio.reconciliarFusiones("ING", ing, ing, [marca], { PSI: r.cambios.PSI.asignaturas }));
   assert.deepEqual([r2.cambios.PSI.asignaturas[0].grupos[0].fusion, r2.cambios.PSI.asignaturas[0].grupos[0].hp], [null, "1"]);
   assert.deepEqual(plano(Dominio.reconciliarFusiones("ING", ing, ing, [], {})).cambios, {}, "sin fusiones no hay cambios");
+});
+
+test("cada Dominio.aviso usa un tipo del catálogo TIPOS_AVISO", () => {
+  const ctx = sistema().ctx;
+  const usados = new Set();
+  for (const f of fs.readdirSync(RAIZ).filter(f => f.endsWith(".js") || f.endsWith(".html"))) {
+    for (const m of fs.readFileSync(path.join(RAIZ, f), "utf8").matchAll(/Dominio\.aviso\("([A-Z_]+)"/g)) usados.add(m[1]);
+  }
+  assert.ok(usados.size >= 14, [...usados].join(" "));
+  for (const t of usados) assert.ok(t in ctx.Dominio.TIPOS_AVISO, t);
+  for (const f of fs.readdirSync(RAIZ).filter(f => f.endsWith(".js")))
+    assert.doesNotMatch(fs.readFileSync(path.join(RAIZ, f), "utf8"), /avisos\.push\("/, f + " empuja un aviso sin tipo");
 });
 
 test("los repositorios con versiones usan los nombres de pestaña de TABLA_", () => {

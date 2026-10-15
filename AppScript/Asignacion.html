@@ -249,8 +249,7 @@ function pintarVistaDocentes(){
   const avisos = [];
   const b = d.bloqueo && Date.parse(d.bloqueo.expira) > Date.now() && (!app.usuario || d.bloqueo.correo !== app.usuario.correo) ? d.bloqueo : null;
   if (b && !ed) avisos.push('<div class="nota aviso">La carga de ' + esc(d.departamento) + " la está editando <b>" + esc(b.correo) + "</b> desde las " + esc(hora(b.desde)) + ".</div>");
-  if (d.avisoCatalogo) avisos.push('<div class="nota aviso">' + esc(d.avisoCatalogo) + "</div>");
-  (d.avisos || []).forEach(a => avisos.push('<div class="nota aviso">' + esc(a) + "</div>"));
+  (d.avisos || []).forEach(a => avisos.push(htmlAviso(a)));
   $("#avisos-docentes").innerHTML = avisos.join("");
   $("#avisos-docentes").hidden = !avisos.length;
 

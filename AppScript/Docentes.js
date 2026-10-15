@@ -19,12 +19,12 @@ function leerCatalogoDocentes_(forzar) {
     const guardado = leerDeCache_(clave);
     if (guardado && Array.isArray(guardado.docentes)) return guardado;
   }
-  const res = { docentes: [], aviso: "", columnas: {} };
+  const res = { docentes: [], avisos: [], columnas: {} };
   const carpeta = abrirCarpeta_(cfg.carpetaId);
-  if (!carpeta) { res.aviso = "No se pudo abrir la carpeta de Drive del sistema."; return res; }
+  if (!carpeta) { res.avisos.push(Dominio.aviso("CATALOGO_SIN_CARPETA", "No se pudo abrir la carpeta de Drive del sistema.")); return res; }
   const fuentes = localizarXlsx_(carpeta, []);
   if (!fuentes.docentes) {
-    res.aviso = "La carpeta no tiene el archivo CargaDeDocentes (.xlsx): no hay catálogo de docentes. Puedes escribir los nombres a mano.";
+    res.avisos.push(Dominio.aviso("CATALOGO_FALTA", "La carpeta no tiene el archivo CargaDeDocentes (.xlsx): no hay catálogo de docentes. Puedes escribir los nombres a mano."));
     return res;
   }
   try {
@@ -36,7 +36,7 @@ function leerCatalogoDocentes_(forzar) {
       const f = (filas[i] || []).map(Dominio.normalizar);
       if (f.some(function (c) { return c.indexOf("NOMBRE") >= 0; }) && f.some(function (c) { return c.indexOf("PAT") >= 0 || c === "DNI"; })) cab = i;
     }
-    if (cab < 0) { res.aviso = "No se reconocen las cabeceras de CargaDeDocentes."; return res; }
+    if (cab < 0) { res.avisos.push(Dominio.aviso("CATALOGO_SIN_CABECERAS", "No se reconocen las cabeceras de CargaDeDocentes.")); return res; }
     const col = {};
     filas[cab].map(Dominio.normalizar).forEach(function (c, j) {
       const fijar = function (k, cond) { if (cond && col[k] === undefined) col[k] = j; };
@@ -74,7 +74,7 @@ function leerCatalogoDocentes_(forzar) {
     }
     guardarEnCache_(clave, res, SEGUNDOS_CACHE_CATALOGO_);
   } catch (e) {
-    res.aviso = "No se pudo leer CargaDeDocentes: " + e.message;
+    res.avisos.push(Dominio.aviso("CATALOGO_ILEGIBLE", "No se pudo leer CargaDeDocentes: " + e.message));
   }
   return res;
 }
@@ -165,12 +165,13 @@ function avisosDeCarga_(dpto, planes, meta, sinSeccion) {
   if (meta) planes.forEach(function (p) {
     const antes = parseInt(vistos[p.sig], 10) || 0;
     if (p.version > antes && antes > 0)
-      avisos.push("El plan de " + Dominio.nombreCarrera(p.sig) + " cambió después del último guardado de esta carga (v" + antes + " → v" + p.version +
-                  (p.usuario ? ", " + p.usuario : "") + "). Revisa sus secciones.");
+      avisos.push(Dominio.aviso("PLAN_CAMBIADO", "El plan de " + Dominio.nombreCarrera(p.sig) + " cambió después del último guardado de esta carga (v" +
+                  antes + " → v" + p.version + (p.usuario ? ", " + p.usuario : "") + "). Revisa sus secciones.",
+                  { carrera: p.sig, antes: antes, ahora: p.version, usuario: p.usuario || "" }));
   });
   const n = (sinSeccion[dpto] || []).length;
-  if (n) avisos.push(n === 1 ? "1 asignación se quedó sin sección en el plan: reasígnala o quítala."
-                             : n + " asignaciones se quedaron sin sección en el plan: reasígnalas o quítalas.");
+  if (n) avisos.push(Dominio.aviso("SIN_SECCION", n === 1 ? "1 asignación se quedó sin sección en el plan: reasígnala o quítala."
+                                                      : n + " asignaciones se quedaron sin sección en el plan: reasígnalas o quítalas.", { cuantas: n }));
   return avisos;
 }
 
@@ -217,16 +218,16 @@ function obtenerEstadoDocentes(ciclo, dpto) {
     return {
       ciclo: c, departamento: d, departamentoNombre: Dominio.nombreDpto(d),
       puedeEditar: puedeEditarCarga_(u, d),
-      catalogo: catalogoVisible_(catalogo.docentes, u, d), avisoCatalogo: catalogo.aviso, columnasCatalogo: catalogo.columnas,
+      catalogo: catalogoVisible_(catalogo.docentes, u, d), columnasCatalogo: catalogo.columnas,
       unidades: unidades, cargas: cargasVisibles_(cargas, u, d),
       planes: planes.map(function (p) { return { sig: p.sig, estado: p.estado, version: p.version }; }),
-      avisos: avisosDeCarga_(d, planes, metas[metas.length - 1] || null, vig.sinSeccion),
+      avisos: (catalogo.avisos || []).concat(avisosDeCarga_(d, planes, metas[metas.length - 1] || null, vig.sinSeccion)),
       bloqueo: b ? datosBloqueo_(b) : null
     };
   });
 }
 
-/* Toma el bloqueo de la carga. Devuelve {bloqueado} si la edita otra cuenta. */
+/* Toma el bloqueo de la carga. Si la edita otra cuenta, falla con BLOQUEADO. */
 function abrirEdicionCarga(ciclo, dpto, versionConocida) {
   return responder_(function () {
     const u = exigirUsuario_();

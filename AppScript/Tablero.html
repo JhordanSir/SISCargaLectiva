@@ -94,7 +94,7 @@ function fijarTablero(ciclo, filas, avisos){
   app.tableroCiclo = ciclo;
   app.tableroHora = Date.now();
   const lista = avisos || [];
-  $("#avisos-tablero").innerHTML = lista.map(a => '<div class="nota aviso">' + esc(a) + "</div>").join("");
+  $("#avisos-tablero").innerHTML = lista.map(htmlAviso).join("");
   $("#avisos-tablero").hidden = !lista.length;
   pintarTablero();
   if (app.vista === "menu") pintarInicio();

@@ -137,7 +137,7 @@ function abrirEdicion(ciclo, sig, versionConocida) {
 }
 
 /* datos: {asignaturas, estado, tipo, motivo, versionBase, forzar, fusionesDisueltas}. Si se
-   guardó otra versión después de versionBase, devuelve {conflicto} para que el navegador
+   guardó otra versión después de versionBase, falla con CONFLICTO para que el navegador
    advierta; con forzar se guarda igualmente (advertir, no prohibir). Las fusiones con
    grupos de otras carreras se llevan a esos planes (Fusiones.js); el plan guardado vuelve
    en «asignaturas» y los planes ajenos tocados, en «otros». */

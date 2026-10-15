@@ -352,7 +352,7 @@ function fijarGuardado(r){
   appDocentes.base = r.version;
   sesionCarga.olvidarCopia();
   sesionCarga.renovada(r.expira);
-  d.avisos = (d.avisos || []).filter(a => !/cambió después del último guardado/.test(a));
+  d.avisos = (d.avisos || []).filter(a => a.tipo !== "PLAN_CAMBIADO");
   marcarDocentesSucio(false);
   anunciar("asignaciones", { ciclo: appDocentes.ciclo, dpto: appDocentes.dpto });
 }

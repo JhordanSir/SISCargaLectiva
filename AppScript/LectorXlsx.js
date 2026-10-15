@@ -248,18 +248,19 @@ function ofertaDesdeLibros_(libroCarrera, libroDepartamento) {
     const sig = Dominio.siglaDeCarrera(hoja.nombre) || siglaMayoritaria_(hoja.filas);
     if (!sig) {
       if (hoja.filas.some(function (f) { return f.some(function (c) { return c !== ""; }); }))
-        avisos.push("La hoja «" + hoja.nombre + "» no corresponde a ninguna carrera conocida y no se leyó.");
+        avisos.push(Dominio.aviso("HOJA_DESCONOCIDA", "La hoja «" + hoja.nombre + "» no corresponde a ninguna carrera conocida y no se leyó.", { hoja: hoja.nombre }));
       return;
     }
     if (oferta[sig]) {
-      avisos.push("La hoja «" + hoja.nombre + "» repite la carrera " + sig + "; se usó la primera hoja.");
+      avisos.push(Dominio.aviso("HOJA_REPETIDA", "La hoja «" + hoja.nombre + "» repite la carrera " + sig + "; se usó la primera hoja.", { hoja: hoja.nombre, carrera: sig }));
       return;
     }
     const r = Dominio.interpretar(hoja.filas, { carrera: sig, sinDuplicados: true });
     oferta[sig] = r.asignaturas;
     r.duplicadas.forEach(function (d) {
-      avisos.push("Hoja «" + hoja.nombre + "»: la fila de «" + d.nombre + "» (código " + d.codigo + ", grupo " + d.grupo +
-        ") repite un código y grupo que ya aparecen antes en la hoja, así que no se leyó. Corrige el código en el Excel.");
+      avisos.push(Dominio.aviso("FILA_REPETIDA", "Hoja «" + hoja.nombre + "»: la fila de «" + d.nombre + "» (código " + d.codigo + ", grupo " + d.grupo +
+        ") repite un código y grupo que ya aparecen antes en la hoja, así que no se leyó. Corrige el código en el Excel.",
+        { hoja: hoja.nombre, carrera: sig, codigo: d.codigo, grupo: d.grupo }));
     });
   });
 

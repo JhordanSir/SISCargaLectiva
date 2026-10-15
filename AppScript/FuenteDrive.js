@@ -11,7 +11,7 @@ function sincronizarFuentes_(forzar) {
   const clave = claveCache_("xlsx", cfg.carpetaId);
   if (!forzar && cfg.minutosRevisionXlsx > 0) {
     const ultima = leerDeCache_(clave);
-    if (ultima) return ultima.avisos;
+    if (ultima) return ultima.avisos.map(Dominio.comoAviso);
   }
   const avisos = revisarFuentes_();
   if (cfg.minutosRevisionXlsx > 0) guardarEnCache_(clave, { avisos: avisos }, cfg.minutosRevisionXlsx * 60);
@@ -27,12 +27,12 @@ function revisarFuentes_() {
   const cfg = config_();
   const avisos = [];
   const carpeta = abrirCarpeta_(cfg.carpetaId);
-  if (!carpeta) return ["No se pudo abrir la carpeta de Drive del sistema (SIS_CARPETA_ID). Ejecuta instalar() desde el editor."];
+  if (!carpeta) return [Dominio.aviso("CARPETA_INACCESIBLE", "No se pudo abrir la carpeta de Drive del sistema (SIS_CARPETA_ID). Ejecuta instalar() desde el editor.")];
 
   const f = localizarXlsx_(carpeta, avisos);
   if (!f.carrera) {
-    avisos.push("La carpeta «" + carpeta.getName() + "» no tiene el archivo CargaXCarrera (.xlsx). " +
-                "Súbelo para cargar la oferta de " + cfg.cicloXlsx + ".");
+    avisos.push(Dominio.aviso("FALTA_CARGA_CARRERA", "La carpeta «" + carpeta.getName() + "» no tiene el archivo CargaXCarrera (.xlsx). " +
+                "Súbelo para cargar la oferta de " + cfg.cicloXlsx + ".", { ciclo: cfg.cicloXlsx }));
     return avisos;
   }
 
@@ -56,15 +56,16 @@ function revisarFuentes_() {
     });
     return avisos.concat(deLectura);
   } catch (e) {
-    avisos.push("No se pudieron leer los xlsx de la carpeta: " + e.message);
+    avisos.push(Dominio.aviso("LECTURA_XLSX_FALLIDA", "No se pudieron leer los xlsx de la carpeta: " + e.message));
     return avisos;
   }
 }
 
+/* Los avisos guardados antes de que tuvieran tipo son textos: se convierten al leerlos. */
 function avisosGuardados_(filas) {
   return filas.reduce(function (lista, f) {
     try { return lista.concat(f.avisos ? JSON.parse(f.avisos) : []); } catch (e) { return lista; }
-  }, []);
+  }, []).map(Dominio.comoAviso);
 }
 
 function tipoDeFuente_(nombre) {
@@ -84,8 +85,8 @@ function localizarXlsx_(carpeta, avisos) {
     const tipo = tipoDeFuente_(a.getName());
     if (!tipo) continue;
     if (a.getMimeType() === MimeType.GOOGLE_SHEETS) {
-      avisos.push("«" + a.getName() + "» está convertido a Hoja de cálculo de Google y no se lee: " +
-                  "el sistema usa el .xlsx original. Súbelo sin convertir.");
+      avisos.push(Dominio.aviso("XLSX_CONVERTIDO", "«" + a.getName() + "» está convertido a Hoja de cálculo de Google y no se lee: " +
+                  "el sistema usa el .xlsx original. Súbelo sin convertir.", { archivo: a.getName() }));
       continue;
     }
     if (a.getMimeType() !== MimeType.MICROSOFT_EXCEL && !/\.xlsx$/i.test(a.getName())) continue;
@@ -96,7 +97,8 @@ function localizarXlsx_(carpeta, avisos) {
     if (!lista.length) return null;
     lista.sort(function (x, y) { return y.getLastUpdated().getTime() - x.getLastUpdated().getTime(); });
     if (lista.length > 1)
-      avisos.push("Hay " + lista.length + " archivos " + etiqueta + " en la carpeta; se usa el más reciente, «" + lista[0].getName() + "».");
+      avisos.push(Dominio.aviso("VARIOS_ARCHIVOS", "Hay " + lista.length + " archivos " + etiqueta + " en la carpeta; se usa el más reciente, «" +
+                  lista[0].getName() + "».", { cuantos: lista.length, usado: lista[0].getName() }));
     return lista[0];
   };
   return {

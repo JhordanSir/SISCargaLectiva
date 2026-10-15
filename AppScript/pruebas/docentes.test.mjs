@@ -150,6 +150,28 @@ test("lee la hoja real de CargaXDepartamento: grupo desde SEMESTRE y cursos fuer
   assert.deepEqual([cuenta("ok"), cuenta("otro-dpto"), cuenta("fuera")], [88, 1, 3], "se señalan las filas de otro departamento y las que no están en el plan");
 });
 
+test("la carga avisa con tipo si el plan cambió después de guardarla o una asignación quedó sin sección", () => {
+  const e = sistema({ conDocentes: false });
+  let st = ejecutar(e, DIMA, "obtenerEstadoDocentes", CICLO, "DIMA");
+  assert.deepEqual(st.avisos.map(a => a.tipo), ["CATALOGO_FALTA"], "sin CargaDeDocentes, el aviso va con los demás");
+  const u = unidad(st, "ING", "3.4.4.24");
+  ejecutar(e, DIMA, "abrirEdicionCarga", CICLO, "DIMA");
+  ejecutar(e, DIMA, "guardarCarga", CICLO, "DIMA", { asignaciones: [{ unidad: u.id, componente: "T", docente: "VELASQUEZ DOIG, MIGUEL EDUARDO", horas: null }], versionBase: 0 });
+
+  /* El coordinador quita el curso del plan de ING. */
+  ejecutar(e, A, "abrirEdicion", CICLO, "ING");
+  const plan = ejecutar(e, A, "obtenerPlan", CICLO, "ING");
+  ejecutar(e, A, "guardarPlan", CICLO, "ING", { asignaturas: plan.asignaturas.filter(a => a.codigo !== "3.4.4.24"),
+    estado: "Registrado", tipo: "guardar cambios", versionBase: plan.version });
+
+  st = ejecutar(e, DIMA, "obtenerEstadoDocentes", CICLO, "DIMA");
+  const cambio = st.avisos.find(a => a.tipo === "PLAN_CAMBIADO");
+  assert.deepEqual(cambio.datos, { carrera: "ING", antes: 1, ahora: 2, usuario: A });
+  assert.match(cambio.texto, /Ingeniería de Software cambió después del último guardado/);
+  const sin = st.avisos.find(a => a.tipo === "SIN_SECCION");
+  assert.deepEqual([sin.nivel, sin.datos.cuantas], ["aviso", 1]);
+});
+
 test("una asignación sigue a su sección si cambia el departamento del curso", () => {
   const e = sistema();
   let st = ejecutar(e, DIMA, "obtenerEstadoDocentes", CICLO, "DIMA");

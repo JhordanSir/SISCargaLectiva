@@ -33,6 +33,12 @@ function aviso(texto, tipo){
   }, 3400);
 }
 
+/* Nota fija para un aviso del servidor ({tipo, nivel, texto}; Dominio.aviso). */
+function htmlAviso(a){
+  const clase = { aviso: " aviso", error: " error" }[a.nivel] || "";
+  return '<div class="nota' + clase + '">' + esc(a.texto) + "</div>";
+}
+
 /* Diálogo genérico. acciones: [{texto, clase, valor}]. Devuelve una promesa.
    Una pregunta nueva sustituye a la que esté abierta, que se resuelve con null. */
 const dlg = $("#dlg");

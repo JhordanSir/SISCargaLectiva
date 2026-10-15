@@ -87,5 +87,6 @@ test("las marcas de CONDICIÓN solo rellenan observaciones vacías", () => {
 test("avisa de la fila que repite código y grupo", () => {
   const { avisos } = plano(ctx.ofertaDesdeLibros_(libroCarrera, libroDepartamento));
   assert.equal(avisos.length, 1);
-  assert.match(avisos[0], /Psicología.*9\.2\.5\.24.*grupo 1/);
+  assert.equal(avisos[0].tipo, "FILA_REPETIDA");
+  assert.match(avisos[0].texto, /Psicología.*9\.2\.5\.24.*grupo 1/);
 });
