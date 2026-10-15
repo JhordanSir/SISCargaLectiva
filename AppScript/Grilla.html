@@ -71,6 +71,12 @@ const ICONO_RESUMEN = {
   "Asignaturas": "books", "Grupos": "stack", "Horas teóricas": "chalkboard-teacher", "Horas prácticas": "pencil-simple",
   "Total horas": "clock", "Horas de dictado": "hourglass-medium", "Intl. / virtual": "globe", "Fusiones": "git-merge", "Desdobles": "arrows-split"
 };
+/**
+ * Cifras de un plan (asignaturas, grupos, horas, fusiones…) en el nodo indicado.
+ * @param {Element} nodo
+ * @param {Array<Object>} asignaturas
+ * @returns {void}
+ */
 function pintarResumen(nodo, asignaturas){
   const t = totales(asignaturas);
   const celdas = [
@@ -85,8 +91,14 @@ function pintarResumen(nodo, asignaturas){
     "<div" + (k === "Horas de dictado" ? ' class="destacado"' : "") + "><dt>" + icono(ICONO_RESUMEN[k]) + esc(k) + "</dt><dd>" + esc(v) + "</dd></div>").join("");
 }
 
-/* opciones.docentes: {grupoId: [nombres]} de las asignaciones vigentes; opciones.derivar:
-   función que dice en qué asignaturas se muestra el botón para derivarlas de departamento. */
+/**
+ * opciones.docentes: {grupoId: [nombres]} de las asignaciones vigentes; opciones.derivar:
+ * función que dice en qué asignaturas se muestra el botón para derivarlas de departamento.
+ * @param {Array<Object>} asignaturas
+ * @param {boolean} editable
+ * @param {{docentes?: Object<string, string[]>|null, derivar?: function(Object): boolean}=} opciones
+ * @returns {string}
+ */
 function htmlBloques(asignaturas, editable, opciones){
   const op = opciones || {};
   const docentes = op.docentes || null;
@@ -149,11 +161,19 @@ function enlazarBloques(contenedor){
   });
 }
 
+/**
+ * Texto del botón que pliega o despliega todos los semestres.
+ * @returns {void}
+ */
 function pintarBotonColapsar(){
   const hay = app.colapsados.size > 0;
   $("#btn-colapsar").innerHTML = icono(hay ? "arrows-out-line-vertical" : "arrows-in-line-vertical") + (hay ? "Expandir todo" : "Colapsar todo");
 }
 
+/**
+ * Pinta el plan en edición: estado, resumen, bloques por semestre y acciones según la selección.
+ * @returns {void}
+ */
 function pintarGrilla(){
   const p = app.plan;
   if (!p) return;
@@ -204,8 +224,12 @@ function pintarGrilla(){
     : icono("info") + "<span>Selecciona un grupo de la grilla para editarlo, desdoblarlo o eliminarlo.</span>";
 }
 
-/* Docentes ya asignados a los grupos del plan en edición (obtenerDocentesPorGrupo). Quien
-   la use para advertir llama antes a asegurarDocentesGrupo. */
+/**
+ * Docentes ya asignados a los grupos del plan en edición (obtenerDocentesPorGrupo). Quien
+ * la use para advertir llama antes a asegurarDocentesGrupo.
+ * @param {Array<{id: string}>} grupos
+ * @returns {string[]}
+ */
 function docentesDe(grupos){
   const mapa = docentesDelPlan(app.carrera) || {};
   const res = [];

@@ -1,10 +1,15 @@
+// @ts-check
 /* Catálogo de docentes (CU-002): sale de CargaDeDocentes.xlsx, en la carpeta de Drive del
    sistema, y se guarda una hora en la caché. Nunca se modifica el archivo. */
 
 var SEGUNDOS_CACHE_CATALOGO_ = 3600;
 
-/* Columnas opcionales que amplían el catálogo: «TC OTRA UNIVERSIDAD» (Sí/No), «CARGO»
-   (texto; si tiene algo, el docente tiene cargo administrativo) y «NO LECTIVAS» (horas). */
+/**
+ * Columnas opcionales que amplían el catálogo: «TC OTRA UNIVERSIDAD» (Sí/No), «CARGO»
+ * (texto; si tiene algo, el docente tiene cargo administrativo) y «NO LECTIVAS» (horas).
+ * @param {boolean} forzar Lee el archivo aunque haya copia en caché.
+ * @returns {Catalogo}
+ */
 function leerCatalogoDocentes_(forzar) {
   const cfg = config_();
   const clave = claveCache_("catalogo", cfg.carpetaId);

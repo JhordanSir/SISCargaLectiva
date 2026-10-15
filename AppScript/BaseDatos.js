@@ -1,3 +1,4 @@
+// @ts-check
 /* Tablas del sistema en la hoja de cálculo «SISCargaLectiva-BD». Todas las celdas
    se guardan como texto plano para que Sheets no convierta «2026-1» en una fecha. */
 var TABLAS_ = {
@@ -28,6 +29,10 @@ var MAX_CELDA_ = 45000;
 var libroBdCache_ = null;
 var hojasCache_ = null;   // pestañas ya abiertas en esta ejecución
 
+/**
+ * La hoja de cálculo del sistema (SIS_BD_ID). Falla con NO_INSTALADO si no está configurada.
+ * @returns {GoogleAppsScript.Spreadsheet.Spreadsheet}
+ */
 function libroBd_() {
   if (libroBdCache_) return libroBdCache_;
   const id = config_().bdId;
@@ -36,8 +41,12 @@ function libroBd_() {
   return libroBdCache_;
 }
 
-/* Una pestaña que falta (por ejemplo, una tabla nueva tras actualizar el código) se crea
-   con sus cabeceras la primera vez que se usa. */
+/**
+ * Una pestaña que falta (por ejemplo, una tabla nueva tras actualizar el código) se crea
+ * con sus cabeceras la primera vez que se usa.
+ * @param {string} nombre Uno de TABLA_.
+ * @returns {GoogleAppsScript.Spreadsheet.Sheet}
+ */
 function hojaBd_(nombre) {
   if (!hojasCache_) hojasCache_ = {};
   if (hojasCache_[nombre]) return hojasCache_[nombre];
@@ -51,6 +60,12 @@ function hojaBd_(nombre) {
   return h;
 }
 
+/**
+ * Crea la pestaña si falta, con formato de texto y su fila de cabeceras.
+ * @param {GoogleAppsScript.Spreadsheet.Spreadsheet} libro
+ * @param {string} nombre
+ * @returns {GoogleAppsScript.Spreadsheet.Sheet}
+ */
 function prepararTabla_(libro, nombre) {
   const columnas = TABLAS_[nombre];
   const h = libro.getSheetByName(nombre) || libro.insertSheet(nombre);
@@ -61,6 +76,11 @@ function prepararTabla_(libro, nombre) {
   return h;
 }
 
+/**
+ * Prepara todas las pestañas de TABLAS_ y borra las desconocidas que estén vacías.
+ * @param {GoogleAppsScript.Spreadsheet.Spreadsheet} libro
+ * @returns {void}
+ */
 function prepararTablas_(libro) {
   Object.keys(TABLAS_).forEach(function (nombre) { prepararTabla_(libro, nombre); });
   libro.getSheets().forEach(function (h) {
@@ -68,7 +88,12 @@ function prepararTablas_(libro) {
   });
 }
 
-/* Filas de datos como objetos con los campos de TABLAS_; _fila es su número de fila. */
+/**
+ * Filas de datos como objetos con los campos de TABLAS_; _fila es su número de fila.
+ * @param {string} nombre
+ * @param {number=} columnas Cuántas columnas leer (todas si no se indica).
+ * @returns {FilaTabla[]}
+ */
 function leerTabla_(nombre, columnas) {
   const h = hojaBd_(nombre);
   const campos = TABLAS_[nombre];
@@ -82,16 +107,26 @@ function leerTabla_(nombre, columnas) {
   }).filter(function (o) { return o[campos[0]] !== ""; });
 }
 
-/* Un texto que empiece por «=», «+», «-» o «@» se escribe con apóstrofo para que
-   Sheets no lo tome como una fórmula. */
+/**
+ * Un texto que empiece por «=», «+», «-» o «@» se escribe con apóstrofo para que
+ * Sheets no lo tome como una fórmula.
+ * @param {*} v
+ * @returns {string}
+ */
 function celdaTexto_(v) {
   const t = v == null ? "" : String(v);
   return /^[=+\-@]/.test(t) ? "'" + t : t;
 }
 
-/* Asegura que la pestaña llegue hasta esa fila y esa columna. Las filas y columnas
-   nuevas se dejan con formato de texto, como el resto de la pestaña (prepararTabla_), así
-   que escribir no necesita volver a darlo. */
+/**
+ * Asegura que la pestaña llegue hasta esa fila y esa columna. Las filas y columnas
+ * nuevas se dejan con formato de texto, como el resto de la pestaña (prepararTabla_), así
+ * que escribir no necesita volver a darlo.
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} h
+ * @param {number} filas
+ * @param {number} columnas
+ * @returns {void}
+ */
 function asegurarTamano_(h, filas, columnas) {
   const maxF = h.getMaxRows(), maxC = h.getMaxColumns();
   if (filas > maxF) {
@@ -104,12 +139,25 @@ function asegurarTamano_(h, filas, columnas) {
   }
 }
 
+/**
+ * Escribe una fila desde la columna A.
+ * @param {string} nombre
+ * @param {number} fila
+ * @param {Array<*>} valores
+ * @returns {void}
+ */
 function escribirFila_(nombre, fila, valores) {
   escribirFilas_(nombre, fila, [valores]);
 }
 
-/* Escribe un bloque de filas desde «fila» en una sola llamada. Las filas cortas se
-   completan con celdas vacías. */
+/**
+ * Escribe un bloque de filas desde «fila» en una sola llamada. Las filas cortas se
+ * completan con celdas vacías.
+ * @param {string} nombre
+ * @param {number} fila
+ * @param {Array<Array<*>>} filas
+ * @returns {void}
+ */
 function escribirFilas_(nombre, fila, filas) {
   if (!filas.length) return;
   const h = hojaBd_(nombre);
@@ -122,15 +170,27 @@ function escribirFilas_(nombre, fila, filas) {
   }));
 }
 
+/**
+ * Añade una fila al final de la pestaña.
+ * @param {string} nombre
+ * @param {Array<*>} valores
+ * @returns {number} Su número de fila.
+ */
 function agregarFila_(nombre, valores) {
   const fila = hojaBd_(nombre).getLastRow() + 1;
   escribirFila_(nombre, fila, valores);
   return fila;
 }
 
-/* Borra las filas que cumplen la condición (que recibe la fila como objeto de
-   leerTabla_). Las filas seguidas se borran juntas, de abajo arriba. Devuelve cuántas
-   borró. columnas: cuántas leer para evaluar la condición (todas si no se indica). */
+/**
+ * Borra las filas que cumplen la condición (que recibe la fila como objeto de
+ * leerTabla_). Las filas seguidas se borran juntas, de abajo arriba. Devuelve cuántas
+ * borró. columnas: cuántas leer para evaluar la condición (todas si no se indica).
+ * @param {string} nombre
+ * @param {function(FilaTabla): boolean} condicion
+ * @param {number=} columnas
+ * @returns {number}
+ */
 function borrarFilasDonde_(nombre, condicion, columnas) {
   const filas = leerTabla_(nombre, columnas).filter(condicion).map(function (f) { return f._fila; })
     .sort(function (a, b) { return b - a; });
@@ -144,7 +204,12 @@ function borrarFilasDonde_(nombre, condicion, columnas) {
   return filas.length;
 }
 
-/* Sustituye todas las filas de datos de la pestaña por «filas», en una sola escritura. */
+/**
+ * Sustituye todas las filas de datos de la pestaña por «filas», en una sola escritura.
+ * @param {string} nombre
+ * @param {Array<Array<*>>} filas
+ * @returns {void}
+ */
 function reemplazarFilas_(nombre, filas) {
   const h = hojaBd_(nombre);
   const ancho = TABLAS_[nombre].length;
@@ -152,32 +217,63 @@ function reemplazarFilas_(nombre, filas) {
   escribirFilas_(nombre, 2, filas);
 }
 
-/* Une las celdas de contenido de una fila de versión, a partir de la columna «contenido». */
+/**
+ * Une las celdas de contenido de una fila de versión, a partir de la columna «contenido».
+ * @param {Array<*>} valores
+ * @param {number} indice
+ * @returns {string}
+ */
 function unirDesde_(valores, indice) {
   return valores.slice(indice).map(function (c) { return c == null ? "" : String(c); }).join("");
 }
 
+/**
+ * Parte un texto en trozos que caben en una celda.
+ * @param {string} texto
+ * @returns {string[]}
+ */
 function trocear_(texto) {
   const partes = [];
   for (let i = 0; i < texto.length; i += MAX_CELDA_) partes.push(texto.slice(i, i + MAX_CELDA_));
   return partes.length ? partes : [""];
 }
 
-/* Caché del script, compartida por todos los usuarios. Las claves llevan el ID de la
-   hoja del sistema para que una reinstalación no sirva datos de la anterior. */
+/**
+ * Caché del script, compartida por todos los usuarios. Las claves llevan el ID de la
+ * hoja del sistema para que una reinstalación no sirva datos de la anterior.
+ * @returns {GoogleAppsScript.Cache.Cache}
+ */
 function cache_() {
   return CacheService.getScriptCache();
 }
 
+/**
+ * Clave de caché del sistema: «sis:<bdId>:<tipo>:<resto>».
+ * @param {string} tipo
+ * @param {string} resto
+ * @returns {string}
+ */
 function claveCache_(tipo, resto) {
   return "sis:" + config_().bdId + ":" + tipo + ":" + resto;
 }
 
+/**
+ * Valor JSON guardado en la caché, o null.
+ * @param {string} clave
+ * @returns {*}
+ */
 function leerDeCache_(clave) {
   const v = cache_().get(clave);
   return v == null ? null : JSON.parse(v);
 }
 
+/**
+ * Guarda un valor como JSON. Si no cabe (más de 100 KB), no lo guarda.
+ * @param {string} clave
+ * @param {*} valor
+ * @param {number} segundos
+ * @returns {void}
+ */
 function guardarEnCache_(clave, valor, segundos) {
   try {
     cache_().put(clave, JSON.stringify(valor), segundos);
@@ -186,7 +282,12 @@ function guardarEnCache_(clave, valor, segundos) {
   }
 }
 
-/* Ejecuta fn con el candado del script, para que dos usuarios no escriban a la vez. */
+/**
+ * Ejecuta fn con el candado del script, para que dos usuarios no escriban a la vez.
+ * @template T
+ * @param {function(): T} fn
+ * @returns {T}
+ */
 function conCandado_(fn) {
   const candado = LockService.getScriptLock();
   if (!candado.tryLock(30000))

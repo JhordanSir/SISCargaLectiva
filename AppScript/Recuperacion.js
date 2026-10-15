@@ -1,7 +1,13 @@
+// @ts-check
 /* Copia de recuperación: mientras alguien edita un plan o una carga docente, el navegador
    envía cada minuto lo que aún no guardó. Si la página se cierra o se cae, al volver a
    editar se ofrece recuperarlo. No es una versión: se borra al guardar o al descartar. */
 
+/**
+ * Valida una referencia («plan:ADM», «carga:DIMA»); si no lo es, falla con DATO_INVALIDO.
+ * @param {*} ref
+ * @returns {{tipo: string, clave: string, ref: Ref}}
+ */
 function refRecuperacion_(ref) {
   const r = String(ref || "");
   const m = r.match(/^(plan|carga):([A-Z]+)$/);
@@ -9,18 +15,37 @@ function refRecuperacion_(ref) {
   return { tipo: m[1], clave: m[2], ref: Dominio.REF[m[1]](m[2]) };
 }
 
+/**
+ * Solo quien puede editar el plan o la carga guarda su copia de recuperación.
+ * @param {Usuario} usuario
+ * @param {{tipo: string, clave: string}} r
+ * @returns {void}
+ */
 function exigirRecuperacion_(usuario, r) {
   if (r.tipo === "plan") exigirEdicion_(usuario, validarCarrera_(r.clave));
   else exigirCarga_(usuario, validarDpto_(r.clave));
 }
 
+/**
+ * Fila de la copia de esta cuenta para ese documento, o null.
+ * @param {string} ciclo
+ * @param {Ref} ref
+ * @param {string} correo
+ * @returns {FilaTabla|null}
+ */
 function filaRecuperacion_(ciclo, ref, correo) {
   return leerTabla_(TABLA_.RECUPERACION, 5).filter(function (f) {
     return f.ciclo === ciclo && f.ref === ref && f.correo === correo;
   })[0] || null;
 }
 
-/* Lo que haya guardado esta cuenta para ese plan o esa carga, o null. */
+/**
+ * Lo que haya guardado esta cuenta para ese plan o esa carga, o null.
+ * @param {string} ciclo
+ * @param {Ref} ref
+ * @param {string} correo
+ * @returns {Recuperacion|null}
+ */
 function leerRecuperacion_(ciclo, ref, correo) {
   const f = filaRecuperacion_(ciclo, ref, correo);
   if (!f) return null;
@@ -34,12 +59,24 @@ function leerRecuperacion_(ciclo, ref, correo) {
   }
 }
 
-/* Debe llamarse dentro de conCandado_. */
+/**
+ * Debe llamarse dentro de conCandado_.
+ * @param {string} ciclo
+ * @param {Ref} ref
+ * @param {string} correo
+ * @returns {void}
+ */
 function borrarRecuperacion_(ciclo, ref, correo) {
   borrarFilasDonde_(TABLA_.RECUPERACION, function (f) { return f.ciclo === ciclo && f.ref === ref && f.correo === correo; }, 5);
 }
 
-/* datos: {contenido, versionBase}. */
+/**
+ * datos: {contenido, versionBase}.
+ * @param {string} ciclo
+ * @param {Ref} ref
+ * @param {{contenido: *, versionBase: number}} datos
+ * @returns {Respuesta<{fecha: string}>}
+ */
 function guardarRecuperacion(ciclo, ref, datos) {
   return responder_(function () {
     const usuario = exigirUsuario_();
@@ -50,7 +87,7 @@ function guardarRecuperacion(ciclo, ref, datos) {
     return conCandado_(function () {
       const f = filaRecuperacion_(c, r.ref, usuario.correo);
       const fecha = new Date().toISOString();
-      const valores = [c, r.ref, usuario.correo, fecha, String(parseInt(datos && datos.versionBase, 10) || 0)].concat(trocear_(texto));
+      const valores = [c, r.ref, usuario.correo, fecha, String(parseInt(String(datos && datos.versionBase), 10) || 0)].concat(trocear_(texto));
       if (f) {
         const h = hojaBd_(TABLA_.RECUPERACION);
         if (h.getLastColumn() > valores.length) h.getRange(f._fila, valores.length + 1, 1, h.getLastColumn() - valores.length).clearContent();
@@ -61,6 +98,12 @@ function guardarRecuperacion(ciclo, ref, datos) {
   });
 }
 
+/**
+ * Endpoint: borra la copia de recuperación de la cuenta.
+ * @param {string} ciclo
+ * @param {Ref} ref
+ * @returns {Respuesta<boolean>}
+ */
 function descartarRecuperacion(ciclo, ref) {
   return responder_(function () {
     const usuario = exigirUsuario_();

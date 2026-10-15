@@ -134,6 +134,16 @@ La prueba del lector comprueba que los Excel reales dan la misma oferta que `doc
 
 En Windows, los recorridos necesitan la ruta de Chrome en la variable `CHROME`, por ejemplo `CHROME="C:/Program Files/Google/Chrome/Application/chrome.exe"`.
 
+### Comprobar los tipos
+
+Los `.js` de `AppScript/` llevan `// @ts-check` y JSDoc; los tipos comunes están en `Tipos.js`, que solo tiene comentarios. Antes de `clasp push` conviene pasar `tsc` (la primera vez, `npm install`):
+
+```bash
+cd AppScript && npm install && npm run tipos
+```
+
+`package.json`, `package-lock.json` y `jsconfig.json` están en `.claspignore`: no llegan a Apps Script.
+
 ## Prototipos anteriores
 
 Se conservan como referencia:

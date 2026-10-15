@@ -128,6 +128,12 @@
    grupo o una fusión entera. Solo el director del departamento la edita, con bloqueo; los
    demás la consultan. El balance de cada docente suma sus horas en los cuatro departamentos.
    ============================================================ */
+/**
+ * Estado de la asignación docente (CU-002).
+ * @type {{ciclo: string, dpto: string, vista: string, datos: (Object|null), trabajo: Array<Object>, base: number,
+ *         editando: boolean, sucio: boolean, filtroCarrera: string, soloPendientes: boolean, filtroDocentes: string,
+ *         previa: (Object|null), cargado: ({clave: string, hora: number}|null), pedido: number}}
+ */
 const appCarga = {
   ciclo: CONFIG.ciclo,
   dpto: departamentoDelUsuario() || "DIMA",
@@ -187,6 +193,12 @@ async function iniciarCargaDocentes(){
   await cargarEstadoDocentes();
 }
 
+/**
+ * Lee la carga docente del departamento a la vista (obtenerCargaDocente) y la pinta.
+ * opciones.fondo: sin la espera que bloquea.
+ * @param {{fondo?: boolean}=} opciones
+ * @returns {Promise<void>}
+ */
 async function cargarEstadoDocentes(opciones){
   const fondo = !!(opciones && opciones.fondo);
   const ciclo = appCarga.ciclo, dpto = appCarga.dpto, pedido = ++appCarga.pedido;
@@ -207,6 +219,10 @@ async function cargarEstadoDocentes(opciones){
 /* ---------- pintar ---------- */
 const NIVEL_CLASE = { bloqueo: "alerta", severa: "alerta", alerta: "pendiente", info: "info" };
 
+/**
+ * Pinta la asignación del departamento: métricas, avisos, advertencias y la tabla de la vista elegida.
+ * @returns {void}
+ */
 function pintarVistaDocentes(){
   const d = appCarga.datos;
   if (!d) return;
@@ -273,6 +289,10 @@ function htmlCarreras(seccion){
     : "<b>" + esc(seccion.carrera) + "</b>";
 }
 
+/**
+ * Tabla de secciones del departamento con su cobertura y sus acciones.
+ * @returns {void}
+ */
 function pintarTablaSecciones(){
   const tb = $("#tb-vista-carrera");
   const vig = appCarga.balance.vigentes;
@@ -316,6 +336,10 @@ function pintarTablaSecciones(){
     : '<tr><td colspan="8" class="vacio-tabla">' + (unidadesDpto().length ? "No hay secciones con este filtro." : "Ningún plan registrado pide docentes a este departamento en el ciclo.") + "</td></tr>";
 }
 
+/**
+ * Tabla de docentes con su balance de horas y sus advertencias.
+ * @returns {void}
+ */
 function pintarTablaDocentes(){
   const tb = $("#tb-vista-dpto");
   const bal = appCarga.balance, dpto = appCarga.dpto, ed = appCarga.editando;
@@ -357,6 +381,10 @@ function pintarTablaDocentes(){
   }).join("");
 }
 
+/**
+ * Asignaciones que se quedaron sin sección en el plan, para reasignarlas o quitarlas.
+ * @returns {void}
+ */
 function pintarSinSeccion(){
   const lista = (appCarga.balance.vigentes.sinSeccion[appCarga.dpto] || []);
   $("#caja-sin-seccion").hidden = !lista.length;

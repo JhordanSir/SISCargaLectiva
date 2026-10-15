@@ -1,3 +1,4 @@
+// @ts-check
 /* Documentos con versiones. Lo usan los planes de ciclo (una carrera en un ciclo) y las
    cargas docentes (un departamento en un ciclo). Cada repositorio tiene dos tablas:
      - el índice, con una fila por documento: su versión vigente y en qué fila de la
@@ -13,6 +14,12 @@ var REPO_CARGA_ = { indice: "Cargas", versiones: "VersionesCarga", clave: "depar
 var SEGUNDOS_CACHE_VERSION_ = 21600;   // el máximo que admite CacheService
 var MAX_TEXTO_CACHE_ = 45000;          // holgura frente al límite de 100 KB por valor
 
+/**
+ * Guarda el texto de una versión en la caché si cabe.
+ * @param {string} clave
+ * @param {string} texto
+ * @returns {void}
+ */
 function cachearTexto_(clave, texto) {
   if (texto.length > MAX_TEXTO_CACHE_) return;
   try {
@@ -24,19 +31,43 @@ function cachearTexto_(clave, texto) {
 
 /* ---------- índice ---------- */
 
+/**
+ * Filas del índice del repositorio (todos los ciclos).
+ * @param {Repo} repo
+ * @returns {FilaTabla[]}
+ */
 function leerIndice_(repo) {
   return leerTabla_(repo.indice);
 }
 
+/**
+ * Fila de un documento entre las filas del índice, o null.
+ * @param {Repo} repo
+ * @param {FilaTabla[]} filas
+ * @param {string} ciclo
+ * @param {string} clave
+ * @returns {FilaTabla|null}
+ */
 function buscarEnIndice_(repo, filas, ciclo, clave) {
   return filas.filter(function (f) { return f.ciclo === ciclo && f[repo.clave] === clave; })[0] || null;
 }
 
+/**
+ * Fila de un documento en el índice, o null.
+ * @param {Repo} repo
+ * @param {string} ciclo
+ * @param {string} clave
+ * @returns {FilaTabla|null}
+ */
 function filaIndice_(repo, ciclo, clave) {
   return buscarEnIndice_(repo, leerIndice_(repo), ciclo, clave);
 }
 
-/* Versión vigente de un documento según su fila del índice (null = sin guardar). */
+/**
+ * Versión vigente de un documento según su fila del índice (null = sin guardar).
+ * @param {FilaTabla|null|undefined} fila
+ * @returns {{version: number, filaVersion: number}}
+ */
 function vigente_(fila) {
   return {
     version: fila ? parseInt(fila.version, 10) || 0 : 0,
@@ -46,21 +77,48 @@ function vigente_(fila) {
 
 /* ---------- versiones ---------- */
 
+/**
+ * Índice (desde 0) de la columna «contenido» en la tabla de versiones.
+ * @param {Repo} repo
+ * @returns {number}
+ */
 function columnaContenido_(repo) {
   return TABLAS_[repo.versiones].indexOf("contenido");
 }
 
+/**
+ * Clave de caché del contenido de una versión.
+ * @param {Repo} repo
+ * @param {string} ciclo
+ * @param {string} clave
+ * @param {number} n
+ * @returns {string}
+ */
 function claveContenido_(repo, ciclo, clave, n) {
   return claveCache_(repo.cache, ciclo + "|" + clave + "|" + n);
 }
 
+/**
+ * Clave de caché de la lista de versiones de un documento.
+ * @param {Repo} repo
+ * @param {string} ciclo
+ * @param {string} clave
+ * @returns {string}
+ */
 function claveMetas_(repo, ciclo, clave) {
   return claveCache_(repo.cache + "m", ciclo + "|" + clave);
 }
 
-/* Datos de cada versión de un documento (sin el contenido), de la más antigua a la más
-   reciente. Cada una lleva _fila, su fila en la tabla de versiones. vigente (opcional):
-   la versión vigente según el índice; si la lista en caché no llega a ella, se relee. */
+/**
+ * Datos de cada versión de un documento (sin el contenido), de la más antigua a la más
+ * reciente. Cada una lleva _fila, su fila en la tabla de versiones. vigente (opcional):
+ * la versión vigente según el índice; si la lista en caché no llega a ella, se relee.
+ * @param {Repo} repo
+ * @param {string} ciclo
+ * @param {string} clave
+ * @param {number=} vigente
+ * @returns {Array<FilaTabla & {n: number}>}
+ */
 function metaVersiones_(repo, ciclo, clave, vigente) {
   const k = claveMetas_(repo, ciclo, clave);
   const guardadas = leerDeCache_(k);
@@ -75,6 +133,15 @@ function metaVersiones_(repo, ciclo, clave, vigente) {
   return metas;
 }
 
+/**
+ * ¿La fila leída es esa versión de ese documento?
+ * @param {Repo} repo
+ * @param {Array<*>} valores
+ * @param {string} ciclo
+ * @param {string} clave
+ * @param {number} n
+ * @returns {boolean}
+ */
 function esLaVersion_(repo, valores, ciclo, clave, n) {
   const campos = TABLAS_[repo.versiones];
   return String(valores[campos.indexOf("ciclo")]) === ciclo &&
@@ -82,12 +149,26 @@ function esLaVersion_(repo, valores, ciclo, clave, n) {
          parseInt(valores[campos.indexOf("n")], 10) === n;
 }
 
+/**
+ * Columnas que hay que leer de la tabla de versiones.
+ * @param {Repo} repo
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} h
+ * @returns {number}
+ */
 function anchoVersiones_(repo, h) {
   return Math.max(TABLAS_[repo.versiones].length, h.getLastColumn());
 }
 
-/* Texto JSON de una versión. filaVersion evita recorrer la tabla; si no coincide (o no se
-   conoce), se busca la fila entre las versiones del documento. */
+/**
+ * Texto JSON de una versión. filaVersion evita recorrer la tabla; si no coincide (o no se
+ * conoce), se busca la fila entre las versiones del documento.
+ * @param {Repo} repo
+ * @param {string} ciclo
+ * @param {string} clave
+ * @param {number} n
+ * @param {number} filaVersion
+ * @returns {string}
+ */
 function textoDeVersion_(repo, ciclo, clave, n, filaVersion) {
   const h = hojaBd_(repo.versiones);
   const ancho = anchoVersiones_(repo, h);
@@ -107,6 +188,15 @@ function textoDeVersion_(repo, ciclo, clave, n, filaVersion) {
   fallo_("NO_ENCONTRADO", "No se encontró la versión v" + n + " " + repo.nombre + ".");
 }
 
+/**
+ * Contenido de una versión: de la caché o de la hoja.
+ * @param {Repo} repo
+ * @param {string} ciclo
+ * @param {string} clave
+ * @param {number} n
+ * @param {number=} filaVersion
+ * @returns {*}
+ */
 function contenidoVersion_(repo, ciclo, clave, n, filaVersion) {
   const k = claveContenido_(repo, ciclo, clave, n);
   const guardado = cache_().get(k);
@@ -116,10 +206,17 @@ function contenidoVersion_(repo, ciclo, clave, n, filaVersion) {
   return JSON.parse(texto || "[]");
 }
 
-/* Contenido vigente de varios documentos de un ciclo ({clave: contenido}): primero de la
-   caché y, lo que falte, de la hoja, en un solo bloque si sus filas están cerca (como
-   tras leer los xlsx). filasIndice: filas del índice de ese ciclo. */
+/**
+ * Contenido vigente de varios documentos de un ciclo ({clave: contenido}): primero de la
+ * caché y, lo que falte, de la hoja, en un solo bloque si sus filas están cerca (como
+ * tras leer los xlsx). filasIndice: filas del índice de ese ciclo.
+ * @param {Repo} repo
+ * @param {string} ciclo
+ * @param {FilaTabla[]} filasIndice
+ * @returns {Object<string, *>}
+ */
 function contenidosVigentes_(repo, ciclo, filasIndice) {
+  /** @type {Object<string, *>} */
   const res = {};
   const conVersion = filasIndice.filter(function (f) { return vigente_(f).version > 0; });
   if (!conVersion.length) return res;
@@ -155,11 +252,19 @@ function contenidosVigentes_(repo, ciclo, filasIndice) {
   return res;
 }
 
-/* Debe llamarse dentro de conCandado_. Añade una versión y actualiza (o crea) la fila del
-   documento en el índice. fila: su fila del índice, o null si es el primer guardado.
-   datos: {usuario, fecha, contenido, meta: {campos de la versión}, indice: {campos del índice}}.
-   Los campos que no se indiquen en el índice conservan su valor anterior. Devuelve el
-   número de la versión nueva. */
+/**
+ * Debe llamarse dentro de conCandado_. Añade una versión y actualiza (o crea) la fila del
+ * documento en el índice. fila: su fila del índice, o null si es el primer guardado.
+ * datos: {usuario, fecha, contenido, meta: {campos de la versión}, indice: {campos del índice}}.
+ * Los campos que no se indiquen en el índice conservan su valor anterior. Devuelve el
+ * número de la versión nueva.
+ * @param {Repo} repo
+ * @param {string} ciclo
+ * @param {string} clave
+ * @param {FilaTabla|null} fila
+ * @param {{usuario: string, fecha: string, contenido: *, meta?: Object, indice?: Object}} datos
+ * @returns {number}
+ */
 function registrarVersion_(repo, ciclo, clave, fila, datos) {
   const n = vigente_(fila).version + 1;
   const texto = JSON.stringify(datos.contenido);

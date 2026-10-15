@@ -89,7 +89,10 @@ function saludo(){
   return h < 12 ? "Buenos días" : h < 19 ? "Buenas tardes" : "Buenas noches";
 }
 
-/* Las cifras salen del tablero que trajo la página (o del último que se leyó). */
+/**
+ * Las cifras salen del tablero que trajo la página (o del último que se leyó).
+ * @returns {void}
+ */
 function pintarInicio(){
   const filas = app.tableroCiclo === app.ciclo ? app.tablero : [];
   const cuenta = estado => filas.filter(f => f.estado === estado).length;

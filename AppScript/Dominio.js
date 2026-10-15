@@ -1,3 +1,4 @@
+// @ts-check
 /* Lógica de dominio de CU-001 y CU-002, compartida por el servidor y el navegador.
    Son tres fábricas: lo común (datos maestros, normalización, saneadores y firma), el
    plan de ciclo (CU-001) y la carga docente (CU-002). crearDominio_() las combina y
@@ -5,6 +6,10 @@
    (fuenteDominio_) y lo ejecuta tal cual, así que no pueden usar nada definido fuera
    de ellas. */
 
+/**
+ * Lo común: datos maestros, normalización, números, saneadores y firma del contenido.
+ * @returns Todas sus declaraciones (tsc deduce el tipo); crearDominio_() elige las públicas.
+ */
 function crearDominioComun_() {
   "use strict";
 
@@ -65,9 +70,13 @@ function crearDominioComun_() {
 
   const nombreCarrera = sig => (CARRERAS.find(c => c.sig === sig) || {}).nombre || sig;
 
-  /* ============================================================
-     Normalización
-     ============================================================ */
+  /**
+   * ============================================================
+   * Normalización
+   * ============================================================
+   * @param {*} s
+   * @returns {string}
+   */
   function normalizar(s) {
     return String(s == null ? "" : s)
       .normalize("NFD").replace(/[̀-ͯ]/g, "")
@@ -75,7 +84,11 @@ function crearDominioComun_() {
   }
   const canonica = s => { const n = normalizar(s); return SINONIMOS[n] || n; };
 
-  /* Divide un texto pegado (tabulaciones) o un CSV (comas o punto y coma, con comillas). */
+  /**
+   * Divide un texto pegado (tabulaciones) o un CSV (comas o punto y coma, con comillas).
+   * @param {string} txt
+   * @returns {string[][]}
+   */
   function matrizDesdeTexto(txt) {
     const lineas = String(txt).replace(/\r\n?/g, "\n").split("\n").filter(l => l.trim() !== "");
     if (!lineas.length) return [];
@@ -99,13 +112,19 @@ function crearDominioComun_() {
     });
   }
 
-  /* Localiza la fila de cabeceras. Devuelve la primera fila completa y sin repeticiones;
-     si no existe, devuelve la mejor candidata. */
+  /**
+   * Localiza la fila de cabeceras. Devuelve la primera fila completa y sin repeticiones;
+   * si no existe, devuelve la mejor candidata.
+   * @param {Array<Array<*>>} matriz
+   * @returns {{fila: number, mapa: Object<string, number>, repetidas: string[], extras: string[], faltan: string[], encontradas: number}|null}
+   */
   function ubicarCabeceras(matriz) {
     let mejor = null;
     for (let i = 0; i < matriz.length; i++) {
       const celdas = matriz[i].map(canonica);
-      const mapa = {}, repetidas = [];
+      /** @type {Object<string, number>} */
+      const mapa = {};
+      const repetidas = [];
       celdas.forEach((c, j) => {
         if (!COLUMNAS.includes(c)) return;
         if (mapa[c] !== undefined) { if (!repetidas.includes(c)) repetidas.push(c); }
@@ -128,27 +147,45 @@ function crearDominioComun_() {
      de modo que «Ing. Software», «ING SOFTWARE» e «ing software» sean lo mismo. */
   const claveCarrera = v => normalizar(v).replace(/[.\-–—]/g, " ").replace(/\s+/g, " ").trim();
 
+  /**
+   * Sigla, nombre y alias de una carrera.
+   * @param {Sigla} sigla
+   * @returns {string[]}
+   */
   function formasCarrera(sigla) {
     const c = CARRERAS.find(x => x.sig === sigla);
     return c ? [c.sig, c.nombre].concat(c.alias || []) : [];
   }
 
-  /* La columna CARRERA puede traer la sigla («ING»), el nombre o cualquier alias. */
+  /**
+   * La columna CARRERA puede traer la sigla («ING»), el nombre o cualquier alias.
+   * @param {*} valor
+   * @param {Sigla} sigla
+   * @returns {boolean}
+   */
   function coincideCarrera(valor, sigla) {
     const v = claveCarrera(valor);
     return formasCarrera(sigla).some(f => claveCarrera(f) === v);
   }
 
-  /* Sigla de la carrera que corresponde a un valor (sigla, nombre o alias); null si ninguna. */
+  /**
+   * Sigla de la carrera que corresponde a un valor (sigla, nombre o alias); null si ninguna.
+   * @param {*} valor
+   * @returns {Sigla|null}
+   */
   function siglaDeCarrera(valor) {
     if (!claveCarrera(valor)) return null;
     const c = CARRERAS.find(x => coincideCarrera(valor, x.sig));
     return c ? c.sig : null;
   }
 
-  /* SEMESTRE admite «5» (semestre 5, grupo 1) y «1-2» (semestre 1, grupo 2), con «/»
-     como separador alternativo. Devuelve sem = NaN si no encaja; entonces se conserva
-     el texto original. */
+  /**
+   * SEMESTRE admite «5» (semestre 5, grupo 1) y «1-2» (semestre 1, grupo 2), con «/»
+   * como separador alternativo. Devuelve sem = NaN si no encaja; entonces se conserva
+   * el texto original.
+   * @param {*} bruto
+   * @returns {{sem: number, grupo: number, compuesto: boolean}}
+   */
   function descomponerSemestre(bruto) {
     const t = String(bruto == null ? "" : bruto).trim();
     if (entero(t)) return { sem: parseInt(t, 10), grupo: 1, compuesto: false };
@@ -157,10 +194,14 @@ function crearDominioComun_() {
     return { sem: NaN, grupo: NaN, compuesto: false };
   }
 
-  /* ============================================================
-     Números, identificadores y asignaturas internacionales: los usan el
-     plan, la carga y los saneadores
-     ============================================================ */
+  /**
+   * ============================================================
+   * Números, identificadores y asignaturas internacionales: los usan el
+   * plan, la carga y los saneadores
+   * ============================================================
+   * @param {*} v
+   * @returns {number}
+   */
   function num(v) {
     if (typeof v === "number") return isFinite(v) ? v : 0;
     const m = String(v == null ? "" : v).replace(",", ".").match(/-?\d+(\.\d+)?/);
@@ -193,17 +234,35 @@ function crearDominioComun_() {
   /* Error de datos con el código del contrato de respuestas (Respuesta.js). */
   const errorDato = mensaje => Object.assign(new Error(mensaje), { codigo: "DATO_INVALIDO" });
 
+  /**
+   * Falla con DATO_INVALIDO si no es una lista o pasa del máximo.
+   * @param {*} v
+   * @param {number} max
+   * @param {string} que Qué es, para el mensaje.
+   * @returns {void}
+   */
   function exigirLista(v, max, que) {
     if (!Array.isArray(v)) throw errorDato(que + ": se esperaba una lista.");
     if (v.length > max) throw errorDato(que + ": tiene " + v.length + " elementos y el máximo es " + max + ".");
   }
 
+  /**
+   * Falla con DATO_INVALIDO si el JSON pasa de LIMITES_DATOS.CARACTERES.
+   * @param {*} v
+   * @param {string} que
+   * @returns {void}
+   */
   function exigirTamano(v, que) {
     const n = JSON.stringify(v).length;
     if (n > LIMITES_DATOS.CARACTERES)
       throw errorDato(que + " es demasiado grande (" + Math.round(n / 1024) + " KB; el máximo es " + Math.round(LIMITES_DATOS.CARACTERES / 1024) + " KB).");
   }
 
+  /**
+   * Un grupo con solo los campos del modelo, recortados.
+   * @param {*} g
+   * @returns {Grupo}
+   */
   function sanearGrupo(g) {
     g = objeto(g);
     const r = {
@@ -224,7 +283,11 @@ function crearDominioComun_() {
     return r;
   }
 
-  /* Contenido de un plan. Una asignatura sin grupos no es válida y se descarta. */
+  /**
+   * Contenido de un plan. Una asignatura sin grupos no es válida y se descarta.
+   * @param {*} lista
+   * @returns {Asignatura[]}
+   */
   function sanearAsignaturas(lista) {
     exigirLista(lista, LIMITES_DATOS.ASIGNATURAS, "El plan");
     exigirTamano(lista, "El plan");
@@ -236,18 +299,32 @@ function crearDominioComun_() {
     }).filter(a => a.grupos.length);
   }
 
+  /**
+   * Marcas de fusión válidas de una lista (las fusiones que el usuario deshizo).
+   * @param {*} lista
+   * @returns {string[]}
+   */
   function sanearMarcas(lista) {
     if (lista == null) return [];
     exigirLista(lista, LIMITES_DATOS.MARCAS, "Las fusiones deshechas");
     return lista.map(marcaSegura).filter(Boolean);
   }
 
-  /* Horas de una asignación: null es «las del componente»; si no, un número entre 0 y 60. */
+  /**
+   * Horas de una asignación: null es «las del componente»; si no, un número entre 0 y 60.
+   * @param {*} v
+   * @returns {number|null}
+   */
   function horasSeguras(v) {
     if (v === null || v === undefined || String(v).trim() === "") return null;
     return Math.round(Math.min(60, Math.max(0, num(v))) * 100) / 100;
   }
 
+  /**
+   * Historial de reemplazos de una asignación, con sus campos recortados; null si no hay.
+   * @param {*} lista
+   * @returns {Array<Object>|null}
+   */
   function sanearHistorial(lista) {
     if (!Array.isArray(lista) || !lista.length) return null;
     return lista.slice(-LIMITES_DATOS.HISTORIAL).map(objeto).map(h => {
@@ -261,8 +338,12 @@ function crearDominioComun_() {
     });
   }
 
-  /* Asignaciones de una carga docente. Descarta los campos que solo usa la pantalla
-     (heredada, dptoCarga) y cualquier otro que no sea del modelo. */
+  /**
+   * Asignaciones de una carga docente. Descarta los campos que solo usa la pantalla
+   * (heredada, dptoCarga) y cualquier otro que no sea del modelo.
+   * @param {*} lista
+   * @returns {Asignacion[]}
+   */
   function sanearAsignaciones(lista) {
     exigirLista(lista, LIMITES_DATOS.ASIGNACIONES, "La carga");
     exigirTamano(lista, "La carga");
@@ -288,9 +369,13 @@ function crearDominioComun_() {
     });
   }
 
-  /* ============================================================
-     Firma del contenido, para saber si un plan cambió entre dos lecturas
-     ============================================================ */
+  /**
+   * ============================================================
+   * Firma del contenido, para saber si un plan cambió entre dos lecturas
+   * ============================================================
+   * @param {Asignatura[]} asignaturas
+   * @returns {string}
+   */
   function contenidoCanonico(asignaturas) {
     return JSON.stringify((asignaturas || []).map(a => [
       a.sem, a.malla, a.codigo, a.nombre, a.dpto, a.obs,
@@ -298,7 +383,11 @@ function crearDominioComun_() {
     ]));
   }
 
-  /* cyrb53: hash de 53 bits, suficiente para detectar cambios. */
+  /**
+   * cyrb53: hash de 53 bits, suficiente para detectar cambios.
+   * @param {string} texto
+   * @returns {string} En hexadecimal.
+   */
   function hash(texto) {
     let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
     for (let i = 0; i < texto.length; i++) {
@@ -321,8 +410,12 @@ function crearDominioComun_() {
   };
 }
 
-/* CU-001 «Registrar plan de ciclo»: interpretar lo importado, totales, operaciones de
-   edición y fusiones. C: lo que devuelve crearDominioComun_(). */
+/**
+ * CU-001 «Registrar plan de ciclo»: interpretar lo importado, totales, operaciones de
+ * edición y fusiones. C: lo que devuelve crearDominioComun_().
+ * @param {ReturnType<typeof crearDominioComun_>} C
+ * @returns Todas sus declaraciones.
+ */
 function crearDominioPlan_(C) {
   "use strict";
 
@@ -350,6 +443,13 @@ function crearDominioPlan_(C) {
     "OBSERVACIONES": v => /[A-Za-zÁÉÍÓÚÑáéíóúñ]/.test(v) ? 1 : 0
   };
 
+  /**
+   * Cuánto se parece una columna a la columna «nombre» según sus primeras 25 celdas con datos (0 a 3).
+   * @param {string} nombre
+   * @param {Array<Array<*>>} filas
+   * @param {number} j
+   * @returns {number}
+   */
   function puntuar(nombre, filas, j) {
     const pista = PISTAS[nombre];
     if (!pista) return 0;
@@ -366,6 +466,11 @@ function crearDominioPlan_(C) {
 
   const filaConDatos = f => f.some(c => String(c == null ? "" : c).trim() !== "");
 
+  /**
+   * Columna de cada campo: la de la cabecera y, para lo que falte, la que mejor encaja por su contenido.
+   * @param {Array<Array<*>>} matriz
+   * @returns {{filaCab: number, mapa: Object<string, number>}}
+   */
   function deducirColumnas(matriz) {
     const cab = ubicarCabeceras(matriz);
     const filaCab = cab ? cab.fila : -1;
@@ -398,14 +503,24 @@ function crearDominioPlan_(C) {
      ============================================================ */
   const nuevoGrupo = (n, ht, hp) => ({ id: idGrupo(), n: n, ht: ht, hp: hp, desdoble: null, fusion: null });
 
+  /**
+   * Ordena por semestre y código (en el sitio) y devuelve la misma lista.
+   * @param {Asignatura[]} asignaturas
+   * @returns {Asignatura[]}
+   */
   function ordenar(asignaturas) {
     asignaturas.sort((a, b) => num(a.sem) - num(b.sem) || String(a.codigo).localeCompare(String(b.codigo)));
     return asignaturas;
   }
 
-  /* opciones.carrera: sigla del plan. Las filas cuya CARRERA indique otra carrera
-     se ignoran y se cuentan en «ignoradas»; una CARRERA vacía no excluye la fila.
-     opciones.sinDuplicados: descarta la fila que repite código y grupo. */
+  /**
+   * opciones.carrera: sigla del plan. Las filas cuya CARRERA indique otra carrera
+   * se ignoran y se cuentan en «ignoradas»; una CARRERA vacía no excluye la fila.
+   * opciones.sinDuplicados: descarta la fila que repite código y grupo.
+   * @param {Array<Array<*>>} matriz
+   * @param {{carrera?: Sigla, sinDuplicados?: boolean}=} opciones
+   * @returns {{asignaturas: Asignatura[], ignoradas: number, duplicadas: Array<{codigo: string, nombre: string, grupo: (string|number)}>}}
+   */
   function interpretar(matriz, opciones) {
     const carrera = opciones && opciones.carrera;
     const sinDuplicados = !!(opciones && opciones.sinDuplicados);
@@ -459,8 +574,12 @@ function crearDominioPlan_(C) {
   /* ============================================================
      Totales
      ============================================================ */
-  /* Una sección fusionada dicta sus horas una sola vez. Si su grupo principal está en el
-     plan de otra carrera, ese plan es el que las cuenta y este no suma nada. */
+  /**
+   * Una sección fusionada dicta sus horas una sola vez. Si su grupo principal está en el
+   * plan de otra carrera, ese plan es el que las cuenta y este no suma nada.
+   * @param {Asignatura[]} asignaturas
+   * @returns {Totales}
+   */
   function totales(asignaturas) {
     const t = { asig: 0, grupos: 0, ht: 0, hp: 0, th: 0, dictado: 0, intl: 0, fus: 0, des: 0, sem: 0 };
     const fus = new Set(), sems = new Set();   // «sem» puede ser un número o un texto
@@ -494,6 +613,12 @@ function crearDominioPlan_(C) {
      ============================================================ */
   const siguienteN = a => Math.max(0, ...a.grupos.map(g => num(g.n))) + 1;
 
+  /**
+   * Añade una asignatura con un grupo y reordena. d: {sem, malla, codigo, nombre, dpto, obs, ht, hp}.
+   * @param {Asignatura[]} asignaturas
+   * @param {Object} d
+   * @returns {Asignatura} La asignatura añadida.
+   */
   function agregarAsignatura(asignaturas, d) {
     /* El semestre se interpreta si se puede («5», «1-2»); si no, se conserva el texto
        y da nombre al bloque. */
@@ -507,12 +632,25 @@ function crearDominioPlan_(C) {
     return a;
   }
 
+  /**
+   * Quita una asignatura y deshace las fusiones que se queden con menos de dos grupos.
+   * @param {Asignatura[]} asignaturas
+   * @param {number} ci
+   * @returns {void}
+   */
   function eliminarAsignatura(asignaturas, ci) {
     const marcas = asignaturas[ci].grupos.map(g => g.fusion).filter(Boolean);
     asignaturas.splice(ci, 1);
     marcas.forEach(m => limpiarFusionHuerfana(asignaturas, m));
   }
 
+  /**
+   * Añade a una asignatura un grupo con las horas de otro.
+   * @param {Asignatura[]} asignaturas
+   * @param {number} ci
+   * @param {number} gi Grupo del que se copian las horas.
+   * @returns {number} Número del grupo nuevo.
+   */
   function agregarGrupo(asignaturas, ci, gi) {
     const a = asignaturas[ci], base = a.grupos[gi];
     const n = siguienteN(a);
@@ -520,6 +658,12 @@ function crearDominioPlan_(C) {
     return n;
   }
 
+  /**
+   * Añade un grupo a cada asignatura del semestre, con las horas de su primer grupo.
+   * @param {Asignatura[]} asignaturas
+   * @param {string|number} sem
+   * @returns {number} Cuántas asignaturas recibieron grupo.
+   */
   function agregarGrupoSemestre(asignaturas, sem) {
     const asigs = asignaturas.filter(a => String(a.sem) === String(sem));
     asigs.forEach(a => {
@@ -529,6 +673,13 @@ function crearDominioPlan_(C) {
     return asigs.length;
   }
 
+  /**
+   * Quita un grupo; la asignatura sin grupos sale del plan.
+   * @param {Asignatura[]} asignaturas
+   * @param {number} ci
+   * @param {number} gi
+   * @returns {void}
+   */
   function eliminarGrupo(asignaturas, ci, gi) {
     const a = asignaturas[ci];
     const marca = a.grupos[gi].fusion;
@@ -537,15 +688,31 @@ function crearDominioPlan_(C) {
     if (marca) limpiarFusionHuerfana(asignaturas, marca);
   }
 
+  /**
+   * Desdobla la práctica o la teoría del grupo en n subgrupos.
+   * @param {Grupo} g
+   * @param {string} tipo «Práctica» o «Teoría».
+   * @param {number} n
+   * @returns {void}
+   */
   function desdoblar(g, tipo, n) {
     g.desdoble = (tipo === "Práctica" ? "PRA" : "TEO") + "×" + n;
   }
 
+  /**
+   * Quita el desdoble del grupo.
+   * @param {Grupo} g
+   * @returns {void}
+   */
   function quitarDesdoble(g) {
     g.desdoble = null;
   }
 
-  /* Devuelve las horas que el grupo tenía antes de fusionarse y quita la marca. */
+  /**
+   * Devuelve las horas que el grupo tenía antes de fusionarse y quita la marca.
+   * @param {Grupo} g
+   * @returns {void}
+   */
   function restaurarHoras(g) {
     if (g.previas) { g.ht = g.previas.ht; g.hp = g.previas.hp; delete g.previas; }
   }
@@ -560,10 +727,24 @@ function crearDominioPlan_(C) {
      de las demás carreras al guardar. */
   const nuevaMarca = () => "F" + Math.random().toString(36).slice(2, 8).toUpperCase();
 
+  /**
+   * ¿El grupo tiene otro nombre, código u horas que la referencia de la sección?
+   * @param {string} nombre
+   * @param {string} codigo
+   * @param {*} ht
+   * @param {*} hp
+   * @param {{nombre: string, codigo: string, ht: *, hp: *}} ref
+   * @returns {boolean}
+   */
   function difiereDe(nombre, codigo, ht, hp, ref) {
     return nombre !== ref.nombre || codigo !== ref.codigo || num(ht) !== num(ref.ht) || num(hp) !== num(ref.hp);
   }
 
+  /**
+   * Saca el grupo de su fusión y le devuelve sus horas de antes.
+   * @param {Grupo} g
+   * @returns {void}
+   */
   function quitarDeFusion(g) {
     g.fusion = null;
     delete g.fusionPrincipal;
@@ -571,9 +752,16 @@ function crearDominioPlan_(C) {
     restaurarHoras(g);
   }
 
-  /* refs son "ci:gi" del plan; externos, grupos de otras carreras
-     [{carrera, grupoId, codigo, nombre, n, ht, hp}]; principal es "ci:gi" o "ext:<i>".
-     La sección toma las horas del grupo principal. */
+  /**
+   * refs son "ci:gi" del plan; externos, grupos de otras carreras
+   * [{carrera, grupoId, codigo, nombre, n, ht, hp}]; principal es "ci:gi" o "ext:<i>".
+   * La sección toma las horas del grupo principal.
+   * @param {Asignatura[]} asignaturas
+   * @param {string[]} refs
+   * @param {string} principal
+   * @param {Array<Object>=} externos
+   * @returns {{marca: string, difs: string[], conOtras: boolean}}
+   */
   function fusionar(asignaturas, refs, principal, externos) {
     const ext = (externos || []).map(x => Object.assign({}, x));
     const par = v => { const x = String(v).split(":").map(Number); return { a: asignaturas[x[0]], g: asignaturas[x[0]].grupos[x[1]] }; };
@@ -610,12 +798,23 @@ function crearDominioPlan_(C) {
     return { marca: marca, difs: difs, conOtras: fusionCon.length > 0 };
   }
 
+  /**
+   * Saca de la fusión todos los grupos del plan con esa marca.
+   * @param {Asignatura[]} asignaturas
+   * @param {string} marca
+   * @returns {void}
+   */
   function deshacerFusion(asignaturas, marca) {
     asignaturas.forEach(a => a.grupos.forEach(g => { if (g.fusion === marca) quitarDeFusion(g); }));
   }
 
-  /* Una fusión sigue en pie mientras reúna al menos dos grupos, contando los de otras
-     carreras. Si se quedó sin principal, pasa a serlo el primer grupo que queda aquí. */
+  /**
+   * Una fusión sigue en pie mientras reúna al menos dos grupos, contando los de otras
+   * carreras. Si se quedó sin principal, pasa a serlo el primer grupo que queda aquí.
+   * @param {Asignatura[]} asignaturas
+   * @param {string} marca
+   * @returns {void}
+   */
   function limpiarFusionHuerfana(asignaturas, marca) {
     const aqui = [];
     asignaturas.forEach(a => a.grupos.forEach(g => { if (g.fusion === marca) aqui.push(g); }));
@@ -625,8 +824,13 @@ function crearDominioPlan_(C) {
     if (!principalFuera && !aqui.some(g => g.fusionPrincipal)) aqui[0].fusionPrincipal = true;
   }
 
-  /* Tras reemplazar el contenido de un plan, cada grupo que sigue existiendo (mismo código
-     y número de grupo) conserva su identificador, para que sus docentes asignados lo sigan. */
+  /**
+   * Tras reemplazar el contenido de un plan, cada grupo que sigue existiendo (mismo código
+   * y número de grupo) conserva su identificador, para que sus docentes asignados lo sigan.
+   * @param {Asignatura[]} nuevas
+   * @param {Asignatura[]} anteriores
+   * @returns {Asignatura[]} nuevas.
+   */
   function conservarIds(nuevas, anteriores) {
     const ids = new Map();
     (anteriores || []).forEach(a => a.grupos.forEach(g => ids.set(String(a.codigo).trim() + "|" + String(g.n).trim(), g.id)));
@@ -647,7 +851,13 @@ function crearDominioPlan_(C) {
      fusión que se queda con menos de dos grupos.
      ============================================================ */
 
-  /* Marcas de fusión que el guardado puede afectar. */
+  /**
+   * Marcas de fusión que el guardado puede afectar.
+   * @param {Asignatura[]} antes
+   * @param {Asignatura[]} despues
+   * @param {string[]} disueltas
+   * @returns {string[]}
+   */
   function marcasAfectadas(antes, despues, disueltas) {
     const marcas = [];
     const anotar = m => { if (m && !marcas.includes(m)) marcas.push(m); };
@@ -656,15 +866,29 @@ function crearDominioPlan_(C) {
     return marcas;
   }
 
+  /**
+   * Asignatura y grupo con ese id, o null.
+   * @param {Asignatura[]} lista
+   * @param {string} id
+   * @returns {{a: Asignatura, g: Grupo}|null}
+   */
   function buscarGrupoPorId(lista, id) {
     for (const a of lista) for (const g of a.grupos) if (g.id === id) return { a: a, g: g };
     return null;
   }
 
-  /* sig: carrera del plan que se guarda; despues: su contenido (se ajusta aquí); antes: el
-     vigente; disueltas: marcas que el usuario deshizo; otros: {sig: contenido} de las
-     demás carreras del ciclo, que no se modifican (los cambios van en copias).
-     Devuelve {asignaturas: despues, cambios: {sig: {asignaturas, motivos}}}. */
+  /**
+   * sig: carrera del plan que se guarda; despues: su contenido (se ajusta aquí); antes: el
+   * vigente; disueltas: marcas que el usuario deshizo; otros: {sig: contenido} de las
+   * demás carreras del ciclo, que no se modifican (los cambios van en copias).
+   * Devuelve {asignaturas: despues, cambios: {sig: {asignaturas, motivos}}}.
+   * @param {Sigla} sig
+   * @param {Asignatura[]} antes
+   * @param {Asignatura[]} despues
+   * @param {string[]} disueltas
+   * @param {Object<string, Asignatura[]>} otros
+   * @returns {{asignaturas: Asignatura[], cambios: Object<string, {asignaturas: Asignatura[], motivos: string[]}>}}
+   */
   function reconciliarFusiones(sig, antes, despues, disueltas, otros) {
     const marcas = marcasAfectadas(antes, despues, disueltas);
     const copias = {}, motivos = {};
@@ -744,6 +968,7 @@ function crearDominioPlan_(C) {
       igualar(miembros, elegirPrincipal(miembros, pedidos));
     }
 
+    /** @type {Object<string, {asignaturas: Asignatura[], motivos: string[]}>} */
     const cambios = {};
     Object.keys(motivos).forEach(s => { cambios[s] = { asignaturas: copias[s], motivos: motivos[s] }; });
     return { asignaturas: despues, cambios: cambios };
@@ -757,8 +982,12 @@ function crearDominioPlan_(C) {
   };
 }
 
-/* CU-002 «Asignar docentes al plan de ciclo»: secciones, balance, advertencias y lectura
-   de CargaXDepartamento. C: lo que devuelve crearDominioComun_(). */
+/**
+ * CU-002 «Asignar docentes al plan de ciclo»: secciones, balance, advertencias y lectura
+ * de CargaXDepartamento. C: lo que devuelve crearDominioComun_().
+ * @param {ReturnType<typeof crearDominioComun_>} C
+ * @returns Todas sus declaraciones.
+ */
 function crearDominioCarga_(C) {
   "use strict";
 
@@ -776,11 +1005,16 @@ function crearDominioCarga_(C) {
     DACTE: { sigla: "DACTE", nombre: "Departamento de Ciencias y Tecnologías Empresariales", alias: ["CS. Y TEC. EMPRESARIALES", "CIENCIAS Y TECNOLOGIAS EMPRESARIALES", "EMPRESARIALES", "DACTE"] }
   };
 
+  /**
+   * Sigla del departamento a partir de su sigla, nombre o alias; null si no se reconoce.
+   * @param {*} s
+   * @returns {Dpto|null}
+   */
   function normalizarDpto(s) {
     if (!s) return null;
     const n = normalizar(s);
     if (!n) return null;
-    for (const sigla of Object.keys(DPTOS_INFO)) {
+    for (const sigla of /** @type {Dpto[]} */ (Object.keys(DPTOS_INFO))) {
       if (sigla === n) return sigla;
       const alist = DPTOS_INFO[sigla].alias;
       for (let i = 0; i < alist.length; i++) {
@@ -791,11 +1025,21 @@ function crearDominioCarga_(C) {
     return null;
   }
 
+  /**
+   * Nombre completo de un departamento (o la sigla, si no se conoce).
+   * @param {string} sigla
+   * @returns {string}
+   */
   function nombreDpto(sigla) {
     const info = DPTOS_INFO[sigla];
     return info ? info.nombre : sigla;
   }
 
+  /**
+   * Nombre de docente normalizado para compararlo, sin comas ni puntos.
+   * @param {*} nombre
+   * @returns {string}
+   */
   function claveDocente(nombre) {
     return normalizar(nombre).replace(/[,.\-–—]/g, " ").replace(/\s+/g, " ").trim();
   }
@@ -806,12 +1050,19 @@ function crearDominioCarga_(C) {
   const PENDIENTE_INTERNACIONAL = "PENDIENTE INTERNACIONAL";
   const esPendienteInternacional = a => normalizar(a.condicion) === PENDIENTE_INTERNACIONAL && !String(a.docente || "").trim();
 
-  /* Partes de una sección que se asignan por separado. Sin desdoble: teoría y práctica.
-     Con desdoble de práctica ×n: la teoría común y n subgrupos de práctica (y al revés). */
+  /**
+   * Partes de una sección que se asignan por separado. Sin desdoble: teoría y práctica.
+   * Con desdoble de práctica ×n: la teoría común y n subgrupos de práctica (y al revés).
+   * @param {number} ht
+   * @param {number} hp
+   * @param {string|null} desdoble
+   * @returns {Componente[]}
+   */
   function componentesDe(ht, hp, desdoble) {
     const d = String(desdoble || "").match(/^(PRA|TEO)\D*(\d+)/i);
     const tipo = d ? d[1].toUpperCase() : null;
     const n = d ? Math.max(2, parseInt(d[2], 10) || 2) : 0;
+    /** @type {Componente[]} */
     const c = [];
     if (tipo === "TEO") for (let i = 1; i <= n; i++) c.push({ c: "T" + i, tipo: "T", nombre: "Teoría · subgrupo " + i, horas: ht });
     else if (ht > 0) c.push({ c: "T", tipo: "T", nombre: "Teoría", horas: ht });
@@ -821,11 +1072,15 @@ function crearDominioCarga_(C) {
     return c;
   }
 
-  /* Secciones que piden docente en un ciclo. Una sección es un grupo o, si está fusionado,
-     toda su fusión (aunque reúna grupos de varias carreras): se asigna una vez y sus horas
-     cuentan una vez. Toma los datos del grupo principal, también el departamento.
-     planes: [{sig, estado, contenido}]. Solo cuentan las secciones con algún grupo en un
-     plan Registrado. */
+  /**
+   * Secciones que piden docente en un ciclo. Una sección es un grupo o, si está fusionado,
+   * toda su fusión (aunque reúna grupos de varias carreras): se asigna una vez y sus horas
+   * cuentan una vez. Toma los datos del grupo principal, también el departamento.
+   * planes: [{sig, estado, contenido}]. Solo cuentan las secciones con algún grupo en un
+   * plan Registrado.
+   * @param {Array<{sig: Sigla, estado: string, contenido: Asignatura[]}>} planes
+   * @returns {Seccion[]}
+   */
   function unidadesDelCiclo(planes) {
     const grupos = [];
     (planes || []).forEach(p => (p.contenido || []).forEach(a => a.grupos.forEach(g =>
@@ -860,6 +1115,11 @@ function crearDominioCarga_(C) {
     return unidades;
   }
 
+  /**
+   * Índices de las secciones por grupo, por marca de fusión y por id.
+   * @param {Seccion[]} unidades
+   * @returns {{porGrupo: Map<string, Seccion>, porMarca: Map<string, Seccion>, porId: Map<string, Seccion>}}
+   */
   function indiceUnidades(unidades) {
     const porGrupo = new Map(), porMarca = new Map(), porId = new Map();
     (unidades || []).forEach(u => {
@@ -874,13 +1134,20 @@ function crearDominioCarga_(C) {
      no existe pero la fusión sí, la sigue. Sin ninguno de los dos, queda sin sección. */
   const unidadDe = (idx, asig) => (asig.unidad && idx.porGrupo.get(asig.unidad)) || (asig.fusion && idx.porMarca.get(asig.fusion)) || null;
 
-  /* Asignaciones vigentes de cada sección a partir de las cargas de los cuatro
-     departamentos ({DIMA: [asig…], …}). Una sección toma las asignaciones del departamento
-     al que hoy pide el docente; si ese aún no tiene ninguna, conserva las que hizo otro
-     departamento antes de un cambio de DPTO («heredadas»). */
+  /**
+   * Asignaciones vigentes de cada sección a partir de las cargas de los cuatro
+   * departamentos ({DIMA: [asig…], …}). Una sección toma las asignaciones del departamento
+   * al que hoy pide el docente; si ese aún no tiene ninguna, conserva las que hizo otro
+   * departamento antes de un cambio de DPTO («heredadas»).
+   * @param {Seccion[]} unidades
+   * @param {Object<string, Asignacion[]>} cargas
+   * @returns {{idx: ReturnType<typeof indiceUnidades>, porUnidad: Map<string, Asignacion[]>, sinSeccion: Object<string, Asignacion[]>}}
+   */
   function asignacionesVigentes(unidades, cargas) {
     const idx = indiceUnidades(unidades);
-    const tmp = new Map(), sinSeccion = {};
+    const tmp = new Map();
+    /** @type {Object<string, Asignacion[]>} */
+    const sinSeccion = {};
     Object.keys(cargas || {}).forEach(d => (cargas[d] || []).forEach(asig => {
       const u = unidadDe(idx, asig);
       if (!u) { (sinSeccion[d] = sinSeccion[d] || []).push(asig); return; }
@@ -893,14 +1160,24 @@ function crearDominioCarga_(C) {
     return { idx: idx, porUnidad: porUnidad, sinSeccion: sinSeccion };
   }
 
-  /* Horas de una asignación: las que tiene escritas o, si no, las de su componente. */
+  /**
+   * Horas de una asignación: las que tiene escritas o, si no, las de su componente.
+   * @param {Seccion|null} u
+   * @param {Asignacion} asig
+   * @returns {number}
+   */
   function horasAsignacion(u, asig) {
     if (asig.horas !== null && asig.horas !== undefined && String(asig.horas).trim() !== "") return num(asig.horas);
     const c = u ? u.componentes.find(x => x.c === asig.componente) : null;
     return c ? c.horas : 0;
   }
 
-  /* Cobertura de una sección por componente: horas pedidas, horas asignadas y si cuadra. */
+  /**
+   * Cobertura de una sección por componente: horas pedidas, horas asignadas y si cuadra.
+   * @param {Seccion} u
+   * @param {Asignacion[]} asigs
+   * @returns {Array<{c: string, nombre: string, horas: number, asignadas: number, asignaciones: Asignacion[], cubierto: boolean, pendienteIntl: boolean, descuadre: boolean}>}
+   */
   function coberturaUnidad(u, asigs) {
     return u.componentes.map(c => {
       const propias = (asigs || []).filter(a => a.componente === c.c);
@@ -916,23 +1193,34 @@ function crearDominioCarga_(C) {
     });
   }
 
-  /* ¿El docente del catálogo es el mismo que el de la asignación? Por DNI o por nombre. */
+  /**
+   * ¿El docente del catálogo es el mismo que el de la asignación? Por DNI o por nombre.
+   * @param {string} dni
+   * @param {string} nombre
+   * @returns {string} «D:<dni>» o «N:<nombre normalizado>».
+   */
   function claveDeDocente(dni, nombre) {
     const d = String(dni || "").trim();
     return d ? "D:" + d : "N:" + claveDocente(nombre);
   }
 
-  /* Balance de cada docente en el ciclo, con todas sus asignaciones en los cuatro
-     departamentos, y sus advertencias:
-       A07 bloqueo   más de 40 h lectivas (no se puede guardar)
-       A08           TC en otra universidad con más de 16 h
-       A09           ordinario con más de 24 h
-       A10           tiempo parcial con menos de 8 h (se tolera si solo dicta cursos internacionales)
-       A11           dos cursos distintos en el mismo semestre de una carrera
-       A12           con cargo administrativo: más de 20 h; más de 24 h es severo y pide motivo
-       A14           docente de otro departamento (préstamo)
-       A15           TC que con lectivas y no lectivas no cubre sus 40 h
-     catalogo: docentes de CargaDeDocentes; cargas: {DIMA: [asig…], …}. */
+  /**
+   * Balance de cada docente en el ciclo, con todas sus asignaciones en los cuatro
+   * departamentos, y sus advertencias:
+   *   A07 bloqueo   más de 40 h lectivas (no se puede guardar)
+   *   A08           TC en otra universidad con más de 16 h
+   *   A09           ordinario con más de 24 h
+   *   A10           tiempo parcial con menos de 8 h (se tolera si solo dicta cursos internacionales)
+   *   A11           dos cursos distintos en el mismo semestre de una carrera
+   *   A12           con cargo administrativo: más de 20 h; más de 24 h es severo y pide motivo
+   *   A14           docente de otro departamento (préstamo)
+   *   A15           TC que con lectivas y no lectivas no cubre sus 40 h
+   * catalogo: docentes de CargaDeDocentes; cargas: {DIMA: [asig…], …}.
+   * @param {DocenteCatalogo[]} catalogo
+   * @param {Seccion[]} unidades
+   * @param {Object<string, Asignacion[]>} cargas
+   * @returns {{docentes: Array<Object>, vigentes: ReturnType<typeof asignacionesVigentes>}}
+   */
   function calcularBalance(catalogo, unidades, cargas) {
     const vig = asignacionesVigentes(unidades, cargas);
     const docentes = new Map();
@@ -1002,10 +1290,15 @@ function crearDominioCarga_(C) {
     return { docentes: [...docentes.values()], vigentes: vig };
   }
 
-  /* Lo que un guardado no puede hacer o debe justificar: comparar el balance de antes y el
-     de después. Un docente bloquea si pasa de 40 h y su carga creció; pide motivo si tiene
-     cargo, pasa de 24 h y su carga creció. Así se puede guardar otra cosa aunque un
-     docente ya estuviera por encima por un cambio del plan. */
+  /**
+   * Lo que un guardado no puede hacer o debe justificar: comparar el balance de antes y el
+   * de después. Un docente bloquea si pasa de 40 h y su carga creció; pide motivo si tiene
+   * cargo, pasa de 24 h y su carga creció. Así se puede guardar otra cosa aunque un
+   * docente ya estuviera por encima por un cambio del plan.
+   * @param {{docentes: Array<Object>}} antes
+   * @param {{docentes: Array<Object>}} despues
+   * @returns {{bloqueos: Array<{docente: string, horas: number}>, severos: Array<{docente: string, horas: number, cargo: string}>}}
+   */
   function excesosAlGuardar(antes, despues) {
     const previas = new Map((antes.docentes || []).map(d => [d.clave, d.horas]));
     const crecio = d => d.horas > (previas.get(d.clave) || 0) + 0.001;
@@ -1016,6 +1309,13 @@ function crearDominioCarga_(C) {
   }
 
   /* ---------- carga masiva desde CargaXDepartamento ---------- */
+
+  /**
+   * Parecido entre dos nombres: la parte de sus palabras que comparten (0 a 1).
+   * @param {string} a
+   * @param {string} b
+   * @returns {number}
+   */
   function similitudNombres(a, b) {
     const ta = new Set(claveDocente(a).split(" ").filter(x => x.length > 1));
     const tb = new Set(claveDocente(b).split(" ").filter(x => x.length > 1));
@@ -1025,6 +1325,13 @@ function crearDominioCarga_(C) {
     return comunes / Math.max(ta.size, tb.size);
   }
 
+  /**
+   * Docentes del catálogo cuyo nombre más se parece, del más parecido al menos.
+   * @param {string} nombre
+   * @param {DocenteCatalogo[]} catalogo
+   * @param {number=} cuantos 5 si no se indica.
+   * @returns {DocenteCatalogo[]}
+   */
   function sugerirDocentes(nombre, catalogo, cuantos) {
     return (catalogo || [])
       .map(d => ({ d: d, s: similitudNombres(nombre, d.nombreCompleto) }))
@@ -1039,11 +1346,16 @@ function crearDominioCarga_(C) {
      El grupo sale de la columna GRUPO si la hay o de SEMESTRE («1-2» = semestre 1, grupo 2).
      Cada fila se cruza con las secciones del ciclo por carrera, código y grupo.
      Devuelve las filas leídas; nunca rechaza el contenido. */
-  /* Cabecera de una hoja de CargaXDepartamento: la primera fila (de las 15 primeras) que
-     tenga DOCENTE y CODIGO o ASIGNATURA. Sin ella, las columnas del formato habitual.
-     Devuelve {cab: índice de la cabecera, col: {DOCENTE: j, …}}. */
+  /**
+   * Cabecera de una hoja de CargaXDepartamento: la primera fila (de las 15 primeras) que
+   * tenga DOCENTE y CODIGO o ASIGNATURA. Sin ella, las columnas del formato habitual.
+   * Devuelve {cab: índice de la cabecera, col: {DOCENTE: j, …}}.
+   * @param {Array<Array<*>>} filas
+   * @returns {{cab: number, col: Object<string, number>}}
+   */
   function ubicarColumnasCarga(filas) {
     for (let i = 0; i < Math.min(15, filas.length); i++) {
+      /** @type {Object<string, number>} */
       const pos = {};
       (filas[i] || []).map(normalizar).forEach((c, j) => {
         const fijar = (k, cond) => { if (cond && pos[k] === undefined) pos[k] = j; };
@@ -1063,7 +1375,11 @@ function crearDominioCarga_(C) {
     return { cab: 0, col: { DOCENTE: 0, CARRERA: 1, MALLA: 2, SEMESTRE: 3, CODIGO: 4, ASIGNATURA: 5, HT: 6, HP: 7, CONDICION: 9 } };
   }
 
-  /* Secciones del ciclo por carrera, código (o nombre) y grupo de cada miembro. */
+  /**
+   * Secciones del ciclo por carrera, código (o nombre) y grupo de cada miembro.
+   * @param {Seccion[]} unidades
+   * @returns {Map<string, Seccion>}
+   */
   function indiceSeccionesCarga(unidades) {
     const idx = new Map();
     (unidades || []).forEach(u => u.miembros.forEach(m => {
@@ -1073,9 +1389,16 @@ function crearDominioCarga_(C) {
     return idx;
   }
 
-  /* Componentes de la sección que cubre una fila: teoría si trae HT, práctica si trae HP.
-     En un desdoble, cada fila toma el siguiente subgrupo libre de esa sección (usados
-     cuenta los ya tomados en esta lectura). Sin horas, toda la sección. */
+  /**
+   * Componentes de la sección que cubre una fila: teoría si trae HT, práctica si trae HP.
+   * En un desdoble, cada fila toma el siguiente subgrupo libre de esa sección (usados
+   * cuenta los ya tomados en esta lectura). Sin horas, toda la sección.
+   * @param {Seccion} seccion
+   * @param {number} ht
+   * @param {number} hp
+   * @param {Map<string, number>} usados
+   * @returns {string[]}
+   */
   function componentesDeFila(seccion, ht, hp, usados) {
     const tomar = tipo => {
       const de = seccion.componentes.filter(c => c.tipo === tipo);
@@ -1089,11 +1412,18 @@ function crearDominioCarga_(C) {
     return componentes.length ? componentes : seccion.componentes.map(c => c.c);
   }
 
-  /* Lee la hoja de un departamento tal como viene en CargaXDepartamento: el docente aparece
-     una vez y sus cursos debajo (celdas combinadas), con filas de TOTAL entre docentes.
-     El grupo sale de la columna GRUPO si la hay o de SEMESTRE («1-2» = semestre 1, grupo 2).
-     Cada fila se cruza con las secciones del ciclo por carrera, código y grupo.
-     Devuelve las filas leídas; nunca rechaza el contenido. */
+  /**
+   * Lee la hoja de un departamento tal como viene en CargaXDepartamento: el docente aparece
+   * una vez y sus cursos debajo (celdas combinadas), con filas de TOTAL entre docentes.
+   * El grupo sale de la columna GRUPO si la hay o de SEMESTRE («1-2» = semestre 1, grupo 2).
+   * Cada fila se cruza con las secciones del ciclo por carrera, código y grupo.
+   * Devuelve las filas leídas; nunca rechaza el contenido.
+   * @param {Array<Array<*>>} matriz
+   * @param {Seccion[]} unidades
+   * @param {string} dpto
+   * @param {DocenteCatalogo[]} catalogo
+   * @returns {{filas: Array<Object>, cabecera: number}}
+   */
   function interpretarCargaDepartamento(matriz, unidades, dpto, catalogo) {
     const filas = matriz || [];
     const { cab, col } = ubicarColumnasCarga(filas);
@@ -1140,7 +1470,10 @@ function crearDominioCarga_(C) {
   };
 }
 
-/* Combina las tres fábricas. Lo que devuelve es lo único público de Dominio. */
+/**
+ * Combina las tres fábricas. Lo que devuelve es lo único público de Dominio.
+ * @returns Lo público de Dominio (tsc deduce el tipo).
+ */
 function crearDominio_() {
   "use strict";
   const comun = crearDominioComun_();
@@ -1171,7 +1504,10 @@ function crearDominio_() {
   };
 }
 
-/* Texto que recrea Dominio en el navegador (Principal.js lo inserta en la página). */
+/**
+ * Texto que recrea Dominio en el navegador (Principal.js lo inserta en la página).
+ * @returns {string}
+ */
 function fuenteDominio_() {
   return "(function () {\n" + [crearDominioComun_, crearDominioPlan_, crearDominioCarga_, crearDominio_].map(String).join("\n\n") +
          "\nreturn crearDominio_();\n})()";

@@ -1,5 +1,10 @@
+// @ts-check
 /* Punto de entrada de la aplicación web. */
 
+/**
+ * Página de la aplicación, con los datos iniciales y Dominio ya incluidos.
+ * @returns {GoogleAppsScript.HTML.HtmlOutput}
+ */
 function doGet() {
   const t = HtmlService.createTemplateFromFile("Index");
   t.inicial = JSON.stringify(datosIniciales_()).replace(/</g, "\\u003c");
@@ -9,10 +14,19 @@ function doGet() {
     .addMetaTag("viewport", "width=device-width, initial-scale=1");
 }
 
+/**
+ * Contenido de un archivo HTML del proyecto, para incluirlo en la plantilla.
+ * @param {string} nombre
+ * @returns {string}
+ */
 function include_(nombre) {
   return HtmlService.createHtmlOutputFromFile(nombre).getContent();
 }
 
+/**
+ * Lo que la página necesita al cargar: configuración, usuario y tablero del ciclo (sin mirar Drive).
+ * @returns {{estado: string, config: Object, usuario?: Usuario, motivo?: string, tablero?: {ciclo: string, filas: FilaTablero[], avisos: Aviso[], pendiente: boolean}}}
+ */
 function datosIniciales_() {
   const cfg = config_();
   const config = {

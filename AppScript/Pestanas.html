@@ -23,6 +23,12 @@ function iniciarPestanas(){
   anunciar("hola");
 }
 
+/**
+ * Avisa a las otras pestañas del mismo navegador (BroadcastChannel). Si falla, no pasa nada.
+ * @param {string} tipo
+ * @param {Object=} datos
+ * @returns {void}
+ */
 function anunciar(tipo, datos){
   if (!pestanas.canal) return;
   try {
@@ -30,7 +36,11 @@ function anunciar(tipo, datos){
   } catch (e) { /* p. ej., un contenido que no se puede copiar */ }
 }
 
-/* «nuevo» distingue la toma del bloqueo de sus renovaciones y de las respuestas a «hola». */
+/**
+ * «nuevo» distingue la toma del bloqueo de sus renovaciones y de las respuestas a «hola».
+ * @param {boolean=} nuevo
+ * @returns {void}
+ */
 function anunciarEdicion(nuevo){
   if (!app.carrera || !sesionPlan.activa) return;
   if (nuevo || !sesionPlan.desde) sesionPlan.desde = new Date().toISOString();
@@ -40,6 +50,14 @@ function anunciarEdicion(nuevo){
   });
 }
 
+/**
+ * Avisa a las otras pestañas de que se guardó una versión de un plan, con su contenido.
+ * @param {string} sig
+ * @param {string} estado
+ * @param {number} version
+ * @param {Array<Object>} asignaturas
+ * @returns {void}
+ */
 function anunciarGuardado(sig, estado, version, asignaturas){
   anunciar("guardado", {
     ciclo: app.ciclo, sig: sig, estado: estado, version: version,

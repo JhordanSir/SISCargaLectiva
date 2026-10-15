@@ -10,6 +10,12 @@ const CONFIG = SIS.config || {};
 const { CARRERAS, DPTOS, ESTADOS, num, th, totales, matrizDesdeTexto, ubicarCabeceras, interpretar, nombreCarrera } = Dominio;
 
 /* ---------- estado de la página ---------- */
+/**
+ * Estado de la página que comparten las pantallas de CU-001 (y el ciclo, con CU-002).
+ * @type {{usuario: (Object|null), ciclo: string, tablero: Array<Object>, tableroCiclo: (string|null), tableroHora: number,
+ *         tableroPedido: number, carrera: (string|null), plan: (Object|null), seleccion: ({ci: number, gi: number}|null),
+ *         colapsados: Set<string>, avisoImportacion: string, lectura: (string|null), vista: (string|null)}}
+ */
 const app = {
   usuario: SIS.usuario || null,   // {correo, rol, carreras (las que edita), coordina, departamento}
   ciclo: CONFIG.ciclo,            // ciclo elegido; lo comparten el tablero y la asignación docente
@@ -98,6 +104,11 @@ const SECCION_DE = {
   docentes: "docentes", "docentes-carga": "docentes"
 };
 
+/**
+ * Muestra una vista (#v-<nombre>) y oculta las demás; sube al principio si la vista cambia.
+ * @param {string} v
+ * @returns {void}
+ */
 function mostrar(v){
   const cambia = app.vista !== v;
   VISTAS.forEach(x => {
@@ -174,6 +185,11 @@ const pendientes = { bloquea: 0, fondo: 0 };
 const espera = { temporizador: null, desde: 0, cierre: null };
 const RETARDO_ESPERA_MS = 260, MINIMO_ESPERA_MS = 420;
 
+/**
+ * Indicador de llamadas en curso: la barra fina para las de fondo y la espera «Wayrasiming»
+ * para las que bloquean.
+ * @returns {void}
+ */
 function pintarActividad(){
   $("#cargando").hidden = !(pendientes.bloquea + pendientes.fondo);
   const ocupado = pendientes.bloquea > 0;
@@ -207,16 +223,31 @@ function ocultarEspera(){
   }, resta);
 }
 
-/* El servidor responde {ok: true, datos} o {ok: false, codigo, mensaje, detalle}
-   (Respuesta.js). La promesa se resuelve con los datos o se rechaza con un Error que lleva
-   el código y el detalle, para decidir por el código y no por el texto. Una respuesta sin
-   «ok» (servidor anterior al contrato) se entrega tal cual. */
+/**
+ * El servidor responde {ok: true, datos} o {ok: false, codigo, mensaje, detalle}
+ * (Respuesta.js). La promesa se resuelve con los datos o se rechaza con un Error que lleva
+ * el código y el detalle, para decidir por el código y no por el texto. Una respuesta sin
+ * «ok» (servidor anterior al contrato) se entrega tal cual.
+ * @param {*} r Lo que devolvió el servidor.
+ * @param {function(*): void} ok
+ * @param {function(Error & {codigo?: string, detalle?: *}): void} mal
+ * @returns {void}
+ */
 function respuesta(r, ok, mal){
   if (r && typeof r === "object" && r.ok === false)
     return mal(Object.assign(new Error(r.mensaje || "No se pudo completar la operación."), { codigo: r.codigo, detalle: r.detalle || null }));
   ok(r && typeof r === "object" && r.ok === true ? r.datos : r);
 }
 
+/**
+ * Llama a una función del servidor con google.script.run y devuelve una promesa con sus datos.
+ * modo: «bloquea» (espera visible), «fondo» (barra fina) o «silencio» (sin indicador).
+ * Se usa a través de llamar, llamarDeFondo y llamarEnSilencio.
+ * @param {string} nombre Endpoint (sin «_» final).
+ * @param {Array<*>} args
+ * @param {"bloquea"|"fondo"|"silencio"} modo
+ * @returns {Promise<*>} Se rechaza con un Error que lleva codigo y detalle.
+ */
 function invocar(nombre, args, modo){
   const visible = modo !== "silencio";
   if (visible) { pendientes[modo]++; pintarActividad(); }
@@ -235,7 +266,12 @@ const llamar = (nombre, ...args) => invocar(nombre, args, "bloquea");
 const llamarDeFondo = (nombre, ...args) => invocar(nombre, args, "fondo");
 const llamarEnSilencio = (nombre, ...args) => invocar(nombre, args, "silencio");
 
-/* Trabajo que hace el propio navegador y puede tardar (descargar SheetJS, leer un libro). */
+/**
+ * Trabajo que hace el propio navegador y puede tardar (descargar SheetJS, leer un libro).
+ * @template T
+ * @param {function(): Promise<T>} trabajo
+ * @returns {Promise<T>}
+ */
 async function conEspera(trabajo){
   pendientes.bloquea++; pintarActividad();
   try { return await trabajo(); }

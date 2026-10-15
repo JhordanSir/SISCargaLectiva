@@ -1,3 +1,4 @@
+// @ts-check
 /* Configuración: vive en las propiedades del script (Configuración del proyecto →
    Propiedades del script). instalar() crea las que falten con estos valores. */
 var PROPIEDADES_POR_DEFECTO_ = {
@@ -18,6 +19,10 @@ var USUARIOS_INICIALES_ = [
 
 var configCache_ = null;
 
+/**
+ * Configuración del sistema, con los valores por defecto donde falten. Se guarda en la ejecución.
+ * @returns {Configuracion}
+ */
 function config_() {
   if (configCache_) return configCache_;
   const p = PropertiesService.getScriptProperties().getProperties();
@@ -49,8 +54,11 @@ function config_() {
   return configCache_;
 }
 
-/* Se ejecuta una vez desde el editor de Apps Script. Se puede repetir sin riesgo:
-   reutiliza la carpeta y la hoja si ya existen y solo crea lo que falta. */
+/**
+ * Se ejecuta una vez desde el editor de Apps Script. Se puede repetir sin riesgo:
+ * reutiliza la carpeta y la hoja si ya existen y solo crea lo que falta.
+ * @returns {string} Resumen de lo hecho (también en el registro).
+ */
 function instalar() {
   const activo = String(Session.getActiveUser().getEmail() || "").toLowerCase();
   const efectivo = String(Session.getEffectiveUser().getEmail() || "").toLowerCase();
@@ -90,6 +98,11 @@ function instalar() {
   return resumen;
 }
 
+/**
+ * Carpeta de Drive por su id, o null si no existe o está en la papelera.
+ * @param {string} id
+ * @returns {GoogleAppsScript.Drive.Folder|null}
+ */
 function abrirCarpeta_(id) {
   if (!id) return null;
   try {
@@ -100,6 +113,11 @@ function abrirCarpeta_(id) {
   }
 }
 
+/**
+ * Hoja de cálculo por su id, o null si no existe o está en la papelera.
+ * @param {string} id
+ * @returns {GoogleAppsScript.Spreadsheet.Spreadsheet|null}
+ */
 function abrirLibro_(id) {
   if (!id) return null;
   try {
@@ -110,6 +128,11 @@ function abrirLibro_(id) {
   }
 }
 
+/**
+ * Si la pestaña Usuarios está vacía, añade las cuentas iniciales como directores.
+ * @param {GoogleAppsScript.Spreadsheet.Spreadsheet} libro
+ * @returns {number} Cuántas cuentas añadió.
+ */
 function sembrarUsuarios_(libro) {
   const hoja = libro.getSheetByName(TABLA_.USUARIOS);
   if (hoja.getLastRow() > 1) return 0;

@@ -1,12 +1,23 @@
+// @ts-check
 /* Fusiones entre carreras: la parte que lee y escribe la hoja. La reconciliación (qué
    cambia en cada plan) es Dominio.reconciliarFusiones, sin acceso a la hoja. Los planes
    de las otras carreras no se tocan si otra cuenta los está editando: en ese caso no se
    guarda nada y se avisa. */
 
-/* Debe llamarse dentro de conCandado_. antes: contenido vigente del plan; despues: el que
-   se va a guardar (se ajusta aquí); disueltas: marcas que el usuario deshizo.
-   opciones.sinBloqueo: no comprueba los bloqueos ajenos (lectura automática del xlsx).
-   Devuelve {asignaturas, otros: [{sig, asignaturas, motivo}]}. */
+/**
+ * Debe llamarse dentro de conCandado_. antes: contenido vigente del plan; despues: el que
+ * se va a guardar (se ajusta aquí); disueltas: marcas que el usuario deshizo.
+ * opciones.sinBloqueo: no comprueba los bloqueos ajenos (lectura automática del xlsx).
+ * Devuelve {asignaturas, otros: [{sig, asignaturas, motivo}]}.
+ * @param {string} ciclo
+ * @param {Sigla} sig
+ * @param {Asignatura[]} antes
+ * @param {Asignatura[]} despues
+ * @param {string[]} disueltas
+ * @param {Usuario|null} usuario
+ * @param {{sinBloqueo?: boolean}=} opciones
+ * @returns {{asignaturas: Asignatura[], otros: Array<{sig: Sigla, asignaturas: Asignatura[], motivo: string}>}}
+ */
 function prepararFusiones_(ciclo, sig, antes, despues, disueltas, usuario, opciones) {
   if (!Dominio.marcasAfectadas(antes, despues, disueltas).length) return { asignaturas: despues, otros: [] };
 
@@ -27,8 +38,15 @@ function prepararFusiones_(ciclo, sig, antes, despues, disueltas, usuario, opcio
   };
 }
 
-/* Guarda en los planes de otras carreras los cambios de fusión. Debe llamarse dentro de
-   conCandado_. Devuelve la fila del tablero de cada plan tocado. */
+/**
+ * Guarda en los planes de otras carreras los cambios de fusión. Debe llamarse dentro de
+ * conCandado_. Devuelve la fila del tablero de cada plan tocado.
+ * @param {string} ciclo
+ * @param {Array<{sig: Sigla, asignaturas: Asignatura[], motivo: string}>} otros
+ * @param {string} usuario Correo o «xlsx: …».
+ * @param {string} fecha
+ * @returns {Array<{sig: Sigla, version: number, estado: string, totales: Totales, contenido: Asignatura[]}>}
+ */
 function guardarFusionesAjenas_(ciclo, otros, usuario, fecha) {
   if (!otros.length) return [];
   const filas = leerPlanes_();

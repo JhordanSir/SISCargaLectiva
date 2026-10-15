@@ -70,6 +70,10 @@ const bloqueoVigente = b => b && Date.parse(b.expira) > Date.now() ? b : null;
    segundo plano cada vez que llega el tablero o se guarda una carga. */
 const docentesGrupo = { ciclo: "", mapa: null, pedido: null, cicloPedido: "" };
 
+/**
+ * Pide en silencio los docentes por grupo del ciclo a la vista; al llegar, repinta si hace falta.
+ * @returns {Promise<void>}
+ */
 function pedirDocentesGrupo(){
   const ciclo = app.ciclo;
   const pedido = llamarEnSilencio("obtenerDocentesPorGrupo", ciclo).then(mapa => {
@@ -85,20 +89,31 @@ function pedirDocentesGrupo(){
   return pedido;
 }
 
-/* {grupoId: [nombres]} de una carrera en el ciclo a la vista, o null si aún no llegó. */
+/**
+ * {grupoId: [nombres]} de una carrera en el ciclo a la vista, o null si aún no llegó.
+ * @param {string} sig
+ * @returns {Object<string, string[]>|null}
+ */
 function docentesDelPlan(sig){
   return docentesGrupo.mapa && docentesGrupo.ciclo === app.ciclo ? docentesGrupo.mapa[sig] || {} : null;
 }
 
-/* Antes de advertir al borrar o al cambiar el departamento: si el dato no ha llegado, lo
-   espera (o lo pide). Si falla, se sigue sin la advertencia. */
+/**
+ * Antes de advertir al borrar o al cambiar el departamento: si el dato no ha llegado, lo
+ * espera (o lo pide). Si falla, se sigue sin la advertencia.
+ * @returns {Promise<void>}
+ */
 async function asegurarDocentesGrupo(){
   if (docentesDelPlan(app.carrera)) return;
   const enCamino = docentesGrupo.pedido && docentesGrupo.cicloPedido === app.ciclo ? docentesGrupo.pedido : pedirDocentesGrupo();
   await conEspera(() => enCamino);
 }
 
-/* Al llegar los docentes, se repinta la consulta o la grilla a la vista si los suyos cambiaron. */
+/**
+ * Al llegar los docentes, se repinta la consulta o la grilla a la vista si los suyos cambiaron.
+ * @param {Object<string, Object<string, string[]>>|null} anterior
+ * @returns {void}
+ */
 function repintarDocentes(anterior){
   const sig = app.vista === "lectura" ? app.lectura : app.vista === "grilla" ? app.carrera : null;
   if (!sig) return;
@@ -119,6 +134,11 @@ function mostrarTablero(){
   if (!tableroAlDia()) cargarTablero();
 }
 
+/**
+ * Lee el tablero del ciclo a la vista; con opciones.releer, mira antes los xlsx de Drive.
+ * @param {{releer?: boolean}=} opciones
+ * @returns {Promise<void>}
+ */
 async function cargarTablero(opciones){
   const ciclo = app.ciclo, pedido = ++app.tableroPedido;
   const releer = !!(opciones && opciones.releer);
@@ -132,6 +152,13 @@ async function cargarTablero(opciones){
   }
 }
 
+/**
+ * Guarda las filas del tablero y sus avisos, lo pinta y pide los docentes por grupo.
+ * @param {string} ciclo
+ * @param {Array<Object>} filas
+ * @param {Array<{nivel: string, texto: string}>} avisos
+ * @returns {void}
+ */
 function fijarTablero(ciclo, filas, avisos){
   app.tablero = filas;
   app.tableroCiclo = ciclo;
@@ -153,6 +180,10 @@ function actualizarFilaTablero(sig, cambios){
   if (f) Object.assign(f, cambios);
 }
 
+/**
+ * Pinta las tarjetas de los planes del ciclo con su estado, versión, totales y bloqueo.
+ * @returns {void}
+ */
 function pintarTablero(){
   const filas = app.tableroCiclo === app.ciclo ? app.tablero : [];
   const u = app.usuario || {};
@@ -186,6 +217,11 @@ function pintarTablero(){
   pintarAvance(filas);
 }
 
+/**
+ * Barra y leyenda del avance del ciclo (registrados, en borrador, sin iniciar, en edición).
+ * @param {Array<Object>} filas
+ * @returns {void}
+ */
 function pintarAvance(filas){
   const u = app.usuario || {};
   const n = filas.length;

@@ -9,6 +9,10 @@
    página. Si no se puede descargar, los archivos se leen como texto. */
 const URL_SHEETJS = "https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js";
 let descargaSheetJS = null;
+/**
+ * Descarga SheetJS del CDN la primera vez que hace falta (solo en las cargas masivas).
+ * @returns {Promise<boolean>} false si no se pudo descargar.
+ */
 function cargarSheetJS(){
   if (typeof XLSX !== "undefined") return Promise.resolve(true);
   if (!descargaSheetJS) descargaSheetJS = new Promise(resolve => {
@@ -21,7 +25,13 @@ function cargarSheetJS(){
   return descargaSheetJS;
 }
 
-/* Pregunta qué hoja de un libro leer. Devuelve su nombre o null si se cancela. */
+/**
+ * Pregunta qué hoja de un libro leer. Devuelve su nombre o null si se cancela.
+ * @param {string[]} nombres
+ * @param {string} titulo
+ * @param {string} boton
+ * @returns {Promise<string|null>}
+ */
 async function preguntarHoja(nombres, titulo, boton){
   const r = await preguntar({
     titulo: titulo,
@@ -33,9 +43,14 @@ async function preguntarHoja(nombres, titulo, boton){
   return r ? r() : null;
 }
 
-/* Lee un archivo como libro de cálculo y, si no lo es o no se puede, como texto. No hay
-   extensiones prohibidas. elegirHoja(nombres) => Promise<nombre|null> decide la hoja
-   cuando el libro tiene varias. Devuelve {matriz, hoja} o null si se canceló. */
+/**
+ * Lee un archivo como libro de cálculo y, si no lo es o no se puede, como texto. No hay
+ * extensiones prohibidas. elegirHoja(nombres) => Promise<nombre|null> decide la hoja
+ * cuando el libro tiene varias. Devuelve {matriz, hoja} o null si se canceló.
+ * @param {File} file
+ * @param {function(string[]): Promise<string|null>} elegirHoja
+ * @returns {Promise<{matriz: string[][], hoja: (string|null)}|null>}
+ */
 async function leerArchivoComoMatriz(file, elegirHoja){
   const ext = ((file.name.match(/\.([^.]+)$/) || [])[1] || "").toLowerCase();
   if (["xlsx", "xlsm", "xlsb", "xls", "ods"].includes(ext) && await conEspera(cargarSheetJS)) {
@@ -60,16 +75,20 @@ function letraColumna(i){
   return s;
 }
 
-/* Rejilla con aspecto de hoja de cálculo donde se pega un rango.
-   op: {
-     hoja, scroll, vacia: elementos de la rejilla, de la tabla y del estado vacío,
-     pie (opcional): elemento donde se resume la lectura,
-     botones: elementos que se habilitan cuando hay contenido,
-     activa: () => bool; el pegado se escucha en todo el documento, solo con la rejilla a la vista,
-     filaCabecera: matriz => índice de la fila de cabeceras o -1,
-     maxFilas: tope de filas dibujadas (se procesan todas),
-     alPegar: matriz => void (opcional), alSoltarArchivo: file => void (opcional)
-   } */
+/**
+ * Rejilla con aspecto de hoja de cálculo donde se pega un rango.
+ * op: {
+ *   hoja, scroll, vacia: elementos de la rejilla, de la tabla y del estado vacío,
+ *   pie (opcional): elemento donde se resume la lectura,
+ *   botones: elementos que se habilitan cuando hay contenido,
+ *   activa: () => bool; el pegado se escucha en todo el documento, solo con la rejilla a la vista,
+ *   filaCabecera: matriz => índice de la fila de cabeceras o -1,
+ *   maxFilas: tope de filas dibujadas (se procesan todas),
+ *   alPegar: matriz => void (opcional), alSoltarArchivo: file => void (opcional)
+ * }
+ * @param {Object} op
+ * @returns {{pintar: function((Array<Array<*>>|null)): void, limpiar: function(): void, matriz: (Array<Array<*>>|null)}}
+ */
 function crearRejillaPegado(op){
   let matriz = null;
 

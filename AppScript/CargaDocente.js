@@ -1,3 +1,4 @@
+// @ts-check
 /* Asignación docente (CU-002). Cada departamento tiene su carga docente en cada ciclo: la
    lista de docentes asignados a las secciones que le piden los planes Registrados. Cada
    guardado añade una versión a VersionesCarga, como los planes, y Cargas apunta a la
@@ -5,6 +6,13 @@
    consultan. Este archivo tiene las funciones que llama el navegador; el catálogo está en
    CargaDocenteCatalogo.js y los datos, en CargaDocenteRepositorio.js. */
 
+/**
+ * Endpoint: todo lo que necesita la pantalla de asignación de un departamento: secciones, cargas,
+ * catálogo, avisos y bloqueo.
+ * @param {string} ciclo
+ * @param {Dpto=} dpto Por defecto, el del director.
+ * @returns {Respuesta<Object>}
+ */
 function obtenerCargaDocente(ciclo, dpto) {
   return responder_(function () {
     const usuario = exigirUsuario_();
@@ -23,15 +31,19 @@ function obtenerCargaDocente(ciclo, dpto) {
       catalogo: catalogoVisible_(catalogo.docentes, usuario, d), columnasCatalogo: catalogo.columnas,
       unidades: unidades, cargas: cargasVisibles_(cargas, usuario, d),
       planes: planes.map(function (p) { return { sig: p.sig, estado: p.estado, version: p.version }; }),
-      avisos: (catalogo.avisos || []).concat(avisosDeCarga_(d, planes, metas[metas.length - 1] || null, vig.sinSeccion)),
+      avisos: (catalogo.avisos || []).concat(avisosDeCarga_(d, planes, metas[metas.length - 1] || null, /** @type {Object<string, Asignacion[]>} */ (vig.sinSeccion))),
       bloqueo: b ? datosBloqueo_(b) : null
     };
   });
 }
 
-/* Qué grupos de cada plan del ciclo ya tienen docente: {ADM: {grupoId: [nombres]}}. El
-   navegador lo pide aparte del tablero y en segundo plano: lo usa para mostrar los docentes
-   en la consulta de un plan y para advertir antes de borrar un grupo con docente. */
+/**
+ * Qué grupos de cada plan del ciclo ya tienen docente: {ADM: {grupoId: [nombres]}}. El
+ * navegador lo pide aparte del tablero y en segundo plano: lo usa para mostrar los docentes
+ * en la consulta de un plan y para advertir antes de borrar un grupo con docente.
+ * @param {string} ciclo
+ * @returns {Respuesta<Object<string, Object<string, string[]>>>}
+ */
 function obtenerDocentesPorGrupo(ciclo) {
   return responder_(function () {
     exigirUsuario_();
@@ -39,7 +51,13 @@ function obtenerDocentesPorGrupo(ciclo) {
   });
 }
 
-/* Toma el bloqueo de la carga. Si la edita otra cuenta, falla con BLOQUEADO. */
+/**
+ * Toma el bloqueo de la carga. Si la edita otra cuenta, falla con BLOQUEADO.
+ * @param {string} ciclo
+ * @param {Dpto} dpto
+ * @param {number=} versionConocida
+ * @returns {Respuesta<{version: number, expira: string, recuperacion: (Recuperacion|null), asignaciones?: Asignacion[]}>}
+ */
 function abrirEdicionCarga(ciclo, dpto, versionConocida) {
   return responder_(function () {
     const usuario = exigirUsuario_();
@@ -50,13 +68,19 @@ function abrirEdicionCarga(ciclo, dpto, versionConocida) {
       if (!r.ok) falloBloqueado_("La carga de " + d, r.bloqueo);
       const v = vigente_(filaCarga_(c, d));
       const res = { version: v.version, expira: r.expira, recuperacion: leerRecuperacion_(c, Dominio.REF.carga(d), usuario.correo) };
-      if (versionConocida == null || parseInt(versionConocida, 10) !== v.version)
+      if (versionConocida == null || parseInt(String(versionConocida), 10) !== v.version)
         res.asignaciones = v.version ? contenidoCarga_(c, d, v.version, v.filaVersion) : [];
       return res;
     });
   });
 }
 
+/**
+ * Endpoint: renueva el bloqueo de la carga (latido). Falla con BLOQUEO_PERDIDO si otra cuenta lo tomó.
+ * @param {string} ciclo
+ * @param {Dpto} dpto
+ * @returns {Respuesta<{expira: string}>}
+ */
 function renovarBloqueoCarga(ciclo, dpto) {
   return responder_(function () {
     const usuario = exigirUsuario_();
@@ -66,6 +90,12 @@ function renovarBloqueoCarga(ciclo, dpto) {
   });
 }
 
+/**
+ * Endpoint: suelta el bloqueo de la carga que tenga la cuenta.
+ * @param {string} ciclo
+ * @param {Dpto} dpto
+ * @returns {Respuesta<boolean>}
+ */
 function liberarBloqueoCarga(ciclo, dpto) {
   return responder_(function () {
     const usuario = exigirUsuario_();
@@ -74,13 +104,26 @@ function liberarBloqueoCarga(ciclo, dpto) {
   });
 }
 
+/**
+ * Endpoint: guarda la carga de un departamento (ver guardarCarga_).
+ * @param {string} ciclo
+ * @param {Dpto} dpto
+ * @param {Object} datos
+ * @returns {Respuesta<{version: number, fecha: string, asignaciones: Asignacion[], expira: (string|null)}>}
+ */
 function guardarCarga(ciclo, dpto, datos) {
   return responder_(function () { return guardarCarga_(ciclo, dpto, datos); });
 }
 
-/* datos: {asignaciones, versionBase, tipo («guardar» o «autoguardado»), motivo,
-   motivoExceso, forzar}. Orquesta: permiso, bloqueo, conflicto, depuración, excesos de
-   horas y guardado. */
+/**
+ * datos: {asignaciones, versionBase, tipo («guardar» o «autoguardado»), motivo,
+ * motivoExceso, forzar}. Orquesta: permiso, bloqueo, conflicto, depuración, excesos de
+ * horas y guardado.
+ * @param {string} ciclo
+ * @param {Dpto} dpto
+ * @param {{asignaciones: Asignacion[], versionBase?: number, tipo?: string, motivo?: string, motivoExceso?: string, forzar?: boolean}} datos
+ * @returns {{version: number, fecha: string, asignaciones: Asignacion[], expira: (string|null)}}
+ */
 function guardarCarga_(ciclo, dpto, datos) {
   const usuario = exigirUsuario_();
   const c = validarCiclo_(ciclo), d = validarDpto_(dpto);
@@ -108,8 +151,15 @@ function guardarCarga_(ciclo, dpto, datos) {
   });
 }
 
-/* Si se guardó otra versión después de versionBase, falla con CONFLICTO para que el
-   navegador advierta; con forzar se guarda igualmente (advertir, no prohibir). */
+/**
+ * Si se guardó otra versión después de versionBase, falla con CONFLICTO para que el
+ * navegador advierta; con forzar se guarda igualmente (advertir, no prohibir).
+ * @param {string} ciclo
+ * @param {Dpto} dpto
+ * @param {number} vigente
+ * @param {*} versionBase
+ * @returns {void}
+ */
 function exigirSinConflictoCarga_(ciclo, dpto, vigente, versionBase) {
   if (vigente <= (parseInt(versionBase, 10) || 0)) return;
   const ultima = metaVersionesCarga_(ciclo, dpto, vigente).filter(function (v) { return v.n === vigente; })[0];
@@ -117,10 +167,19 @@ function exigirSinConflictoCarga_(ciclo, dpto, vigente, versionBase) {
          ultima ? { n: ultima.n, tipo: ultima.tipo, usuario: ultima.usuario, fecha: ultima.fecha } : { n: vigente });
 }
 
-/* Nadie puede pasar de 40 h lectivas (A07): si un docente lo haría, no se guarda. Un
-   docente con cargo que pase de 24 h exige motivoExceso (A12). Compara el balance antes y
-   después de cambiar la carga de dpto, así que solo cuentan los excesos que se crean o
-   crecen ahora. Devuelve el motivo ya recortado. */
+/**
+ * Nadie puede pasar de 40 h lectivas (A07): si un docente lo haría, no se guarda. Un
+ * docente con cargo que pase de 24 h exige motivoExceso (A12). Compara el balance antes y
+ * después de cambiar la carga de dpto, así que solo cuentan los excesos que se crean o
+ * crecen ahora. Devuelve el motivo ya recortado.
+ * @param {DocenteCatalogo[]} catalogo
+ * @param {Seccion[]} unidades
+ * @param {Object<string, Asignacion[]>} cargas
+ * @param {Dpto} dpto
+ * @param {Asignacion[]} asignaciones
+ * @param {*} motivoExceso
+ * @returns {string}
+ */
 function validarExcesos_(catalogo, unidades, cargas, dpto, asignaciones, motivoExceso) {
   const nuevas = Object.assign({}, cargas);
   nuevas[dpto] = asignaciones;
@@ -136,13 +195,21 @@ function validarExcesos_(catalogo, unidades, cargas, dpto, asignaciones, motivoE
   return motivo;
 }
 
-/* Debe llamarse dentro de conCandado_. Añade la versión con la versión de cada plan a la
-   vista (para avisar después si cambian) y borra la copia de recuperación. datos: {tipo,
-   usuario, motivo, motivoExceso, planes, asignaciones}. */
+/**
+ * Debe llamarse dentro de conCandado_. Añade la versión con la versión de cada plan a la
+ * vista (para avisar después si cambian) y borra la copia de recuperación. datos: {tipo,
+ * usuario, motivo, motivoExceso, planes, asignaciones}.
+ * @param {string} ciclo
+ * @param {Dpto} dpto
+ * @param {FilaTabla|null} fila
+ * @param {{tipo: string, usuario: string, motivo?: string, motivoExceso?: string, planes: Array<{sig: Sigla, version: number}>, asignaciones: Asignacion[]}} datos
+ * @returns {{version: number, fecha: string}}
+ */
 function persistirCarga_(ciclo, dpto, fila, datos) {
   const fecha = new Date().toISOString();
   const motivo = [String(datos.motivo || "").trim().slice(0, 300), datos.motivoExceso ? "Exceso de carga con cargo: " + datos.motivoExceso : ""]
     .filter(Boolean).join(" · ");
+  /** @type {Object<string, number>} */
   const vistos = {};
   datos.planes.forEach(function (p) { if (p.version) vistos[p.sig] = p.version; });
   const n = registrarVersionCarga_(ciclo, dpto, fila, { tipo: datos.tipo, usuario: datos.usuario, fecha: fecha, motivo: motivo.slice(0, 500),
@@ -151,6 +218,12 @@ function persistirCarga_(ciclo, dpto, fila, datos) {
   return { version: n, fecha: fecha };
 }
 
+/**
+ * Endpoint: versiones de la carga de un departamento.
+ * @param {string} ciclo
+ * @param {Dpto} dpto
+ * @returns {Respuesta<MetaVersion[]>}
+ */
 function obtenerHistorialCarga(ciclo, dpto) {
   return responder_(function () {
     exigirUsuario_();
@@ -159,23 +232,36 @@ function obtenerHistorialCarga(ciclo, dpto) {
   });
 }
 
+/**
+ * Endpoint: asignaciones de una versión de la carga (sin DNI si no es su director).
+ * @param {string} ciclo
+ * @param {Dpto} dpto
+ * @param {number} n
+ * @returns {Respuesta<Asignacion[]>}
+ */
 function obtenerVersionCarga(ciclo, dpto, n) {
   return responder_(function () {
     const usuario = exigirUsuario_();
     const c = validarCiclo_(ciclo), d = validarDpto_(dpto);
-    const lista = contenidoCarga_(c, d, parseInt(n, 10), 0);
+    const lista = contenidoCarga_(c, d, parseInt(String(n), 10), 0);
     return puedeEditarCarga_(usuario, d) ? lista : lista.map(sinDni_);
   });
 }
 
-/* Restaurar no borra el historial: crea una versión nueva con el contenido recuperado,
-   con las mismas reglas de un guardado. */
+/**
+ * Restaurar no borra el historial: crea una versión nueva con el contenido recuperado,
+ * con las mismas reglas de un guardado.
+ * @param {string} ciclo
+ * @param {Dpto} dpto
+ * @param {number} n
+ * @returns {Respuesta<{version: number, fecha: string, asignaciones: Asignacion[], expira: (string|null)}>}
+ */
 function restaurarCarga(ciclo, dpto, n) {
   return responder_(function () {
     const usuario = exigirUsuario_();
     const c = validarCiclo_(ciclo), d = validarDpto_(dpto);
     exigirCarga_(usuario, d);
-    const k = parseInt(n, 10);
+    const k = parseInt(String(n), 10);
     const vigente = vigente_(filaCarga_(c, d)).version;
     if (!(k >= 1 && k <= vigente)) fallo_("NO_ENCONTRADO", "La versión v" + n + " no existe.");
     const asignaciones = contenidoCarga_(c, d, k, 0);

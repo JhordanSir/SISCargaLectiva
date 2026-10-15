@@ -1,3 +1,4 @@
+// @ts-check
 /* Contrato de las respuestas al navegador. Todo endpoint devuelve
      {ok: true, datos}                         si salió bien, o
      {ok: false, codigo, mensaje, detalle}     si no se pudo,
@@ -20,10 +21,7 @@ var MENSAJE_INTERNO_ = "Ocurrió un error inesperado. Inténtalo de nuevo; si se
  * @returns {Error & {codigo: string, detalle: (Object|null)}}
  */
 function errorSis_(codigo, mensaje, detalle) {
-  const e = new Error(mensaje);
-  e.codigo = codigo;
-  e.detalle = detalle || null;
-  return e;
+  return Object.assign(new Error(mensaje), { codigo: codigo, detalle: detalle || null });
 }
 
 /**

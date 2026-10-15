@@ -1,10 +1,17 @@
+// @ts-check
 /* Lectura de libros .xlsx sin convertirlos a Hoja de cálculo de Google.
    leerLibroXlsx_() es pura: recibe las partes del zip ya descomprimidas
    ({ruta: textoXml}) y devuelve [{nombre, filas}], con cada celda como el texto
    que mostraría Excel. descomprimirXlsx_() es la única parte que usa Apps Script. */
 
+/**
+ * Partes XML de un .xlsx: {ruta: texto}. Es lo único del lector que usa Apps Script.
+ * @param {GoogleAppsScript.Base.Blob} blob
+ * @returns {Object<string, string>}
+ */
 function descomprimirXlsx_(blob) {
   const partes = Utilities.unzip(blob.setContentType("application/zip"));
+  /** @type {Object<string, string>} */
   const archivos = {};
   partes.forEach(function (p) {
     const nombre = p.getName();
@@ -13,6 +20,11 @@ function descomprimirXlsx_(blob) {
   return archivos;
 }
 
+/**
+ * Hojas de un libro a partir de sus partes ya descomprimidas. Función pura.
+ * @param {Object<string, string>} archivos
+ * @returns {HojaXlsx[]}
+ */
 function leerLibroXlsx_(archivos) {
   const libro = xlsxParte_(archivos, "xl/workbook.xml");
   if (!libro) throw new Error("El archivo no es un libro .xlsx: falta xl/workbook.xml.");
@@ -32,6 +44,12 @@ function leerLibroXlsx_(archivos) {
   });
 }
 
+/**
+ * Texto de una parte del zip por su ruta, sin distinguir mayúsculas.
+ * @param {Object<string, string>} archivos
+ * @param {string} ruta
+ * @returns {string|null}
+ */
 function xlsxParte_(archivos, ruta) {
   if (archivos[ruta] != null) return archivos[ruta];
   const claves = Object.keys(archivos);
@@ -46,6 +64,11 @@ function xlsxParte_(archivos, ruta) {
   return k ? archivos[k] : null;
 }
 
+/**
+ * Texto XML con sus entidades y escapes «_xHHHH_» resueltos.
+ * @param {string} t
+ * @returns {string}
+ */
 function xlsxDecodificar_(t) {
   return String(t)
     .replace(/&(#x[0-9a-f]+|#\d+|amp|lt|gt|quot|apos);/gi, function (m, e) {
@@ -60,7 +83,13 @@ function xlsxDecodificar_(t) {
     .replace(/_x([0-9a-f]{4})_/gi, function (m, h) { return String.fromCharCode(parseInt(h, 16)); });
 }
 
+/**
+ * Atributos de una etiqueta XML: {nombre: valor}.
+ * @param {string} texto
+ * @returns {Object<string, string>}
+ */
 function xlsxAtributos_(texto) {
+  /** @type {Object<string, string>} */
   const a = {};
   const re = /([\w:.-]+)\s*=\s*("([^"]*)"|'([^']*)')/g;
   let m;
@@ -68,6 +97,12 @@ function xlsxAtributos_(texto) {
   return a;
 }
 
+/**
+ * Atributos de cada etiqueta con ese nombre en el XML.
+ * @param {string} xml
+ * @param {string} etiqueta
+ * @returns {Array<Object<string, string>>}
+ */
 function xlsxEtiquetas_(xml, etiqueta) {
   const re = new RegExp("<" + etiqueta + "(\\s[^>]*?)?\\/?>", "g");
   const res = [];
@@ -76,7 +111,11 @@ function xlsxEtiquetas_(xml, etiqueta) {
   return res;
 }
 
-/* Texto de los nodos <t> de un fragmento, sin la guía fonética (<rPh>). */
+/**
+ * Texto de los nodos <t> de un fragmento, sin la guía fonética (<rPh>).
+ * @param {string} fragmento
+ * @returns {string}
+ */
 function xlsxTexto_(fragmento) {
   const limpio = fragmento.replace(/<rPh\b[\s\S]*?<\/rPh>/g, "");
   let texto = "";
@@ -86,6 +125,11 @@ function xlsxTexto_(fragmento) {
   return texto;
 }
 
+/**
+ * Tabla de cadenas compartidas (sharedStrings.xml).
+ * @param {string} xml
+ * @returns {string[]}
+ */
 function xlsxCadenasCompartidas_(xml) {
   const res = [];
   const re = /<si(?:\s[^>]*)?(?:\/>|>([\s\S]*?)<\/si>)/g;
@@ -100,6 +144,11 @@ var XLSX_FORMATOS_FECHA_ = {
   20: "h:mm", 21: "h:mm:ss", 22: "m/d/yy h:mm", 45: "mm:ss", 46: "[h]:mm:ss", 47: "mmss.0"
 };
 
+/**
+ * Código de formato de fecha de cada estilo de celda (o null si no es fecha).
+ * @param {string} xml
+ * @returns {Array<string|null>}
+ */
 function xlsxEstilos_(xml) {
   const formatos = {};
   xlsxEtiquetas_(xml, "numFmt").forEach(function (a) { formatos[a.numFmtId] = a.formatCode; });
@@ -111,6 +160,11 @@ function xlsxEstilos_(xml) {
   });
 }
 
+/**
+ * ¿El código de formato numérico es de fecha u hora?
+ * @param {string} codigo
+ * @returns {boolean}
+ */
 function xlsxEsFecha_(codigo) {
   const limpio = String(codigo).split(";")[0]
     .replace(/"[^"]*"/g, "").replace(/\\./g, "").replace(/[_*]./g, "").replace(/\[[^\]]*\]/g, "");
@@ -121,7 +175,12 @@ var XLSX_MESES_ = ["January", "February", "March", "April", "May", "June", "July
                    "August", "September", "October", "November", "December"];
 var XLSX_DIAS_ = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
-/* Da formato a una fecha serial de Excel con un código como «d-m» o «D/M/YYYY». */
+/**
+ * Da formato a una fecha serial de Excel con un código como «d-m» o «D/M/YYYY».
+ * @param {number} serial
+ * @param {string} codigo
+ * @returns {string}
+ */
 function xlsxFormatearFecha_(serial, codigo) {
   const f = new Date(Math.round((serial - 25569) * 864e5));
   const seccion = String(codigo).split(";")[0];
@@ -179,19 +238,35 @@ function xlsxFormatearFecha_(serial, codigo) {
   }).join("");
 }
 
-/* Número con el aspecto del formato General: sin «.0» ni ruido de coma flotante. */
+/**
+ * Número con el aspecto del formato General: sin «.0» ni ruido de coma flotante.
+ * @param {string} v
+ * @returns {string}
+ */
 function xlsxNumero_(v) {
   const n = Number(v);
   if (!isFinite(n)) return String(v);
   return Number.isInteger(n) ? String(n) : String(parseFloat(n.toPrecision(11)));
 }
 
+/**
+ * Índice (desde 0) de una columna por sus letras: A → 0, AA → 26.
+ * @param {string} letras
+ * @returns {number}
+ */
 function xlsxColumna_(letras) {
   let n = 0;
   for (let i = 0; i < letras.length; i++) n = n * 26 + (letras.charCodeAt(i) - 64);
   return n - 1;
 }
 
+/**
+ * Filas de una hoja (sheetN.xml) como texto, con la celda en su columna.
+ * @param {string} xml
+ * @param {string[]} compartidas
+ * @param {Array<string|null>} estilos
+ * @returns {string[][]}
+ */
 function xlsxFilas_(xml, compartidas, estilos) {
   const filas = [];
   const reFila = /<row\b([^>]*?)(?:\/>|>([\s\S]*?)<\/row>)/g;
@@ -238,11 +313,18 @@ function xlsxFilas_(xml, compartidas, estilos) {
    Oferta de las carreras a partir de los dos libros de ejemplo
    ============================================================ */
 
-/* libroCarrera: una hoja por carrera. libroDepartamento (opcional) aporta la
-   CONDICIÓN de cada código: si la asignatura no trae OBSERVACIONES y la condición
-   habla de INTERNACIONAL, VIRTUAL o FUSIÓN, esa condición pasa a ser su observación. */
+/**
+ * libroCarrera: una hoja por carrera. libroDepartamento (opcional) aporta la
+ * CONDICIÓN de cada código: si la asignatura no trae OBSERVACIONES y la condición
+ * habla de INTERNACIONAL, VIRTUAL o FUSIÓN, esa condición pasa a ser su observación.
+ * @param {HojaXlsx[]} libroCarrera
+ * @param {HojaXlsx[]|null} libroDepartamento
+ * @returns {{oferta: Object<string, Asignatura[]>, avisos: Aviso[]}}
+ */
 function ofertaDesdeLibros_(libroCarrera, libroDepartamento) {
-  const oferta = {}, avisos = [];
+  /** @type {Object<string, Asignatura[]>} */
+  const oferta = {};
+  const avisos = [];
 
   libroCarrera.forEach(function (hoja) {
     const sig = Dominio.siglaDeCarrera(hoja.nombre) || siglaMayoritaria_(hoja.filas);
@@ -274,6 +356,11 @@ function ofertaDesdeLibros_(libroCarrera, libroDepartamento) {
   return { oferta: oferta, avisos: avisos };
 }
 
+/**
+ * Carrera que más aparece en las celdas de una hoja sin nombre de carrera.
+ * @param {string[][]} filas
+ * @returns {Sigla|null}
+ */
 function siglaMayoritaria_(filas) {
   const cuenta = {};
   filas.forEach(function (f) {
@@ -286,7 +373,13 @@ function siglaMayoritaria_(filas) {
   return orden[0] || null;
 }
 
+/**
+ * CONDICIÓN de cada código en CargaXDepartamento cuando habla de INTERNACIONAL, VIRTUAL o FUSIÓN.
+ * @param {HojaXlsx[]} libro
+ * @returns {Object<string, string>}
+ */
 function marcasDeCondicion_(libro) {
+  /** @type {Object<string, string>} */
   const marcas = {};
   libro.forEach(function (hoja) {
     let jCodigo = -1, jCondicion = -1, filaCab = -1;

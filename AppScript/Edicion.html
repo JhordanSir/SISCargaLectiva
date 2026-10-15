@@ -8,15 +8,19 @@
    - Diálogos comunes: recuperar cambios, conflicto de versión, historial e informar.
    ============================================================ */
 
-/* op: {
-     relojes:      selector de los elementos donde se pinta el tiempo que queda,
-     renovar:      () => Promise<{expira}>; se rechaza con codigo BLOQUEO_PERDIDO si otra cuenta lo tomó,
-     alPerder:     correo => void, cuando otra cuenta tomó el bloqueo,
-     alExpirar:    () => void, cuando pasó el tiempo sin actividad,
-     alRenovar:    () => void (opcional), tras cada renovación,
-     copia:        () => {contenido, versionBase} | null (null: nada que copiar),
-     guardarCopia: datos => Promise
-   } */
+/**
+ * op: {
+ *   relojes:      selector de los elementos donde se pinta el tiempo que queda,
+ *   renovar:      () => Promise<{expira}>; se rechaza con codigo BLOQUEO_PERDIDO si otra cuenta lo tomó,
+ *   alPerder:     correo => void, cuando otra cuenta tomó el bloqueo,
+ *   alExpirar:    () => void, cuando pasó el tiempo sin actividad,
+ *   alRenovar:    () => void (opcional), tras cada renovación,
+ *   copia:        () => {contenido, versionBase} | null (null: nada que copiar),
+ *   guardarCopia: datos => Promise
+ * }
+ * @param {Object} op
+ * @returns {Object} Sesión: iniciar, detener, latido, mensaje, activa, expira…
+ */
 function crearSesionEdicion(op){
   const s = { expira: 0, desde: "", temporizador: null, copiador: null, ultimoLatido: 0, ultimaCopia: "", generacion: 0 };
   const quedan = () => Math.max(0, Math.ceil((s.expira - Date.now()) / 1000));
@@ -99,7 +103,14 @@ function crearSesionEdicion(op){
 
 /* ---------- diálogos comunes ---------- */
 
-/* Diálogo informativo con un solo botón. despues: más contenido bajo la nota (opcional). */
+/**
+ * Diálogo informativo con un solo botón. despues: más contenido bajo la nota (opcional).
+ * @param {string} titulo
+ * @param {string} html
+ * @param {string=} clase
+ * @param {function(): void=} despues
+ * @returns {Promise<*>}
+ */
 function informar(titulo, html, clase, despues){
   return preguntar({
     titulo: titulo,
@@ -108,8 +119,14 @@ function informar(titulo, html, clase, despues){
   });
 }
 
-/* Quedaron cambios sin guardar de una sesión anterior. Devuelve true (recuperarlos),
-   false (descartarlos) o null (se cerró sin elegir: la copia se conserva). */
+/**
+ * Quedaron cambios sin guardar de una sesión anterior. Devuelve true (recuperarlos),
+ * false (descartarlos) o null (se cerró sin elegir: la copia se conserva).
+ * @param {{fecha: string, versionBase: number, contenido: *}} rec
+ * @param {number} versionActual
+ * @param {string} donde
+ * @returns {Promise<boolean|null>}
+ */
 function ofrecerRecuperacion(rec, versionActual, donde){
   return preguntar({
     titulo: "Hay cambios sin guardar de una sesión anterior",
@@ -120,8 +137,13 @@ function ofrecerRecuperacion(rec, versionActual, donde){
   });
 }
 
-/* Mientras se editaba se guardó otra versión (c: {n, tipo, usuario, fecha}). de: «del
-   plan», «de la carga». Devuelve true si se quiere guardar igualmente. */
+/**
+ * Mientras se editaba se guardó otra versión (c: {n, tipo, usuario, fecha}). de: «del
+ * plan», «de la carga». Devuelve true si se quiere guardar igualmente.
+ * @param {{n: number, tipo?: string, usuario?: string, fecha?: string}} c
+ * @param {string} de
+ * @returns {Promise<boolean|null>}
+ */
 function confirmarConflicto(c, de){
   return preguntar({
     titulo: "Hay una versión más reciente " + de,
@@ -132,8 +154,12 @@ function confirmarConflicto(c, de){
   });
 }
 
-/* Historial de versiones. op: {titulo, versiones, conEstado, ver, restaurar}.
-   Devuelve {ver: n}, {restaurar: n} o null. */
+/**
+ * Historial de versiones. op: {titulo, versiones, conEstado, ver, restaurar}.
+ * Devuelve {ver: n}, {restaurar: n} o null.
+ * @param {{titulo: string, versiones: Array<Object>, conEstado?: boolean}} op
+ * @returns {Promise<{ver: number}|{restaurar: number}|null>}
+ */
 async function dialogoHistorial(op){
   const v = op.versiones;
   const r = await preguntar({
