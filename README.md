@@ -2,30 +2,31 @@
 
 Sistema web para planificar la **carga lectiva** de la Universidad La Salle (Arequipa): qué cursos y grupos abre cada carrera en un ciclo y qué docentes los dictan.
 
-Hoy este proceso se lleva en varios Google Sheets separados, uno por carrera y otro por departamento, que hay que mantener sincronizados a mano. SISCargaLectiva los reemplaza por **un solo registro**: un libro de Google Sheets que se edita en la web o directamente en sus hojas. Los listados por departamento y por docente se generan a partir de ese registro.
+Hoy este proceso se lleva en varios Google Sheets separados, uno por carrera y otro por departamento, que hay que mantener sincronizados a mano. SISCargaLectiva los reemplaza por **un solo registro**. Los listados por carrera, por departamento y por docente pasan a ser reportes generados desde ese registro.
 
 ## Estado del proyecto
 
-🚧 **En curso:** integración de CU-001 y CU-002 por carrera en un libro de Google Sheets. El plan por fases y su avance están en [docs/plan/plan-carga-por-carrera.md](docs/plan/plan-carga-por-carrera.md).
+🚧 `AppScript/` es una copia exacta del **proyecto independiente de Google Apps Script** que está en script.google.com: una aplicación web con CU-001 y un prototipo de CU-002.
 
-| Fase del plan | Qué incluye | Estado |
-|---|---|---|
-| 0 | Decisiones (P110–P144) | Hecha |
-| 1 | Dominio: docentes, horas, reglas A07–A13, fusiones entre carreras | Hecha |
-| 2 | Proyecto vinculado al libro, hojas por ciclo, siembra desde los `.xlsx` | Hecha |
-| 3 | Edición directa en la hoja: menú, panel lateral, disparadores, protecciones con el bloqueo, reemplazo | Hecha |
-| 4 | Web: grilla por carrera con docentes, vistas por departamento y por docente | Pendiente |
-| 5 | Concurrencia y rendimiento | Pendiente |
-| 6 | Cierre de la documentación | Pendiente |
+| Caso de uso | Estado en `AppScript/` |
+|---|---|
+| CU-001 Registrar plan de ciclo | Implementado |
+| CU-002 Asignar docentes a plan de ciclo | Prototipo |
+
+Este código es del 2026-10-08 (commit `3947d8b`), anterior a las decisiones P110–P144. El 2026-10-14 se retiraron de `AppScript/` las fases 1 a 3 del [plan por carrera](docs/plan/plan-carga-por-carrera.md), que estaban en el commit `035c873`: el libro vinculado, las hojas por carrera, la edición en la hoja, el menú y el panel lateral. El plan, [requirements.md](docs/requerimientos/requirements.md) y [CU-001 v6.0](docs/CU/CU-001-Registrar-Plan-de-Ciclo.md) siguen describiendo ese diseño.
 
 ## Qué hace hoy
 
-- **Un libro para todos los ciclos.** Cada ciclo tiene una hoja por carrera con el formato de CargaXCarrera («Ing. Software 2026-I»), la hoja **General** con el catálogo de docentes y sus horas, y las hojas **CARGA {DPTO}** por departamento. Las hojas del sistema (`_SYS_*`) están ocultas y protegidas.
-- **Siembra desde los Excel.** Los tres `.xlsx` de ejemplo se leen una vez, sin modificarlos, y llenan el ciclo 2026-1. Cada carrera queda *Registrado v1*. Las fusiones anotadas en OBSERVACIONES se convierten en fusiones del sistema, también entre carreras. Los docentes de la columna DOCENTE se vinculan con General, y quien no está en General se da de alta «por completar».
-- **Reglas de carga docente.** A07 (más de 40 h), A08 (más de 16 h con tiempo completo en otra universidad) y A11 (dos cursos del mismo semestre, carrera y malla) impiden la asignación por cualquier vía. A09, A10, A12 y A13 solo advierten. Al sembrar 2026-1, A11 deja dos asignaturas pendientes.
-- **Web (CU-001):** tablero, consulta, carga masiva, grilla por semestre (agregar grupos, desdoblar, fusionar), estados *Sin Iniciar → Borrador → Registrado*, versiones restaurables y bloqueo por carrera con expiración y autoguardado. Lo que se guarda en la web se escribe en la hoja de la carrera.
-- **Edición directa en la hoja.** La primera edición en la hoja de una carrera toma su bloqueo y la deja solo para esa persona, como al editar en la web. Cada edición se interpreta al momento: TH, SEMESTRE y GRUPO («1-2»), DOCENTE con sus reglas y el alta en General, fusiones anotadas en OBSERVACIONES, notas y colores, y General y las hojas por departamento. Lo que no se acepta vuelve a su último valor, con una nota. Un grupo vaciado o eliminado en la hoja se acepta y queda en las alertas (A06 si era el único de su asignatura o estaba fusionado); una fusión que se queda con un solo grupo se deshace en las otras carreras.
-- **Menú «🎓 SISCargaLectiva» y panel lateral.** «Sincronizar y versionar hoja actual» guarda lo de la hoja como versión y mantiene el bloqueo; «Terminar edición» además lo suelta. El panel muestra los totales de la carrera, quién la edita y las alertas A05–A15 con un enlace a su fila, y desde él se registra un reemplazo docente o se restaura una versión. Si nadie edita durante 30 minutos, un disparador autoguarda y suelta el bloqueo.
+El **Coordinador de carrera** (en sus carreras) o el **Director de departamento** (en cualquier carrera) registra el plan de ciclo de una carrera:
+
+- **Los Excel son la fuente de datos.** La oferta de 2026-1 se lee de los `.xlsx` de una carpeta de Google Drive, sin convertirlos, y cada carrera arranca como *Registrado v1*. Si el Excel cambia, cada plan afectado recibe una versión nueva. Los `.xlsx` nunca se modifican. La carpeta se revisa como mucho cada 5 minutos; el botón **Releer Excel** del tablero la revisa en el momento.
+- **Carga masiva:** se pega desde Google Sheets o se sube un `.xlsx` o `.csv`. El sistema no valida: interpreta lo que recibe y nunca rechaza una carga (CU-001 v4.0). Solo toma las filas de la carrera del plan.
+- **Grilla por semestre** para editar horas, asignaturas y grupos: agregar grupos, desdoblar la práctica o la teoría y fusionar grupos del plan, siempre con aviso y sin bloquear.
+- **Estados** Sin Iniciar → Borrador → Registrado. Un plan Registrado sigue siendo editable y **cada guardado genera una versión**, que se puede restaurar.
+- **Tablero** con el avance de todas las carreras del ciclo.
+- **Bloqueo de edición** por carrera, con expiración y autoguardado.
+
+**Asignación docente (prototipo de CU-002).** La opción «Asignar docentes al plan de ciclo» del menú lista, por ciclo y departamento, las asignaturas de los planes del ciclo. A esas asignaturas se les asignan docentes del catálogo de `CargaDeDocentes.xlsx`. Las asignaciones se guardan en la pestaña Asignaciones, con un bloqueo por departamento. El balance de horas de cada docente muestra las advertencias A07 a A13.
 
 El detalle está en [requirements.md](docs/requerimientos/requirements.md) y en [CU-001](docs/CU/CU-001-Registrar-Plan-de-Ciclo.md).
 
@@ -33,8 +34,8 @@ El detalle está en [requirements.md](docs/requerimientos/requirements.md) y en 
 
 | Capa | Tecnología |
 |---|---|
-| Aplicación | Google Apps Script **vinculado al libro**: servidor en `.js` y página con HtmlService |
-| Datos | El libro de Google Sheets: hojas de cada ciclo y hojas del sistema con usuarios, planes, versiones y bitácora |
+| Aplicación | Google Apps Script: servidor en `.js` y página con HtmlService |
+| Datos | Los `.xlsx` de una carpeta de Google Drive (fuente, solo lectura) y una hoja de cálculo de Google, «SISCargaLectiva-BD», con los planes, las versiones, los bloqueos, los usuarios y las asignaciones docentes |
 | Acceso | Cuenta de Google del dominio `@ulasalle.edu.pe` |
 | Despliegue | `clasp`, la herramienta de línea de comandos de Apps Script |
 
@@ -42,18 +43,14 @@ El detalle está en [requirements.md](docs/requerimientos/requirements.md) y en 
 
 ```
 .
-├── AppScript/                        # Proyecto de Apps Script vinculado al libro (se sube con clasp)
-│   ├── Principal.js                  # doGet (la página) y doPost (las acciones del menú y del panel)
-│   ├── Planes.js, Bloqueos.js        # Tablero, guardado, versiones, consolidación de la hoja y bloqueo
-│   ├── Libro.js, HojasLibro.js       # Hojas del sistema y lectura y escritura de las hojas de cada ciclo
-│   ├── HojaCarrera.js                # Formato de las hojas: plan ↔ filas (puro, se prueba en node)
-│   ├── Siembra.js, LectorXlsx.js     # Siembra de un ciclo desde los .xlsx
-│   ├── Dominio.js, DominioCarga.js   # Plan de ciclo y carga docente, compartidos con el navegador
-│   ├── Edicion.js                    # Disparadores: edición en la hoja, filas eliminadas, bloqueos vencidos
-│   ├── Menu.js, PanelCarrera.js      # Menú del libro, panel lateral y su envío a la aplicación web
-│   ├── Docentes.js                   # Balance de la carga docente, marcas de General y reemplazo docente
-│   ├── Acceso.js, Config.js
-│   ├── Index.html, App.html, Estilos.html, Panel.html
+├── AppScript/                        # Proyecto independiente de Apps Script (se sube con clasp)
+│   ├── Principal.js                  # doGet: arma la página
+│   ├── Planes.js, Bloqueos.js        # Tablero, guardado, versiones y bloqueo de edición
+│   ├── FuenteDrive.js, LectorXlsx.js # Lectura de los .xlsx de Drive
+│   ├── Dominio.js                    # Interpretación, edición y balance docente, compartidos con el navegador
+│   ├── Docentes.js                   # Prototipo de CU-002: catálogo, asignaturas por departamento y asignaciones
+│   ├── Acceso.js, Config.js, BaseDatos.js
+│   ├── Index.html, App.html, Estilos.html
 │   └── pruebas/                      # Pruebas y vista previa local (no se sube)
 ├── docs/
 │   ├── plan/                         # Plan por fases y su avance
@@ -69,24 +66,13 @@ El detalle está en [requirements.md](docs/requerimientos/requirements.md) y en 
 
 ## Puesta en marcha
 
-Hace falta Node.js y `clasp` (`npm install -g @google/clasp`), con la sesión iniciada con la cuenta institucional que será dueña del libro (`clasp login`).
+Hace falta Node.js y `clasp` (`npm install -g @google/clasp`), con la sesión iniciada con la cuenta institucional dueña del script (`clasp login`). El `.clasp.json` del repositorio apunta al proyecto independiente que ya está en script.google.com.
 
-El libro y su proyecto vinculado ya existen: el `.clasp.json` del repositorio apunta a ellos. Para subir cambios basta `cd AppScript && clasp push --force` y, si cambió lo que usa el menú, actualizar la implementación publicada (paso 5).
-
-1. **Crear el libro y su proyecto vinculado** (solo para montar otro libro). Desde `AppScript/`, quita el `.clasp.json` y crea uno nuevo vinculado a un libro nuevo. `clasp create-script` es el nombre en clasp 3; en clasp 2 es `clasp create`. Ese comando trae un `appsscript.json` por defecto: restaura el del repositorio antes de subir.
-   ```bash
-   cd AppScript
-   rm .clasp.json
-   clasp create-script --type sheets --title "SISCargaLectiva" --rootDir .
-   git checkout -- appsscript.json
-   clasp push --force
-   ```
-   Si `clasp` dejó un `Code.js` o `Código.js` por defecto, bórralo antes de `clasp push`.
-2. **Instalar.** Abre el editor con `clasp open-script` (`clasp open` en clasp 2), elige la función `instalar` y pulsa **Ejecutar**, aceptando los permisos. Prepara las hojas del sistema, crea la carpeta **SISCargaLectiva · Excel de origen** y los tres disparadores de la hoja (`onSheetEdit`, `onSheetChange` y `revisarBloqueos`, cada 5 minutos). Se puede repetir: solo crea lo que falta. El registro de ejecución muestra los enlaces.
-3. **Sembrar el ciclo.** Sube a esa carpeta `SISCargaLectiva-Ejemplo-CargaXCarrera.xlsx`, `SISCargaLectiva-Ejemplo-CargaXDepartamento.xlsx` y `SISCargaLectiva-Ejemplo-CargaDeDocentes.xlsx` desde `docs/archivos/`. Deben quedar como `.xlsx`: si Drive convierte las subidas a Hoja de cálculo de Google, desactiva esa opción. Luego ejecuta `sembrarCiclo`, que siembra el ciclo de `SIS_CICLO_ACTUAL`.
-4. **Compartir y proteger.** Comparte el libro como editor con las cuentas de `_SYS_USUARIOS` y ejecuta `protegerHojasCicloActual`. Así cada carrera la escriben sus Coordinadores y los Directores, y DOCENTE solo los Directores.
-5. **Publicar la aplicación web.** `clasp create-deployment -d "descripción"` (`clasp deploy` en clasp 2) crea una implementación; el manifiesto fija *Ejecutar como: yo* y *Acceso: cualquier usuario de ulasalle.edu.pe*. Ábrela una vez con su dirección `/exec`: así queda guardada en `SIS_URL_WEB`. **El menú y el panel lateral la necesitan**, porque lo que se ejecuta desde el libro corre con la cuenta de quien hace clic, que no puede escribir lo protegido, y la aplicación web sí (RNF-13). Después de cada `clasp push`, actualiza esa implementación con `clasp update-deployment <id>` (`clasp list-deployments` da el id) para que el menú use el código nuevo. **Implementar → Probar implementaciones** da una URL de prueba que solo sirve a quien edita el proyecto.
-6. **Recargar el libro.** El menú «🎓 SISCargaLectiva» aparece al abrir o recargar el libro. La primera vez, cada cuenta acepta los permisos del menú.
+1. **Subir el código.** Desde `AppScript/`, `clasp status` lista lo que se va a subir y `clasp push` lo sube. Si pregunta si sobrescribe el manifest, responde que sí.
+2. **Instalar.** Abre el editor con `clasp open-script`, elige la función `instalar` y pulsa **Ejecutar**, aceptando los permisos que pide Google. Crea en tu Drive la carpeta **SISCargaLectiva** con la hoja **SISCargaLectiva-BD** y guarda la configuración en las propiedades del script. El registro de ejecución muestra los enlaces. Se puede repetir sin riesgo.
+3. **Subir los Excel.** Arrastra a esa carpeta `SISCargaLectiva-Ejemplo-CargaXCarrera.xlsx` y `SISCargaLectiva-Ejemplo-CargaXDepartamento.xlsx` desde `docs/archivos/`. La asignación docente necesita también `SISCargaLectiva-Ejemplo-CargaDeDocentes.xlsx`. Deben quedar como `.xlsx`: si Drive convierte las subidas a Hoja de cálculo de Google, desactiva esa opción en su configuración.
+4. **Probar.** En el editor, **Implementar → Probar implementaciones** (*Deploy → Test deployments*) da la URL que termina en `/dev`. La primera vez que alguien abre el tablero se leen los Excel.
+5. **Publicar.** `clasp deploy -d "descripción"` crea una versión publicada. Para actualizarla sin cambiar la URL: `clasp deploy -i <ID> -d "descripción"`, con el ID que muestra `clasp list-deployments`. En clasp 3, `deploy` es otro nombre de `create-deployment`. El manifest ya fija *Ejecutar como: yo* y *Acceso: cualquier usuario de ulasalle.edu.pe*.
 
 ### Configuración
 
@@ -94,29 +80,30 @@ Vive en las propiedades del script (**Configuración del proyecto → Propiedade
 
 | Propiedad | Valor por defecto | Para qué sirve |
 |---|---|---|
-| `SIS_LIBRO_ID` | La pone `instalar()` | Libro del sistema. |
-| `SIS_CARPETA_XLSX` | La crea `instalar()` | Carpeta de Drive con los `.xlsx` para sembrar un ciclo. |
+| `SIS_CARPETA_ID` | La crea `instalar()` | Carpeta de Drive con los `.xlsx`. |
+| `SIS_BD_ID` | La crea `instalar()` | Hoja de cálculo del sistema. |
 | `SIS_DOMINIO` | `ulasalle.edu.pe` | Dominio admitido. |
 | `SIS_MINUTOS_BLOQUEO` | `30` | Minutos de inactividad antes de liberar el bloqueo de edición. |
 | `SIS_MAX_SUBGRUPOS` | `5` | Máximo de subgrupos de un desdoble parcial. |
 | `SIS_CICLOS` | `2026-1,2026-2,2027-1,2027-2` | Ciclos del selector. |
-| `SIS_CICLO_ACTUAL` | `2026-1` | Ciclo que abre la página y el que siembra `sembrarCiclo`. |
-| `SIS_ROL_POR_DEFECTO` | `ninguno` | Rol de una cuenta del dominio que no está en `_SYS_USUARIOS`: `ninguno` (acceso denegado), `director` o `coordinador`. |
-| `SIS_REGLAS` | vacío | Umbrales de las reglas de carga docente en JSON, por ejemplo `{"A09": {"max": 26}}`. |
-| `SIS_URL_WEB` | La guarda la web al abrirse | Dirección `/exec` de la aplicación web publicada, a la que el menú y el panel envían sus acciones. |
+| `SIS_CICLO_XLSX` | `2026-1` | Ciclo al que pertenecen los `.xlsx`. |
+| `SIS_MINUTOS_REVISION_XLSX` | `5` | Cada cuántos minutos, como máximo, se mira si los `.xlsx` de la carpeta cambiaron. Con `0` se mira en cada carga del tablero, que es más lento. |
+| `SIS_ROL_POR_DEFECTO` | `director` | Rol de una cuenta del dominio que no está en la pestaña Usuarios: `director`, `coordinador` (solo consulta) o `ninguno` (acceso denegado). |
 
-Los usuarios se gestionan en `_SYS_USUARIOS`, con cuatro columnas: `correo`, `rol` (`director` o `coordinador`), `carreras` (siglas separadas por comas, para coordinadores) y `departamento` (para directores: `DIMA`, `DAHUC`, `DACJ`, `DACTE` o `TODOS`). Un Director asigna docentes en las filas de su departamento; con `TODOS`, en cualquiera. `instalar()` siembra las cuentas del equipo como Director con `TODOS`. Un cambio en esa hoja tarda hasta 5 minutos en aplicarse, porque el rol de cada cuenta se guarda en caché. Después de cambiar las cuentas, ejecuta `protegerHojasCicloActual`.
+Los usuarios se gestionan en la pestaña **Usuarios** de la hoja del sistema, con tres columnas: `correo`, `rol` (`director` o `coordinador`) y `carreras` (siglas separadas por comas, solo para coordinadores). `instalar()` la siembra con las cuentas del equipo como Director. Un cambio en esa pestaña tarda hasta 5 minutos en aplicarse, porque el rol de cada cuenta se guarda en caché.
 
 ### Probar sin Google
 
 ```bash
-node --test AppScript/pruebas/*.test.mjs      # dominio, hojas, lector de .xlsx y servidor con servicios de Google simulados
-node AppScript/pruebas/servidor-local.mjs     # vista previa en http://127.0.0.1:8765/?usuario=<correo>, con 2026-1 sembrado,
-                                              # y del panel lateral en /panel?usuario=<correo>&hoja=<hoja>&fila=<n>
-node AppScript/pruebas/recorrido-ui.mjs       # recorrido de la interfaz en Chrome sin ventana (unos 2 minutos)
+node --test AppScript/pruebas/*.test.mjs      # dominio, docentes, lector de .xlsx y servidor con servicios de Google simulados
+node AppScript/pruebas/servidor-local.mjs     # vista previa en http://127.0.0.1:8765/?usuario=<correo>
+node AppScript/pruebas/recorrido-ui.mjs       # recorrido de CU-001 en Chrome sin ventana (unos 2 minutos)
+node AppScript/pruebas/recorrido-cu002.mjs    # recorrido de la asignación docente en Chrome sin ventana
 ```
 
-En Windows, el recorrido necesita la ruta de Chrome en la variable `CHROME`, por ejemplo `CHROME="C:/Program Files/Google/Chrome/Application/chrome.exe"`.
+La prueba del lector comprueba que los Excel reales dan la misma oferta que `docs/prototipo/funcional/datos-ejemplo.js`: 8 carreras, 345 asignaturas y 365 grupos.
+
+En Windows, los recorridos necesitan la ruta de Chrome en la variable `CHROME`, por ejemplo `CHROME="C:/Program Files/Google/Chrome/Application/chrome.exe"`.
 
 ## Prototipos anteriores
 
@@ -127,7 +114,7 @@ Se conservan como referencia:
 
 ## Documentación
 
-- [docs/plan/plan-carga-por-carrera.md](docs/plan/plan-carga-por-carrera.md): plan por fases, límites de Apps Script que condicionan el diseño y avance.
+- [docs/plan/plan-carga-por-carrera.md](docs/plan/plan-carga-por-carrera.md): plan por fases, límites de Apps Script que condicionan el diseño y avance. Sus fases 1 a 3 ya no están en `AppScript/` (ver *Estado del proyecto*).
 - [requirements.md](docs/requerimientos/requirements.md): requisitos funcionales y no funcionales, reglas de interpretación y de carga docente, plantilla de importación, hallazgos en los Excel, decisiones del equipo y preguntas abiertas.
 - [docs/CU/CU-001-Registrar-Plan-de-Ciclo.md](docs/CU/CU-001-Registrar-Plan-de-Ciclo.md): caso de uso del plan de ciclo (v6.0), con la edición en la web y en la hoja de la carrera.
 - [docs/QA/Checklist.md](docs/QA/Checklist.md): criterios que debe cumplir cada caso de uso.

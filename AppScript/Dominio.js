@@ -9,27 +9,23 @@ function crearDominio() {
      ============================================================ */
   const DPTOS = ["DIMA", "DAHUC", "DACJ", "DACTE"];
 
-  /* En el orden de las pestañas de los Excel, que es el del libro y el de la importación
-     (P122). «hoja» es el nombre de su pestaña (P131); «alias» recoge las formas con que la
-     carrera aparece en los Sheets y Excel reales (las siglas de la columna CARRERA y los
-     nombres de las hojas). */
+  /* «alias» recoge las formas con que cada carrera aparece en los Sheets y Excel
+     reales (las siglas de la columna CARRERA y los nombres de las hojas). */
   const CARRERAS = [
-    { sig: "ADM", nombre: "Administración de Empresas", hoja: "Adm. Neg. Int.",
+    { sig: "ING", nombre: "Ingeniería de Software", alias: ["Ing. Software"] },
+    { sig: "IND", nombre: "Ingeniería Industrial", alias: ["Ing. Industrial"] },
+    { sig: "ADM", nombre: "Administración de Empresas",
       alias: ["Adm. Neg. Int.", "Administración de Negocios Internacionales"] },
-    { sig: "DER", nombre: "Derecho", hoja: "Derecho", alias: [] },
-    { sig: "ING", nombre: "Ingeniería de Software", hoja: "Ing. Software", alias: ["Ing. Software"] },
-    { sig: "ICO", nombre: "Ingeniería Comercial", hoja: "Ing. Comercial", alias: ["Ing. Comercial"] },
-    { sig: "COM", nombre: "Comunicación", hoja: "Cs. de la Comunicación",
+    { sig: "DER", nombre: "Derecho", alias: [] },
+    { sig: "ARQ", nombre: "Arquitectura", alias: [] },
+    { sig: "PSI", nombre: "Psicología", alias: [] },
+    { sig: "COM", nombre: "Comunicación",
       alias: ["Cs. de la Comunicación", "Ciencias de la Comunicación"] },
-    { sig: "PSI", nombre: "Psicología", hoja: "Psicología", alias: [] },
-    { sig: "ARQ", nombre: "Arquitectura", hoja: "Arquitectura", alias: [] },
-    { sig: "IND", nombre: "Ingeniería Industrial", hoja: "Ing. Industrial", alias: ["Ing. Industrial"] }
+    { sig: "ICO", nombre: "Ingeniería Comercial", alias: ["Ing. Comercial"] }
   ];
 
-  /* Plantilla única (P127): la de CargaXCarrera, con GRUPO opcional. DOCENTE y TURNO solo
-     se reconocen por su cabecera: no se deducen del contenido. */
   const COLUMNAS = ["CARRERA", "MALLA", "SEMESTRE", "CODIGO", "ASIGNATURA", "GRUPO",
-                    "HT", "HP", "TOTAL HORAS", "DOCENTE", "DPTO", "TURNO", "OBSERVACIONES"];
+                    "HT", "HP", "TOTAL HORAS", "DPTO", "OBSERVACIONES"];
   const SINONIMOS = { "OBSERVACION": "OBSERVACIONES", "TH": "TOTAL HORAS", "TOTAL DE HORAS": "TOTAL HORAS" };
 
   const ESTADOS = { SIN: "Sin Iniciar", BORRADOR: "Borrador", REGISTRADO: "Registrado" };
@@ -71,17 +67,13 @@ function crearDominio() {
   }
 
   /* Localiza la fila de cabeceras. Devuelve la primera fila completa y sin repeticiones;
-     si no existe, devuelve la mejor candidata. En los Excel reales la columna del total
-     repite «HT»; si la fila no tiene otra columna de total, esa segunda «HT» es TH (P117). */
+     si no existe, devuelve la mejor candidata. */
   function ubicarCabeceras(matriz) {
     let mejor = null;
     for (let i = 0; i < matriz.length; i++) {
       const celdas = matriz[i].map(canonica);
-      const conTotal = celdas.includes("TOTAL HORAS");
       const mapa = {}, repetidas = [];
-      celdas.forEach((celda, j) => {
-        const c = celda === "HT" && mapa.HT !== undefined && !conTotal && mapa["TOTAL HORAS"] === undefined
-          ? "TOTAL HORAS" : celda;
+      celdas.forEach((c, j) => {
         if (!COLUMNAS.includes(c)) return;
         if (mapa[c] !== undefined) { if (!repetidas.includes(c)) repetidas.push(c); }
         else mapa[c] = j;
@@ -205,39 +197,7 @@ function crearDominio() {
   const th = g => num(g.ht) + num(g.hp);
 
   const idGrupo = () => "g" + Math.random().toString(36).slice(2);
-  /* turno: dato de la oferta (P127). asignacion: el docente de cada componente
-     (DominioCarga.js), o null mientras no hay ninguno. */
-  const nuevoGrupo = (n, ht, hp) => ({ id: idGrupo(), n: n, ht: ht, hp: hp, desdoble: null, fusion: null,
-                                       turno: "", asignacion: null });
-
-  /* Componentes de dictado de un grupo (P84, RF-092): la teoría y la práctica, o sus
-     subgrupos si el grupo tiene un desdoble parcial. Cada componente tiene su docente y sus
-     horas: un desdoble de práctica repite las horas prácticas en cada subgrupo y mantiene
-     una sola teoría. Un grupo sin horas tiene un componente de teoría de 0 h, para que
-     también se le pueda asignar docente. */
-  function desdobleDe(g) {
-    const m = String(g.desdoble || "").match(/^(PRA|TEO)\D*(\d+)$/);
-    return m ? { tipo: m[1], n: parseInt(m[2], 10) } : null;
-  }
-
-  function componentes(g) {
-    const ht = num(g.ht), hp = num(g.hp), d = desdobleDe(g), res = [];
-    const serie = (tipo, horas, n) => { for (let i = 1; i <= n; i++) res.push({ clave: tipo + i, tipo: tipo, horas: horas, sub: i }); };
-    if (ht > 0) { if (d && d.tipo === "TEO") serie("T", ht, d.n); else res.push({ clave: "T", tipo: "T", horas: ht, sub: 0 }); }
-    if (hp > 0) { if (d && d.tipo === "PRA") serie("P", hp, d.n); else res.push({ clave: "P", tipo: "P", horas: hp, sub: 0 }); }
-    if (!res.length) res.push({ clave: "T", tipo: "T", horas: 0, sub: 0 });
-    return res;
-  }
-
-  /* Horas que hay que cubrir con docentes: la teoría una vez y la práctica por subgrupo
-     (RF-033: «los subgrupos de desdoble se suman»). */
-  const horasDictado = g => componentes(g).reduce((s, c) => s + c.horas, 0);
-
-  /* Un componente está cubierto si tiene un docente o la vacante internacional (RF-093);
-     un texto que no nombra a nadie («PENDIENTE») no lo cubre. */
-  const asignacionCubre = x => !!(x && (x.vacante || (String(x.texto || "").trim() && !x.sinDocente)));
-  const cubierto = g => componentes(g).every(c => asignacionCubre((g.asignacion || {})[c.clave]));
-  const tieneVacante = g => Object.keys(g.asignacion || {}).some(k => g.asignacion[k] && g.asignacion[k].vacante);
+  const nuevoGrupo = (n, ht, hp) => ({ id: idGrupo(), n: n, ht: ht, hp: hp, desdoble: null, fusion: null });
 
   function ordenar(asignaturas) {
     asignaturas.sort((a, b) => num(a.sem) - num(b.sem) || String(a.codigo).localeCompare(String(b.codigo)));
@@ -246,10 +206,7 @@ function crearDominio() {
 
   /* opciones.carrera: sigla del plan. Las filas cuya CARRERA indique otra carrera
      se ignoran y se cuentan en «ignoradas»; una CARRERA vacía no excluye la fila.
-     opciones.sinDuplicados: descarta la fila que repite código y grupo.
-     Si hay columna DOCENTE, «lecturaDocente» trae, en el orden de las filas, el texto de
-     cada grupo: lo aplica DominioCarga.asignarImportados, que conoce el catálogo y los
-     permisos (P122, P127). Así el contenido del plan no lleva datos de paso. */
+     opciones.sinDuplicados: descarta la fila que repite código y grupo. */
   function interpretar(matriz, opciones) {
     const carrera = opciones && opciones.carrera;
     const sinDuplicados = !!(opciones && opciones.sinDuplicados);
@@ -261,10 +218,10 @@ function crearDominio() {
     };
 
     const porClave = new Map();
-    const duplicadas = [], lecturaDocente = [];
+    const duplicadas = [];
     let sinCodigo = 0, ignoradas = 0;
 
-    filas.forEach((f, orden) => {
+    filas.forEach(f => {
       if (carrera && mapa.CARRERA !== undefined) {
         const c = val(f, "CARRERA");
         if (c && !coincideCarrera(c, carrera)) { ignoradas++; return; }
@@ -292,15 +249,12 @@ function crearDominio() {
         duplicadas.push({ codigo: codigo, nombre: nombre, grupo: grupo });
         return;
       }
-      const g = nuevoGrupo(grupo, val(f, "HT"), val(f, "HP"));
-      g.turno = val(f, "TURNO");
-      a.grupos.push(g);
-      if (mapa.DOCENTE !== undefined) lecturaDocente.push({ grupo: g, asignatura: a, texto: val(f, "DOCENTE"), orden: orden });
+      a.grupos.push(nuevoGrupo(grupo, val(f, "HT"), val(f, "HP")));
     });
 
     const asignaturas = Array.from(porClave.values());
     asignaturas.forEach(a => a.grupos.sort((x, y) => num(x.n) - num(y.n)));
-    return { asignaturas: ordenar(asignaturas), ignoradas: ignoradas, duplicadas: duplicadas, lecturaDocente: lecturaDocente };
+    return { asignaturas: ordenar(asignaturas), ignoradas: ignoradas, duplicadas: duplicadas };
   }
 
   /* ============================================================
@@ -308,37 +262,20 @@ function crearDominio() {
      ============================================================ */
   const esInternacional = a => /INTERNACIONAL|VIRTUAL/i.test(a.obs || "");
 
-  /* «dictado» son las horas que hay que cubrir con docentes: la práctica de un desdoble
-     cuenta por subgrupo y una sección fusionada, una vez, con las horas de su grupo
-     principal. Si la sección une carreras, cuenta en el plan del principal, para que la suma
-     de los planes no la repita: los demás grupos llevan fusionPrincipal = false. Una sección
-     sin esa marca (anterior a P118) cuenta con su primer grupo.
-     «cub» son los grupos con docente en todos sus componentes y «vac», los que tienen la
-     vacante internacional. */
   function totales(asignaturas) {
-    const t = { asig: 0, grupos: 0, ht: 0, hp: 0, th: 0, dictado: 0, intl: 0, fus: 0, des: 0, sem: 0, cub: 0, vac: 0 };
-    const sems = new Set();   // «sem» puede ser un número o un texto
-    const secciones = new Map();
+    const t = { asig: 0, grupos: 0, ht: 0, hp: 0, th: 0, dictado: 0, intl: 0, fus: 0, des: 0, sem: 0 };
+    const fus = new Set(), sems = new Set();   // «sem» puede ser un número o un texto
     (asignaturas || []).forEach(a => {
       t.asig++; sems.add(a.sem);
       if (esInternacional(a)) t.intl++;
       a.grupos.forEach(g => {
         t.grupos++; t.ht += num(g.ht); t.hp += num(g.hp); t.th += th(g);
         if (g.desdoble) t.des++;
-        if (cubierto(g)) t.cub++;
-        if (tieneVacante(g)) t.vac++;
-        if (!g.fusion) { t.dictado += horasDictado(g); return; }
-        const s = secciones.get(g.fusion) || { principal: null, primero: g, sinMarca: false };
-        if (g.fusionPrincipal === true) s.principal = g;
-        else if (g.fusionPrincipal !== false) s.sinMarca = true;
-        secciones.set(g.fusion, s);
+        if (g.fusion) { if (!fus.has(g.fusion)) { fus.add(g.fusion); t.dictado += th(g); } }
+        else t.dictado += th(g);
       });
     });
-    secciones.forEach(s => {
-      const cuenta = s.principal || (s.sinMarca ? s.primero : null);
-      if (cuenta) t.dictado += horasDictado(cuenta);
-    });
-    t.fus = secciones.size; t.sem = sems.size;
+    t.fus = fus.size; t.sem = sems.size;
     return t;
   }
 
@@ -361,13 +298,9 @@ function crearDominio() {
   }
 
   function eliminarAsignatura(asignaturas, ci) {
-    eliminarAsignaturaEnCiclo(enUnPlan(asignaturas), UNICO, ci);
-  }
-
-  function eliminarAsignaturaEnCiclo(planes, sig, ci) {
-    const marcas = planes[sig][ci].grupos.map(g => g.fusion).filter(Boolean);
-    planes[sig].splice(ci, 1);
-    marcas.forEach(m => limpiarFusionHuerfanaEnCiclo(planes, m));
+    const marcas = asignaturas[ci].grupos.map(g => g.fusion).filter(Boolean);
+    asignaturas.splice(ci, 1);
+    marcas.forEach(m => limpiarFusionHuerfana(asignaturas, m));
   }
 
   function agregarGrupo(asignaturas, ci, gi) {
@@ -387,15 +320,11 @@ function crearDominio() {
   }
 
   function eliminarGrupo(asignaturas, ci, gi) {
-    eliminarGrupoEnCiclo(enUnPlan(asignaturas), UNICO, ci, gi);
-  }
-
-  function eliminarGrupoEnCiclo(planes, sig, ci, gi) {
-    const a = planes[sig][ci];
+    const a = asignaturas[ci];
     const marca = a.grupos[gi].fusion;
     a.grupos.splice(gi, 1);
-    if (!a.grupos.length) planes[sig].splice(ci, 1);
-    if (marca) limpiarFusionHuerfanaEnCiclo(planes, marca);
+    if (!a.grupos.length) asignaturas.splice(ci, 1);
+    if (marca) limpiarFusionHuerfana(asignaturas, marca);
   }
 
   function desdoblar(g, tipo, n) {
@@ -411,205 +340,39 @@ function crearDominio() {
     if (g.previas) { g.ht = g.previas.ht; g.hp = g.previas.hp; delete g.previas; }
   }
 
-  /* ============================================================
-     Fusiones. Una sección fusionada puede unir grupos de varias carreras (P118, RN-12):
-     las funciones «EnCiclo» reciben los planes del ciclo como { SIGLA: asignaturas } y
-     cada grupo como { sig, ci, gi }. Las de un solo plan (fusionar, deshacerFusion…) son
-     el caso de un plan, con referencias "ci:gi".
-     La sección toma las horas del grupo principal (fusionPrincipal = true; los demás,
-     false); cada grupo cuyas horas cambian guarda las suyas para recuperarlas al deshacer.
-     ============================================================ */
-  const UNICO = "";
-  const enUnPlan = asignaturas => { const p = {}; p[UNICO] = asignaturas; return p; };
-  const refDeTexto = v => { const x = String(v).split(":").map(Number); return { sig: UNICO, ci: x[0], gi: x[1] }; };
-  const mismaRef = (x, y) => x.sig === y.sig && x.ci === y.ci && x.gi === y.gi;
-
+  /* refs y principal son "ci:gi". La sección fusionada toma las horas del grupo principal;
+     cada grupo cuyas horas cambian guarda las suyas para recuperarlas al deshacer. */
   function fusionar(asignaturas, refs, principal) {
-    return fusionarEnCiclo(enUnPlan(asignaturas), refs.map(refDeTexto), refDeTexto(principal));
-  }
-
-  /* marca: identificador de la sección; si falta, se inventa uno. */
-  function fusionarEnCiclo(planes, refs, principal, marca) {
-    const par = r => { const a = planes[r.sig][r.ci]; return { sig: r.sig, a: a, g: a.grupos[r.gi] }; };
+    const par = v => { const x = String(v).split(":").map(Number); return { a: asignaturas[x[0]], g: asignaturas[x[0]].grupos[x[1]] }; };
     const ref = par(principal);
-    const m = marca || ("F" + Math.random().toString(36).slice(2, 6).toUpperCase());
+    const marca = "F" + Math.random().toString(36).slice(2, 6).toUpperCase();
     const difs = [], anteriores = new Set();
-    const todos = refs.some(r => mismaRef(r, principal)) ? refs : refs.concat([principal]);
-    todos.forEach(r => {
-      const s = par(r);
-      const esPrincipal = s.g === ref.g;
-      if (!esPrincipal && (s.a.nombre !== ref.a.nombre || s.a.codigo !== ref.a.codigo ||
+    const todos = refs.includes(principal) ? refs : refs.concat([principal]);
+    todos.forEach(v => {
+      const s = par(v);
+      if (v !== principal && (s.a.nombre !== ref.a.nombre || s.a.codigo !== ref.a.codigo ||
           num(s.g.ht) !== num(ref.g.ht) || num(s.g.hp) !== num(ref.g.hp)))
-        difs.push((s.sig ? s.sig + " " : "") + s.a.codigo + " " + s.a.nombre + " (grupo " + s.g.n + ")");
-      if (s.g.fusion && s.g.fusion !== m) anteriores.add(s.g.fusion);
-      if (!esPrincipal && (s.g.ht !== ref.g.ht || s.g.hp !== ref.g.hp) && !s.g.previas)
+        difs.push(s.a.codigo + " " + s.a.nombre + " (grupo " + s.g.n + ")");
+      if (s.g.fusion && s.g.fusion !== marca) anteriores.add(s.g.fusion);
+      if (s.g !== ref.g && (s.g.ht !== ref.g.ht || s.g.hp !== ref.g.hp) && !s.g.previas)
         s.g.previas = { ht: s.g.ht, hp: s.g.hp };
-      s.g.fusion = m;
-      s.g.fusionPrincipal = esPrincipal;
-      if (!esPrincipal) { s.g.ht = ref.g.ht; s.g.hp = ref.g.hp; }
+      s.g.fusion = marca;
+      if (s.g !== ref.g) { s.g.ht = ref.g.ht; s.g.hp = ref.g.hp; }
     });
-    anteriores.forEach(x => limpiarFusionHuerfanaEnCiclo(planes, x));
-    return { marca: m, difs: difs };
-  }
-
-  function gruposDeFusion(planes, marca) {
-    const res = [];
-    Object.keys(planes).forEach(sig => (planes[sig] || []).forEach((a, ci) => a.grupos.forEach((g, gi) => {
-      if (marca && g.fusion === marca) res.push({ sig: sig, ci: ci, gi: gi, a: a, g: g });
-    })));
-    return res;
-  }
-
-  /* El grupo principal de la sección; si ninguno lleva la marca, el primero. */
-  function principalDeFusion(planes, marca) {
-    const grupos = gruposDeFusion(planes, marca);
-    return grupos.filter(x => x.g.fusionPrincipal === true)[0] || grupos[0] || null;
+    anteriores.forEach(m => limpiarFusionHuerfana(asignaturas, m));
+    return { marca: marca, difs: difs };
   }
 
   function deshacerFusion(asignaturas, marca) {
-    deshacerFusionEnCiclo(enUnPlan(asignaturas), marca);
-  }
-
-  function deshacerFusionEnCiclo(planes, marca) {
-    gruposDeFusion(planes, marca).forEach(x => { x.g.fusion = null; delete x.g.fusionPrincipal; restaurarHoras(x.g); });
+    asignaturas.forEach(a => a.grupos.forEach(g => {
+      if (g.fusion === marca) { g.fusion = null; restaurarHoras(g); }
+    }));
   }
 
   function limpiarFusionHuerfana(asignaturas, marca) {
-    limpiarFusionHuerfanaEnCiclo(enUnPlan(asignaturas), marca);
-  }
-
-  function limpiarFusionHuerfanaEnCiclo(planes, marca) {
-    if (gruposDeFusion(planes, marca).length < 2) deshacerFusionEnCiclo(planes, marca);
-  }
-
-  /* ============================================================
-     Fusiones anotadas en OBSERVACIONES (P118, P130): «FUSIÓN ADM-4/ICO-4/COM-4»,
-     «Fusión ADM 3/ ICO 5», «FUSIÓN CON COM-3», «Fusionado con ADM IV», «FUSION ING - 10».
-     ============================================================ */
-  const ROMANOS = { I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6, VII: 7, VIII: 8, IX: 9, X: 10,
-                    XI: 11, XII: 12, XIII: 13, XIV: 14 };
-  const claveAsignatura = s => normalizar(s).replace(/[^A-Z0-9]+/g, " ").trim();
-
-  /* Partes citadas («SIGLA-semestre», en el orden del texto) y si dice «CON»; null si el
-     texto no habla de fusión. La sigla puede ir pegada al semestre («ADM4»). */
-  function leerFusionTexto(obs) {
-    const t = normalizar(obs);
-    if (!/FUSI/.test(t)) return null;
-    const re = new RegExp("(?:^|[^A-Z])(" + CARRERAS.map(c => c.sig).join("|") +
-                          ")\\s*-?\\s*(\\d{1,2}|[IVX]{1,4})(?![A-Z0-9])", "g");
-    const partes = [];
-    let m;
-    while ((m = re.exec(t))) {
-      const sem = /^\d/.test(m[2]) ? parseInt(m[2], 10) : ROMANOS[m[2]];
-      if (sem) partes.push({ sig: m[1], sem: sem });
-    }
-    return { partes: partes, con: /(^|[^A-Z])CON([^A-Z]|$)/.test(t) };
-  }
-
-  const etiquetaParte = p => p.sig + "-" + p.sem;
-
-  /* Convierte en fusiones del sistema las anotaciones de OBSERVACIONES de los planes de un
-     ciclo ({ SIGLA: asignaturas }). Cada parte señala la asignatura del mismo nombre en ese
-     semestre de esa carrera, y en ella el grupo del mismo número o, si tiene uno solo, ese.
-     Las anotaciones que comparten grupos forman una sección. Cada anotación propone como
-     principal a la primera carrera citada que se localiza; las listas mandan sobre los «CON»
-     y, si las propuestas no coinciden, gana la sigla alfabéticamente anterior y, en la misma
-     carrera, el menor semestre (P130). Devuelve las secciones creadas y los avisos.
-     opciones.solo(asignatura, sigla): lee solo las anotaciones de esas asignaturas. Al leer
-     la hoja se usa para las anotaciones nuevas o cambiadas: una anotación que ya creó su
-     sección es solo texto (P134) y no debe rehacer una fusión que se deshizo.
-     opciones.libre(sigla): si una sección alcanza una carrera que no está libre (otra
-     persona tiene su bloqueo), no se crea y va a «enEspera» con las anotaciones que la
-     piden y las carreras ocupadas (P139). */
-  function fusionesDesdeObservaciones(planes, opciones) {
-    const avisos = [], anotaciones = [], enEspera = [];
-    const solo = opciones && opciones.solo;
-    const libre = (opciones && opciones.libre) || (() => true);
-    const nombreDe = r => r.sig + " " + planes[r.sig][r.ci].codigo + " «" + planes[r.sig][r.ci].nombre + "»";
-
-    Object.keys(planes).forEach(sig => (planes[sig] || []).forEach((a, ci) => {
-      if (solo && !solo(a, sig)) return;
-      const lectura = leerFusionTexto(a.obs);
-      if (!lectura) return;
-      const esPropia = p => p.sig === sig && String(p.sem) === String(a.sem);
-      const lista = !lectura.con && lectura.partes.length >= 2 && lectura.partes.some(esPropia);
-      a.grupos.forEach((g, gi) => {
-        const propia = { sig: sig, ci: ci, gi: gi };
-        const miembros = [propia];
-        let propuesta = null;
-        lectura.partes.forEach(p => {
-          if (esPropia(p)) { if (lista && !propuesta) propuesta = propia; return; }
-          const k = claveAsignatura(a.nombre);
-          const cis = [];
-          (planes[p.sig] || []).forEach((x, i) => { if (String(x.sem) === String(p.sem) && claveAsignatura(x.nombre) === k) cis.push(i); });
-          if (!cis.length) {
-            avisos.push(nombreDe(propia) + ": «" + a.obs + "» cita " + etiquetaParte(p) + ", pero en " + etiquetaParte(p) +
-                        " no hay ninguna asignatura «" + a.nombre + "». Esa parte queda como texto.");
-            return;
-          }
-          if (cis.length > 1)
-            avisos.push(nombreDe(propia) + ": en " + etiquetaParte(p) + " hay " + cis.length + " asignaturas «" + a.nombre +
-                        "» (" + cis.map(i => planes[p.sig][i].codigo).join(", ") + "); se tomó " + planes[p.sig][cis[0]].codigo + ".");
-          const destino = planes[p.sig][cis[0]];
-          let gj = destino.grupos.findIndex(x => String(x.n) === String(g.n));
-          if (gj < 0 && destino.grupos.length === 1) gj = 0;
-          if (gj < 0) {
-            avisos.push(nombreDe(propia) + " (grupo " + g.n + "): en " + etiquetaParte(p) + " «" + a.nombre + "» no tiene el grupo " +
-                        g.n + " y tiene varios. Esa parte queda como texto.");
-            return;
-          }
-          const r = { sig: p.sig, ci: cis[0], gi: gj };
-          if (!miembros.some(x => mismaRef(x, r))) miembros.push(r);
-          if (!propuesta) propuesta = r;
-        });
-        if (miembros.length > 1) anotaciones.push({ miembros: miembros, propuesta: propuesta, lista: lista, texto: a.obs, sig: sig, ci: ci });
-      });
-    }));
-
-    /* Secciones: las anotaciones que comparten algún grupo se unen. */
-    const clave = r => r.sig + "|" + r.ci + "|" + r.gi;
-    const padre = new Map();
-    const raiz = k => { while (padre.get(k) !== k) k = padre.get(k); return k; };
-    anotaciones.forEach(an => an.miembros.forEach(r => { if (!padre.has(clave(r))) padre.set(clave(r), clave(r)); }));
-    anotaciones.forEach(an => an.miembros.slice(1).forEach(r => padre.set(raiz(clave(r)), raiz(clave(an.miembros[0])))));
-    const secciones = new Map();
-    anotaciones.forEach(an => {
-      const k = raiz(clave(an.miembros[0]));
-      if (!secciones.has(k)) secciones.set(k, { miembros: [], listas: [], cons: [], textos: [], origen: [] });
-      const s = secciones.get(k);
-      if (!s.origen.some(o => o.sig === an.sig && o.ci === an.ci)) s.origen.push({ sig: an.sig, ci: an.ci });
-      an.miembros.forEach(r => { if (!s.miembros.some(x => mismaRef(x, r))) s.miembros.push(r); });
-      if (an.propuesta) (an.lista ? s.listas : s.cons).push(an.propuesta);
-      if (s.textos.indexOf(an.texto) < 0) s.textos.push(an.texto);
-    });
-
-    const semDe = r => num(planes[r.sig][r.ci].sem);
-    const desempate = refs => refs.slice().sort((x, y) => x.sig.localeCompare(y.sig) || semDe(x) - semDe(y) || x.ci - y.ci || x.gi - y.gi)[0];
-    const resultado = [];
-    secciones.forEach(s => {
-      const ocupadas = s.miembros.map(r => r.sig).filter((x, i, l) => l.indexOf(x) === i && !libre(x));
-      if (ocupadas.length) {
-        enEspera.push({ anotaciones: s.origen, carreras: ocupadas, textos: s.textos });
-        return;
-      }
-      const propuestas = s.listas.length ? s.listas : s.cons;
-      const distintas = propuestas.filter((r, i) => propuestas.findIndex(x => mismaRef(x, r)) === i);
-      let principal = distintas[0] || desempate(s.miembros);
-      if (distintas.length > 1) {
-        principal = desempate(distintas);
-        avisos.push("Las anotaciones de la fusión de «" + planes[principal.sig][principal.ci].nombre + "» (" + s.textos.join("; ") +
-                    ") no coinciden en el grupo principal; se tomó " + principal.sig + "-" + planes[principal.sig][principal.ci].sem +
-                    ": la sigla alfabéticamente anterior y, en la misma carrera, el menor semestre.");
-      }
-      const firma = s.miembros.map(r => r.sig + ":" + planes[r.sig][r.ci].codigo + ":" + planes[r.sig][r.ci].grupos[r.gi].n).sort().join(",");
-      const r = fusionarEnCiclo(planes, s.miembros, principal, "F" + hash(firma).slice(-6).toUpperCase());
-      resultado.push({
-        marca: r.marca, difs: r.difs, textos: s.textos,
-        principal: { sig: principal.sig, codigo: planes[principal.sig][principal.ci].codigo, grupo: planes[principal.sig][principal.ci].grupos[principal.gi].n },
-        miembros: s.miembros.map(x => ({ sig: x.sig, codigo: planes[x.sig][x.ci].codigo, grupo: planes[x.sig][x.ci].grupos[x.gi].n }))
-      });
-    });
-    return { secciones: resultado, avisos: avisos, enEspera: enEspera };
+    let n = 0;
+    asignaturas.forEach(a => a.grupos.forEach(g => { if (g.fusion === marca) n++; }));
+    if (n < 2) deshacerFusion(asignaturas, marca);
   }
 
   /* ============================================================
@@ -618,8 +381,7 @@ function crearDominio() {
   function contenidoCanonico(asignaturas) {
     return JSON.stringify((asignaturas || []).map(a => [
       a.sem, a.malla, a.codigo, a.nombre, a.dpto, a.obs,
-      a.grupos.map(g => [g.n, g.ht, g.hp, g.desdoble || null, g.fusion || null, g.fusionPrincipal === true,
-                         g.turno || "", g.asignacion || null])
+      a.grupos.map(g => [g.n, g.ht, g.hp, g.desdoble || null, g.fusion || null])
     ]));
   }
 
@@ -637,7 +399,7 @@ function crearDominio() {
   }
 
   /* ============================================================
-     Departamentos académicos (los usa DominioCarga.js para la carga docente)
+     CU-002: Lógica de Asignación Docente y Balance Horario
      ============================================================ */
   const DPTOS_INFO = {
     DIMA: { sigla: "DIMA", nombre: "Departamento de Ingeniería y Matemáticas", alias: ["INGENIERIA Y MATEMATICAS", "INGENIERIA", "MATEMATICAS", "DIMA"] },
@@ -665,27 +427,236 @@ function crearDominio() {
     return info ? info.nombre : sigla;
   }
 
+  function claveDocente(nombre) {
+    return normalizar(nombre).replace(/[,.\-–—]/g, " ").replace(/\s+/g, " ").trim();
+  }
+
+  /* Interpreta matriz pegada o de archivo CargaXDepartamento */
+  function interpretarAsignacionesDepartamento(matriz, cursosDpto) {
+    if (!matriz || !matriz.length) return { asignaciones: [], filasLeidas: 0, avisos: ["Contenido vacío."] };
+
+    let filaCab = -1;
+    let colDoc = -1, colCarr = -1, colSem = -1, colCod = -1, colAsig = -1, colHt = -1, colHp = -1, colCond = -1;
+
+    for (let i = 0; i < Math.min(10, matriz.length); i++) {
+      const fila = matriz[i].map(normalizar);
+      fila.forEach((c, j) => {
+        if (c.indexOf("DOCENTE") >= 0 || c.indexOf("PROFESOR") >= 0) colDoc = j;
+        if (c === "CARRERA" || c === "CARR") colCarr = j;
+        if (c.indexOf("SEMESTRE") >= 0 || c === "SEM") colSem = j;
+        if (c.indexOf("CODIGO") >= 0 || c.indexOf("CÓDIGO") >= 0) colCod = j;
+        if (c.indexOf("ASIGNATURA") >= 0 || c.indexOf("CURSO") >= 0) colAsig = j;
+        if (c === "HT" || c.indexOf("HORAS TEORICAS") >= 0) colHt = j;
+        if (c === "HP" || c.indexOf("HORAS PRACTICAS") >= 0) colHp = j;
+        if (c.indexOf("CONDICION") >= 0) colCond = j;
+      });
+      if (colDoc >= 0 && (colCod >= 0 || colAsig >= 0)) {
+        filaCab = i;
+        break;
+      }
+    }
+
+    if (filaCab < 0) {
+      colDoc = 0; colCarr = 1; colSem = 3; colCod = 4; colAsig = 5; colHt = 6; colHp = 7; colCond = 9;
+      filaCab = 0;
+    }
+
+    const asignaciones = [];
+    const avisos = [];
+    let docenteActual = "";
+
+    for (let r = filaCab + 1; r < matriz.length; r++) {
+      const f = matriz[r];
+      if (!f || !f.length) continue;
+      const celdaDoc = f[colDoc] ? String(f[colDoc]).trim() : "";
+      if (celdaDoc && !/TOTAL/i.test(celdaDoc)) {
+        docenteActual = celdaDoc;
+      }
+
+      const cod = f[colCod] ? String(f[colCod]).trim() : "";
+      const carr = f[colCarr] ? String(f[colCarr]).trim() : "";
+      const asig = f[colAsig] ? String(f[colAsig]).trim() : "";
+      const ht = colHt >= 0 && f[colHt] ? num(f[colHt]) : 0;
+      const hp = colHp >= 0 && f[colHp] ? num(f[colHp]) : 0;
+      const cond = colCond >= 0 && f[colCond] ? String(f[colCond]).trim() : "";
+
+      if (!cod && !asig) continue;
+      if (/TOTAL/i.test(asig) || /TOTAL/i.test(cod) || /TOTAL/i.test(carr)) continue;
+      if (!docenteActual) continue;
+
+      const sigCarr = siglaDeCarrera(carr) || carr;
+      const horas = (ht + hp) > 0 ? (ht + hp) : 4;
+
+      asignaciones.push({
+        carrera: sigCarr,
+        codigo: cod,
+        asignatura: asig,
+        semestre: f[colSem] ? String(f[colSem]).trim() : "",
+        grupo: "1",
+        componente: ht > 0 && hp === 0 ? "Teoría" : (hp > 0 && ht === 0 ? "Práctica" : "Completo"),
+        docente: docenteActual,
+        horas: horas,
+        condicion: cond,
+        reemplazo_de: ""
+      });
+    }
+
+    return {
+      asignaciones: asignaciones,
+      filasLeidas: asignaciones.length,
+      avisos: avisos
+    };
+  }
+
+  /* Evalúa balance y advertencias A07 a A13 */
+  function calcularBalanceDocente(docentes, asignaciones) {
+    const mapaDocentes = {};
+
+    (docentes || []).forEach(d => {
+      const k = claveDocente(d.nombreCompleto);
+      mapaDocentes[k] = {
+        dni: d.dni || "",
+        nombreCompleto: d.nombreCompleto,
+        condicion: d.condicion || "Contratado",
+        categoria: d.categoria || "AUXILIAR",
+        dpto: normalizarDpto(d.dpto) || d.dpto,
+        dedicacion: d.dedicacion || "TP",
+        horasLectivas: 0,
+        cursos: [],
+        advertencias: []
+      };
+    });
+
+    (asignaciones || []).forEach(a => {
+      if (!a.docente || !a.docente.trim()) return;
+      const docNom = a.docente.trim();
+
+      // RN-30: Docente Internacional Pendiente reserva plaza sin sumar horas a personas físicas
+      if (/INTERNACIONAL/i.test(docNom) || /INTERNACIONAL/i.test(a.condicion || "")) {
+        return;
+      }
+
+      const k = claveDocente(docNom);
+      if (!mapaDocentes[k]) {
+        mapaDocentes[k] = {
+          dni: a.dni || "",
+          nombreCompleto: docNom,
+          condicion: a.condicion || "Contratado",
+          categoria: "DOCENTE",
+          dpto: a.departamento || "",
+          dedicacion: "TP",
+          horasLectivas: 0,
+          cursos: [],
+          advertencias: []
+        };
+      }
+
+      const doc = mapaDocentes[k];
+      const h = num(a.horas);
+      doc.horasLectivas += h;
+      doc.cursos.push(a);
+
+      // A13 (RN-26): Verificar si el departamento de la asignatura coincide
+      if (a.departamento && a.dptoAsignatura && normalizarDpto(a.departamento) !== normalizarDpto(a.dptoAsignatura)) {
+        doc.advertencias.push({
+          codigo: "A13",
+          mensaje: "Asignatura " + a.codigo + " solicitada para " + a.dptoAsignatura + " pero asignada en " + a.departamento + "."
+        });
+      }
+    });
+
+    Object.values(mapaDocentes).forEach(doc => {
+      const h = doc.horasLectivas;
+      if (h === 0 && doc.cursos.length === 0) return;
+
+      // A07 (RN-23): > 40 horas
+      if (h > 40) {
+        doc.advertencias.push({
+          codigo: "A07",
+          mensaje: "Supera las 40 horas lectivas semanales (asignadas: " + h + "h)."
+        });
+      }
+
+      // A08 (RN-24): Externo TC > 16 horas
+      const esExternoTC = /EXTERNO/i.test(doc.condicion) && doc.dedicacion === "TC";
+      if (esExternoTC && h > 16) {
+        doc.advertencias.push({
+          codigo: "A08",
+          mensaje: "Docente externo con dedicación TC supera 16 horas lectivas (asignadas: " + h + "h)."
+        });
+      }
+
+      // A09 (RN-23): > 24 horas semanales (alerta moderada)
+      if (h > 24 && h <= 40) {
+        doc.advertencias.push({
+          codigo: "A09",
+          mensaje: "Supera las 24 horas lectivas semanales (asignadas: " + h + "h). Requiere revisión de balance."
+        });
+      }
+
+      // A10 (RN-28): Regular TP < 8 horas
+      const esTP = doc.dedicacion === "TP";
+      if (esTP && h > 0 && h < 8) {
+        doc.advertencias.push({
+          codigo: "A10",
+          mensaje: "Docente a tiempo parcial con menos de 8 horas lectivas (asignadas: " + h + "h)."
+        });
+      }
+
+      // A12 (RN-30): Cargo administrativo > 20 horas
+      const tieneCargo = /CARGO|DIRECTOR|DECANO|JEFE|ADMIN/i.test(doc.categoria) || /CARGO/i.test(doc.condicion);
+      if (tieneCargo && h > 20) {
+        doc.advertencias.push({
+          codigo: "A12",
+          mensaje: "Docente con cargo administrativo supera 20 horas lectivas (asignadas: " + h + "h)."
+        });
+      }
+
+      // A11 (RN-29): Cruce de asignaturas en el mismo semestre dentro de la misma carrera
+      const semCarrera = {};
+      doc.cursos.forEach(c => {
+        const clave = (c.carrera || "") + ":" + (c.sem || c.semestre || "");
+        if (!semCarrera[clave]) semCarrera[clave] = [];
+        if (semCarrera[clave].indexOf(c.codigo) < 0) semCarrera[clave].push(c.codigo);
+      });
+      Object.entries(semCarrera).forEach(([sc, codigos]) => {
+        if (codigos.length > 1) {
+          const partes = sc.split(":");
+          doc.advertencias.push({
+            codigo: "A11",
+            mensaje: "Cruce potencial: asignado a " + codigos.length + " asignaturas distintas (" + codigos.join(", ") + ") en " + partes[0] + " semestre " + partes[1] + "."
+          });
+        }
+      });
+    });
+
+    const lista = Object.values(mapaDocentes).filter(d => d.cursos.length > 0 || (docentes && docentes.length <= 150));
+    const totalHoras = Object.values(mapaDocentes).reduce((sum, d) => sum + d.horasLectivas, 0);
+    const totalAdv = Object.values(mapaDocentes).reduce((sum, d) => sum + d.advertencias.length, 0);
+
+    return {
+      docentes: lista,
+      totalDocentesAsignados: Object.values(mapaDocentes).filter(d => d.horasLectivas > 0).length,
+      totalHorasAsignadas: totalHoras,
+      advertenciasTotales: totalAdv
+    };
+  }
+
   return {
     DPTOS: DPTOS, DPTOS_INFO: DPTOS_INFO, normalizarDpto: normalizarDpto, nombreDpto: nombreDpto,
+    claveDocente: claveDocente, interpretarAsignacionesDepartamento: interpretarAsignacionesDepartamento,
+    calcularBalanceDocente: calcularBalanceDocente,
     CARRERAS: CARRERAS, COLUMNAS: COLUMNAS, ESTADOS: ESTADOS,
     nombreCarrera: nombreCarrera, normalizar: normalizar, canonica: canonica,
     matrizDesdeTexto: matrizDesdeTexto, ubicarCabeceras: ubicarCabeceras,
     coincideCarrera: coincideCarrera, siglaDeCarrera: siglaDeCarrera,
     descomponerSemestre: descomponerSemestre, deducirColumnas: deducirColumnas,
     interpretar: interpretar, num: num, th: th, totales: totales, esInternacional: esInternacional,
-    ordenarAsignaturas: ordenar,
     agregarAsignatura: agregarAsignatura, eliminarAsignatura: eliminarAsignatura,
     agregarGrupo: agregarGrupo, agregarGrupoSemestre: agregarGrupoSemestre,
     eliminarGrupo: eliminarGrupo, desdoblar: desdoblar, quitarDesdoble: quitarDesdoble,
     fusionar: fusionar, deshacerFusion: deshacerFusion, limpiarFusionHuerfana: limpiarFusionHuerfana,
-    contenidoCanonico: contenidoCanonico, hash: hash,
-    desdobleDe: desdobleDe, componentes: componentes, horasDictado: horasDictado,
-    asignacionCubre: asignacionCubre, cubierto: cubierto, tieneVacante: tieneVacante,
-    eliminarAsignaturaEnCiclo: eliminarAsignaturaEnCiclo, eliminarGrupoEnCiclo: eliminarGrupoEnCiclo,
-    fusionarEnCiclo: fusionarEnCiclo, deshacerFusionEnCiclo: deshacerFusionEnCiclo,
-    limpiarFusionHuerfanaEnCiclo: limpiarFusionHuerfanaEnCiclo, gruposDeFusion: gruposDeFusion,
-    principalDeFusion: principalDeFusion, leerFusionTexto: leerFusionTexto,
-    fusionesDesdeObservaciones: fusionesDesdeObservaciones, claveAsignatura: claveAsignatura
+    contenidoCanonico: contenidoCanonico, hash: hash
   };
 }
 

@@ -22,12 +22,12 @@
   <section class="panel" id="v-instalar" hidden>
     <div class="panel-cab"><h2>El sistema todavía no está instalado</h2></div>
     <div class="panel-cuerpo">
-      <div class="nota aviso">El libro todavía no tiene las hojas del sistema. La cuenta propietaria del proyecto debe instalarlas una vez.</div>
+      <div class="nota aviso">Faltan la carpeta de Drive y la hoja de cálculo del sistema. La cuenta propietaria del script debe instalarlas una vez.</div>
       <ol class="pasos-guia">
-        <li>Abre el proyecto vinculado al libro en el editor de Apps Script (<code>clasp open-script</code>).</li>
+        <li>Abre el proyecto en el editor de Apps Script (<code>clasp open-script</code>).</li>
         <li>Elige la función <code>instalar</code> y pulsa <b>Ejecutar</b>. Acepta los permisos que pide Google.</li>
-        <li>El registro de ejecución muestra el enlace de la carpeta <b>SISCargaLectiva · Excel de origen</b>. Sube ahí <code>CargaXCarrera</code>, <code>CargaXDepartamento</code> y <code>CargaDeDocentes</code> (.xlsx, sin convertir).</li>
-        <li>Ejecuta <code>sembrarCiclo</code> con el ciclo que traen esos Excel y recarga esta página.</li>
+        <li>El registro de ejecución muestra el enlace de la carpeta <b>SISCargaLectiva</b>. Sube ahí los archivos <code>CargaXCarrera</code> y <code>CargaXDepartamento</code> (.xlsx, sin convertir).</li>
+        <li>Recarga esta página.</li>
       </ol>
     </div>
   </section>
@@ -49,8 +49,8 @@
         <button class="menu-op" id="op-planes">
           <span><b>Gestión de Planes de Ciclo</b><small>Registrar y editar la oferta académica por carrera</small></span>
         </button>
-        <button class="menu-op" id="op-docentes" disabled>
-          <span><b>Asignar docentes al plan de ciclo (CU-002)</b><small>Se rehace en la grilla de cada carrera (fase 4 del plan)</small></span>
+        <button class="menu-op" id="op-docentes">
+          <span><b>Asignar docentes al plan de ciclo (CU-002)</b><small>Gestión de carga docente y balance horario por departamento</small></span>
         </button>
         <button class="menu-op" disabled>
           <span><b>Reporte de carga lectiva</b><small>Disponible en una fase posterior</small></span>
@@ -71,7 +71,7 @@
           <label for="sel-ciclo">Ciclo académico</label>
           <select id="sel-ciclo"></select>
         </div>
-        <button class="btn" id="btn-releer" title="Vuelve a leer ahora las hojas de las carreras en el libro">Releer hojas</button>
+        <button class="btn" id="btn-releer" title="Vuelve a leer ahora los .xlsx de la carpeta de Drive">Releer Excel</button>
       </div>
       <div id="avisos-tablero" hidden></div>
       <p class="etq" style="margin-bottom:7px">Tablero de monitoreo general</p>
@@ -411,7 +411,6 @@
 
 <script>var SIS = <?!= inicial ?>;</script>
 <script>var Dominio = <?!= dominio ?>;</script>
-<script>var DominioCarga = <?!= dominioCarga ?>;</script>
 <?!= include("App") ?>
 </body>
 </html>

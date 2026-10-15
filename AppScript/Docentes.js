@@ -1,229 +1,298 @@
-/* CU-002 en el libro: el balance de la carga docente del ciclo con sus reglas A07 a A13,
-   los consolidados por departamento (RF-098), las marcas de General que solo se editan
-   desde la web (P124) y el reemplazo docente (RF-094, P142). El catálogo es la hoja General
-   del ciclo (P126). La asignación se hace en la columna DOCENTE de la hoja de cada carrera
-   (Edicion.js); en la grilla de la web, en la fase 4 del plan. */
+/* Módulo de CU-002: Carga de Docentes y Gestión de Asignaciones por Departamento.
+   Lee el catálogo de profesores desde CargaDeDocentes.xlsx en Drive, obtiene las asignaturas
+   solicitadas en los planes registrados de todas las carreras, y persiste las asignaciones
+   en la pestaña 'Asignaciones' de la hoja del sistema con concurrencia controlada. */
 
-function obtenerCargaDocente(ciclo) {
-  const u = exigirUsuario_();
-  const c = validarCiclo_(ciclo || config_().cicloActual);
-  const C = dominioCarga_();
-  const lectura = leerPlanesCiclo_(c);
-  const catalogo = leerGeneral_(c);
-  const ev = C.evaluarCiclo(lectura.planes, catalogo, config_().reglas);
-  const departamentos = {};
-  Dominio.DPTOS.forEach(function (d) { departamentos[d] = C.consolidadoDepartamento(lectura.planes, catalogo, d); });
-  return {
-    ciclo: c,
-    usuario: u,
-    reglas: ev.reglas,
-    docentes: ev.docentes.map(function (d) {
-      return { id: d.id, nombre: d.ficha ? d.ficha.nombre : d.texto, ficha: d.ficha, horas: d.horas, porCarrera: d.porCarrera,
-               advertencias: d.advertencias.map(function (a) { return { codigo: a.codigo, bloquea: a.bloquea, mensaje: a.mensaje }; }) };
-    }),
-    pendientes: ev.pendientes,
-    departamentos: departamentos
-  };
+var SEGUNDOS_CACHE_DOCENTES_ = 3600; // 1 hora de caché para el catálogo de profesores
+
+/* ============================================================
+   1. Catálogo Maestro de Docentes (CargaDeDocentes.xlsx en Drive)
+   ============================================================ */
+
+function leerCatalogoDocentes_(forzar) {
+  const cfg = config_();
+  const clave = claveCache_("cat_docentes", cfg.carpetaId);
+  if (!forzar) {
+    const cached = leerDeCache_(clave);
+    if (cached && Array.isArray(cached) && cached.length) return cached;
+  }
+
+  const carpeta = abrirCarpeta_(cfg.carpetaId);
+  if (!carpeta) return [];
+
+  const avisos = [];
+  const fuentes = localizarXlsx_(carpeta, avisos);
+  if (!fuentes.docentes) {
+    return [];
+  }
+
+  try {
+    const libro = leerLibroXlsx(descomprimirXlsx_(fuentes.docentes.getBlob()));
+    const hojaGen = libro.find(function (h) { return /general/i.test(h.nombre); }) || libro[0];
+    if (!hojaGen || !hojaGen.filas || hojaGen.filas.length < 2) return [];
+
+    const cabecera = hojaGen.filas[0].map(Dominio.normalizar);
+    let colDni = -1, colPat = -1, colMat = -1, colNom = -1, colCond = -1, colCat = -1, colDpto = -1, colDedic = -1;
+
+    cabecera.forEach(function (c, j) {
+      if (c === "DNI") colDni = j;
+      if (c.indexOf("APELLIDO PAT") >= 0 || c.indexOf("PATERNO") >= 0) colPat = j;
+      if (c.indexOf("APELLIDO MAT") >= 0 || c.indexOf("MATERNO") >= 0) colMat = j;
+      if (c === "NOMBRES" || c === "NOMBRE") colNom = j;
+      if (c.indexOf("CONDICION") >= 0) colCond = j;
+      if (c.indexOf("CATEGORIA") >= 0) colCat = j;
+      if (c.indexOf("DEPARTAMENTO") >= 0 || c === "DPTO") colDpto = j;
+      if (c.indexOf("DEDIC") >= 0) colDedic = j;
+    });
+
+    if (colDni < 0) colDni = 1;
+    if (colPat < 0) colPat = 2;
+    if (colMat < 0) colMat = 3;
+    if (colNom < 0) colNom = 4;
+    if (colCond < 0) colCond = 5;
+    if (colCat < 0) colCat = 6;
+    if (colDpto < 0) colDpto = 8;
+    if (colDedic < 0) colDedic = 9;
+
+    const lista = [];
+    for (let r = 1; r < hojaGen.filas.length; r++) {
+      const fila = hojaGen.filas[r];
+      if (!fila || !fila.length) continue;
+      const dni = fila[colDni] ? String(fila[colDni]).trim() : "";
+      const pat = fila[colPat] ? String(fila[colPat]).trim() : "";
+      const mat = fila[colMat] ? String(fila[colMat]).trim() : "";
+      const nom = fila[colNom] ? String(fila[colNom]).trim() : "";
+      if (!nom && !pat) continue;
+
+      const nombreCompleto = (pat + " " + mat).trim() + (nom ? ", " + nom : "");
+      const dptoRaw = fila[colDpto] ? String(fila[colDpto]).trim() : "";
+      const dptoSigla = Dominio.normalizarDpto(dptoRaw) || dptoRaw;
+      const condicion = fila[colCond] ? String(fila[colCond]).trim() : "Contratado";
+      const categoria = fila[colCat] ? String(fila[colCat]).trim() : "AUXILIAR";
+      const dedicacion = fila[colDedic] ? String(fila[colDedic]).trim().toUpperCase() : "TP";
+
+      lista.push({
+        dni: dni,
+        paterno: pat,
+        materno: mat,
+        nombres: nom,
+        nombreCompleto: nombreCompleto,
+        condicion: condicion,
+        categoria: categoria,
+        dpto: dptoSigla,
+        dptoNombre: Dominio.nombreDpto(dptoSigla),
+        dedicacion: dedicacion.indexOf("TC") >= 0 ? "TC" : "TP"
+      });
+    }
+
+    if (lista.length) {
+      guardarEnCache_(clave, lista, SEGUNDOS_CACHE_DOCENTES_);
+    }
+    return lista;
+  } catch (e) {
+    return [];
+  }
 }
 
-/* Marca a un docente de General con tiempo completo en otra universidad (A08) o con un
-   cargo directivo (A12). Solo un Director, y solo desde la web: la hoja General la protege. */
-function marcarDocente(ciclo, id, marcas) {
-  const u = exigirUsuario_();
-  exigirDirector_(u);
-  const c = validarCiclo_(ciclo);
-  if (!marcas) throw new Error("Faltan las marcas del docente.");
-  return conCandado_(function () {
-    const catalogo = leerGeneral_(c);
-    const f = catalogo.filter(function (x) { return x.id === String(id); })[0];
-    if (!f) throw new Error("No hay ningún docente con el identificador «" + id + "» en " + nombreHojaGeneral(c) + ".");
-    if (marcas.tcOtraUniv != null) f.tcOtraUniv = !!marcas.tcOtraUniv;
-    if (marcas.cargo != null) f.cargo = String(marcas.cargo).trim().slice(0, 100);
-    actualizarReportes_(c, leerPlanesCiclo_(c).planes, catalogo);
-    anotarBitacora_(u.correo, c, "", "marca de docente", "",
-                    f.nombre + ": tiempo completo en otra universidad " + (f.tcOtraUniv ? "sí" : "no") + "; cargo «" + (f.cargo || "") + "».");
-    return { id: f.id, nombre: f.nombre, tcOtraUniv: f.tcOtraUniv, cargo: f.cargo };
+/* ============================================================
+   2. Asignaciones Persistidas en la BD (Pestaña 'Asignaciones')
+   ============================================================ */
+
+function leerAsignacionesCiclo_(ciclo) {
+  const todas = leerTabla_("Asignaciones");
+  return todas.filter(function (a) { return a.ciclo === ciclo; });
+}
+
+function leerAsignacionesDpto_(ciclo, dpto) {
+  const asignaciones = leerAsignacionesCiclo_(ciclo);
+  if (!dpto || dpto === "TODOS") return asignaciones;
+  const dptoNorm = Dominio.normalizarDpto(dpto) || dpto;
+  return asignaciones.filter(function (a) {
+    return (Dominio.normalizarDpto(a.departamento) || a.departamento) === dptoNorm;
   });
 }
 
 /* ============================================================
-   Reemplazo docente (RF-094, P142)
+   3. Extracción de Asignaturas de Planes Registrados
    ============================================================ */
 
-/* Un docente asignado se reconoce por su identificador de General o, sin él, por su nombre. */
-function claveDocente_(x) {
-  return x.id || ("?:" + dominioCarga_().claveNombre(x.texto));
-}
+function obtenerCursosDepartamento_(ciclo, dpto) {
+  const planes = leerPlanes_().filter(function (p) { return p.ciclo === ciclo; });
+  const contenidos = contenidosVigentes_(ciclo, planes);
+  const dptoNorm = Dominio.normalizarDpto(dpto);
+  const cursos = [];
 
-function dictaAlguien_(x) {
-  return !!(x && !x.vacante && !x.sinDocente && String(x.texto || "").trim());
-}
+  Object.keys(contenidos).forEach(function (sigla) {
+    const asignaturas = contenidos[sigla] || [];
+    asignaturas.forEach(function (asig) {
+      const asigDpto = Dominio.normalizarDpto(asig.dpto);
+      if (dpto && dpto !== "TODOS" && asigDpto !== dptoNorm) return;
 
-function refDeGrupo_(planes, sig, id) {
-  const lista = planes[sig] || [];
-  for (let ci = 0; ci < lista.length; ci++) {
-    const gi = lista[ci].grupos.findIndex(function (g) { return g.id === id; });
-    if (gi >= 0) return { sig: sig, ci: ci, gi: gi, a: lista[ci], g: lista[ci].grupos[gi] };
-  }
-  return null;
-}
+      (asig.grupos || []).forEach(function (g) {
+        const ht = Dominio.num(g.ht);
+        const hp = Dominio.num(g.hp);
+        const th = ht + hp;
+        const subgrupos = g.desdoble ? (parseInt(g.desdoble, 10) || 2) : 1;
 
-/* La ventana de reemplazo para la fila «fila» de la hoja de «sig»: los docentes de esa
-   fila y, de cada uno, sus asignaturas del ciclo que piden cobertura a los departamentos
-   del Director, con la de la fila ya marcada (P142). */
-function datosReemplazo(ciclo, sig, fila) {
-  const u = exigirUsuario_();
-  exigirDirector_(u);
-  const c = validarCiclo_(ciclo), s = validarCarrera_(sig);
-  const C = dominioCarga_();
-  const lectura = leerPlanesCiclo_(c);
-  const l = lectura.lecturas[s];
-  if (!l) throw new Error("El ciclo " + c + " no tiene la hoja de " + Dominio.nombreCarrera(s) + ".");
-  const n = parseInt(fila, 10);
-  let elegida = null;
-  Object.keys(l.ubicaciones).forEach(function (id) {
-    l.ubicaciones[id].forEach(function (x) { if (x.fila === n) elegida = { id: id, sub: x.sub }; });
-  });
-  if (!elegida) throw new Error("La fila " + fila + " no tiene ningún grupo. Elige en la hoja la fila del curso cuyo docente cambia.");
-  const ref = refDeGrupo_(lectura.planes, s, elegida.id);
-  const bloques = bloquesDeGrupo_(ref.g);
-  const bloque = bloques.filter(function (b) { return b.sub === elegida.sub; })[0] || bloques[0];
-  const asig = ref.g.asignacion || {};
-  const catalogo = leerGeneral_(c);
-  const nombreDe = {};
-  catalogo.forEach(function (f) { nombreDe[f.id] = f.nombre; });
-
-  const titulares = [];
-  bloque.claves.forEach(function (k) {
-    const x = asig[k];
-    if (!dictaAlguien_(x)) return;
-    const clave = claveDocente_(x);
-    if (titulares.some(function (t) { return t.clave === clave; })) return;
-    const items = [];
-    Object.keys(lectura.planes).forEach(function (sg) {
-      (lectura.planes[sg] || []).forEach(function (a) {
-        if (!puedeAsignar_(u, a.dpto)) return;
-        a.grupos.forEach(function (g) {
-          const comps = Object.keys(g.asignacion || {}).filter(function (kk) {
-            const y = g.asignacion[kk];
-            return dictaAlguien_(y) && claveDocente_(y) === clave;
-          });
-          if (!comps.length) return;
-          const lugar = (lectura.lecturas[sg].ubicaciones[g.id] || [])[0];
-          items.push({
-            sig: sg, hoja: nombreHojaCarrera(sg, c), id: g.id, codigo: a.codigo, nombre: a.nombre, grupo: g.n,
-            componentes: comps, fila: lugar ? lugar.fila : null,
-            marcada: sg === s && g.id === elegida.id
-          });
+        cursos.push({
+          carrera: sigla,
+          carreraNombre: Dominio.nombreCarrera(sigla),
+          malla: asig.malla || "",
+          sem: asig.sem || "",
+          codigo: asig.codigo || "",
+          nombre: asig.nombre || "",
+          dpto: asigDpto || asig.dpto || "",
+          obs: asig.obs || "",
+          grupo: g.n,
+          ht: ht,
+          hp: hp,
+          th: th,
+          desdoble: g.desdoble || null,
+          subgrupos: subgrupos,
+          fusion: g.fusion || null
         });
       });
     });
-    titulares.push({ clave: clave, texto: x.texto, nombre: x.id ? nombreDe[x.id] || x.texto : x.texto, items: items });
   });
-  if (!titulares.length) throw new Error("La fila " + fila + " no tiene un docente asignado: no hay a quién reemplazar.");
+
+  return cursos;
+}
+
+/* ============================================================
+   4. Bloqueo de Edición por Departamento
+   ============================================================ */
+
+function claveBloqueoDpto_(dpto) {
+  return "DPTO:" + (Dominio.normalizarDpto(dpto) || dpto);
+}
+
+function bloqueoDeDpto_(ciclo, dpto) {
+  return bloqueoDe_(ciclo, claveBloqueoDpto_(dpto));
+}
+
+function tomarBloqueoDpto(ciclo, dpto) {
+  const u = exigirUsuario_();
+  const c = validarCiclo_(ciclo);
+  const d = Dominio.normalizarDpto(dpto) || dpto;
+  return conCandado_(function () {
+    const r = tomarBloqueo_(c, claveBloqueoDpto_(d), u.correo);
+    return r.ok ? { ok: true, desde: r.desde, expira: r.expira } : { ok: false, bloqueo: r.bloqueo };
+  });
+}
+
+function renovarBloqueoDpto(ciclo, dpto) {
+  const u = exigirUsuario_();
+  const c = validarCiclo_(ciclo);
+  const d = Dominio.normalizarDpto(dpto) || dpto;
+  return conCandado_(function () {
+    const r = tomarBloqueo_(c, claveBloqueoDpto_(d), u.correo);
+    return r.ok ? { expira: r.expira } : { perdido: { correo: r.bloqueo.correo } };
+  });
+}
+
+function liberarBloqueoDpto(ciclo, dpto) {
+  const u = exigirUsuario_();
+  const c = validarCiclo_(ciclo);
+  const d = Dominio.normalizarDpto(dpto) || dpto;
+  return conCandado_(function () {
+    const ref = claveBloqueoDpto_(d);
+    leerBloqueos_()
+      .filter(function (x) { return x.ciclo === c && x.carrera === ref && x.correo === u.correo; })
+      .map(function (x) { return x._fila; })
+      .sort(function (a, b) { return b - a; })
+      .forEach(function (fila) { borrarFila_("Bloqueos", fila); });
+    return true;
+  });
+}
+
+/* ============================================================
+   5. Consulta y Estado Principal de CU-002
+   ============================================================ */
+
+function obtenerEstadoDocentes(ciclo, dpto) {
+  const u = exigirUsuario_();
+  const c = validarCiclo_(ciclo || config_().cicloXlsx);
+  const d = Dominio.normalizarDpto(dpto) || "DIMA";
+
+  const catalogo = leerCatalogoDocentes_();
+  const cursos = obtenerCursosDepartamento_(c, d);
+  const asignacionesDpto = leerAsignacionesDpto_(c, d);
+  const todasAsignacionesCiclo = leerAsignacionesCiclo_(c);
+  const bloqueo = bloqueoDeDpto_(c, d);
+
+  const balance = Dominio.calcularBalanceDocente(catalogo, todasAsignacionesCiclo);
+
   return {
-    ciclo: c, sig: s, fila: n, codigo: ref.a.codigo, nombre: ref.a.nombre, grupo: ref.g.n,
-    titulares: titulares, motivos: C.MOTIVOS_REEMPLAZO,
-    catalogo: catalogo.map(function (f) { return { id: f.id, nombre: f.nombre }; })
-                      .sort(function (x, y) { return Dominio.normalizar(x.nombre).localeCompare(Dominio.normalizar(y.nombre)); })
+    estado: "ok",
+    ciclo: c,
+    departamento: d,
+    departamentoNombre: Dominio.nombreDpto(d),
+    dptosDisponibles: Dominio.DPTOS.map(function (k) { return { sigla: k, nombre: Dominio.nombreDpto(k) }; }),
+    catalogo: catalogo,
+    cursos: cursos,
+    asignaciones: asignacionesDpto,
+    balance: balance,
+    bloqueo: bloqueo,
+    usuario: u
   };
 }
 
-/* datos: { titular (su clave), reemplazante (texto), motivo, resolucion, fechaEfectiva,
-   items: [{ sig, id, componentes }] }. Todas las asignaturas marcadas cambian juntas: si
-   A07, A08 o A11 impiden alguna, no cambia ninguna (P119, P142). El cambio se guarda
-   enseguida como versión de cada carrera afectada, con el detalle en la bitácora
-   (CU-002, FA-002A). */
-function registrarReemplazo(ciclo, datos) {
+/* ============================================================
+   6. Guardado Atómico de Asignaciones
+   ============================================================ */
+
+function guardarAsignaciones(ciclo, dpto, listaAsignaciones, motivo) {
   const u = exigirUsuario_();
-  exigirDirector_(u);
   const c = validarCiclo_(ciclo);
-  const C = dominioCarga_();
-  if (!datos) throw new Error("Faltan los datos del reemplazo.");
-  const motivo = String(datos.motivo || "");
-  if (C.MOTIVOS_REEMPLAZO.indexOf(motivo) < 0) throw new Error("Elige el motivo del reemplazo: " + C.MOTIVOS_REEMPLAZO.join(", ") + ".");
-  const resolucion = String(datos.resolucion || "").trim().slice(0, 100);
-  if (!resolucion) throw new Error("Falta el número de resolución del Decanato.");
-  const fechaEfectiva = String(datos.fechaEfectiva || "").trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaEfectiva)) throw new Error("Falta la fecha efectiva del reemplazo.");
-  const texto = String(datos.reemplazante || "").trim();
-  if (!texto) throw new Error("Elige al docente reemplazante.");
-  const items = Array.isArray(datos.items) ? datos.items : [];
-  if (!items.length) throw new Error("Marca al menos una asignatura.");
-  items.forEach(function (it) { validarCarrera_(it.sig); });
+  const d = Dominio.normalizarDpto(dpto) || dpto;
 
   return conCandado_(function () {
-    let lectura = leerPlanesCiclo_(c);
-    const estados = leerPlanes_();
-    /* Las carreras que el reemplazo puede tocar: las marcadas y las de las secciones fusionadas
-       de sus grupos. Lo que tengan sin versionar en sus hojas se consolida antes, para que el
-       reemplazo no lo pise. */
-    const alcance = items.map(function (it) { return it.sig; }).filter(function (x, i, l) { return l.indexOf(x) === i; });
-    items.forEach(function (it) {
-      const ref = refDeGrupo_(lectura.planes, it.sig, it.id);
-      if (ref && ref.g.fusion)
-        Dominio.gruposDeFusion(lectura.planes, ref.g.fusion).forEach(function (x) { if (alcance.indexOf(x.sig) < 0) alcance.push(x.sig); });
-    });
-    const conCambios = alcance.filter(function (s) { return cambiosSinVersionar_(buscarPlan_(estados, c, s), lectura.lecturas[s]); });
-    const ocupacion = ocupacion_(c, u.correo);
-    const ocupadas = alcance.filter(function (s) { return !ocupacion.libre(s); });
-    if (ocupadas.length) throw new Error(mensajeOcupadas_(ocupadas, ocupacion));
-    conCambios.forEach(function (s) { consolidar_(c, s, u, "Antes del reemplazo docente"); });
-    if (conCambios.length) lectura = leerPlanesCiclo_(c);
-
-    const catalogo = leerGeneral_(c);
-    const altas = [];
-    const reemplazante = C.asignacionDeParte({ texto: texto }, catalogo, altas);
-    if (reemplazante.vinculo === "ambiguo") throw new Error("«" + texto + "» se parece a varios docentes de General: elige uno de la lista.");
-    if (!dictaAlguien_(reemplazante)) throw new Error("El reemplazante tiene que ser un docente.");
-
-    const antes = JSON.parse(JSON.stringify(lectura.planes));
-    const planes = JSON.parse(JSON.stringify(lectura.planes));
-    const historial = { motivo: motivo, resolucion: resolucion, fechaEfectiva: fechaEfectiva, usuario: u.correo, fecha: new Date().toISOString() };
-    const hechos = [];
-    let saliente = "";
-    for (let i = 0; i < items.length; i++) {
-      const it = items[i];
-      const ref = refDeGrupo_(planes, it.sig, it.id);
-      if (!ref) throw new Error("Una asignatura marcada ya no está en la hoja de " + it.sig + ". Vuelve a abrir el reemplazo.");
-      if (!puedeAsignar_(u, ref.a.dpto))
-        throw new Error(it.sig + " " + ref.a.codigo + " pide docente a " + (ref.a.dpto || "ningún departamento") + ", que no es tu departamento (P114).");
-      const asig = ref.g.asignacion || {};
-      const claves = (it.componentes || []).filter(function (k) { return dictaAlguien_(asig[k]) && claveDocente_(asig[k]) === datos.titular; });
-      if (!claves.length)
-        throw new Error("En " + it.sig + " " + ref.a.codigo + " (grupo " + ref.g.n + ") ya no dicta el titular. Vuelve a abrir el reemplazo.");
-      saliente = saliente || asig[claves[0]].texto;
-      const r = C.reemplazar(planes, { sig: it.sig, ci: ref.ci, gi: ref.gi }, claves, reemplazante, historial, catalogo, config_().reglas);
-      if (!r.ok) return { ok: false, asignatura: it.sig + " " + ref.a.codigo + " «" + ref.a.nombre + "» (grupo " + ref.g.n + ")",
-                          bloqueos: r.bloqueos.map(function (b) { return { codigo: b.codigo, mensaje: b.mensaje }; }) };
-      hechos.push({ sig: it.sig, codigo: ref.a.codigo, nombre: ref.a.nombre, grupo: ref.g.n, componentes: claves });
+    const b = bloqueoDeDpto_(c, d);
+    if (b && b.correo !== u.correo) {
+      throw new Error("La carga del departamento " + d + " está siendo editada por " + b.correo + ".");
     }
 
-    /* Una sección fusionada cambia en todas sus carreras: cada una tiene que estar libre. */
-    const afectadas = Object.keys(planes).filter(function (s) {
-      return Dominio.contenidoCanonico(planes[s]) !== Dominio.contenidoCanonico(antes[s]);
-    });
-    const ocupadas2 = afectadas.filter(function (s) { return !ocupacion.libre(s); });
-    if (ocupadas2.length) throw new Error(mensajeOcupadas_(ocupadas2, ocupacion));
-    const fecha = new Date().toISOString();
-    const versiones = {};
-    afectadas.forEach(function (s) {
-      escribirCambiosHoja_(c, s, planes[s], planes, lectura.lecturas[s], {});
-      const p = estadoDePlan_(buscarPlan_(leerPlanes_(), c, s));
-      versiones[s] = registrarVersion_(c, s, {
-        estado: resolverEstado_(p.estado, Dominio.ESTADOS.BORRADOR), tipo: "reemplazo docente", usuario: u.correo, fecha: fecha,
-        motivo: motivo + " · resolución " + resolucion, asignaturas: planes[s],
-        detalle: JSON.stringify({ saliente: saliente, reemplazante: reemplazante.texto, motivo: motivo, resolucion: resolucion,
-                                  fechaEfectiva: fechaEfectiva, asignaturas: hechos.filter(function (h) { return h.sig === s; }) })
-      });
-    });
-    actualizarReportes_(c, planes, catalogo);
-    return { ok: true, versiones: versiones, hechos: hechos, saliente: saliente, reemplazante: reemplazante.texto,
-             alta: altas.length ? altas[0].nombre : null };
-  });
-}
+    const todas = leerTabla_("Asignaciones");
+    const dptoNorm = Dominio.normalizarDpto(d);
 
-function mensajeOcupadas_(carreras, ocupacion) {
-  return carreras.map(function (s) { return s + " la edita " + ocupacion.ocupadas[s].correo; }).join("; ") +
-         ": el reemplazo no se registró. Vuelve a intentarlo cuando termine su edición.";
+    const otras = todas.filter(function (a) {
+      return !(a.ciclo === c && (Dominio.normalizarDpto(a.departamento) || a.departamento) === dptoNorm);
+    });
+
+    const ahora = new Date().toISOString();
+    const nuevasFilas = (listaAsignaciones || []).map(function (a) {
+      return [
+        c,
+        d,
+        a.carrera || "",
+        a.codigo || "",
+        a.asignatura || "",
+        String(a.grupo || "1"),
+        a.componente || "Completo",
+        a.docente || "",
+        String(a.horas || "0"),
+        a.condicion || "",
+        a.reemplazo_de || "",
+        a.fecha_asignacion || ahora
+      ];
+    });
+
+    const valoresFinales = otras.map(function (a) {
+      return [
+        a.ciclo, a.departamento, a.carrera, a.codigo, a.asignatura,
+        a.grupo, a.componente, a.docente, a.horas, a.condicion, a.reemplazo_de, a.fecha_asignacion
+      ];
+    }).concat(nuevasFilas);
+
+    reemplazarFilas_("Asignaciones", valoresFinales);
+    renovarBloqueoDpto(c, d);
+
+    return {
+      ok: true,
+      guardadas: nuevasFilas.length,
+      fecha: ahora,
+      ciclo: c,
+      departamento: d
+    };
+  });
 }

@@ -242,7 +242,7 @@ function xlsxFilas_(xml, compartidas, estilos) {
    CONDICIÓN de cada código: si la asignatura no trae OBSERVACIONES y la condición
    habla de INTERNACIONAL, VIRTUAL o FUSIÓN, esa condición pasa a ser su observación. */
 function ofertaDesdeLibros(libroCarrera, libroDepartamento) {
-  const oferta = {}, avisos = [], lecturas = {};
+  const oferta = {}, avisos = [];
 
   libroCarrera.forEach(function (hoja) {
     const sig = Dominio.siglaDeCarrera(hoja.nombre) || siglaMayoritaria_(hoja.filas);
@@ -257,7 +257,6 @@ function ofertaDesdeLibros(libroCarrera, libroDepartamento) {
     }
     const r = Dominio.interpretar(hoja.filas, { carrera: sig, sinDuplicados: true });
     oferta[sig] = r.asignaturas;
-    lecturas[sig] = r.lecturaDocente;
     r.duplicadas.forEach(function (d) {
       avisos.push("Hoja «" + hoja.nombre + "»: la fila de «" + d.nombre + "» (código " + d.codigo + ", grupo " + d.grupo +
         ") repite un código y grupo que ya aparecen antes en la hoja, así que no se leyó. Corrige el código en el Excel.");
@@ -271,34 +270,7 @@ function ofertaDesdeLibros(libroCarrera, libroDepartamento) {
     });
   });
 
-  /* lecturas: el texto de la columna DOCENTE de cada grupo, por carrera y en el orden de
-     las filas (Dominio.interpretar). Lo aplica DominioCarga.asignarImportados. */
-  return { oferta: oferta, avisos: avisos, lecturas: lecturas };
-}
-
-/* Siembra de un ciclo con los tres Excel de ejemplo, que no se modifican (P110, P117):
-   la oferta de cada carrera, el catálogo de la hoja General (P126), las fusiones anotadas
-   en OBSERVACIONES (P118, P130) y los docentes de la columna DOCENTE, aplicados en el
-   orden de las hojas y de las filas con los permisos de «usuario» (P122, P127). Por
-   omisión, un Director con todos los departamentos. «reglas» ajusta los umbrales (RNF-11). */
-function cicloDesdeLibros(libroCarrera, libroDepartamento, libroDocentes, usuario, reglas) {
-  const C = dominioCarga_();
-  const r = ofertaDesdeLibros(libroCarrera, libroDepartamento);
-  const planes = r.oferta;
-  const fusiones = Dominio.fusionesDesdeObservaciones(planes);
-
-  const hojas = libroDocentes || [];
-  const general = hojas.filter(function (h) { return Dominio.normalizar(h.nombre) === "GENERAL"; })[0] || hojas[0];
-  const catalogo = general ? C.leerGeneral(general.filas) : [];
-
-  const lecturas = [];
-  Object.keys(planes).forEach(function (sig) { (r.lecturas[sig] || []).forEach(function (l) { lecturas.push(l); }); });
-  const docentes = C.asignarImportados(planes, lecturas, catalogo, usuario || { rol: "director", departamento: "TODOS" }, reglas);
-
-  return {
-    planes: planes, catalogo: catalogo, fusiones: fusiones.secciones, docentes: docentes,
-    avisos: r.avisos.concat(fusiones.avisos, docentes.avisos)
-  };
+  return { oferta: oferta, avisos: avisos };
 }
 
 function siglaMayoritaria_(filas) {
