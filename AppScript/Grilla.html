@@ -184,7 +184,7 @@ function pintarGrilla(){
 
   pintarResumen($("#resumen"), p.asignaturas);
   const fila = filaTablero(app.carrera);
-  $("#bloques").innerHTML = htmlBloques(p.asignaturas, true, { docentes: fila ? fila.docentes || {} : {} });
+  $("#bloques").innerHTML = htmlBloques(p.asignaturas, true, { docentes: docentesDelPlan(app.carrera) || {} });
   enlazarBloques($("#bloques"));
   pintarBotonColapsar();
 
@@ -204,10 +204,10 @@ function pintarGrilla(){
     : icono("info") + "<span>Selecciona un grupo de la grilla para editarlo, desdoblarlo o eliminarlo.</span>";
 }
 
-/* Docentes ya asignados a los grupos del plan en edición (según el último tablero). */
+/* Docentes ya asignados a los grupos del plan en edición (obtenerDocentesPorGrupo). Quien
+   la use para advertir llama antes a asegurarDocentesGrupo. */
 function docentesDe(grupos){
-  const f = filaTablero(app.carrera);
-  const mapa = f ? f.docentes || {} : {};
+  const mapa = docentesDelPlan(app.carrera) || {};
   const res = [];
   grupos.forEach(g => (mapa[g.id] || []).forEach(n => { if (!res.includes(n)) res.push(n); }));
   return res;

@@ -34,6 +34,7 @@ async function accion(tipo){
     case "editar-asignatura": {
       const actual = Dominio.normalizarDpto(s.a.dpto) || String(s.a.dpto || "").trim();
       const opciones = DPTOS.concat(actual && !DPTOS.includes(actual) ? [actual] : []);
+      await asegurarDocentesGrupo();
       const doc = docentesDe(s.a.grupos);
       const r = await preguntar({
         titulo: "Editar asignatura",
@@ -88,6 +89,7 @@ async function accion(tipo){
     }
 
     case "eliminar-asignatura": {
+      await asegurarDocentesGrupo();
       const ok = await preguntar({
         titulo: "Eliminar asignatura",
         cuerpo: resumenSel(s) + '<div class="nota aviso">Se eliminará la asignatura y sus ' +
@@ -125,6 +127,7 @@ async function accion(tipo){
 
     case "eliminar-grupo": {
       const solo = s.a.grupos.length === 1;
+      await asegurarDocentesGrupo();
       const ok = await preguntar({
         titulo: "Eliminar grupo",
         cuerpo: resumenSel(s) +

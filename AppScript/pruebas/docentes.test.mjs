@@ -262,5 +262,24 @@ test("el tablero dice qué grupos tienen docente y la recuperación se guarda y 
   ejecutar(e, DIMA, "guardarCarga", CICLO, "DIMA", { asignaciones: [{ unidad: u.id, componente: "T", docente: "VELASQUEZ DOIG, MIGUEL EDUARDO" }], versionBase: 0 });
   assert.equal(ejecutar(e, DIMA, "abrirEdicionCarga", CICLO, "DIMA").recuperacion, null, "al guardar se borra");
   const t = ejecutar(e, A, "obtenerTablero", CICLO);
-  assert.deepEqual(t.filas.find(f => f.sig === "ING").docentes[u.id], ["VELASQUEZ DOIG, MIGUEL EDUARDO (DIMA)"]);
+  assert.ok(t.filas.every(f => !("docentes" in f)), "el tablero no trae los docentes: se piden aparte");
+  assert.deepEqual(ejecutar(e, A, "obtenerDocentesPorGrupo", CICLO).ING[u.id], ["VELASQUEZ DOIG, MIGUEL EDUARDO (DIMA)"]);
+});
+
+test("los docentes por grupo se guardan en caché con la versión de cada plan y cada carga", () => {
+  const e = sistema();
+  const st = ejecutar(e, DIMA, "obtenerEstadoDocentes", CICLO, "DIMA");
+  const u = unidad(st, "ING", "3.4.4.24");
+  assert.deepEqual(ejecutar(e, A, "obtenerDocentesPorGrupo", CICLO), {});
+  ejecutar(e, DIMA, "abrirEdicionCarga", CICLO, "DIMA");
+  ejecutar(e, DIMA, "guardarCarga", CICLO, "DIMA", { asignaciones: [{ unidad: u.id, componente: "T", docente: "VELASQUEZ DOIG, MIGUEL EDUARDO" }], versionBase: 0 });
+  assert.equal(ejecutar(e, A, "obtenerDocentesPorGrupo", CICLO).ING[u.id].length, 1, "guardar la carga cambia la clave");
+
+  e.reiniciarCuentas();
+  ejecutar(e, A, "obtenerDocentesPorGrupo", CICLO);
+  assert.deepEqual(Object.keys(e.cuentas.lecturas).sort(), ["Cargas", "Planes"], "con la caché caliente solo lee los índices");
+
+  ejecutar(e, DIMA, "guardarCarga", CICLO, "DIMA", { asignaciones: [], versionBase: 1 });
+  assert.equal(ejecutar(e, A, "obtenerDocentesPorGrupo", CICLO).ING, undefined);
+  assert.deepEqual(ejecutar(e, A, "obtenerDocentesPorGrupo", "2026-2"), {}, "un ciclo sin planes");
 });

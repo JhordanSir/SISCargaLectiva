@@ -355,6 +355,7 @@ function fijarGuardado(r){
   d.avisos = (d.avisos || []).filter(a => a.tipo !== "PLAN_CAMBIADO");
   marcarDocentesSucio(false);
   anunciar("asignaciones", { ciclo: appDocentes.ciclo, dpto: appDocentes.dpto });
+  if (appDocentes.ciclo === app.ciclo) pedirDocentesGrupo();
 }
 
 alPulsar("#btn-doc-guardar", async () => {

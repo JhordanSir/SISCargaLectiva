@@ -39,6 +39,7 @@ function llamadasValidas(e) {
     [A, "liberarBloqueo", CICLO, "ING"],
     [A, "cambiarDepartamento", CICLO, "ADM", grupoAdm, "DACTE", "prueba"],
     [DIMA, "obtenerEstadoDocentes", CICLO, "DIMA"],
+    [A, "obtenerDocentesPorGrupo", CICLO],
     [DIMA, "abrirEdicionCarga", CICLO, "DIMA"],
     [DIMA, "renovarBloqueoCarga", CICLO, "DIMA"],
     [DIMA, "guardarCarga", CICLO, "DIMA", { asignaciones: [], versionBase: 0 }],
@@ -52,7 +53,7 @@ function llamadasValidas(e) {
 test("todos los endpoints responden {ok: true, datos} cuando salen bien", () => {
   const e = sistema();
   const llamadas = llamadasValidas(e);
-  assert.equal(new Set(llamadas.map(l => l[1])).size, 19, "están los 19 endpoints");
+  assert.equal(new Set(llamadas.map(l => l[1])).size, 20, "están los 20 endpoints");
   for (const [correo, funcion, ...args] of llamadas) {
     const r = ejecutarCrudo(e, correo, funcion, ...args);
     assert.equal(r.ok, true, funcion + ": " + JSON.stringify(r).slice(0, 200));

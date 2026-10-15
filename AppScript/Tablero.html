@@ -65,6 +65,49 @@ const tableroAlDia = () => app.tableroCiclo === app.ciclo && Date.now() - app.ta
 const filaTablero = sig => app.tableroCiclo === app.ciclo ? app.tablero.find(f => f.sig === sig) || null : null;
 const bloqueoVigente = b => b && Date.parse(b.expira) > Date.now() ? b : null;
 
+/* Docentes ya asignados a cada grupo, {ADM: {grupoId: [nombres]}}. No llegan con el
+   tablero, porque calcularlos lee las cargas de los departamentos: se piden aparte y en
+   segundo plano cada vez que llega el tablero o se guarda una carga. */
+const docentesGrupo = { ciclo: "", mapa: null, pedido: null, cicloPedido: "" };
+
+function pedirDocentesGrupo(){
+  const ciclo = app.ciclo;
+  const pedido = llamarEnSilencio("obtenerDocentesPorGrupo", ciclo).then(mapa => {
+    if (docentesGrupo.pedido !== pedido) return;
+    const anterior = docentesGrupo.ciclo === ciclo ? docentesGrupo.mapa : null;
+    Object.assign(docentesGrupo, { ciclo: ciclo, mapa: mapa, pedido: null });
+    if (ciclo === app.ciclo) repintarDocentes(anterior);
+  }, e => {
+    console.warn("obtenerDocentesPorGrupo:", e);
+    if (docentesGrupo.pedido === pedido) docentesGrupo.pedido = null;
+  });
+  Object.assign(docentesGrupo, { pedido: pedido, cicloPedido: ciclo });
+  return pedido;
+}
+
+/* {grupoId: [nombres]} de una carrera en el ciclo a la vista, o null si aún no llegó. */
+function docentesDelPlan(sig){
+  return docentesGrupo.mapa && docentesGrupo.ciclo === app.ciclo ? docentesGrupo.mapa[sig] || {} : null;
+}
+
+/* Antes de advertir al borrar o al cambiar el departamento: si el dato no ha llegado, lo
+   espera (o lo pide). Si falla, se sigue sin la advertencia. */
+async function asegurarDocentesGrupo(){
+  if (docentesDelPlan(app.carrera)) return;
+  const enCamino = docentesGrupo.pedido && docentesGrupo.cicloPedido === app.ciclo ? docentesGrupo.pedido : pedirDocentesGrupo();
+  await conEspera(() => enCamino);
+}
+
+/* Al llegar los docentes, se repinta la consulta o la grilla a la vista si los suyos cambiaron. */
+function repintarDocentes(anterior){
+  const sig = app.vista === "lectura" ? app.lectura : app.vista === "grilla" ? app.carrera : null;
+  if (!sig) return;
+  const antes = anterior ? JSON.stringify(anterior[sig] || {}) : null;
+  if (antes === JSON.stringify(docentesGrupo.mapa[sig] || {})) return;
+  if (app.vista === "lectura") abrirLectura(sig);
+  else if (app.plan) pintarGrilla();
+}
+
 $("#sel-ciclo").innerHTML = (CONFIG.ciclos || []).map(c => "<option" + (c === app.ciclo ? " selected" : "") + ">" + esc(c) + "</option>").join("");
 $("#sel-ciclo").onchange = e => { app.ciclo = e.target.value; mostrarTablero(); };
 $("#btn-releer").onclick = () => cargarTablero({ releer: true });
@@ -98,6 +141,7 @@ function fijarTablero(ciclo, filas, avisos){
   $("#avisos-tablero").hidden = !lista.length;
   pintarTablero();
   if (app.vista === "menu") pintarInicio();
+  pedirDocentesGrupo();
 }
 
 /* Tras guardar, la fila del plan se actualiza aquí mismo. La próxima vez que se muestre
@@ -181,7 +225,7 @@ async function abrirLectura(sig){
   /* El director puede derivar a otro departamento las asignaturas que piden docente al suyo. */
   const dptoDirector = app.usuario && app.usuario.rol === "director" ? departamentoDelUsuario() : "";
   $("#lectura-bloques").innerHTML = htmlBloques(p.asignaturas, false, {
-    docentes: f ? f.docentes : null,
+    docentes: docentesDelPlan(sig),
     derivar: dptoDirector ? a => (Dominio.normalizarDpto(a.dpto) || String(a.dpto || "").trim()) === dptoDirector : null
   });
   enlazarBloques($("#lectura-bloques"));

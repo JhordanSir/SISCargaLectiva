@@ -59,13 +59,13 @@ function conflictoPlan_(ciclo, sig, vigente, versionBase) {
 }
 
 /* Filas del tablero de un ciclo, con el contenido vigente de cada plan: así el navegador
-   consulta un plan o empieza a editarlo sin volver a pedirlo. «docentes» dice qué grupos
-   del plan ya tienen docente, para advertir antes de borrarlos. */
+   consulta un plan o empieza a editarlo sin volver a pedirlo. No lee las cargas docentes:
+   qué grupos tienen docente lo pide el navegador aparte (obtenerDocentesPorGrupo). */
 function leerTablero_(ciclo) {
   const planes = leerPlanes_().filter(function (p) { return p.ciclo === ciclo; });
   const bloqueos = bloqueosVigentes_();
   const contenidos = contenidosVigentes_(REPO_PLAN_, ciclo, planes);
-  const filas = Dominio.CARRERAS.map(function (car) {
+  return Dominio.CARRERAS.map(function (car) {
     const p = estadoDePlan_(buscarPlan_(planes, ciclo, car.sig));
     const b = bloqueos.filter(function (x) { return x.ciclo === ciclo && x.ref === Dominio.REF.plan(car.sig); })[0];
     return {
@@ -74,9 +74,6 @@ function leerTablero_(ciclo) {
       contenido: contenidos[car.sig] || []
     };
   });
-  const docentes = docentesPorGrupo_(ciclo, filas);
-  filas.forEach(function (f) { f.docentes = docentes[f.sig] || {}; });
-  return filas;
 }
 
 /* El plan no se puede guardar si otra cuenta tiene su bloqueo. */

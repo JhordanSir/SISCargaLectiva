@@ -27,7 +27,7 @@ const PUBLICAS = [
   "doGet", "instalar",
   "obtenerTablero", "obtenerPlan", "abrirEdicion", "guardarPlan", "obtenerHistorial", "restaurarVersion", "cambiarDepartamento",
   "renovarBloqueo", "liberarBloqueo",
-  "obtenerEstadoDocentes", "abrirEdicionCarga", "renovarBloqueoCarga", "liberarBloqueoCarga", "guardarCarga",
+  "obtenerEstadoDocentes", "obtenerDocentesPorGrupo", "abrirEdicionCarga", "renovarBloqueoCarga", "liberarBloqueoCarga", "guardarCarga",
   "obtenerHistorialCarga", "obtenerVersionCarga", "restaurarCarga",
   "guardarRecuperacion", "descartarRecuperacion"
 ].sort();

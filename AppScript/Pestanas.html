@@ -123,6 +123,7 @@ function recibirDePestana(m){
       break;
 
     case "asignaciones":
+      if (m.ciclo === app.ciclo) pedirDocentesGrupo();
       if (appDocentes.cargado && appDocentes.cargado.clave === m.ciclo + "|" + m.dpto) {
         if (appDocentes.editando) {
           aviso("Otra pestaña guardó la carga de " + m.dpto + ". Si guardas aquí, se te avisará antes.", "aviso");

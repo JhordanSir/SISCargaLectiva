@@ -259,8 +259,13 @@ test("dentro del intervalo el tablero no llama a Drive; «Releer Excel» sí", (
 test("con la caché caliente, el tablero y la consulta no leen Versiones ni Usuarios", () => {
   const e = sistema();
   ejecutar(e, A, "obtenerTablero", CICLO);
+  /* Con una carga docente guardada, ni el tablero ni la página leen Cargas ni VersionesCarga. */
+  ejecutar(e, DIRECTORES.DIMA, "abrirEdicionCarga", CICLO, "DIMA");
+  ejecutar(e, DIRECTORES.DIMA, "guardarCarga", CICLO, "DIMA", { asignaciones: [], versionBase: 0 });
+  ejecutar(e, A, "obtenerTablero", CICLO);
   e.reiniciarCuentas();
   ejecutar(e, A, "obtenerTablero", CICLO);
+  ejecutar(e, A, "datosIniciales_");
   ejecutar(e, A, "obtenerPlan", CICLO, "DER");
   assert.equal(e.cuentas.lecturas.Versiones || 0, 0);
   assert.equal(e.cuentas.lecturas.Usuarios || 0, 0);
