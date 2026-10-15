@@ -32,11 +32,11 @@ function anunciar(tipo, datos){
 
 /* «nuevo» distingue la toma del bloqueo de sus renovaciones y de las respuestas a «hola». */
 function anunciarEdicion(nuevo){
-  if (!app.carrera || !edicion.temporizador) return;
-  if (nuevo || !edicion.desde) edicion.desde = new Date().toISOString();
+  if (!app.carrera || !sesionPlan.activa) return;
+  if (nuevo || !sesionPlan.desde) sesionPlan.desde = new Date().toISOString();
   anunciar("editando", {
-    ciclo: app.ciclo, sig: app.carrera, desde: edicion.desde,
-    expira: new Date(edicion.expira).toISOString(), nuevo: !!nuevo
+    ciclo: app.ciclo, sig: app.carrera, desde: sesionPlan.desde,
+    expira: new Date(sesionPlan.expira).toISOString(), nuevo: !!nuevo
   });
 }
 
@@ -124,15 +124,17 @@ function recibirDePestana(m){
 
     case "asignaciones":
       if (appDocentes.cargado && appDocentes.cargado.clave === m.ciclo + "|" + m.dpto) {
-        if (appDocentes.sucio) {
-          aviso("Otra pestaña guardó las asignaciones de " + m.dpto + ". Si guardas aquí, reemplazarás lo que guardó.", "aviso");
+        if (appDocentes.editando) {
+          aviso("Otra pestaña guardó la carga de " + m.dpto + ". Si guardas aquí, se te avisará antes.", "aviso");
         } else {
           appDocentes.cargado.hora = 0;
           if (app.vista === "docentes") {
             cargarEstadoDocentes({ fondo: true });
-            aviso("Otra pestaña guardó las asignaciones de " + m.dpto + ": se actualizaron aquí.", "pestana");
+            aviso("Otra pestaña guardó la carga de " + m.dpto + ": se actualizó aquí.", "pestana");
           }
         }
+      } else if (appDocentes.cargado && appDocentes.cargado.clave.startsWith(m.ciclo + "|")) {
+        appDocentes.cargado.hora = 0;   // cambia el balance de los docentes compartidos
       }
       break;
   }

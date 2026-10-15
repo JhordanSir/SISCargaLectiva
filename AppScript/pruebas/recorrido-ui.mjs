@@ -131,7 +131,7 @@ async function recorrido(srv) {
   console.log("Director: menú, tablero y consulta");
   const pa = await Pestana.abrir(url(A));
   await pa.esperar(`!document.querySelector("#v-menu").hidden`, "arranca en el menú");
-  asegurar(await pa.texto("#u-correo") === A && await pa.texto("#u-rol") === "Director de departamento", "la cabecera muestra la cuenta y el rol");
+  asegurar(await pa.texto("#u-correo") === A && await pa.texto("#u-rol") === "Coordinador de ADM, DER, ING, ICO, COM, PSI, ARQ y IND", "la cabecera muestra la cuenta y el rol");
   asegurar(await pa.evaluar(`typeof XLSX === "undefined"`), "SheetJS no se descarga al abrir la página");
   await pa.pulsar("#op-planes");
   await pa.esperar(`document.querySelectorAll("#tb-tablero tr").length === 8 && [...document.querySelectorAll("#tb-tablero .pill")].every(p => p.textContent === "Registrado")`,
@@ -292,7 +292,7 @@ async function recorrido(srv) {
   console.log("Coordinador y acceso denegado");
   srv.entorno.hoja("Usuarios").getRange(8, 1, 1, 3).setNumberFormat("@").setValues([["coord@ulasalle.edu.pe", "coordinador", "ING"]]);
   const pc = await Pestana.abrir(url("coord@ulasalle.edu.pe"));
-  await pc.esperar(`document.querySelector("#u-rol").textContent === "Coordinador de carrera · ING"`, "rol de coordinador de ING");
+  await pc.esperar(`document.querySelector("#u-rol").textContent === "Coordinador de Ingeniería de Software"`, "rol de coordinador de ING");
   await pc.pulsar("#op-planes");
   await pc.esperar(`document.querySelectorAll("#tb-tablero tr").length === 8`, "tablero del coordinador");
   filas = await pc.filasTablero();

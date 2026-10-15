@@ -89,106 +89,36 @@ function irACarga(){
 
 $("#volver-carga").onclick = () => terminarEdicion();
 
-/* ---------- pegado ---------- */
-$("#op-pegar").onclick = () => { mostrar("pegado"); limpiarHoja(); $("#hoja-pegado").focus(); };
-
-/* ---------- área de pegado con forma de hoja de cálculo ---------- */
-const MAX_FILAS_VISTA = 300;          // tope de filas dibujadas; se procesan todas
-const hoja = $("#hoja-pegado");
-
-/* Nombre de columna al estilo de una hoja: A, B, … Z, AA, AB… */
-function letraColumna(i){
-  let s = "";
-  for (i++; i > 0; i = Math.floor((i - 1) / 26)) s = String.fromCharCode(65 + (i - 1) % 26) + s;
-  return s;
-}
-
-function limpiarHoja(){
-  app.matrizPegada = null;
-  $("#hoja-scroll").hidden = true;
-  $("#hoja-scroll").innerHTML = "";
-  $("#hoja-vacia").hidden = false;
-  $("#hoja-pie").hidden = true;
-  $("#procesar-pegado").disabled = true;
-  $("#limpiar-pegado").disabled = true;
-}
-
-function pintarHoja(matriz){
-  app.matrizPegada = matriz;
-  const columnas = matriz.reduce((n, f) => Math.max(n, f.length), 0);
-  const cab = ubicarCabeceras(matriz);
-  const filaCab = cab && !cab.faltan.length && !cab.repetidas.length ? cab.fila : -1;
-  const visibles = matriz.slice(0, MAX_FILAS_VISTA);
-
-  const encabezado = "<thead><tr><th></th>" +
-    Array.from({ length: columnas }, (_, j) => "<th>" + letraColumna(j) + "</th>").join("") +
-    "</tr></thead>";
-
-  const cuerpo = "<tbody>" + visibles.map((f, i) => {
-    const celdas = Array.from({ length: columnas }, (_, j) => {
-      const v = f[j] == null ? "" : f[j];
-      return "<td" + (v === "" ? ' class="vacia"' : "") + ' title="' + esc(v) + '">' +
-             (v === "" ? "" : esc(v)) + "</td>";
-    }).join("");
-    return "<tr" + (i === filaCab ? ' class="fila-cabecera"' : "") + "><th>" + (i + 1) + "</th>" + celdas + "</tr>";
-  }).join("") + "</tbody>";
-
-  $("#hoja-scroll").innerHTML = "<table>" + encabezado + cuerpo + "</table>";
-  $("#hoja-scroll").hidden = false;
-  $("#hoja-vacia").hidden = true;
-
-  const partes = [
-    '<span><span class="dato">' + matriz.length + "</span> fila(s) × " +
-      '<span class="dato">' + columnas + "</span> columna(s)</span>"
-  ];
-  if (filaCab >= 0) partes.push("Cabeceras detectadas en la fila <span class=\"dato\">" + (filaCab + 1) + "</span>");
-  else partes.push('<span class="falta">No se reconocen las cabeceras de la plantilla oficial</span>');
-  if (matriz.length > MAX_FILAS_VISTA)
-    partes.push("Se muestran las primeras " + MAX_FILAS_VISTA + "; se procesarán todas");
-  $("#hoja-pie").innerHTML = partes.join(" · ");
-  $("#hoja-pie").hidden = false;
-
-  $("#procesar-pegado").disabled = false;
-  $("#limpiar-pegado").disabled = false;
-}
-
-function recibirPegado(e){
-  if (app.vista !== "pegado") return;
-  const texto = (e.clipboardData || window.clipboardData).getData("text/plain");
-  if (!texto || !texto.trim()) return;
-  e.preventDefault();
-  const matriz = matrizDesdeTexto(texto);
-  if (!matriz.length) return aviso("El contenido pegado está vacío.", "aviso");
-  pintarHoja(matriz);
-  latido();
-  aviso("Pegadas " + matriz.length + " filas");
-}
-
-/* Se escucha en el documento para que el pegado funcione con o sin foco en la rejilla. */
-document.addEventListener("paste", recibirPegado);
-hoja.addEventListener("click", () => hoja.focus());
-
-/* Arrastrar y soltar un archivo de texto sobre la rejilla también rellena la hoja. */
-["dragenter","dragover"].forEach(ev => hoja.addEventListener(ev, e => {
-  e.preventDefault(); hoja.classList.add("encima");
-}));
-["dragleave","drop"].forEach(ev => hoja.addEventListener(ev, e => {
-  e.preventDefault(); hoja.classList.remove("encima");
-}));
-hoja.addEventListener("drop", async e => {
-  const f = e.dataTransfer && e.dataTransfer.files[0];
-  if (!f) return;
-  const m = matrizDesdeTexto(await f.text());
-  if (m.length) pintarHoja(m);
+/* ---------- pegado en la rejilla ---------- */
+const rejillaOferta = crearRejillaPegado({
+  hoja: $("#hoja-pegado"), scroll: $("#hoja-scroll"), vacia: $("#hoja-vacia"), pie: $("#hoja-pie"),
+  botones: [$("#procesar-pegado"), $("#limpiar-pegado")],
+  activa: () => app.vista === "pegado",
+  maxFilas: 300,
+  filaCabecera: m => { const cab = ubicarCabeceras(m); return cab && !cab.faltan.length && !cab.repetidas.length ? cab.fila : -1; },
+  alPegar: () => latido(),
+  /* Soltar un archivo sobre la rejilla lo dibuja en ella, para revisarlo antes de procesarlo. */
+  alSoltarArchivo: async f => {
+    const r = await leerArchivoComoMatriz(f, nombres => preguntarHoja(nombres, "El libro contiene varias hojas", "Importar la hoja"));
+    if (r && r.matriz.length) rejillaOferta.pintar(r.matriz);
+  }
 });
 
-$("#limpiar-pegado").onclick = () => { limpiarHoja(); hoja.focus(); };
+$("#op-pegar").onclick = () => { mostrar("pegado"); rejillaOferta.limpiar(); $("#hoja-pegado").focus(); };
+$("#limpiar-pegado").onclick = () => { rejillaOferta.limpiar(); $("#hoja-pegado").focus(); };
 $("#procesar-pegado").onclick = () => {
-  if (!app.matrizPegada) return aviso("Pega primero el rango copiado desde Google Sheets.", "aviso");
-  procesar(app.matrizPegada);
+  if (!rejillaOferta.matriz) return aviso("Pega primero el rango copiado desde Google Sheets.", "aviso");
+  procesar(rejillaOferta.matriz);
 };
 
-/* ---------- archivo ---------- */
+/* ---------- archivo: se procesa directamente ---------- */
+async function leerArchivo(file){
+  const r = await leerArchivoComoMatriz(file, nombres => preguntarHoja(nombres, "El libro contiene varias hojas", "Importar la hoja"));
+  if (!r) return;
+  if (!r.matriz.length) return aviso("No se pudo sacar nada de «" + file.name + "».", "aviso");
+  procesar(r.matriz);
+}
+
 $("#op-archivo").onclick = () => $("#input-archivo").click();
 $("#input-archivo").onchange = e => { const f = e.target.files[0]; if (f) leerArchivo(f); e.target.value = ""; };
 
@@ -197,66 +127,6 @@ const opArchivo = $("#op-archivo");
 ["dragenter","dragover"].forEach(ev => opArchivo.addEventListener(ev, e => { e.preventDefault(); opArchivo.classList.add("encima"); }));
 ["dragleave","drop"].forEach(ev => opArchivo.addEventListener(ev, e => { e.preventDefault(); opArchivo.classList.remove("encima"); }));
 opArchivo.addEventListener("drop", e => { const f = e.dataTransfer && e.dataTransfer.files[0]; if (f) leerArchivo(f); });
-
-/* SheetJS pesa casi 1 MB: se descarga al entrar en la carga masiva, no al abrir la página.
-   Si no se puede descargar, el archivo se lee como texto. */
-const URL_SHEETJS = "https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js";
-let descargaSheetJS = null;
-function cargarSheetJS(){
-  if (typeof XLSX !== "undefined") return Promise.resolve(true);
-  if (!descargaSheetJS) descargaSheetJS = new Promise(resolve => {
-    const s = document.createElement("script");
-    s.src = URL_SHEETJS;
-    s.onload = () => resolve(typeof XLSX !== "undefined");
-    s.onerror = () => { descargaSheetJS = null; s.remove(); resolve(false); };
-    document.head.appendChild(s);
-  });
-  return descargaSheetJS;
-}
-
-/* Acepta cualquier archivo. Intenta leerlo como libro de cálculo y, si no lo es,
-   como texto plano. No hay extensiones prohibidas ni formatos rechazados. */
-async function leerArchivo(file){
-  const ext = ((file.name.match(/\.([^.]+)$/) || [])[1] || "").toLowerCase();
-  const pareceLibro = ["xlsx","xlsm","xlsb","xls","ods"].includes(ext);
-
-  if (pareceLibro && await conEspera(cargarSheetJS)) {
-    try {
-      const libro = await conEspera(async () => XLSX.read(await file.arrayBuffer(), { type:"array" }));
-      let hojaLibro = libro.SheetNames[0];
-
-      if (libro.SheetNames.length > 1) {
-        const elegida = await preguntar({
-          titulo: "El libro contiene varias hojas",
-          cuerpo: '<p class="ficha">Elige la hoja que quieres importar.</p>' +
-            '<div class="campo"><label for="sel-hoja">Hoja</label><select id="sel-hoja">' +
-            libro.SheetNames.map(n => "<option>" + esc(n) + "</option>").join("") + "</select></div>",
-          acciones: [
-            { texto:"Cancelar", valor:null },
-            { texto:"Importar la hoja", clase:"primario", valor:() => $("#sel-hoja").value }
-          ]
-        });
-        if (!elegida) return;
-        hojaLibro = elegida();
-      }
-
-      const matriz = XLSX.utils.sheet_to_json(libro.Sheets[hojaLibro], { header:1, raw:false, defval:"" })
-        .map(f => f.map(c => String(c == null ? "" : c).trim()));
-      return procesar(matriz);
-    } catch (e) {
-      /* Si no se deja leer como libro, se intenta como texto. */
-    }
-  }
-
-  let texto = "";
-  try { texto = await file.text(); } catch (e) { texto = ""; }
-  const matriz = matrizDesdeTexto(texto);
-  if (!matriz.length) {
-    aviso("No se pudo sacar nada de «" + file.name + "».", "aviso");
-    return;
-  }
-  procesar(matriz);
-}
 
 /* ---------- procesar ---------- */
 /* Nunca falla: lo que se pueda interpretar entra, y el resto se queda como texto.
@@ -269,12 +139,17 @@ async function procesar(matriz){
     const seguir = await preguntar({
       titulo: "Reemplazar el contenido del plan",
       cuerpo: '<div class="nota aviso">Se reemplazará todo el contenido actual del plan. Se perderán los desdobles, ' +
-              "los ajustes manuales y las fusiones.</div>",
+              "los ajustes manuales y las fusiones (también con otras carreras). Los grupos que sigan existiendo (mismo código y grupo) conservan sus docentes asignados.</div>",
       acciones: [{ texto:"Cancelar", valor:null }, { texto:"Reemplazar", clase:"primario", valor:true }]
     });
     if (!seguir) return;
   }
 
+  Dominio.conservarIds(asignaturas, p.asignaturas);
+  /* Las fusiones con otras carreras que se pierden se deshacen también en sus planes. */
+  const perdidas = [];
+  p.asignaturas.forEach(a => a.grupos.forEach(g => { if (g.fusion && (g.fusionCon || []).length && !perdidas.includes(g.fusion)) perdidas.push(g.fusion); }));
+  p.fusionesDisueltas = (p.fusionesDisueltas || []).concat(perdidas);
   p.asignaturas = asignaturas;
   p.sucio = true;
   app.seleccion = null;

@@ -7,7 +7,7 @@ var PROPIEDADES_POR_DEFECTO_ = {
   SIS_CICLOS: "2026-1,2026-2,2027-1,2027-2",
   SIS_CICLO_XLSX: "2026-1",
   SIS_MINUTOS_REVISION_XLSX: "5",
-  SIS_ROL_POR_DEFECTO: "director"
+  SIS_ROL_POR_DEFECTO: "ninguno"
 };
 
 /* Cuentas con que se siembra la pestaña Usuarios la primera vez. */

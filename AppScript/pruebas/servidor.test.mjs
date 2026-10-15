@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { crearEntorno, cargarServidor, ejecutar } from "./falsos.mjs";
+import { crearEntorno, cargarServidor, ejecutar, fijarUsuarios, USUARIOS_PRUEBA, DIRECTORES } from "./falsos.mjs";
 import { cargar, partesXlsx, plano, XLSX_CARRERA, XLSX_DEPARTAMENTO } from "./soporte.mjs";
 
 const A = "mfloresl@ulasalle.edu.pe";
@@ -13,6 +13,7 @@ function sistema({ conXlsx = true } = {}) {
   const e = crearEntorno();
   cargarServidor(e);
   ejecutar(e, A, "instalar");
+  fijarUsuarios(e, USUARIOS_PRUEBA);
   if (conXlsx) {
     e.subir(e.propiedades.SIS_CARPETA_ID, "SISCargaLectiva-Ejemplo-CargaXCarrera.xlsx", fs.readFileSync(XLSX_CARRERA), { fecha: "2026-09-20T10:00:00Z" });
     e.subir(e.propiedades.SIS_CARPETA_ID, "SISCargaLectiva-Ejemplo-CargaXDepartamento.xlsx", fs.readFileSync(XLSX_DEPARTAMENTO), { fecha: "2026-09-20T10:05:00Z" });
@@ -33,7 +34,7 @@ test("instalar() crea carpeta, hoja, pestañas y usuarios, y se puede repetir", 
   assert.ok(carpeta && bd);
   assert.equal(e.propiedades.SIS_CICLO_XLSX, "2026-1");
   const libro = e.libros.get(bd);
-  assert.deepEqual(libro.getSheets().map(h => h.getName()), ["Usuarios", "Planes", "Versiones", "Bloqueos", "Fuentes", "Asignaciones"]);
+  assert.deepEqual(libro.getSheets().map(h => h.getName()), ["Usuarios", "Planes", "Versiones", "Bloqueos", "Fuentes", "Cargas", "VersionesCarga", "Recuperacion"]);
   assert.equal(e.hoja("Usuarios").filas().length, 6);
   ejecutar(e, A, "instalar");
   assert.equal(e.propiedades.SIS_CARPETA_ID, carpeta);
@@ -183,17 +184,31 @@ test("el coordinador edita solo sus carreras y consulta todas", () => {
   assert.equal(ejecutar(e, "coord@ulasalle.edu.pe", "obtenerPlan", CICLO, "ADM").asignaturas.length, 60);
 });
 
+test("el director lleva su departamento y el coordinador las carreras que coordina", () => {
+  const e = sistema();
+  e.hoja("Usuarios").getRange(8, 1, 2, 4).setNumberFormat("@").setValues([
+    ["dir@ulasalle.edu.pe", "Director", "", "Humanidades y Com."],
+    ["coord@ulasalle.edu.pe", "coordinador", "Ing. Software", ""]
+  ]);
+  const d = ejecutar(e, "dir@ulasalle.edu.pe", "datosIniciales_").usuario;
+  assert.deepEqual([d.rol, d.departamento, d.coordina, d.carreras], ["director", "DAHUC", [], []], "el director no edita planes");
+  const c = ejecutar(e, "coord@ulasalle.edu.pe", "datosIniciales_").usuario;
+  assert.deepEqual([c.rol, c.coordina, c.carreras, c.departamento], ["coordinador", ["ING"], ["ING"], ""]);
+  assert.throws(() => ejecutar(e, "dir@ulasalle.edu.pe", "abrirEdicion", CICLO, "ADM"), /no edita los planes/);
+});
+
 test("otro dominio o una cuenta sin rol reciben acceso denegado", () => {
   const e = sistema();
   const d = ejecutar(e, "alguien@gmail.com", "datosIniciales_");
   assert.equal(d.estado, "denegado");
   assert.match(d.motivo, /no pertenece al dominio ulasalle\.edu\.pe/);
   assert.throws(() => ejecutar(e, "alguien@gmail.com", "obtenerTablero", CICLO), /no pertenece/);
-  assert.equal(ejecutar(e, "nuevo@ulasalle.edu.pe", "datosIniciales_").usuario.rol, "director");
-  e.propiedades.SIS_ROL_POR_DEFECTO = "ninguno";
-  assert.equal(ejecutar(e, "nuevo@ulasalle.edu.pe", "datosIniciales_").usuario.rol, "director", "el rol sigue en caché");
+  assert.equal(e.propiedades.SIS_ROL_POR_DEFECTO, "ninguno", "instalar() deniega por defecto");
+  assert.match(ejecutar(e, "nuevo@ulasalle.edu.pe", "datosIniciales_").motivo, /no tiene un rol/);
+  e.propiedades.SIS_ROL_POR_DEFECTO = "director";
+  assert.equal(ejecutar(e, "nuevo@ulasalle.edu.pe", "datosIniciales_").estado, "denegado", "la denegación sigue en caché");
   e.desfase = 6 * 60000;
-  assert.match(ejecutar(e, "nuevo@ulasalle.edu.pe", "datosIniciales_").motivo, /no tiene asignado el rol/);
+  assert.equal(ejecutar(e, "nuevo@ulasalle.edu.pe", "datosIniciales_").usuario.rol, "director");
   assert.equal(ejecutar(e, A, "datosIniciales_").estado, "ok");
 });
 
@@ -202,7 +217,7 @@ test("un cambio en la pestaña Usuarios se aplica cuando caduca la caché, a los
   const coord = "coord@ulasalle.edu.pe";
   e.hoja("Usuarios").getRange(8, 1, 1, 3).setNumberFormat("@").setValues([[coord, "coordinador", "ING"]]);
   assert.deepEqual(ejecutar(e, coord, "datosIniciales_").usuario.carreras, ["ING"]);
-  e.hoja("Usuarios").getRange(8, 2, 1, 1).setNumberFormat("@").setValues([["director"]]);
+  e.hoja("Usuarios").getRange(8, 3, 1, 1).setNumberFormat("@").setValues([["ING, ADM"]]);
   e.desfase = 4 * 60000;
   assert.throws(() => ejecutar(e, coord, "abrirEdicion", CICLO, "ADM"), /no tiene permiso/);
   e.desfase = 6 * 60000;
@@ -298,9 +313,9 @@ test("cambiar solo la fecha del xlsx no crea versiones; cambiar su contenido sí
   /* Sin el libro por departamento desaparecen las marcas de CONDICIÓN: cambian las
      carreras que tenían alguna y solo esas reciben «actualización desde xlsx». */
   const ctx = cargar(["Dominio.js", "LectorXlsx.js"]);
-  const lc = ctx.leerLibroXlsx(partesXlsx(XLSX_CARRERA));
-  const con = plano(ctx.ofertaDesdeLibros(lc, ctx.leerLibroXlsx(partesXlsx(XLSX_DEPARTAMENTO)))).oferta;
-  const sin = plano(ctx.ofertaDesdeLibros(lc, null)).oferta;
+  const lc = ctx.leerLibroXlsx_(partesXlsx(XLSX_CARRERA));
+  const con = plano(ctx.ofertaDesdeLibros_(lc, ctx.leerLibroXlsx_(partesXlsx(XLSX_DEPARTAMENTO)))).oferta;
+  const sin = plano(ctx.ofertaDesdeLibros_(lc, null)).oferta;
   const cambian = Object.keys(con).filter(s => JSON.stringify(con[s].map(a => a.obs)) !== JSON.stringify(sin[s].map(a => a.obs)));
   assert.ok(cambian.includes("ING"));
 
@@ -326,7 +341,7 @@ test("doGet arma la página con los datos iniciales y el dominio compartido", ()
   const e = sistema();
   const html = e.ctx.doGet().getContent();
   assert.match(html, /var SIS = \{"estado":"ok"/);
-  assert.match(html, /var Dominio = \(function crearDominio\(\)/);
+  assert.match(html, /var Dominio = \(function crearDominio_\(\)/);
   assert.doesNotMatch(html, /<\?/);
-  assert.ok(!/<\/script/i.test(e.ctx.crearDominio.toString()), "el código compartido no puede cerrar la etiqueta <script>");
+  assert.ok(!/<\/script/i.test(e.ctx.crearDominio_.toString()), "el código compartido no puede cerrar la etiqueta <script>");
 });

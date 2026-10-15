@@ -37,6 +37,7 @@
     </div>
     <div class="dock-acciones" id="acciones-fila" role="toolbar" aria-label="Acciones sobre el grupo seleccionado">
       <button type="button" class="btn btn-sm" data-acc="editar" data-req="sel"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-pencil-simple"></use></svg>Editar HT / HP</button>
+      <button type="button" class="btn btn-sm" data-acc="editar-asignatura" data-req="sel"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-list-checks"></use></svg>Editar asignatura</button>
       <button type="button" class="btn btn-sm" data-acc="agregar-grupo" data-req="sel"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-plus"></use></svg>Agregar grupo</button>
       <button type="button" class="btn btn-sm" data-acc="desdoblar" data-req="sel"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-arrows-split"></use></svg>Desdoblar</button>
       <button type="button" class="btn btn-sm" data-acc="quitar-desdoble" data-req="des"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-arrows-merge"></use></svg>Quitar desdoble</button>
@@ -64,231 +65,6 @@
 <script>
 "use strict";
 /* ============================================================
-   Bloqueo de edición
-   ============================================================ */
-function iniciarReloj(expira){
-  edicion.expira = Date.parse(expira);
-  edicion.ultimoLatido = Date.now();
-  clearInterval(edicion.temporizador);
-  edicion.temporizador = setInterval(tic, 1000);
-  pintarReloj();
-}
-function detenerReloj(){
-  clearInterval(edicion.temporizador); edicion.temporizador = null;
-  $$(".reloj").forEach(e => e.textContent = "");
-}
-const quedan = () => Math.max(0, Math.ceil((edicion.expira - Date.now()) / 1000));
-
-function tic(){
-  pintarReloj();
-  if (Date.now() >= edicion.expira) expirar();
-}
-function pintarReloj(){
-  const q = quedan(), m = Math.floor(q / 60), s = q % 60;
-  const txt = "Sesión de edición: " + m + ":" + String(s).padStart(2, "0");
-  $$(".reloj").forEach(e => {
-    e.textContent = txt;
-    e.classList.toggle("poco", q <= 60);
-  });
-}
-
-/* La actividad renueva el bloqueo en el servidor, como mucho una vez por minuto. */
-async function latido(){
-  if (!edicion.temporizador || !app.carrera) return;
-  const intervalo = Math.min(60000, CONFIG.minutosBloqueo * 15000);
-  if (Date.now() - edicion.ultimoLatido < intervalo) return;
-  edicion.ultimoLatido = Date.now();
-  const sig = app.carrera;
-  try {
-    const r = await llamarEnSilencio("renovarBloqueo", app.ciclo, sig);
-    if (app.carrera !== sig || !edicion.temporizador) return;
-    if (r.perdido) return bloqueoPerdido(r.perdido.correo);
-    edicion.expira = Date.parse(r.expira);
-    pintarReloj();
-    anunciarEdicion(false);
-  } catch (e) {
-    /* Si falla, la siguiente actividad lo vuelve a intentar. */
-  }
-}
-
-async function bloqueoPerdido(correo){
-  const sig = app.carrera;
-  detenerReloj();
-  app.carrera = null; app.plan = null; app.seleccion = null;
-  app.tableroHora = 0;
-  anunciar("soltado", { ciclo: app.ciclo, sig: sig });
-  mostrarTablero();
-  await preguntar({
-    titulo: "Se perdió el bloqueo de edición",
-    cuerpo: '<div class="nota aviso">Tu bloqueo caducó y ahora el plan lo está editando <b>' + esc(correo) +
-            "</b>. Los cambios que no habías guardado no se pudieron conservar.</div>",
-    acciones: [{ texto:"Entendido", clase:"primario", valor:true }]
-  });
-}
-
-async function expirar(){
-  if (!edicion.temporizador) return;
-  detenerReloj();
-  const sig = app.carrera, p = app.plan;
-  let resultado = "sin cambios";
-  if (p && p.sucio && p.asignaturas.length) {
-    try {
-      const r = await llamar("guardarPlan", app.ciclo, sig, {
-        asignaturas: p.asignaturas, versionBase: p.version, forzar: true, tipo: "autoguardado",
-        estado: p.estado === ESTADOS.REGISTRADO ? ESTADOS.REGISTRADO : ESTADOS.BORRADOR
-      });
-      actualizarFilaTablero(sig, { estado: r.estado, version: r.version, totales: totales(p.asignaturas), contenido: clonar(p.asignaturas) });
-      anunciarGuardado(sig, r.estado, r.version, p.asignaturas);
-      resultado = "guardado";
-    } catch (e) {
-      resultado = (e && e.message) || String(e);
-    }
-  }
-  try { await llamarEnSilencio("liberarBloqueo", app.ciclo, sig); } catch (e) { /* caduca solo */ }
-  anunciar("soltado", { ciclo: app.ciclo, sig: sig });
-  app.carrera = null; app.plan = null; app.seleccion = null;
-  app.tableroHora = 0;
-  mostrarTablero();
-  const texto = resultado === "guardado"
-    ? "Los cambios sin guardar se almacenaron como una nueva versión y se liberó el bloqueo del plan."
-    : resultado === "sin cambios"
-      ? "No había cambios sin guardar. Se liberó el bloqueo del plan."
-      : "No se pudieron guardar los cambios: " + resultado;
-  await preguntar({
-    titulo: "La sesión de edición ha expirado",
-    cuerpo: '<div class="nota aviso">Transcurrieron ' + CONFIG.minutosBloqueo + " minutos sin actividad. " + esc(texto) + "</div>",
-    acciones: [{ texto:"Entendido", clase:"primario", valor:true }]
-  });
-}
-
-/* Libera el bloqueo y vuelve al tablero, descartando lo no guardado. */
-async function terminarEdicion(){
-  const sig = app.carrera, confirmado = !!(app.plan && app.plan.confirmado);
-  detenerReloj();
-  app.carrera = null; app.plan = null; app.seleccion = null;
-  pintarTablero();
-  mostrar("planes");
-  /* Si el bloqueo aún no estaba confirmado, lo devuelve abrirEdicion cuando responda. */
-  if (sig && confirmado) {
-    anunciar("soltado", { ciclo: app.ciclo, sig: sig });
-    try { await llamarEnSilencio("liberarBloqueo", app.ciclo, sig); } catch (e) { /* caduca solo */ }
-  }
-  cargarTablero();
-}
-
-function confirmarSalidaEdicion(){
-  const sucio = !!(app.plan && app.plan.sucio);
-  return preguntar({
-    titulo: "Salir de la edición",
-    cuerpo: '<div class="nota aviso">' + (sucio || app.vista === "grilla"
-      ? "Se descartarán los cambios que no hayas guardado y se liberará el bloqueo del plan."
-      : "Se liberará el bloqueo del plan.") + "</div>",
-    acciones: [{ texto:"Seguir editando", valor:null }, { texto:"Salir", clase:"peligro", valor:true }]
-  });
-}
-
-["click","keydown"].forEach(ev => document.addEventListener(ev, latido, { passive:true }));
-window.addEventListener("pagehide", () => {
-  if (edicion.temporizador && app.carrera) {
-    anunciar("soltado", { ciclo: app.ciclo, sig: app.carrera });
-    google.script.run.liberarBloqueo(app.ciclo, app.carrera);
-  }
-});
-
-/* ============================================================
-   Entrar en la edición
-   ============================================================ */
-/* Se abre al instante con el contenido que trajo el tablero y el bloqueo se pide de
-   fondo; hasta que el servidor lo confirma no se puede guardar. Si según el tablero otra
-   cuenta tiene el plan, se espera la respuesta antes de abrir. Si esta misma cuenta ya lo
-   edita en otra pestaña del navegador, se advierte antes. */
-async function abrirEdicion(sig, sinAvisoDePestana){
-  if (!sinAvisoDePestana && otraPestanaEditando(app.ciclo, sig)) return avisarOtraPestana(sig);
-  const f = filaTablero(sig);
-  const b = f && bloqueoVigente(f.bloqueo);
-  if (!f || !Array.isArray(f.contenido) || (b && b.correo !== app.usuario.correo)) return abrirEdicionEsperando(sig);
-
-  const pedido = ++edicion.pedido;
-  entrarEnEdicion(sig, { estado: f.estado, version: f.version, asignaturas: clonar(f.contenido) });
-  let r;
-  try {
-    r = await llamarDeFondo("abrirEdicion", app.ciclo, sig, f.version);
-  } catch (e) {
-    if (pedido === edicion.pedido && app.carrera === sig) { salirSinGuardar(); mostrarTablero(); informarError(e); }
-    return;
-  }
-  if (pedido !== edicion.pedido || app.carrera !== sig) {
-    /* Ya se salió de este plan: el bloqueo que se acaba de tomar se devuelve. */
-    if (!r.bloqueado && app.carrera !== sig) llamarEnSilencio("liberarBloqueo", app.ciclo, sig).catch(() => {});
-    return;
-  }
-  if (r.bloqueado) {
-    const habiaCambios = app.plan.sucio;
-    salirSinGuardar();
-    return avisarBloqueado(sig, r.bloqueado, habiaCambios);
-  }
-  confirmarEdicion(sig, r);
-}
-
-async function abrirEdicionEsperando(sig){
-  let r;
-  try { r = await llamar("abrirEdicion", app.ciclo, sig); } catch (e) { return informarError(e); }
-  if (r.bloqueado) return avisarBloqueado(sig, r.bloqueado, false);
-  ++edicion.pedido;
-  entrarEnEdicion(sig, { estado: r.estado, version: r.version, asignaturas: r.asignaturas });
-  confirmarEdicion(sig, r);
-}
-
-function entrarEnEdicion(sig, plan){
-  app.carrera = sig;
-  app.plan = Object.assign({ sucio: false, confirmado: false }, plan);
-  app.seleccion = null;
-  app.colapsados.clear();
-  app.avisoImportacion = "";
-  detenerReloj();
-  $$(".reloj").forEach(e => { e.textContent = "Tomando el bloqueo de edición…"; });
-  if (app.plan.asignaturas.length) pintarGrilla();
-  else irACarga();
-}
-
-function confirmarEdicion(sig, r){
-  const p = app.plan;
-  p.confirmado = true;
-  iniciarReloj(r.expira);
-  anunciarEdicion(true);
-  if (Array.isArray(r.asignaturas) && r.version !== p.version) {
-    /* Entretanto se guardó otra versión. Si todavía no hay cambios, se carga esa; si ya
-       los hay, se conservan y al guardar se avisará de la versión más reciente. */
-    actualizarFilaTablero(sig, { estado: r.estado, version: r.version, totales: totales(r.asignaturas), contenido: clonar(r.asignaturas) });
-    if (!p.sucio) {
-      Object.assign(p, { estado: r.estado, version: r.version, asignaturas: r.asignaturas });
-      app.seleccion = null;
-      if (app.vista === "carga" && p.asignaturas.length) pintarGrilla();
-      aviso("Se cargó la versión más reciente del plan, v" + r.version, "info");
-    }
-  }
-  if (app.vista === "grilla") pintarGrilla();
-}
-
-/* Sale de la edición sin guardar ni liberar nada: el bloqueo no llegó a tomarse. */
-function salirSinGuardar(){
-  detenerReloj();
-  app.carrera = null; app.plan = null; app.seleccion = null;
-}
-
-async function avisarBloqueado(sig, bloqueo, habiaCambios){
-  actualizarFilaTablero(sig, { bloqueo: bloqueo });
-  await preguntar({
-    titulo: "El plan está siendo editado",
-    cuerpo: '<div class="nota aviso">Lo está editando <b>' + esc(bloqueo.correo) + "</b> desde las " +
-            esc(hora(bloqueo.desde)) + ". Puedes consultarlo en solo lectura." +
-            (habiaCambios ? " Los cambios que alcanzaste a hacer no se guardaron." : "") + "</div>",
-    acciones: [{ texto:"Consultar en solo lectura", clase:"primario", valor:true }]
-  });
-  return abrirLectura(sig);
-}
-
-/* ============================================================
    Grilla
    ============================================================ */
 const ICONO_RESUMEN = {
@@ -309,7 +85,11 @@ function pintarResumen(nodo, asignaturas){
     "<div" + (k === "Horas de dictado" ? ' class="destacado"' : "") + "><dt>" + icono(ICONO_RESUMEN[k]) + esc(k) + "</dt><dd>" + esc(v) + "</dd></div>").join("");
 }
 
-function htmlBloques(asignaturas, editable){
+/* opciones.docentes: {grupoId: [nombres]} de las asignaciones vigentes; opciones.derivar:
+   función que dice en qué asignaturas se muestra el botón para derivarlas de departamento. */
+function htmlBloques(asignaturas, editable, opciones){
+  const op = opciones || {};
+  const docentes = op.docentes || null;
   if (!asignaturas.length) return '<div class="nota">El plan no tiene asignaturas.</div>';
   const sems = [...new Set(asignaturas.map(a => a.sem))]
     .sort((x, y) => num(x) - num(y) || String(x).localeCompare(String(y)));
@@ -330,13 +110,16 @@ function htmlBloques(asignaturas, editable){
           '<td class="cod">' + esc(a.codigo) + "</td>" +
           "<td>" + esc(a.nombre) +
             (Dominio.esInternacional(a) ? '<span class="marca-c intl">INTL</span>' : "") +
-            (g.fusion ? '<span class="marca-c fus">FUS</span>' : "") +
+            (g.fusion ? '<span class="marca-c fus" title="' + esc(textoFusion(g)) + '">FUS</span>' : "") +
             (g.desdoble ? '<span class="marca-c des">' + esc(g.desdoble) + "</span>" : "") + "</td>" +
           '<td class="num">' + esc(g.n) + '</td><td class="num">' + esc(g.ht) +
           '</td><td class="num">' + esc(g.hp) + "</td>" +
           '<td class="num"><b>' + th(g) + "</b></td>" +
           '<td class="cod">' + esc(a.dpto) + "</td>" +
-          '<td class="obs">' + esc(a.obs || "—") + "</td></tr>";
+          '<td class="obs">' + esc(a.obs || "—") + "</td>" +
+          (docentes ? "<td>" + ((docentes[g.id] || []).map(esc).join("<br>") || '<span class="tenue">—</span>') + "</td>" : "") +
+          (op.derivar ? "<td>" + (gi === 0 && op.derivar(a) ? '<button type="button" class="btn btn-sm" data-derivar="' + ci + '">' + icono("swap") + "Derivar</button>" : "") + "</td>" : "") +
+          "</tr>";
       }).join("");
     }).join("");
 
@@ -348,6 +131,7 @@ function htmlBloques(asignaturas, editable){
       '<div class="bloque-contenido"><div><div class="tabla-caja"><table><thead><tr>' +
         '<th>Malla</th><th>Código</th><th>Asignatura</th><th class="num">Grupo</th>' +
         '<th class="num">HT</th><th class="num">HP</th><th class="num">Total</th><th>Dpto</th><th>Observaciones</th>' +
+        (docentes ? "<th>Docente</th>" : "") + (op.derivar ? '<th><span class="sr-only">Acciones</span></th>' : "") +
       "</tr></thead><tbody>" + filas + "</tbody></table></div></div></div></div>";
   }).join("");
 }
@@ -399,7 +183,8 @@ function pintarGrilla(){
   $("#nota-importacion").textContent = app.avisoImportacion;
 
   pintarResumen($("#resumen"), p.asignaturas);
-  $("#bloques").innerHTML = htmlBloques(p.asignaturas, true);
+  const fila = filaTablero(app.carrera);
+  $("#bloques").innerHTML = htmlBloques(p.asignaturas, true, { docentes: fila ? fila.docentes || {} : {} });
   enlazarBloques($("#bloques"));
   pintarBotonColapsar();
 
@@ -417,6 +202,25 @@ function pintarGrilla(){
     ? icono("check-circle") + "<span>Grupo <b>" + esc(s.g.n) + "</b> de <b>" + esc(s.a.codigo) + " " + esc(s.a.nombre) +
       "</b> · HT " + esc(s.g.ht) + " · HP " + esc(s.g.hp) + " · total " + th(s.g) + "</span>"
     : icono("info") + "<span>Selecciona un grupo de la grilla para editarlo, desdoblarlo o eliminarlo.</span>";
+}
+
+/* Docentes ya asignados a los grupos del plan en edición (según el último tablero). */
+function docentesDe(grupos){
+  const f = filaTablero(app.carrera);
+  const mapa = f ? f.docentes || {} : {};
+  const res = [];
+  grupos.forEach(g => (mapa[g.id] || []).forEach(n => { if (!res.includes(n)) res.push(n); }));
+  return res;
+}
+const notaDocentes = (nombres, que) => nombres.length
+  ? '<div class="nota aviso">' + que + " tiene docente asignado: <b>" + nombres.map(esc).join(", ") +
+    "</b>. La asignación no se borra: queda pendiente para que el director la reasigne.</div>"
+  : "";
+
+function textoFusion(g){
+  const con = g.fusionCon || [];
+  if (!con.length) return "Fusión con otros grupos de este plan";
+  return "Fusionado con " + con.map(x => x.carrera + " " + x.codigo + " (grupo " + x.n + ")" + (x.principal ? ", principal" : "")).join("; ");
 }
 
 function seleccion(){
@@ -442,431 +246,4 @@ $("#btn-colapsar").onclick = () => {
   });
   pintarBotonColapsar();
 };
-
-/* ============================================================
-   Acciones de edición
-   ============================================================ */
-$$("[data-acc]").forEach(b => { b.onclick = () => accion(b.dataset.acc); });
-
-async function accion(tipo){
-  const p = app.plan;
-  if (!p) return;
-  const s = seleccion();
-  let modifica = true;
-  latido();
-
-  switch (tipo) {
-
-    case "editar": {
-      const r = await preguntar({
-        titulo: "Editar horas del grupo",
-        cuerpo: resumenSel(s) +
-          '<div class="fila-campos">' +
-          '<div class="campo"><label for="e-ht">HT</label><input type="text" id="e-ht" value="' + esc(s.g.ht) + '"></div>' +
-          '<div class="campo"><label for="e-hp">HP</label><input type="text" id="e-hp" value="' + esc(s.g.hp) + '"></div>' +
-          '</div><div class="nota">El total de horas se recalcula automáticamente.</div>',
-        acciones: [{ texto:"Cancelar", valor:null }, { texto:"Aplicar", clase:"primario", valor:() => ({ ht:$("#e-ht").value, hp:$("#e-hp").value }) }]
-      });
-      if (!r) return;
-      const { ht, hp } = r();
-      s.g.ht = ht; s.g.hp = hp;   // se guarda tal cual se escribió
-      aviso("Horas actualizadas");
-      break;
-    }
-
-    case "agregar-asignatura": {
-      const r = await preguntar({
-        titulo: "Agregar asignatura",
-        cuerpo:
-          '<div class="fila-campos">' +
-          '<div class="campo"><label for="n-sem">Semestre</label><input type="text" id="n-sem" value="1" placeholder="5 o 1-2"></div>' +
-          '<div class="campo"><label for="n-malla">Malla</label><input type="text" id="n-malla" value="2024"></div>' +
-          '<div class="campo"><label for="n-cod">Código</label><input type="text" id="n-cod" placeholder="3.1.1.24"></div>' +
-          '</div><div class="campo"><label for="n-nom">Asignatura</label><input type="text" id="n-nom"></div>' +
-          '<div class="fila-campos">' +
-          '<div class="campo"><label for="n-ht">HT</label><input type="text" id="n-ht" value="3"></div>' +
-          '<div class="campo"><label for="n-hp">HP</label><input type="text" id="n-hp" value="2"></div>' +
-          '<div class="campo"><label for="n-dpto">Dpto</label>' +
-            '<input type="text" id="n-dpto" list="lista-dptos" value="' + DPTOS[0] + '">' +
-            '<datalist id="lista-dptos">' + DPTOS.map(d => "<option>" + d + "</option>").join("") +
-            "</datalist></div></div>" +
-          '<div class="campo"><label for="n-obs">Observaciones</label><input type="text" id="n-obs" placeholder="INTERNACIONAL, VIRTUAL…"></div>',
-        acciones: [{ texto:"Cancelar", valor:null }, { texto:"Agregar", clase:"primario", valor:() => ({
-          sem:$("#n-sem").value, malla:$("#n-malla").value, codigo:$("#n-cod").value.trim(),
-          nombre:$("#n-nom").value.trim(), ht:$("#n-ht").value, hp:$("#n-hp").value,
-          dpto:$("#n-dpto").value, obs:$("#n-obs").value.trim()
-        }) }]
-      });
-      if (!r) return;
-      /* Sin validación: se guarda lo que se haya escrito. */
-      Dominio.agregarAsignatura(p.asignaturas, r());
-      app.seleccion = null;   // la lista se reordena: la fila seleccionada ya no es la misma
-      aviso("Asignatura agregada");
-      break;
-    }
-
-    case "eliminar-asignatura": {
-      const ok = await preguntar({
-        titulo: "Eliminar asignatura",
-        cuerpo: resumenSel(s) + '<div class="nota aviso">Se eliminará la asignatura y sus ' +
-          s.a.grupos.length + " grupo(s)." + (s.a.grupos.some(g => g.fusion) ? " Alguno participa en una fusión y se retirará de ella." : "") + "</div>",
-        acciones: [{ texto:"Cancelar", valor:null }, { texto:"Eliminar", clase:"peligro", valor:true }]
-      });
-      if (!ok) return;
-      Dominio.eliminarAsignatura(p.asignaturas, s.ci);
-      app.seleccion = null;
-      aviso("Asignatura eliminada");
-      break;
-    }
-
-    case "agregar-grupo": {
-      const n = Dominio.agregarGrupo(p.asignaturas, s.ci, s.gi);
-      aviso("Grupo " + n + " agregado a " + s.a.nombre);
-      break;
-    }
-
-    case "grupo-semestre": {
-      const sem = s ? s.a.sem : (p.asignaturas[0] || {}).sem;
-      if (sem === undefined) return aviso("El plan no tiene asignaturas.", "aviso");
-      const cuantas = p.asignaturas.filter(a => String(a.sem) === String(sem)).length;
-      const ok = await preguntar({
-        titulo: "Agregar un grupo a todo el semestre",
-        cuerpo: '<div class="nota">Se creará un grupo correlativo en las <b>' + cuantas +
-          "</b> asignaturas del semestre <b>" + esc(sem) + "</b>, con las mismas horas que su primer grupo.</div>",
-        acciones: [{ texto:"Cancelar", valor:null }, { texto:"Agregar", clase:"primario", valor:true }]
-      });
-      if (!ok) return;
-      aviso("Grupo agregado en " + Dominio.agregarGrupoSemestre(p.asignaturas, sem) + " asignaturas");
-      break;
-    }
-
-    case "eliminar-grupo": {
-      const solo = s.a.grupos.length === 1;
-      const ok = await preguntar({
-        titulo: "Eliminar grupo",
-        cuerpo: resumenSel(s) +
-          (solo || s.g.fusion ? '<div class="nota aviso">' +
-            (solo ? "Es el único grupo de la asignatura: al eliminarlo, la asignatura deja de aportar horas y se retira del plan. " : "") +
-            (s.g.fusion ? "El grupo participa en una fusión y se retirará de ella." : "") + "</div>" : ""),
-        acciones: [{ texto:"Cancelar", valor:null }, { texto:"Eliminar", clase:"peligro", valor:true }]
-      });
-      if (!ok) return;
-      Dominio.eliminarGrupo(p.asignaturas, s.ci, s.gi);
-      app.seleccion = null;
-      aviso("Grupo eliminado");
-      break;
-    }
-
-    case "desdoblar": {
-      const r = await preguntar({
-        titulo: "Desdoble parcial",
-        cuerpo: resumenSel(s) +
-          '<div class="fila-campos">' +
-          '<div class="campo"><label for="d-tipo">Tipo</label><select id="d-tipo">' +
-            '<option value="Práctica">Práctica</option><option value="Teoría">Teoría</option></select></div>' +
-          '<div class="campo"><label for="d-cant">Subgrupos (2 – ' + CONFIG.maxSubgrupos + ')</label>' +
-            '<input type="number" id="d-cant" value="2" min="2" max="' + CONFIG.maxSubgrupos + '"></div></div>' +
-          '<div class="nota">Las horas del otro tipo se mantienen en una sección común.</div>',
-        acciones: [{ texto:"Cancelar", valor:null }, { texto:"Desdoblar", clase:"primario", valor:() => ({ tipo:$("#d-tipo").value, cant:$("#d-cant").value }) }]
-      });
-      if (!r) return;
-      const { tipo: clase, cant } = r();
-      const horas = num(clase === "Práctica" ? s.g.hp : s.g.ht);
-      const n = parseInt(cant, 10);
-      if (!horas) {
-        await preguntar({
-          titulo: "El desdoble no aplica",
-          cuerpo: '<div class="nota aviso">El grupo no registra horas de ' + clase.toLowerCase() +
-            ", así que no hay nada que desdoblar. No se han generado subgrupos.</div>",
-          acciones: [{ texto:"Entendido", clase:"primario", valor:true }]
-        });
-        return;
-      }
-      if (!(n >= 2 && n <= CONFIG.maxSubgrupos)) {
-        await preguntar({
-          titulo: "Cantidad de subgrupos no válida",
-          cuerpo: '<div class="nota aviso">La cantidad de subgrupos debe estar entre <b>2</b> y <b>' +
-            CONFIG.maxSubgrupos + "</b>. No se han generado subgrupos.</div>",
-          acciones: [{ texto:"Entendido", clase:"primario", valor:true }]
-        });
-        return accion("desdoblar");
-      }
-      Dominio.desdoblar(s.g, clase, n);
-      aviso("Desdoble de " + clase.toLowerCase() + " en " + n + " subgrupos");
-      break;
-    }
-
-    case "quitar-desdoble": {
-      const ok = await preguntar({
-        titulo: "Quitar el desdoble",
-        cuerpo: resumenSel(s) + '<div class="nota">Se quitará el desdoble <b>' + esc(s.g.desdoble) +
-          "</b>: el grupo vuelve a dictarse en una sola sección.</div>",
-        acciones: [{ texto:"Cancelar", valor:null }, { texto:"Quitar desdoble", clase:"primario", valor:true }]
-      });
-      if (!ok) return;
-      Dominio.quitarDesdoble(s.g);
-      aviso("Desdoble quitado");
-      break;
-    }
-
-    case "fusionar": {
-      const ops = [];
-      p.asignaturas.forEach((a, ci) => a.grupos.forEach((g, gi) => {
-        ops.push('<option value="' + ci + ":" + gi + '">' + esc(a.codigo) + " " + esc(a.nombre) +
-          " · grupo " + esc(g.n) + " · " + esc(g.ht) + "/" + esc(g.hp) + "</option>");
-      }));
-      if (ops.length < 2) return aviso("Hacen falta al menos dos grupos en el plan para fusionar.", "aviso");
-      const r = await preguntar({
-        titulo: "Fusionar grupos",
-        cuerpo:
-          '<p class="ficha">Marca dos o más grupos (Ctrl o Mayús para selección múltiple) y elige el grupo principal, cuyas horas definirán la sección fusionada.</p>' +
-          '<div class="campo"><label for="f-grupos">Grupos a fusionar</label>' +
-          '<select id="f-grupos" multiple size="7">' + ops.join("") + "</select></div>" +
-          '<div class="campo"><label for="f-principal">Grupo principal</label><select id="f-principal">' + ops.join("") + "</select></div>" +
-          '<div class="nota">Las diferencias de nombre, código u horas se muestran como advertencia: no impiden la fusión.</div>',
-        acciones: [{ texto:"Cancelar", valor:null }, { texto:"Fusionar", clase:"primario", valor:() => ({
-          sel:Array.from($("#f-grupos").selectedOptions).map(o => o.value), principal:$("#f-principal").value
-        }) }]
-      });
-      if (!r) return;
-      const { sel, principal } = r();
-      if (sel.length < 2) {
-        await preguntar({
-          titulo: "Selección insuficiente",
-          cuerpo: '<div class="nota aviso">La fusión requiere al menos dos grupos.</div>',
-          acciones: [{ texto:"Volver a seleccionar", clase:"primario", valor:true }]
-        });
-        return accion("fusionar");
-      }
-      const { difs } = Dominio.fusionar(p.asignaturas, sel, principal);
-      if (difs.length) {
-        await preguntar({
-          titulo: "Fusión creada con advertencias",
-          cuerpo: '<div class="nota aviso"><b>A05</b> · Estos grupos difieren del grupo principal en nombre, código u horas. ' +
-            "La fusión se ha creado igualmente y sus horas se cuentan una sola vez.</div>" +
-            '<ul class="lista-err lista-adv">' +
-            difs.map(d => "<li><span>" + esc(d) + "</span></li>").join("") + "</ul>",
-          acciones: [{ texto:"Entendido", clase:"primario", valor:true }]
-        });
-      } else aviso("Grupos fusionados");
-      break;
-    }
-
-    case "deshacer-fusion": {
-      const ok = await preguntar({
-        titulo: "Deshacer la fusión",
-        cuerpo: '<div class="nota">Se disolverá la sección fusionada: cada grupo volverá a contarse por separado y recuperará las horas que tenía antes de la fusión.</div>',
-        acciones: [{ texto:"Cancelar", valor:null }, { texto:"Deshacer", clase:"primario", valor:true }]
-      });
-      if (!ok) return;
-      Dominio.deshacerFusion(p.asignaturas, s.g.fusion);
-      aviso("Fusión deshecha");
-      break;
-    }
-
-    case "historial": {
-      let versiones;
-      try { versiones = await llamar("obtenerHistorial", app.ciclo, app.carrera); } catch (e) { return informarError(e); }
-      if (!versiones.length) return aviso("Todavía no hay versiones guardadas de este plan.", "info");
-      const r = await preguntar({
-        titulo: "Historial de versiones",
-        cuerpo: '<div class="tabla-caja"><table><thead><tr><th>Versión</th><th>Estado</th><th>Tipo</th>' +
-          "<th>Usuario</th><th>Fecha</th><th>Motivo</th></tr></thead><tbody>" +
-          versiones.map(v =>
-            '<tr><td><span class="version">v' + v.n + "</span></td><td>" + esc(v.estado) + "</td><td>" + esc(v.tipo) +
-            '</td><td class="cod">' + esc(v.usuario) + '</td><td class="cod">' +
-            esc(fecha(v.fecha)) + "</td><td>" + esc(v.motivo || "—") + "</td></tr>").join("") +
-          "</tbody></table></div>" +
-          '<div class="campo"><label for="v-restaurar">Restaurar una versión</label><select id="v-restaurar">' +
-          versiones.map(v => '<option value="' + v.n + '">v' + v.n + " · " + esc(v.estado) + " · " + esc(fecha(v.fecha)) + "</option>").join("") +
-          "</select></div>" +
-          '<div class="nota">Restaurar no borra el historial: genera una versión nueva con el contenido recuperado.</div>',
-        acciones: [{ texto:"Cerrar", valor:null }, { texto:"Restaurar", clase:"primario", valor:() => $("#v-restaurar").value }]
-      });
-      if (!r) return;
-      const n = parseInt(r(), 10);
-      let res;
-      try { res = await llamar("restaurarVersion", app.ciclo, app.carrera, n); } catch (e) { return informarError(e); }
-      Object.assign(p, { asignaturas: res.asignaturas, version: res.version, estado: res.estado, sucio: false });
-      if (res.expira) edicion.expira = Date.parse(res.expira);
-      actualizarFilaTablero(app.carrera, { estado: res.estado, version: res.version, totales: totales(res.asignaturas), contenido: clonar(res.asignaturas) });
-      anunciarGuardado(app.carrera, res.estado, res.version, res.asignaturas);
-      app.seleccion = null;
-      modifica = false;
-      aviso("Versión v" + n + " restaurada");
-      break;
-    }
-
-    case "reemplazar": {
-      const ok = await preguntar({
-        titulo: "Reemplazar el contenido",
-        cuerpo: '<div class="nota aviso">Volverás a las opciones de carga. Al importar un contenido nuevo se reemplazará ' +
-          "todo el plan actual, incluidos los desdobles, los ajustes manuales y las fusiones.</div>",
-        acciones: [{ texto:"Cancelar", valor:null }, { texto:"Continuar", clase:"primario", valor:true }]
-      });
-      if (!ok) return;
-      irACarga();
-      return;
-    }
-  }
-
-  if (modifica) p.sucio = true;
-  app.avisoImportacion = "";
-  pintarGrilla();
-}
-
-/* ============================================================
-   Guardado y versionado
-   ============================================================ */
-/* Si mientras se editaba se guardó otra versión (por ejemplo, una actualización desde
-   el xlsx), se advierte y el usuario decide si guarda igualmente. */
-async function guardar(datos){
-  const p = app.plan, sig = app.carrera;
-  const base = { asignaturas: p.asignaturas, versionBase: p.version };
-  let r = await llamar("guardarPlan", app.ciclo, sig, Object.assign({}, base, datos));
-  if (r.conflicto) {
-    const c = r.conflicto;
-    const seguir = await preguntar({
-      titulo: "Hay una versión más reciente del plan",
-      cuerpo: '<div class="nota aviso">Mientras editabas se guardó la versión <b>v' + c.n + "</b>" +
-        (c.tipo ? " (" + esc(c.tipo) + ", " + esc(c.usuario) + ", " + esc(fecha(c.fecha)) + ")" : "") +
-        ". Si continúas, tu contenido se guardará como una versión nueva y esa versión seguirá disponible en el historial.</div>",
-      acciones: [{ texto:"Cancelar", valor:null }, { texto:"Guardar de todos modos", clase:"primario", valor:true }]
-    });
-    if (!seguir) return null;
-    r = await llamar("guardarPlan", app.ciclo, sig, Object.assign({}, base, datos, { forzar: true }));
-  }
-  Object.assign(p, { version: r.version, estado: r.estado, sucio: false });
-  if (r.expira) edicion.expira = Date.parse(r.expira);
-  actualizarFilaTablero(sig, { estado: r.estado, version: r.version, totales: totales(p.asignaturas), contenido: clonar(p.asignaturas) });
-  anunciarGuardado(sig, r.estado, r.version, p.asignaturas);
-  return r;
-}
-
-$("#btn-borrador").onclick = async () => {
-  const p = app.plan;
-  if (!p.asignaturas.length) return aviso("El plan no tiene asignaturas que guardar.", "aviso");
-  const ok = await preguntar({
-    titulo: "Guardar borrador",
-    cuerpo: '<div class="nota">El plan se guardará como una versión nueva en estado <b>Borrador</b>. ' +
-      "Todavía no habilitará la asignación docente.</div>",
-    acciones: [{ texto:"Cancelar", valor:null }, { texto:"Guardar", clase:"primario", valor:true }]
-  });
-  if (!ok) return;
-  let r;
-  try { r = await guardar({ estado: ESTADOS.BORRADOR, tipo: "guardar borrador" }); } catch (e) { return informarError(e); }
-  if (!r) return;
-  aviso("Borrador guardado como v" + r.version);
-  pintarGrilla();
-};
-
-$("#btn-registrar").onclick = async () => {
-  const p = app.plan;
-  if (!p.asignaturas.length) return aviso("El plan no tiene asignaturas que registrar.", "aviso");
-  const t = totales(p.asignaturas);
-
-  if (p.estado === ESTADOS.REGISTRADO) {
-    const r = await preguntar({
-      titulo: "Guardar cambios",
-      cuerpo: '<div class="nota">Se guardará una versión nueva del plan <b>Registrado</b>.</div>' +
-        '<div class="campo"><label for="motivo">Motivo del cambio (opcional)</label>' +
-        '<input type="text" id="motivo" placeholder="Matrícula extemporánea"></div>',
-      acciones: [{ texto:"Cancelar", valor:null }, { texto:"Confirmar", clase:"primario", valor:() => $("#motivo").value.trim() }]
-    });
-    if (!r) return;
-    let g;
-    try { g = await guardar({ estado: ESTADOS.REGISTRADO, tipo: "guardar cambios", motivo: r() }); } catch (e) { return informarError(e); }
-    if (!g) return;
-    aviso("Cambios guardados como v" + g.version);
-    return pintarGrilla();
-  }
-
-  const mensaje = "¿Desea registrar el Plan de Ciclo de " + nombreCarrera(app.carrera) + " para el periodo " + app.ciclo +
-    "? Al confirmar, el estado cambiará a REGISTRADO y se habilitará la asignación docente para los Departamentos " +
-    "Académicos (DIMA, DAHUC, DACJ, DACTE). El plan podrá seguir editándose y cada guardado generará una nueva versión.";
-
-  const ok = await preguntar({
-    titulo: "Registrar el plan de ciclo",
-    cuerpo:
-      '<div class="tabla-caja"><table><tbody>' +
-        "<tr><td>Asignaturas</td><td class='num'>" + t.asig + "</td><td>Grupos</td><td class='num'>" + t.grupos + "</td></tr>" +
-        "<tr><td>Horas teóricas</td><td class='num'>" + t.ht + "</td><td>Horas prácticas</td><td class='num'>" + t.hp + "</td></tr>" +
-        "<tr><td>Total horas</td><td class='num'>" + t.th + "</td><td>Horas de dictado</td><td class='num'>" + t.dictado + "</td></tr>" +
-        "<tr><td>Fusiones</td><td class='num'>" + t.fus + "</td><td>Desdobles</td><td class='num'>" + t.des + "</td></tr>" +
-      "</tbody></table></div>" +
-      '<div class="cita mt-3">' + esc(mensaje) + "</div>",
-    acciones: [{ texto:"Cancelar", valor:null }, { texto:"Confirmar y registrar", clase:"primario", valor:true }]
-  });
-  if (!ok) return;
-
-  let g;
-  try { g = await guardar({ estado: ESTADOS.REGISTRADO, tipo: "registrar" }); } catch (e) { return informarError(e); }
-  if (!g) return;
-  const sig = app.carrera;
-  detenerReloj();
-  app.plan = null;
-  mostrar("exito");
-  $("#exito-nota").innerHTML =
-    "<b>Plan registrado.</b> " + esc(nombreCarrera(sig)) + " · " + esc(app.ciclo) + " · versión <b>v" + g.version + "</b>. " +
-    "La asignación docente queda habilitada para DIMA, DAHUC, DACJ y DACTE. El plan sigue siendo editable: cada guardado generará una versión nueva.";
-  celebrar();
-  anunciar("soltado", { ciclo: app.ciclo, sig: sig });
-  try { await llamarEnSilencio("liberarBloqueo", app.ciclo, sig); } catch (e) { /* caduca solo */ }
-};
-
-$("#exito-editar").onclick = () => { if (app.carrera) abrirEdicion(app.carrera); };
-
-$("#volver-grilla").onclick = async () => {
-  const ok = await confirmarSalidaEdicion();
-  if (!ok) return;
-  terminarEdicion();
-};
-
-/* ============================================================
-   Celebración al registrar: confeti con los colores de la marca
-   ============================================================ */
-function celebrar(){
-  if (reducirMovimiento() || document.hidden) return;
-  const lienzo = document.createElement("canvas");
-  lienzo.className = "confeti";
-  lienzo.setAttribute("aria-hidden", "true");
-  const escala = Math.min(2, window.devicePixelRatio || 1), ancho = innerWidth, alto = innerHeight;
-  lienzo.width = ancho * escala; lienzo.height = alto * escala;
-  document.body.appendChild(lienzo);
-  const ctx = lienzo.getContext("2d");
-  ctx.scale(escala, escala);
-  const colores = ["#0280BD", "#0778B2", "#15567C", "#7CCBF2", "#FFFFFF"];
-  const origen = { x: ancho / 2, y: Math.min(alto * 0.35, 300) };
-  const piezas = Array.from({ length: 110 }, () => {
-    const angulo = Math.random() * Math.PI * 2, rapidez = 3 + Math.random() * 8;
-    return {
-      x: origen.x, y: origen.y, vx: Math.cos(angulo) * rapidez, vy: Math.sin(angulo) * rapidez - 6,
-      g: 0.16 + Math.random() * 0.1, giro: Math.random() * Math.PI, vgiro: (Math.random() - 0.5) * 0.3,
-      t: 6 + Math.random() * 7, color: colores[Math.floor(Math.random() * colores.length)], triangulo: Math.random() < 0.5
-    };
-  });
-  const inicio = performance.now(), duracion = 1900;
-  const paso = ahora => {
-    const transcurrido = ahora - inicio;
-    ctx.clearRect(0, 0, ancho, alto);
-    ctx.globalAlpha = Math.max(0, 1 - transcurrido / duracion);
-    piezas.forEach(p => {
-      p.vy += p.g; p.vx *= 0.985; p.x += p.vx; p.y += p.vy; p.giro += p.vgiro;
-      ctx.save();
-      ctx.translate(p.x, p.y);
-      ctx.rotate(p.giro);
-      ctx.fillStyle = p.color;
-      ctx.strokeStyle = "rgba(21, 86, 124, 0.35)";
-      ctx.beginPath();
-      if (p.triangulo) { ctx.moveTo(0, -p.t / 1.6); ctx.lineTo(p.t / 1.8, p.t / 2.2); ctx.lineTo(-p.t / 1.8, p.t / 2.2); ctx.closePath(); }
-      else ctx.rect(-p.t / 2, -p.t / 4, p.t, p.t / 2);
-      ctx.fill();
-      if (p.color === "#FFFFFF") ctx.stroke();
-      ctx.restore();
-    });
-    if (transcurrido < duracion) requestAnimationFrame(paso); else lienzo.remove();
-  };
-  requestAnimationFrame(paso);
-  setTimeout(() => lienzo.remove(), duracion + 600);
-}
 </script>

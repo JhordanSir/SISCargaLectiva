@@ -4,10 +4,10 @@
 <base target="_top">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<?!= include("Estilos") ?>
+<?!= include_("Estilos") ?>
 </head>
 <body>
-<?!= include("Iconos") ?>
+<?!= include_("Iconos") ?>
 <script>var SIS = <?!= inicial ?>;</script>
 <script>var Dominio = <?!= dominio ?>;</script>
 
@@ -42,15 +42,21 @@
   </div>
 </header>
 
-<?!= include("Nucleo") ?>
-<?!= include("Ventanas") ?>
+<?!= include_("Nucleo") ?>
+<?!= include_("Ventanas") ?>
+<?!= include_("Edicion") ?>
+<?!= include_("Rejilla") ?>
 
 <main class="lienzo" id="lienzo">
-<?!= include("Inicio") ?>
-<?!= include("Tablero") ?>
-<?!= include("CargaMasiva") ?>
-<?!= include("Grilla") ?>
-<?!= include("Asignacion") ?>
+<?!= include_("Inicio") ?>
+<?!= include_("Tablero") ?>
+<?!= include_("CargaMasiva") ?>
+<?!= include_("Grilla") ?>
+<?!= include_("GrillaAcciones") ?>
+<?!= include_("GrillaEdicion") ?>
+<?!= include_("Asignacion") ?>
+<?!= include_("AsignacionEdicion") ?>
+<?!= include_("AsignacionCarga") ?>
 </main>
 
 <footer class="pie-marca">
@@ -60,7 +66,7 @@
   </div>
 </footer>
 
-<?!= include("Pestanas") ?>
-<?!= include("Arranque") ?>
+<?!= include_("Pestanas") ?>
+<?!= include_("Arranque") ?>
 </body>
 </html>

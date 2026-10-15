@@ -138,8 +138,8 @@ test("reconoce la carrera por sigla, nombre o alias de hoja", () => {
   assert.equal(D.siglaDeCarrera("Medicina"), null);
 });
 
-test("crearDominio() funciona fuera de su archivo, como en el navegador", () => {
-  const fuente = "(" + cargar(["Dominio.js"]).crearDominio.toString() + ")()";
+test("crearDominio_() funciona fuera de su archivo, como en el navegador", () => {
+  const fuente = "(" + cargar(["Dominio.js"]).crearDominio_.toString() + ")()";
   const dominio = vm.runInNewContext(fuente, {});
   assert.equal(dominio.nombreCarrera("ING"), "Ingeniería de Software");
   assert.equal(dominio.interpretar([["3.1.1.24", "Cálculo diferencial", "2024", "1", "3", "2", "DIMA"]]).asignaturas.length, 1);

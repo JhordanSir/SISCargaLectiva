@@ -37,15 +37,17 @@ function revisarFuentes_() {
   }
 
   /* Los avisos de la lectura (filas repetidas, hojas desconocidas) se guardan en Fuentes
-     para mostrarlos a todos mientras el xlsx no cambie. */
+     para mostrarlos a todos mientras el xlsx no cambie. Los xlsx se leen antes de tomar
+     el candado: leerlos tarda, y mientras tanto los demás usuarios pueden seguir guardando. */
   const actuales = firmaFuentes_(f);
   const guardadas = leerTabla_("Fuentes");
   if (fuentesIguales_(guardadas, actuales)) return avisos.concat(avisosGuardados_(guardadas));
   try {
+    const lectura = leerOfertaXlsx_(f);
     const deLectura = conCandado_(function () {
       const otraVez = leerTabla_("Fuentes");
       if (fuentesIguales_(otraVez, actuales)) return avisosGuardados_(otraVez);
-      const nuevos = aplicarXlsx_(f);
+      const nuevos = aplicarOferta_(f, lectura);
       const ahora = new Date().toISOString();
       reemplazarFilas_("Fuentes", actuales.map(function (a) {
         return [a.tipo, a.archivo_id, a.nombre, a.modificado, ahora, a.tipo === "carrera" ? JSON.stringify(nuevos) : ""];
@@ -116,18 +118,23 @@ function fuentesIguales_(guardadas, actuales) {
   return g !== "" && g === actuales.map(clave).sort().join("\n");
 }
 
-/* Debe llamarse dentro de conCandado_. Devuelve los avisos de la lectura. */
-function aplicarXlsx_(f) {
+/* Lee los xlsx y arma la oferta de cada carrera. No toca la hoja del sistema. */
+function leerOfertaXlsx_(f) {
+  const libroCarrera = leerLibroXlsx_(descomprimirXlsx_(f.carrera.getBlob()));
+  const libroDepartamento = f.departamento ? leerLibroXlsx_(descomprimirXlsx_(f.departamento.getBlob())) : null;
+  return ofertaDesdeLibros_(libroCarrera, libroDepartamento);
+}
+
+/* Debe llamarse dentro de conCandado_. r: lo que devolvió leerOfertaXlsx_. Devuelve los
+   avisos de la lectura. */
+function aplicarOferta_(f, r) {
   const cfg = config_();
-  const libroCarrera = leerLibroXlsx(descomprimirXlsx_(f.carrera.getBlob()));
-  const libroDepartamento = f.departamento ? leerLibroXlsx(descomprimirXlsx_(f.departamento.getBlob())) : null;
-  const r = ofertaDesdeLibros(libroCarrera, libroDepartamento);
 
   const ciclo = cfg.cicloXlsx;
   const modificado = Math.max(f.carrera.getLastUpdated().getTime(),
                               f.departamento ? f.departamento.getLastUpdated().getTime() : 0);
   const usuario = "xlsx: " + f.carrera.getName();
-  const planes = leerPlanes_();
+  let planes = leerPlanes_();
 
   Object.keys(r.oferta).forEach(function (sig) {
     const asignaturas = r.oferta[sig];
@@ -135,15 +142,25 @@ function aplicarXlsx_(f) {
     const fila = buscarPlan_(planes, ciclo, sig);
     if (fila && fila.firma_xlsx === firma) return;
     const p = estadoDePlan_(fila);
-    registrarVersion_(ciclo, sig, fila, {
+    /* Los grupos que siguen existiendo conservan su identificador (sus docentes los
+       siguen) y las fusiones que se pierdan se deshacen también en las otras carreras. */
+    const antes = p.version ? contenidoPlan_(ciclo, sig, p.version, p.filaVersion) : [];
+    Dominio.conservarIds(asignaturas, antes);
+    const fus = prepararFusiones_(ciclo, sig, antes, asignaturas, [], null, { sinBloqueo: true });
+    const fecha = new Date(modificado).toISOString();
+    registrarVersionPlan_(ciclo, sig, fila, {
       estado: p.estado === Dominio.ESTADOS.SIN ? Dominio.ESTADOS.REGISTRADO : p.estado,
       tipo: p.version ? "actualización desde xlsx" : "importación desde xlsx",
       usuario: usuario,
-      fecha: new Date(modificado).toISOString(),
+      fecha: fecha,
       motivo: "",
-      asignaturas: asignaturas,
+      asignaturas: fus.asignaturas,
       firma_xlsx: firma
     });
+    if (fus.otros.length) {
+      guardarFusionesAjenas_(ciclo, fus.otros, usuario, fecha);
+      planes = leerPlanes_();   // cambió la versión de otros planes
+    }
   });
   return r.avisos;
 }

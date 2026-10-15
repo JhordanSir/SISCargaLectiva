@@ -1,27 +1,28 @@
-/* Planes de ciclo: tablero, consulta, edición, guardado con versiones e historial.
-   Cada guardado añade una fila a Versiones con el contenido completo del plan. La fila
-   del plan en Planes guarda su estado, su versión vigente, sus totales y en qué fila de
-   Versiones está esa versión. El contenido de una versión nunca cambia, así que también
-   se guarda en la caché del script y casi nunca hace falta leerlo de la hoja. */
+/* Planes de ciclo: tablero, consulta, edición y guardado con versiones (Versionado.js,
+   repositorio REPO_PLAN_). La fila de cada plan en Planes guarda además su estado, sus
+   totales y la firma del xlsx del que salió. */
 
 var TIPOS_GUARDADO_ = ["guardar borrador", "registrar", "guardar cambios", "autoguardado"];
-var SEGUNDOS_CACHE_VERSION_ = 21600;   // el máximo que admite CacheService
-var MAX_TEXTO_CACHE_ = 45000;          // holgura frente al límite de 100 KB por valor
 
 function leerPlanes_() {
-  return leerTabla_("Planes");
+  return leerIndice_(REPO_PLAN_);
 }
 
 function buscarPlan_(planes, ciclo, sig) {
-  return planes.filter(function (p) { return p.ciclo === ciclo && p.carrera === sig; })[0] || null;
+  return buscarEnIndice_(REPO_PLAN_, planes, ciclo, sig);
+}
+
+function filaPlan_(ciclo, sig) {
+  return filaIndice_(REPO_PLAN_, ciclo, sig);
 }
 
 function estadoDePlan_(fila) {
+  const v = vigente_(fila);
   return {
     estado: fila && fila.estado ? fila.estado : Dominio.ESTADOS.SIN,
-    version: fila ? parseInt(fila.version, 10) || 0 : 0,
+    version: v.version,
     totales: fila && fila.totales ? JSON.parse(fila.totales) : null,
-    filaVersion: fila ? parseInt(fila.fila_version, 10) || 0 : 0
+    filaVersion: v.filaVersion
   };
 }
 
@@ -31,132 +32,61 @@ function resolverEstado_(actual, pedido) {
   return pedido === Dominio.ESTADOS.REGISTRADO ? Dominio.ESTADOS.REGISTRADO : Dominio.ESTADOS.BORRADOR;
 }
 
-function claveVersion_(ciclo, sig, n) {
-  return claveCache_("v", ciclo + "|" + sig + "|" + n);
+/* Contenido de una versión del plan. */
+function contenidoPlan_(ciclo, sig, n, filaVersion) {
+  return contenidoVersion_(REPO_PLAN_, ciclo, sig, n, filaVersion);
 }
 
-function cachearTexto_(clave, texto) {
-  if (texto.length > MAX_TEXTO_CACHE_) return;
-  try {
-    cache_().put(clave, texto, SEGUNDOS_CACHE_VERSION_);
-  } catch (e) {
-    /* No cabe: se leerá de la hoja. */
-  }
-}
-
-/* Debe llamarse dentro de conCandado_. Añade la versión y actualiza la fila del plan. */
-function registrarVersion_(ciclo, sig, fila, datos) {
-  const n = (fila ? parseInt(fila.version, 10) || 0 : 0) + 1;
-  const texto = JSON.stringify(datos.asignaturas);
-  const filaVersion = agregarFila_("Versiones",
-    [ciclo, sig, n, datos.estado, datos.tipo, datos.usuario, datos.fecha, datos.motivo || ""].concat(trocear_(texto)));
-  const valores = [ciclo, sig, datos.estado, n, datos.usuario, datos.fecha,
-    datos.firma_xlsx != null ? datos.firma_xlsx : (fila ? fila.firma_xlsx : ""),
-    JSON.stringify(Dominio.totales(datos.asignaturas)), filaVersion];
-  if (fila) escribirFila_("Planes", fila._fila, valores);
-  else agregarFila_("Planes", valores);
-  cachearTexto_(claveVersion_(ciclo, sig, n), texto);
-  return n;
-}
-
-function metaVersiones_(ciclo, sig) {
-  return leerTabla_("Versiones", 8)
-    .filter(function (v) { return v.ciclo === ciclo && v.carrera === sig; })
-    .map(function (v) {
-      return { n: parseInt(v.n, 10), estado: v.estado, tipo: v.tipo, usuario: v.usuario, fecha: v.fecha, motivo: v.motivo, _fila: v._fila };
-    })
-    .sort(function (a, b) { return a.n - b.n; });
-}
-
-function unirContenido_(valores) {
-  return valores.slice(TABLAS_.Versiones.indexOf("contenido"))
-    .map(function (c) { return c == null ? "" : String(c); }).join("");
-}
-
-function esLaVersion_(valores, ciclo, sig, n) {
-  return String(valores[0]) === ciclo && String(valores[1]) === sig && parseInt(valores[2], 10) === n;
-}
-
-/* Texto JSON de una versión. filaVersion evita recorrer Versiones; si no coincide
-   (o no se conoce), se busca la fila. */
-function textoDeVersion_(ciclo, sig, n, filaVersion) {
-  const h = hojaBd_("Versiones");
-  const ancho = Math.max(TABLAS_.Versiones.length, h.getLastColumn());
-  if (filaVersion > 1 && filaVersion <= h.getLastRow()) {
-    const valores = h.getRange(filaVersion, 1, 1, ancho).getValues()[0];
-    if (esLaVersion_(valores, ciclo, sig, n)) return unirContenido_(valores);
-  }
-  const v = metaVersiones_(ciclo, sig).filter(function (x) { return x.n === n; })[0];
-  if (!v) throw new Error("No se encontró la versión v" + n + " del plan.");
-  return unirContenido_(h.getRange(v._fila, 1, 1, ancho).getValues()[0]);
-}
-
-function contenidoVersion_(ciclo, sig, n, filaVersion) {
-  const clave = claveVersion_(ciclo, sig, n);
-  const guardado = cache_().get(clave);
-  if (guardado != null) return JSON.parse(guardado);
-  const texto = textoDeVersion_(ciclo, sig, n, filaVersion || 0);
-  cachearTexto_(clave, texto);
-  return JSON.parse(texto || "[]");
-}
-
-/* Contenido vigente de varios planes de un ciclo: primero de la caché y, lo que falte,
-   de la hoja, en un solo bloque si sus filas están cerca (como tras leer los xlsx). */
-function contenidosVigentes_(ciclo, filasPlan) {
-  const res = {};
-  const conVersion = filasPlan.filter(function (f) { return estadoDePlan_(f).version > 0; });
-  if (!conVersion.length) return res;
-
-  const claves = conVersion.map(function (f) { return claveVersion_(ciclo, f.carrera, estadoDePlan_(f).version); });
-  const enCache = cache_().getAll(claves);
-  const faltan = [];
-  conVersion.forEach(function (f, i) {
-    if (enCache[claves[i]] != null) res[f.carrera] = JSON.parse(enCache[claves[i]]);
-    else faltan.push(f);
-  });
-  if (!faltan.length) return res;
-
-  const h = hojaBd_("Versiones");
-  const ancho = Math.max(TABLAS_.Versiones.length, h.getLastColumn());
-  const ultima = h.getLastRow();
-  const filas = faltan.map(function (f) { return estadoDePlan_(f).filaVersion; }).filter(function (n) { return n > 1 && n <= ultima; });
-  let bloque = null, desde = 0;
-  if (filas.length) {
-    desde = Math.min.apply(null, filas);
-    const alto = Math.max.apply(null, filas) - desde + 1;
-    if (alto <= Math.max(10, filas.length * 3)) bloque = h.getRange(desde, 1, alto, ancho).getValues();
-  }
-  faltan.forEach(function (f) {
-    const p = estadoDePlan_(f);
-    const valores = bloque && p.filaVersion >= desde && p.filaVersion - desde < bloque.length ? bloque[p.filaVersion - desde] : null;
-    const texto = valores && esLaVersion_(valores, ciclo, f.carrera, p.version)
-      ? unirContenido_(valores)
-      : textoDeVersion_(ciclo, f.carrera, p.version, p.filaVersion);
-    cachearTexto_(claveVersion_(ciclo, f.carrera, p.version), texto);
-    res[f.carrera] = JSON.parse(texto || "[]");
-  });
-  return res;
-}
-
-/* Filas del tablero de un ciclo, con el contenido vigente de cada plan: así el navegador
-   consulta un plan o empieza a editarlo sin volver a pedirlo. */
-function leerTablero_(ciclo) {
-  const planes = leerPlanes_().filter(function (p) { return p.ciclo === ciclo; });
-  const bloqueos = bloqueosVigentes_();
-  const contenidos = contenidosVigentes_(ciclo, planes);
-  return Dominio.CARRERAS.map(function (car) {
-    const p = estadoDePlan_(buscarPlan_(planes, ciclo, car.sig));
-    const b = bloqueos.filter(function (x) { return x.ciclo === ciclo && x.carrera === car.sig; })[0];
-    return {
-      sig: car.sig, nombre: car.nombre, estado: p.estado, version: p.version, totales: p.totales,
-      bloqueo: b ? { correo: b.correo, desde: b.desde, expira: b.expira } : null,
-      contenido: contenidos[car.sig] || []
-    };
+/* Debe llamarse dentro de conCandado_. datos: {estado, tipo, usuario, fecha, motivo,
+   asignaturas, firma_xlsx?}. Devuelve el número de la versión nueva. */
+function registrarVersionPlan_(ciclo, sig, fila, datos) {
+  const indice = { estado: datos.estado, totales: JSON.stringify(Dominio.totales(datos.asignaturas)) };
+  if (datos.firma_xlsx != null) indice.firma_xlsx = datos.firma_xlsx;
+  return registrarVersion_(REPO_PLAN_, ciclo, sig, fila, {
+    usuario: datos.usuario, fecha: datos.fecha, contenido: datos.asignaturas, indice: indice,
+    meta: { estado: datos.estado, tipo: datos.tipo, motivo: datos.motivo || "" }
   });
 }
 
 function sinFila_(v) {
   return { n: v.n, estado: v.estado, tipo: v.tipo, usuario: v.usuario, fecha: v.fecha, motivo: v.motivo };
+}
+
+/* Si otro guardado dejó una versión posterior a versionBase, devuelve sus datos para que
+   el navegador advierta antes de guardar encima. */
+function conflictoPlan_(ciclo, sig, vigente, versionBase) {
+  if (vigente <= (parseInt(versionBase, 10) || 0)) return null;
+  const ultima = metaVersiones_(REPO_PLAN_, ciclo, sig, vigente).filter(function (v) { return v.n === vigente; })[0];
+  return ultima ? sinFila_(ultima) : { n: vigente };
+}
+
+/* Filas del tablero de un ciclo, con el contenido vigente de cada plan: así el navegador
+   consulta un plan o empieza a editarlo sin volver a pedirlo. «docentes» dice qué grupos
+   del plan ya tienen docente, para advertir antes de borrarlos. */
+function leerTablero_(ciclo) {
+  const planes = leerPlanes_().filter(function (p) { return p.ciclo === ciclo; });
+  const bloqueos = bloqueosVigentes_();
+  const contenidos = contenidosVigentes_(REPO_PLAN_, ciclo, planes);
+  const filas = Dominio.CARRERAS.map(function (car) {
+    const p = estadoDePlan_(buscarPlan_(planes, ciclo, car.sig));
+    const b = bloqueos.filter(function (x) { return x.ciclo === ciclo && x.ref === REF_.plan(car.sig); })[0];
+    return {
+      sig: car.sig, nombre: car.nombre, estado: p.estado, version: p.version, totales: p.totales,
+      bloqueo: b ? datosBloqueo_(b) : null,
+      contenido: contenidos[car.sig] || []
+    };
+  });
+  const docentes = docentesPorGrupo_(ciclo, filas);
+  filas.forEach(function (f) { f.docentes = docentes[f.sig] || {}; });
+  return filas;
+}
+
+/* El plan no se puede guardar si otra cuenta tiene su bloqueo. */
+function exigirSinBloqueoAjeno_(ciclo, sig, u, accion) {
+  const b = bloqueoDe_(ciclo, REF_.plan(sig));
+  if (b && b.correo !== u.correo)
+    throw new Error("El plan de " + Dominio.nombreCarrera(sig) + " lo está editando " + b.correo + ", así que " + accion + ". Inténtalo cuando termine.");
+  return b;
 }
 
 /* ============================================================
@@ -174,13 +104,13 @@ function obtenerTablero(ciclo, opciones) {
 function obtenerPlan(ciclo, sig) {
   exigirUsuario_();
   const c = validarCiclo_(ciclo), s = validarCarrera_(sig);
-  const p = estadoDePlan_(buscarPlan_(leerPlanes_(), c, s));
-  const b = bloqueoDe_(c, s);
+  const p = estadoDePlan_(filaPlan_(c, s));
+  const b = bloqueoDe_(c, REF_.plan(s));
   return {
     estado: p.estado,
     version: p.version,
-    asignaturas: p.version ? contenidoVersion_(c, s, p.version, p.filaVersion) : [],
-    bloqueo: b ? { correo: b.correo, desde: b.desde, expira: b.expira } : null
+    asignaturas: p.version ? contenidoPlan_(c, s, p.version, p.filaVersion) : [],
+    bloqueo: b ? datosBloqueo_(b) : null
   };
 }
 
@@ -191,51 +121,55 @@ function abrirEdicion(ciclo, sig, versionConocida) {
   const c = validarCiclo_(ciclo), s = validarCarrera_(sig);
   exigirEdicion_(u, s);
   return conCandado_(function () {
-    const r = tomarBloqueo_(c, s, u.correo);
-    if (!r.ok) return { bloqueado: { correo: r.bloqueo.correo, desde: r.bloqueo.desde, expira: r.bloqueo.expira } };
-    const p = estadoDePlan_(buscarPlan_(leerPlanes_(), c, s));
+    const r = tomarBloqueo_(c, REF_.plan(s), u.correo);
+    if (!r.ok) return { bloqueado: datosBloqueo_(r.bloqueo) };
+    const p = estadoDePlan_(filaPlan_(c, s));
     const res = { estado: p.estado, version: p.version, expira: r.expira };
     if (versionConocida == null || parseInt(versionConocida, 10) !== p.version)
-      res.asignaturas = p.version ? contenidoVersion_(c, s, p.version, p.filaVersion) : [];
+      res.asignaturas = p.version ? contenidoPlan_(c, s, p.version, p.filaVersion) : [];
+    res.recuperacion = leerRecuperacion_(c, REF_.plan(s), u.correo);
     return res;
   });
 }
 
-/* datos: {asignaturas, estado, tipo, motivo, versionBase, forzar}. Si se guardó otra
-   versión después de versionBase, devuelve {conflicto} para que el navegador advierta;
-   con forzar se guarda igualmente (advertir, no prohibir). */
+/* datos: {asignaturas, estado, tipo, motivo, versionBase, forzar, fusionesDisueltas}. Si se
+   guardó otra versión después de versionBase, devuelve {conflicto} para que el navegador
+   advierta; con forzar se guarda igualmente (advertir, no prohibir). Las fusiones con
+   grupos de otras carreras se llevan a esos planes (Fusiones.js); el plan guardado vuelve
+   en «asignaturas» y los planes ajenos tocados, en «otros». */
 function guardarPlan(ciclo, sig, datos) {
   const u = exigirUsuario_();
   const c = validarCiclo_(ciclo), s = validarCarrera_(sig);
   exigirEdicion_(u, s);
   if (!datos || TIPOS_GUARDADO_.indexOf(datos.tipo) < 0) throw new Error("Tipo de guardado desconocido.");
-  if (!Array.isArray(datos.asignaturas)) throw new Error("El plan recibido no tiene la lista de asignaturas.");
+  const recibidas = Dominio.sanearAsignaturas(datos.asignaturas);
+  const disueltas = Dominio.sanearMarcas(datos.fusionesDisueltas);
 
   return conCandado_(function () {
-    const b = bloqueoDe_(c, s);
-    if (b && b.correo !== u.correo)
-      throw new Error("El plan lo está editando " + b.correo + ", así que no se guardó. Vuelve a abrirlo cuando termine.");
-    const fila = buscarPlan_(leerPlanes_(), c, s);
+    const b = exigirSinBloqueoAjeno_(c, s, u, "no se guardó");
+    const fila = filaPlan_(c, s);
     const p = estadoDePlan_(fila);
-    if (!datos.forzar && p.version > (parseInt(datos.versionBase, 10) || 0)) {
-      const ultima = metaVersiones_(c, s).filter(function (v) { return v.n === p.version; })[0];
-      return { conflicto: ultima ? sinFila_(ultima) : { n: p.version } };
-    }
+    const conflicto = datos.forzar ? null : conflictoPlan_(c, s, p.version, datos.versionBase);
+    if (conflicto) return { conflicto: conflicto };
     const estado = resolverEstado_(p.estado, datos.estado);
     const fecha = new Date().toISOString();
-    const n = registrarVersion_(c, s, fila, {
+    const antes = p.version ? contenidoPlan_(c, s, p.version, p.filaVersion) : [];
+    const f = prepararFusiones_(c, s, antes, recibidas, disueltas, u);
+    const n = registrarVersionPlan_(c, s, fila, {
       estado: estado, tipo: datos.tipo, usuario: u.correo, fecha: fecha,
-      motivo: String(datos.motivo || "").slice(0, 500), asignaturas: datos.asignaturas
+      motivo: String(datos.motivo || "").slice(0, 500), asignaturas: f.asignaturas
     });
-    const r = b ? tomarBloqueo_(c, s, u.correo) : null;
-    return { version: n, estado: estado, fecha: fecha, expira: r && r.ok ? r.expira : null };
+    const otros = guardarFusionesAjenas_(c, f.otros, u.correo, fecha);
+    borrarRecuperacion_(c, REF_.plan(s), u.correo);
+    const r = b ? tomarBloqueo_(c, REF_.plan(s), u.correo) : null;
+    return { version: n, estado: estado, fecha: fecha, expira: r && r.ok ? r.expira : null, asignaturas: f.asignaturas, otros: otros };
   });
 }
 
 function obtenerHistorial(ciclo, sig) {
   exigirUsuario_();
   const c = validarCiclo_(ciclo), s = validarCarrera_(sig);
-  return metaVersiones_(c, s).map(sinFila_);
+  return metaVersiones_(REPO_PLAN_, c, s, estadoDePlan_(filaPlan_(c, s)).version).map(sinFila_);
 }
 
 /* Restaurar no borra el historial: crea una versión nueva con el contenido recuperado. */
@@ -246,18 +180,53 @@ function restaurarVersion(ciclo, sig, n) {
   const k = parseInt(n, 10);
 
   return conCandado_(function () {
-    const b = bloqueoDe_(c, s);
-    if (b && b.correo !== u.correo) throw new Error("El plan lo está editando " + b.correo + ", así que no se restauró.");
-    const fila = buscarPlan_(leerPlanes_(), c, s);
+    const b = exigirSinBloqueoAjeno_(c, s, u, "no se restauró");
+    const fila = filaPlan_(c, s);
     const p = estadoDePlan_(fila);
     if (!(k >= 1 && k <= p.version)) throw new Error("La versión v" + n + " no existe.");
-    const asignaturas = contenidoVersion_(c, s, k, 0);
+    const antes = contenidoPlan_(c, s, p.version, p.filaVersion);
+    const f = prepararFusiones_(c, s, antes, contenidoPlan_(c, s, k, 0), [], u);
     const estado = resolverEstado_(p.estado, Dominio.ESTADOS.BORRADOR);
-    const version = registrarVersion_(c, s, fila, {
+    const fecha = new Date().toISOString();
+    const version = registrarVersionPlan_(c, s, fila, {
       estado: estado, tipo: "restauración de v" + k, usuario: u.correo,
-      fecha: new Date().toISOString(), motivo: "", asignaturas: asignaturas
+      fecha: fecha, motivo: "", asignaturas: f.asignaturas
     });
-    const r = b ? tomarBloqueo_(c, s, u.correo) : null;
-    return { version: version, estado: estado, asignaturas: asignaturas, expira: r && r.ok ? r.expira : null };
+    const otros = guardarFusionesAjenas_(c, f.otros, u.correo, fecha);
+    const r = b ? tomarBloqueo_(c, REF_.plan(s), u.correo) : null;
+    return { version: version, estado: estado, asignaturas: f.asignaturas, otros: otros, expira: r && r.ok ? r.expira : null };
+  });
+}
+
+/* Deriva una asignatura a otro departamento sin abrir el plan. Lo hace el director del
+   departamento al que hoy se pide el docente o el coordinador de la carrera. Crea una
+   versión nueva del plan con el mismo estado. Las asignaciones de docentes la siguen. */
+function cambiarDepartamento(ciclo, sig, grupoId, nuevo, motivo) {
+  const u = exigirUsuario_();
+  const c = validarCiclo_(ciclo), s = validarCarrera_(sig), d = validarDpto_(nuevo);
+  if (!/^[A-Za-z0-9_-]{1,40}$/.test(String(grupoId || ""))) throw new Error("Grupo no válido.");
+  motivo = String(motivo || "").slice(0, 300);
+  return conCandado_(function () {
+    const fila = filaPlan_(c, s);
+    const p = estadoDePlan_(fila);
+    if (!p.version) throw new Error("El plan de " + Dominio.nombreCarrera(s) + " no tiene asignaturas.");
+    const asignaturas = contenidoPlan_(c, s, p.version, p.filaVersion);
+    const a = asignaturas.filter(function (x) { return x.grupos.some(function (g) { return g.id === grupoId; }); })[0];
+    if (!a) throw new Error("La asignatura ya no está en el plan de " + Dominio.nombreCarrera(s) + ". Actualiza la pantalla.");
+    const actual = Dominio.normalizarDpto(a.dpto) || String(a.dpto || "").trim();
+    const esDirector = u.rol === "director" && !!u.departamento && u.departamento === actual;
+    if (!esDirector && u.carreras.indexOf(s) < 0)
+      throw new Error(u.rol === "director"
+        ? "Solo puedes derivar los cursos que se piden a tu departamento (" + (u.departamento || "sin departamento") + ")."
+        : "Solo el coordinador de " + Dominio.nombreCarrera(s) + " puede cambiar el departamento de sus asignaturas.");
+    if (actual === d) return { version: p.version, estado: p.estado, sinCambios: true };
+    exigirSinBloqueoAjeno_(c, s, u, "el cambio de departamento no se guardó");
+    a.dpto = d;
+    const version = registrarVersionPlan_(c, s, fila, {
+      estado: p.estado, tipo: "cambio de departamento", usuario: u.correo, fecha: new Date().toISOString(),
+      motivo: (a.codigo + " " + a.nombre + ": " + (actual || "sin DPTO") + " → " + d + (motivo ? ". " + motivo : "")).slice(0, 500),
+      asignaturas: asignaturas
+    });
+    return { version: version, estado: p.estado, totales: Dominio.totales(asignaturas), contenido: asignaturas };
   });
 }

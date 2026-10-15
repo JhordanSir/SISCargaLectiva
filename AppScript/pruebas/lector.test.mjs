@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import { cargar, partesXlsx, plano, ofertaPatron, XLSX_CARRERA, XLSX_DEPARTAMENTO } from "./soporte.mjs";
 
 const ctx = cargar(["Dominio.js", "LectorXlsx.js"]);
-const libroCarrera = ctx.leerLibroXlsx(partesXlsx(XLSX_CARRERA));
-const libroDepartamento = ctx.leerLibroXlsx(partesXlsx(XLSX_DEPARTAMENTO));
+const libroCarrera = ctx.leerLibroXlsx_(partesXlsx(XLSX_CARRERA));
+const libroDepartamento = ctx.leerLibroXlsx_(partesXlsx(XLSX_DEPARTAMENTO));
 
 test("lee las ocho hojas del libro por carrera", () => {
   assert.deepEqual(plano(libroCarrera.map(h => h.nombre)), [
@@ -23,7 +23,7 @@ test("muestra las celdas como Excel: sin «.0» y las fechas d-m como «1-1»", 
 
 test("lee igual si las partes del zip llegan sin carpetas", () => {
   const sinCarpetas = Object.fromEntries(Object.entries(partesXlsx(XLSX_CARRERA)).map(([k, v]) => [k.split("/").pop(), v]));
-  assert.deepEqual(plano(ctx.leerLibroXlsx(sinCarpetas)), plano(libroCarrera));
+  assert.deepEqual(plano(ctx.leerLibroXlsx_(sinCarpetas)), plano(libroCarrera));
 });
 
 test("da formato a fechas seriales con códigos de Excel", () => {
@@ -48,7 +48,7 @@ const OBSERVACIONES_OMITIDAS = {
 };
 
 test("los Excel reales dan la misma oferta que datos-ejemplo.js", () => {
-  const { oferta } = plano(ctx.ofertaDesdeLibros(libroCarrera, libroDepartamento));
+  const { oferta } = plano(ctx.ofertaDesdeLibros_(libroCarrera, libroDepartamento));
   const patron = ofertaPatron();
   assert.deepEqual(Object.keys(oferta).sort(), Object.keys(patron).sort());
 
@@ -75,17 +75,17 @@ test("los Excel reales dan la misma oferta que datos-ejemplo.js", () => {
 });
 
 test("las marcas de CONDICIÓN solo rellenan observaciones vacías", () => {
-  const { oferta } = plano(ctx.ofertaDesdeLibros(libroCarrera, libroDepartamento));
+  const { oferta } = plano(ctx.ofertaDesdeLibros_(libroCarrera, libroDepartamento));
   const ing = new Map(oferta.ING.map(a => [a.codigo, a]));
   assert.equal(ing.get("3.4.1.24").obs, "INTERNACIONAL - MÉXICO");
   const com = new Map(oferta.COM.map(a => [a.codigo, a]));
   assert.equal(com.get("8.7.7.22").obs, "INTERNACIONAL MÉXICO - VIRTUAL");
-  const sinDepartamento = plano(ctx.ofertaDesdeLibros(libroCarrera, null)).oferta;
+  const sinDepartamento = plano(ctx.ofertaDesdeLibros_(libroCarrera, null)).oferta;
   assert.equal(new Map(sinDepartamento.ING.map(a => [a.codigo, a])).get("3.4.1.24").obs, "");
 });
 
 test("avisa de la fila que repite código y grupo", () => {
-  const { avisos } = plano(ctx.ofertaDesdeLibros(libroCarrera, libroDepartamento));
+  const { avisos } = plano(ctx.ofertaDesdeLibros_(libroCarrera, libroDepartamento));
   assert.equal(avisos.length, 1);
   assert.match(avisos[0], /Psicología.*9\.2\.5\.24.*grupo 1/);
 });

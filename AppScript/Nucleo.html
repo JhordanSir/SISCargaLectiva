@@ -11,7 +11,7 @@ const { CARRERAS, DPTOS, ESTADOS, num, th, totales, matrizDesdeTexto, ubicarCabe
 
 /* ---------- estado de la página ---------- */
 const app = {
-  usuario: SIS.usuario || null,   // {correo, rol, carreras}
+  usuario: SIS.usuario || null,   // {correo, rol, carreras (las que edita), coordina, departamento}
   ciclo: CONFIG.ciclo,            // ciclo elegido; lo comparten el tablero y la asignación docente
   tablero: [],                    // filas del tablero, con el contenido vigente de cada plan
   tableroCiclo: null,             // ciclo al que pertenecen esas filas
@@ -21,14 +21,10 @@ const app = {
   plan: null,                     // {estado, version, asignaturas, sucio, confirmado}
   seleccion: null,                // {ci, gi}
   colapsados: new Set(),
-  matrizPegada: null,             // contenido pegado, ya dividido en filas y columnas
   avisoImportacion: "",
   lectura: null,                  // sigla del plan que se consulta en solo lectura
   vista: null
 };
-
-/* Bloqueo de edición: la hora de caducidad la fija el servidor y el latido la renueva. */
-const edicion = { expira: 0, temporizador: null, ultimoLatido: 0, pedido: 0 };
 
 /* El tablero se vuelve a pedir si sus datos tienen más de esto. */
 const VIGENCIA_TABLERO_MS = 15000;
@@ -45,6 +41,27 @@ const alCambiar = (s, fn) => { const el = $(s); if (el) el.onchange = fn; };
 const icono = (nombre, clase) => '<svg class="ico' + (clase ? " " + clase : "") + '" aria-hidden="true" focusable="false"><use href="#i-' + nombre + '"></use></svg>';
 const reducirMovimiento = () => !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
 const carrerasDelUsuario = () => { const u = app.usuario || {}; return Array.isArray(u.carreras) ? u.carreras : []; };
+const departamentoDelUsuario = () => (app.usuario || {}).departamento || "";
+
+/* «A, B y C» */
+const enumerar = lista => lista.length > 1 ? lista.slice(0, -1).join(", ") + " y " + lista[lista.length - 1] : (lista[0] || "");
+
+/* Rol con su ámbito: de qué departamento es el director y qué carreras coordina el
+   coordinador. «texto» va en la cabecera y en el saludo; «detalle», en el title. */
+function describirRol(u){
+  u = u || {};
+  if (u.rol === "director") {
+    const d = u.departamento || "";
+    if (!d) return { texto: "Director de departamento · sin departamento asignado", detalle: "Añade el departamento en la columna «departamento» de la pestaña Usuarios." };
+    return { texto: "Director del " + d + " · " + Dominio.nombreDpto(d).replace(/^Departamento (Académico )?de /, ""), detalle: Dominio.nombreDpto(d) };
+  }
+  const carreras = Array.isArray(u.coordina) ? u.coordina : (Array.isArray(u.carreras) ? u.carreras : []);
+  if (!carreras.length) return { texto: "Coordinador de carrera · sin carreras asignadas (solo lectura)", detalle: "Añade sus carreras en la columna «carreras» de la pestaña Usuarios." };
+  return {
+    texto: "Coordinador de " + (carreras.length <= 2 ? enumerar(carreras.map(nombreCarrera)) : enumerar(carreras)),
+    detalle: carreras.map(nombreCarrera).join("\n")
+  };
+}
 
 /* Lleva una cifra hasta su nuevo valor con una animación breve. El valor final queda
    escrito aunque la pestaña esté oculta o el usuario prefiera menos movimiento. */
@@ -138,6 +155,13 @@ document.addEventListener("click", e => {
   }
 });
 alPulsar("#ir-inicio", () => { if (app.usuario) irA("inicio"); });
+
+/* Antes de cerrar o recargar la página con cambios sin guardar, el navegador pregunta. */
+window.addEventListener("beforeunload", e => {
+  const plan = !!(app.plan && app.plan.sucio);
+  const carga = typeof appDocentes !== "undefined" && appDocentes.sucio;
+  if (plan || carga) { e.preventDefault(); e.returnValue = ""; }
+});
 
 /* ============================================================
    Llamadas al servidor

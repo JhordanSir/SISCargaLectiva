@@ -178,10 +178,47 @@ async function abrirLectura(sig){
       (p.bloqueo ? " Lo está editando <b>" + esc(p.bloqueo.correo) + "</b>." : "")
     : "Esta carrera todavía no tiene ninguna asignatura registrada en " + esc(app.ciclo) + ".";
   pintarResumen($("#lectura-resumen"), p.asignaturas);
-  $("#lectura-bloques").innerHTML = htmlBloques(p.asignaturas, false);
+  /* El director puede derivar a otro departamento las asignaturas que piden docente al suyo. */
+  const dptoDirector = app.usuario && app.usuario.rol === "director" ? departamentoDelUsuario() : "";
+  $("#lectura-bloques").innerHTML = htmlBloques(p.asignaturas, false, {
+    docentes: f ? f.docentes : null,
+    derivar: dptoDirector ? a => (Dominio.normalizarDpto(a.dpto) || String(a.dpto || "").trim()) === dptoDirector : null
+  });
   enlazarBloques($("#lectura-bloques"));
+  $$("#lectura-bloques [data-derivar]").forEach(b => { b.onclick = e => {
+    e.stopPropagation();
+    const a = p.asignaturas[+b.dataset.derivar];
+    if (a) derivarAsignatura(sig, a);
+  }; });
   const editar = $("#lectura-editar");
   editar.hidden = !carrerasDelUsuario().includes(sig);
   editar.onclick = () => abrirEdicion(sig);
+}
+
+/* Elegir el departamento al que se pedirá el docente de un curso. */
+async function pedirNuevoDpto(actual, descripcion){
+  const otros = DPTOS.filter(d => d !== actual);
+  const r = await preguntar({
+    titulo: "Derivar a otro departamento",
+    cuerpo: '<div class="ficha"><b>' + esc(descripcion) + "</b><br>Hoy pide docente a <b>" + esc(actual || "—") + "</b>.</div>" +
+      '<div class="campo"><label for="dlg-nuevo-dpto">Nuevo departamento</label><select id="dlg-nuevo-dpto">' +
+      otros.map(d => '<option value="' + d + '">' + esc(d + " · " + Dominio.nombreDpto(d)) + "</option>").join("") + "</select></div>" +
+      '<div class="campo"><label for="dlg-motivo-dpto">Motivo (opcional)</label><input type="text" id="dlg-motivo-dpto" placeholder="Préstamo de docente"></div>' +
+      '<div class="nota">Se guarda una versión nueva del plan. Si el curso ya tenía docente, la asignación lo sigue y el nuevo departamento la verá.</div>',
+    acciones: [{ texto:"Cancelar", valor:null }, { texto:"Derivar", clase:"primario", valor:() => ({ dpto: $("#dlg-nuevo-dpto").value, motivo: $("#dlg-motivo-dpto").value.trim() }) }]
+  });
+  return r ? r() : null;
+}
+
+async function derivarAsignatura(sig, a){
+  const actual = Dominio.normalizarDpto(a.dpto) || String(a.dpto || "").trim();
+  const r = await pedirNuevoDpto(actual, a.codigo + " " + a.nombre + " · " + nombreCarrera(sig));
+  if (!r) return;
+  let res;
+  try { res = await llamar("cambiarDepartamento", app.ciclo, sig, a.grupos[0].id, r.dpto, r.motivo); } catch (e) { return informarError(e); }
+  actualizarFilaTablero(sig, { version: res.version, estado: res.estado, totales: res.totales, contenido: res.contenido });
+  if (appDocentes.cargado) appDocentes.cargado.hora = 0;
+  aviso(a.codigo + " ahora pide docente a " + r.dpto + ".");
+  abrirLectura(sig);
 }
 </script>

@@ -74,6 +74,7 @@ class Hoja {
   getRange(fila, col, filas = 1, cols = 1) { return new Rango(this, fila, col, filas, cols); }
   insertRowsAfter(despues, n) { this.maxFilas += n; }
   insertColumnsAfter(despues, n) { this.maxCols += n; }
+  deleteRows(fila, n) { for (let i = 0; i < n; i++) this.deleteRow(fila); }
   deleteRow(fila) {
     const nuevos = new Map();
     for (const [k, x] of this.datos) {
@@ -211,7 +212,7 @@ export function crearEntorno({ propietario = "mfloresl@ulasalle.edu.pe" } = {}) 
     const t = {
       evaluate() {
         const html = texto.replace(/<\?(!?=)\s*([\s\S]*?)\s*\?>/g, (m, tipo, expr) => {
-          const v = String(new Function(...Object.keys(t), "include", "return (" + expr + ");")(...Object.values(t), e.ctx.include));
+          const v = String(new Function(...Object.keys(t), "include_", "return (" + expr + ");")(...Object.values(t), e.ctx.include_));
           return tipo === "!=" ? v : v.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
         });
         return salida(html);
@@ -251,7 +252,23 @@ export function cargarServidor(entorno) {
 export function ejecutar(entorno, usuario, funcion, ...args) {
   const ctx = entorno.ctx;
   entorno.usuario = usuario;
-  ctx.configCache_ = null; ctx.libroBdCache_ = null; ctx.usuarioCache_ = null;
+  ctx.configCache_ = null; ctx.libroBdCache_ = null; ctx.usuarioCache_ = null; ctx.hojasCache_ = null;
   const r = ctx[funcion](...args.map(a => (a === undefined ? a : plano(a))));
   return r === undefined ? r : plano(r);
+}
+
+/* Cuentas de las pruebas: dos coordinadores de todas las carreras y un director por
+   departamento. Reemplaza las cuentas que siembra instalar(). */
+export const TODAS_LAS_CARRERAS = "ADM, DER, ING, ICO, COM, PSI, ARQ, IND";
+export const DIRECTORES = { DIMA: "jhuamanih@ulasalle.edu.pe", DAHUC: "jortizc@ulasalle.edu.pe", DACJ: "afrontadof@ulasalle.edu.pe", DACTE: "aarenasc@ulasalle.edu.pe" };
+export const USUARIOS_PRUEBA = [
+  ["mfloresl@ulasalle.edu.pe", "coordinador", TODAS_LAS_CARRERAS, ""],
+  ["fmaresg@ulasalle.edu.pe", "coordinador", TODAS_LAS_CARRERAS, ""]
+].concat(Object.entries(DIRECTORES).map(([d, correo]) => [correo, "director", "", d]));
+
+export function fijarUsuarios(entorno, filas) {
+  const h = entorno.hoja("Usuarios");
+  const n = h.getLastRow();
+  if (n > 1) h.getRange(2, 1, n - 1, 4).clearContent();
+  h.getRange(2, 1, filas.length, 4).setNumberFormat("@").setValues(filas.map(f => [f[0], f[1], f[2] || "", f[3] || ""]));
 }

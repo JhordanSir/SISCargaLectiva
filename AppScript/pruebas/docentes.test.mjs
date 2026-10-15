@@ -1,105 +1,244 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { crearEntorno, cargarServidor, ejecutar } from "./falsos.mjs";
-import { XLSX_CARRERA, XLSX_DEPARTAMENTO, XLSX_DOCENTES, plano } from "./soporte.mjs";
+import { crearEntorno, cargarServidor, ejecutar, fijarUsuarios, USUARIOS_PRUEBA, DIRECTORES } from "./falsos.mjs";
+import { XLSX_CARRERA, XLSX_DEPARTAMENTO, XLSX_DOCENTES, plano, partesXlsx } from "./soporte.mjs";
 
-const A = "mfloresl@ulasalle.edu.pe";
-const B = "fmaresg@ulasalle.edu.pe";
+const A = "mfloresl@ulasalle.edu.pe";      // coordinador de todas las carreras
+const B = "fmaresg@ulasalle.edu.pe";       // otro coordinador
+const DIMA = DIRECTORES.DIMA, DAHUC = DIRECTORES.DAHUC;
 const CICLO = "2026-1";
 
-function sistemaConDocentes() {
+function sistema({ conDocentes = true } = {}) {
   const e = crearEntorno();
   cargarServidor(e);
   ejecutar(e, A, "instalar");
+  fijarUsuarios(e, USUARIOS_PRUEBA);
   e.subir(e.propiedades.SIS_CARPETA_ID, "SISCargaLectiva-Ejemplo-CargaXCarrera.xlsx", fs.readFileSync(XLSX_CARRERA), { fecha: "2026-09-20T10:00:00Z" });
   e.subir(e.propiedades.SIS_CARPETA_ID, "SISCargaLectiva-Ejemplo-CargaXDepartamento.xlsx", fs.readFileSync(XLSX_DEPARTAMENTO), { fecha: "2026-09-20T10:05:00Z" });
-  e.subir(e.propiedades.SIS_CARPETA_ID, "SISCargaLectiva-Ejemplo-CargaDeDocentes.xlsx", fs.readFileSync(XLSX_DOCENTES), { fecha: "2026-09-20T10:10:00Z" });
+  if (conDocentes) e.subir(e.propiedades.SIS_CARPETA_ID, "SISCargaLectiva-Ejemplo-CargaDeDocentes.xlsx", fs.readFileSync(XLSX_DOCENTES), { fecha: "2026-09-20T10:10:00Z" });
+  ejecutar(e, A, "obtenerTablero", CICLO);   // lee los xlsx: 8 planes Registrados
   return e;
 }
 
-test("CU-002: leerCatalogoDocentes_ extrae los profesores de CargaDeDocentes.xlsx", () => {
-  const e = sistemaConDocentes();
-  const catalogo = ejecutar(e, A, "leerCatalogoDocentes_", true);
-  assert.equal(catalogo.length, 12, "El archivo de ejemplo contiene 12 docentes representativos");
-  const alatrista = catalogo.find(d => d.nombreCompleto.includes("ALATRISTA"));
-  assert.ok(alatrista, "Debe encontrar al profesor Alatrista");
-  assert.equal(alatrista.dpto, "DACTE");
-  assert.equal(alatrista.dedicacion, "TP");
+const unidad = (estado, carrera, codigo, n = 1) =>
+  estado.unidades.find(u => u.miembros.some(m => m.carrera === carrera && m.codigo === codigo && String(m.n) === String(n)));
+
+test("el catálogo sale de CargaDeDocentes con su departamento y dedicación", () => {
+  const e = sistema();
+  const cat = ejecutar(e, A, "leerCatalogoDocentes_", true);
+  assert.equal(cat.docentes.length, 12);
+  const d = cat.docentes.find(x => x.nombreCompleto.includes("ALATRISTA"));
+  assert.deepEqual([d.dpto, d.dedicacion, d.tcOtra, d.cargo, d.noLectivas], ["DACTE", "TP", false, "", null]);
+  assert.deepEqual(cat.columnas, { tcOtra: false, cargo: false, noLectivas: false });
 });
 
-test("CU-002: obtenerCursosDepartamento_ filtra las asignaturas requeridas al departamento DIMA", () => {
-  const e = sistemaConDocentes();
-  // Sincronizar fuentes para tener los planes de carrera registrados
-  ejecutar(e, A, "revisarFuentes_");
-  const cursos = ejecutar(e, A, "obtenerCursosDepartamento_", CICLO, "DIMA");
-  assert.ok(cursos.length > 0, "Debe haber asignaturas asignadas al departamento DIMA");
-  assert.ok(cursos.every(c => c.dpto === "DIMA"), "Todas las asignaturas deben pertenecer a DIMA");
+test("las secciones salen de los planes Registrados y cada una lleva sus componentes", () => {
+  const e = sistema();
+  const st = ejecutar(e, DIMA, "obtenerEstadoDocentes", CICLO, "DIMA");
+  assert.equal(st.puedeEditar, true);
+  assert.equal(st.unidades.length, 365);
+  const dima = st.unidades.filter(u => u.dpto === "DIMA");
+  assert.ok(dima.length > 0);
+  const calc = unidad(st, "ING", "3.2.3.24");   // Cálculo I: 2 HT + 4 HP
+  assert.deepEqual(calc.componentes.map(c => [c.c, c.horas]), [["T", 2], ["P", 4]]);
+
+  /* Un plan en Borrador no pide docentes. */
+  const p = ejecutar(e, A, "abrirEdicion", "2026-2", "ING");
+  ejecutar(e, A, "guardarPlan", "2026-2", "ING", { asignaturas: [{ sem: 1, malla: "2024", codigo: "X.1", nombre: "Prueba", dpto: "DIMA", obs: "",
+    grupos: [{ id: "g1", n: 1, ht: "2", hp: "0", desdoble: null, fusion: null }] }], estado: "Borrador", tipo: "guardar borrador", versionBase: p.version });
+  assert.equal(ejecutar(e, DIMA, "obtenerEstadoDocentes", "2026-2", "DIMA").unidades.length, 0);
 });
 
-test("CU-002: calcularBalanceDocente detecta advertencias A07, A09, A10 y A11", () => {
-  const e = sistemaConDocentes();
-  const ctx = e.ctx;
-  const Dominio = ctx.Dominio;
-
-  const docentes = [
-    { dni: "111", nombreCompleto: "Perez Juan", condicion: "Contratado", categoria: "AUXILIAR", dpto: "DIMA", dedicacion: "TC" },
-    { dni: "222", nombreCompleto: "Gomez Maria", condicion: "Ordinario", categoria: "ASOCIADO", dpto: "DIMA", dedicacion: "TP" },
-    { dni: "333", nombreCompleto: "Lopez Carlos", condicion: "Contratado", categoria: "AUXILIAR", dpto: "DIMA", dedicacion: "TP" }
-  ];
-
-  const asignaciones = [
-    // Perez Juan con 42h (>40h -> A07 y A09) y cruce semestral en ING Sem 4 (A11)
-    { carrera: "ING", sem: "4", codigo: "COD1", grupo: "1", componente: "Teoría", docente: "Perez Juan", horas: 20 },
-    { carrera: "ING", sem: "4", codigo: "COD2", grupo: "1", componente: "Teoría", docente: "Perez Juan", horas: 22 },
-    // Gomez Maria con 6h (TP <8h -> A10)
-    { carrera: "IND", sem: "2", codigo: "COD3", grupo: "1", componente: "Práctica", docente: "Gomez Maria", horas: 6 },
-    // Docente Internacional no suma horas (RN-30)
-    { carrera: "DER", sem: "1", codigo: "COD4", grupo: "1", componente: "Teoría", docente: "Docente Internacional", condicion: "INTERNACIONAL", horas: 4 }
-  ];
-
-  const balance = Dominio.calcularBalanceDocente(docentes, asignaciones);
-  assert.equal(balance.totalDocentesAsignados, 2);
-  assert.equal(balance.totalHorasAsignadas, 48);
-
-  const docPerez = balance.docentes.find(d => d.dni === "111");
-  assert.equal(docPerez.horasLectivas, 42);
-  const codigosAdvPerez = docPerez.advertencias.map(a => a.codigo);
-  assert.ok(codigosAdvPerez.includes("A07"), "Debe tener advertencia A07 (>40h)");
-  assert.ok(codigosAdvPerez.includes("A11"), "Debe tener advertencia A11 (cruce semestral)");
-
-  const docGomez = balance.docentes.find(d => d.dni === "222");
-  assert.equal(docGomez.horasLectivas, 6);
-  const codigosAdvGomez = docGomez.advertencias.map(a => a.codigo);
-  assert.ok(codigosAdvGomez.includes("A10"), "Debe tener advertencia A10 (TP <8h)");
+test("solo el director del departamento edita su carga; los demás la consultan", () => {
+  const e = sistema();
+  assert.equal(ejecutar(e, DAHUC, "obtenerEstadoDocentes", CICLO, "DIMA").puedeEditar, false);
+  assert.equal(ejecutar(e, A, "obtenerEstadoDocentes", CICLO, "DIMA").puedeEditar, false);
+  assert.throws(() => ejecutar(e, A, "abrirEdicionCarga", CICLO, "DIMA"), /coordinador de carrera consulta/);
+  assert.throws(() => ejecutar(e, DAHUC, "guardarCarga", CICLO, "DIMA", { asignaciones: [] }), /Solo asignas docentes en DAHUC/);
+  const r = ejecutar(e, DIMA, "abrirEdicionCarga", CICLO, "DIMA");
+  assert.equal(r.version, 0);
+  assert.ok(r.expira);
 });
 
-test("CU-002: guardarAsignaciones persiste en la pestaña Asignaciones y se recupera con obtenerEstadoDocentes", () => {
-  const e = sistemaConDocentes();
-  ejecutar(e, A, "revisarFuentes_");
+test("la carga se versiona, se bloquea por departamento y avisa del conflicto", () => {
+  const e = sistema();
+  const st = ejecutar(e, DIMA, "obtenerEstadoDocentes", CICLO, "DIMA");
+  const u = unidad(st, "ING", "3.4.4.24");
+  ejecutar(e, DIMA, "abrirEdicionCarga", CICLO, "DIMA");
+  const asig = [{ unidad: u.id, componente: "T", docente: "VELASQUEZ DOIG, MIGUEL EDUARDO", horas: null }];
+  const r1 = ejecutar(e, DIMA, "guardarCarga", CICLO, "DIMA", { asignaciones: asig, versionBase: 0 });
+  assert.equal(r1.version, 1);
+  const r2 = ejecutar(e, DIMA, "guardarCarga", CICLO, "DIMA", { asignaciones: asig, versionBase: 0 });
+  assert.equal(r2.conflicto.n, 1, "se guardó otra versión después de la base");
 
-  const lista = [
-    {
-      carrera: "ING",
-      codigo: "3.4.4.24",
-      asignatura: "Teoría de la Computación",
-      grupo: "1",
-      componente: "Teoría",
-      docente: "Velasquez Doig Miguel Eduardo",
-      horas: 4,
-      condicion: "Ordinario",
-      reemplazo_de: ""
-    }
+  /* Otra cuenta no puede tomar el bloqueo mientras dure. */
+  fijarUsuarios(e, USUARIOS_PRUEBA.concat([["otro.dima@ulasalle.edu.pe", "director", "", "DIMA"]]));
+  assert.equal(ejecutar(e, "otro.dima@ulasalle.edu.pe", "abrirEdicionCarga", CICLO, "DIMA").bloqueado.correo, DIMA);
+  assert.throws(() => ejecutar(e, "otro.dima@ulasalle.edu.pe", "guardarCarga", CICLO, "DIMA", { asignaciones: [], versionBase: 1 }), /la está editando/);
+  ejecutar(e, DIMA, "liberarBloqueoCarga", CICLO, "DIMA");
+  assert.ok(ejecutar(e, "otro.dima@ulasalle.edu.pe", "abrirEdicionCarga", CICLO, "DIMA").expira);
+
+  const h = ejecutar(e, DIMA, "obtenerHistorialCarga", CICLO, "DIMA");
+  assert.deepEqual(h.map(v => [v.n, v.tipo, v.usuario]), [[1, "guardar", DIMA]]);
+  assert.equal(ejecutar(e, B, "obtenerVersionCarga", CICLO, "DIMA", 1)[0].docente, "VELASQUEZ DOIG, MIGUEL EDUARDO");
+});
+
+test("nadie pasa de 40 h; un docente con cargo sobre 24 h exige motivo", () => {
+  const e = sistema();
+  const st = ejecutar(e, DIMA, "obtenerEstadoDocentes", CICLO, "DIMA");
+  const secciones = st.unidades.filter(u => u.dpto === "DIMA" && u.ht + u.hp >= 4).slice(0, 11);
+  const docente = "PRUEBA, DOCENTE";
+  const asignar = lista => lista.flatMap(u => u.componentes.map(c => ({ unidad: u.id, componente: c.c, docente: docente, horas: null })));
+  ejecutar(e, DIMA, "abrirEdicionCarga", CICLO, "DIMA");
+  assert.throws(() => ejecutar(e, DIMA, "guardarCarga", CICLO, "DIMA", { asignaciones: asignar(secciones), versionBase: 0 }), /superaría las 40 h/);
+
+  /* Con cargo: 26 h pide motivo; con motivo se guarda. */
+  const Dominio = e.ctx.Dominio;
+  const cargo = [{ dni: "9", nombreCompleto: docente, dpto: "DIMA", dedicacion: "TC", condicion: "Ordinario", cargo: "Director de escuela" }];
+  const pocas = [];
+  let horas = 0;
+  for (const u of secciones) { if (horas + u.ht + u.hp > 26) break; pocas.push(u); horas += u.ht + u.hp; }
+  const bal = Dominio.calcularBalance(cargo, st.unidades, { DIMA: asignar(pocas) });
+  const d = bal.docentes[0];
+  assert.ok(d.advertencias.some(a => a.codigo === "A12"), JSON.stringify(d.advertencias));
+  assert.ok(d.advertencias.some(a => a.codigo === "A09"), "ordinario sobre 24 h");
+  const exc = Dominio.excesosAlGuardar({ docentes: [] }, bal);
+  assert.equal(exc.severos.length, horas > 24 ? 1 : 0);
+});
+
+test("advertencias A10, A11 y A14 del balance", () => {
+  const e = sistema();
+  const Dominio = e.ctx.Dominio;
+  const st = ejecutar(e, DIMA, "obtenerEstadoDocentes", CICLO, "DIMA");
+  const catalogo = [
+    { dni: "1", nombreCompleto: "TP, POCAS", dpto: "DIMA", dedicacion: "TP", condicion: "Contratado" },
+    { dni: "2", nombreCompleto: "CRUCE, DOS", dpto: "DAHUC", dedicacion: "TC", condicion: "Contratado", noLectivas: 10 }
   ];
+  const ing4 = st.unidades.filter(u => u.carrera === "ING" && String(u.sem) === "4" && u.miembros.length === 1 && u.dpto === "DIMA");
+  const g1 = st.unidades.filter(u => u.carrera === "DER" && u.codigo === "2.1.3.24");   // Historia del Derecho: grupos 1 y 2
+  const cargas = {
+    DIMA: [{ unidad: ing4[0].id, componente: "T", docente: "TP, POCAS", horas: 2 },
+           { unidad: ing4[0].id, componente: "P", docente: "CRUCE, DOS", horas: null },
+           { unidad: ing4[1].id, componente: "P", docente: "CRUCE, DOS", horas: null }],
+    DACJ: g1.map(u => ({ unidad: u.id, componente: "T", docente: "TP, POCAS", horas: 2 }))
+  };
+  const bal = Dominio.calcularBalance(catalogo, st.unidades, cargas);
+  const cod = n => bal.docentes.find(d => d.nombre === n).advertencias.map(a => a.codigo);
+  assert.ok(cod("TP, POCAS").includes("A10"));
+  assert.ok(!cod("TP, POCAS").includes("A11"), "dos grupos del mismo curso no son un cruce");
+  assert.ok(cod("CRUCE, DOS").includes("A11"));
+  assert.ok(cod("CRUCE, DOS").includes("A14"), "es de DAHUC y dicta cursos de DIMA");
+  assert.ok(cod("CRUCE, DOS").includes("A15"), "TC con pocas horas lectivas y no lectivas");
+});
 
-  const res = ejecutar(e, A, "guardarAsignaciones", CICLO, "DIMA", lista, "Asignación inicial de prueba");
-  assert.equal(res.ok, true);
-  assert.equal(res.guardadas, 1);
+test("lee la hoja real de CargaXDepartamento: grupo desde SEMESTRE y cursos fuera del plan", () => {
+  const e = sistema();
+  const Dominio = e.ctx.Dominio;
+  const st = ejecutar(e, DIMA, "obtenerEstadoDocentes", CICLO, "DACJ");
+  const libro = e.ctx.leerLibroXlsx_(partesXlsx(XLSX_DEPARTAMENTO));
+  const hoja = libro.find(h => /DACJ/.test(h.nombre));
+  const r = plano(Dominio.interpretarCargaDepartamento(hoja.filas, st.unidades, "DACJ", st.catalogo));
+  const historia = r.filas.filter(f => f.codigo === "2.1.3.24");
+  assert.deepEqual(historia.map(f => f.n), ["1", "2"], "«1-1» y «1-2» son los grupos 1 y 2");
+  assert.ok(historia.every(f => f.estado === "ok" && f.unidad));
+  assert.ok(r.filas.every(f => !/TOTAL/i.test(f.docenteTexto)));
+  assert.equal(r.filas.length, 77);
+  assert.ok(r.filas.every(f => f.estado === "ok"), "todas las filas de DACJ están en el plan y piden docente a DACJ");
+  const dima = plano(Dominio.interpretarCargaDepartamento(libro.find(h => /DIMA/.test(h.nombre)).filas, st.unidades, "DIMA", st.catalogo));
+  const cuenta = estado => dima.filas.filter(f => f.estado === estado).length;
+  assert.deepEqual([cuenta("ok"), cuenta("otro-dpto"), cuenta("fuera")], [88, 1, 3], "se señalan las filas de otro departamento y las que no están en el plan");
+});
 
-  const estado = ejecutar(e, A, "obtenerEstadoDocentes", CICLO, "DIMA");
-  assert.equal(estado.estado, "ok");
-  assert.equal(estado.departamento, "DIMA");
-  assert.equal(estado.asignaciones.length, 1);
-  assert.equal(estado.asignaciones[0].docente, "Velasquez Doig Miguel Eduardo");
-  assert.equal(estado.asignaciones[0].horas, "4");
+test("una asignación sigue a su sección si cambia el departamento del curso", () => {
+  const e = sistema();
+  let st = ejecutar(e, DIMA, "obtenerEstadoDocentes", CICLO, "DIMA");
+  const u = unidad(st, "ADM", "1.1.4.24");   // Matemática Básica, DIMA
+  assert.equal(u.dpto, "DIMA");
+  ejecutar(e, DIMA, "abrirEdicionCarga", CICLO, "DIMA");
+  ejecutar(e, DIMA, "guardarCarga", CICLO, "DIMA", { asignaciones: [{ unidad: u.id, componente: "T", docente: "ALFARO BEJARANO, JULIO CARLO", horas: null }], versionBase: 0 });
+
+  /* El director de DAHUC no puede derivar un curso de DIMA; el de DIMA sí. */
+  assert.throws(() => ejecutar(e, DAHUC, "cambiarDepartamento", CICLO, "ADM", u.id, "DAHUC", ""), /Solo puedes derivar/);
+  const r = ejecutar(e, DIMA, "cambiarDepartamento", CICLO, "ADM", u.id, "DAHUC", "préstamo");
+  assert.equal(r.version, 2);
+  assert.match(ejecutar(e, B, "obtenerHistorial", CICLO, "ADM")[1].motivo, /DIMA → DAHUC/);
+
+  st = ejecutar(e, DAHUC, "obtenerEstadoDocentes", CICLO, "DAHUC");
+  const v = e.ctx.Dominio.asignacionesVigentes(st.unidades, { DIMA: st.cargas.DIMA.asignaciones, DAHUC: st.cargas.DAHUC.asignaciones });
+  const heredadas = v.porUnidad.get(unidad(st, "ADM", "1.1.4.24").id);
+  assert.equal(heredadas[0].docente, "ALFARO BEJARANO, JULIO CARLO");
+  assert.equal(heredadas[0].heredada, true);
+
+  /* Cuando DAHUC guarda su carga con esa asignación, DIMA deja de tenerla al guardar. */
+  ejecutar(e, DAHUC, "abrirEdicionCarga", CICLO, "DAHUC");
+  ejecutar(e, DAHUC, "guardarCarga", CICLO, "DAHUC", { asignaciones: [Object.assign({}, heredadas[0], { heredada: undefined, dptoCarga: undefined })], versionBase: 0 });
+  const g = ejecutar(e, DIMA, "guardarCarga", CICLO, "DIMA", { asignaciones: st.cargas.DIMA.asignaciones, versionBase: 1 });
+  assert.equal(g.asignaciones.length, 0);
+});
+
+test("la fusión con un grupo de otra carrera se lleva a su plan y cuenta las horas una vez", () => {
+  const e = sistema();
+  const p = ejecutar(e, A, "abrirEdicion", CICLO, "ING");
+  const otro = ejecutar(e, B, "obtenerPlan", CICLO, "PSI");
+  const Dominio = e.ctx.Dominio;
+  const ci = p.asignaturas.findIndex(a => a.codigo === "3.4.6.24");   // Liderazgo y Trabajo en Equipo
+  const ext = otro.asignaturas.find(a => a.codigo === "9.4.2.24");
+  const g = ext.grupos[0];
+  const lista = plano(p.asignaturas);
+  const res = Dominio.fusionar(lista, [ci + ":0"], ci + ":0", [{ carrera: "PSI", grupoId: g.id, codigo: ext.codigo, nombre: ext.nombre, n: g.n, ht: g.ht, hp: g.hp }]);
+  assert.equal(res.conOtras, true);
+  const r = ejecutar(e, A, "guardarPlan", CICLO, "ING", { asignaturas: lista, estado: "Registrado", tipo: "guardar cambios", versionBase: 1 });
+  assert.deepEqual(r.otros.map(o => [o.sig, o.version]), [["PSI", 2]]);
+  const psi = ejecutar(e, B, "obtenerPlan", CICLO, "PSI").asignaturas.find(a => a.codigo === "9.4.2.24").grupos[0];
+  assert.equal(psi.fusion, res.marca);
+  assert.equal(psi.fusionCon[0].carrera, "ING");
+  assert.equal(psi.fusionCon[0].principal, true);
+  assert.equal(ejecutar(e, B, "obtenerHistorial", CICLO, "PSI")[1].tipo, "fusión");
+
+  /* Una sola sección para asignar, con sus dos grupos. */
+  const st = ejecutar(e, DAHUC, "obtenerEstadoDocentes", CICLO, "DAHUC");
+  const u = st.unidades.filter(x => x.fusion === res.marca);
+  assert.equal(u.length, 1);
+  assert.deepEqual(u[0].miembros.map(m => m.carrera).sort(), ["ING", "PSI"]);
+  const t = ejecutar(e, B, "obtenerTablero", CICLO);
+  const psiT = t.filas.find(f => f.sig === "PSI").totales, ingT = t.filas.find(f => f.sig === "ING").totales;
+  assert.equal(psiT.dictado + 4, e.ctx.Dominio.totales(otro.asignaturas).dictado, "PSI deja de contar las horas: las dicta ING");
+  assert.equal(ingT.fus, 1);
+
+  /* Deshacerla desde ING la deshace también en PSI. */
+  const p2 = ejecutar(e, A, "obtenerPlan", CICLO, "ING").asignaturas;
+  Dominio.deshacerFusion(p2, res.marca);
+  const r2 = ejecutar(e, A, "guardarPlan", CICLO, "ING", { asignaturas: p2, estado: "Registrado", tipo: "guardar cambios", versionBase: 2, fusionesDisueltas: [res.marca] });
+  assert.equal(r2.otros[0].sig, "PSI");
+  const psi2 = ejecutar(e, B, "obtenerPlan", CICLO, "PSI").asignaturas.find(a => a.codigo === "9.4.2.24").grupos[0];
+  assert.equal(psi2.fusion, null);
+  assert.equal(psi2.fusionCon, undefined);
+});
+
+test("la fusión no toca el plan de otra carrera mientras otra cuenta lo edita", () => {
+  const e = sistema();
+  const p = ejecutar(e, A, "abrirEdicion", CICLO, "ING");
+  ejecutar(e, B, "abrirEdicion", CICLO, "PSI");
+  const otro = ejecutar(e, B, "obtenerPlan", CICLO, "PSI");
+  const ext = otro.asignaturas.find(a => a.codigo === "9.4.2.24"), g = ext.grupos[0];
+  const lista = plano(p.asignaturas);
+  const ci = lista.findIndex(a => a.codigo === "3.4.6.24");
+  e.ctx.Dominio.fusionar(lista, [ci + ":0"], ci + ":0", [{ carrera: "PSI", grupoId: g.id, codigo: ext.codigo, nombre: ext.nombre, n: g.n, ht: g.ht, hp: g.hp }]);
+  assert.throws(() => ejecutar(e, A, "guardarPlan", CICLO, "ING", { asignaturas: lista, estado: "Registrado", tipo: "guardar cambios", versionBase: 1 }), /está editando fmaresg/);
+  assert.equal(ejecutar(e, B, "obtenerPlan", CICLO, "ING").version, 1, "no se guardó nada");
+});
+
+test("el tablero dice qué grupos tienen docente y la recuperación se guarda y se borra", () => {
+  const e = sistema();
+  const st = ejecutar(e, DIMA, "obtenerEstadoDocentes", CICLO, "DIMA");
+  const u = unidad(st, "ING", "3.4.4.24");
+  ejecutar(e, DIMA, "abrirEdicionCarga", CICLO, "DIMA");
+  ejecutar(e, DIMA, "guardarRecuperacion", CICLO, "carga:DIMA", { contenido: [{ unidad: u.id, componente: "T", docente: "X" }], versionBase: 0 });
+  assert.equal(ejecutar(e, DIMA, "abrirEdicionCarga", CICLO, "DIMA").recuperacion.contenido[0].docente, "X");
+  assert.throws(() => ejecutar(e, A, "guardarRecuperacion", CICLO, "carga:DIMA", { contenido: [] }), /consulta la asignación/);
+  ejecutar(e, DIMA, "guardarCarga", CICLO, "DIMA", { asignaciones: [{ unidad: u.id, componente: "T", docente: "VELASQUEZ DOIG, MIGUEL EDUARDO" }], versionBase: 0 });
+  assert.equal(ejecutar(e, DIMA, "abrirEdicionCarga", CICLO, "DIMA").recuperacion, null, "al guardar se borra");
+  const t = ejecutar(e, A, "obtenerTablero", CICLO);
+  assert.deepEqual(t.filas.find(f => f.sig === "ING").docentes[u.id], ["VELASQUEZ DOIG, MIGUEL EDUARDO (DIMA)"]);
 });

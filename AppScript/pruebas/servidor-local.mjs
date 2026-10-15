@@ -10,7 +10,7 @@
 import http from "node:http";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
-import { crearEntorno, cargarServidor, ejecutar } from "./falsos.mjs";
+import { crearEntorno, cargarServidor, ejecutar, fijarUsuarios, USUARIOS_PRUEBA } from "./falsos.mjs";
 import { XLSX_CARRERA, XLSX_DEPARTAMENTO, XLSX_DOCENTES } from "./soporte.mjs";
 
 const USUARIO_POR_DEFECTO = "mfloresl@ulasalle.edu.pe";
@@ -41,6 +41,7 @@ export function iniciarServidorLocal({ puerto = 8765, conXlsx = true } = {}) {
   const e = crearEntorno();
   const ctx = cargarServidor(e);
   ejecutar(e, e.propietario, "instalar");
+  fijarUsuarios(e, USUARIOS_PRUEBA);   // coordinadores mfloresl y fmaresg; un director por departamento
   if (conXlsx) {
     e.subir(e.propiedades.SIS_CARPETA_ID, "SISCargaLectiva-Ejemplo-CargaXCarrera.xlsx", fs.readFileSync(XLSX_CARRERA));
     e.subir(e.propiedades.SIS_CARPETA_ID, "SISCargaLectiva-Ejemplo-CargaXDepartamento.xlsx", fs.readFileSync(XLSX_DEPARTAMENTO));
@@ -56,7 +57,7 @@ export function iniciarServidorLocal({ puerto = 8765, conXlsx = true } = {}) {
       try {
         if (req.method === "GET" && url.pathname === "/") {
           e.usuario = usuario;
-          ctx.configCache_ = null; ctx.libroBdCache_ = null; ctx.usuarioCache_ = null;
+          ctx.configCache_ = null; ctx.libroBdCache_ = null; ctx.usuarioCache_ = null; ctx.hojasCache_ = null;
           const html = ctx.doGet().getContent().replace("<head>", "<head>" + PUENTE(usuario));
           res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
           return res.end(html);

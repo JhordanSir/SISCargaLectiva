@@ -6,7 +6,8 @@ import os from "node:os";
 import path from "node:path";
 import { iniciarServidorLocal } from "./servidor-local.mjs";
 
-const USUARIO = "mfloresl@ulasalle.edu.pe";
+const USUARIO = "jhuamanih@ulasalle.edu.pe";          // director del DIMA
+const COORDINADOR = "mfloresl@ulasalle.edu.pe";
 const PUERTO_CDP = 9334;
 const dormir = ms => new Promise(r => setTimeout(r, ms));
 
@@ -98,76 +99,75 @@ async function main() {
 
   try {
     chrome = await lanzarChrome();
-    const p = await Pestana.abrir(`http://127.0.0.1:${PUERTO_APP}/?usuario=${encodeURIComponent(USUARIO)}`);
+    const url = u => `http://127.0.0.1:${PUERTO_APP}/?usuario=${encodeURIComponent(u)}`;
+    const pie = texto => `[...document.querySelectorAll("#dlg-pie button")].find(b => b.textContent.includes(${JSON.stringify(texto)})).click()`;
 
-    console.log("Verificación 1: Carga inicial y Menú Principal");
-    await p.esperar('!document.getElementById("v-menu").hidden', "El menú principal (#v-menu) está visible y no oculto");
-    await p.esperar('document.getElementById("u-correo").textContent.includes("mfloresl")', "La cabecera muestra el correo de Director");
-    await p.esperar('document.getElementById("u-rol").textContent.includes("Director")', "La cabecera muestra el rol de Director");
+    console.log("Verificación 1: el coordinador consulta la asignación en solo lectura");
+    const c = await Pestana.abrir(url(COORDINADOR));
+    await c.esperar('!document.getElementById("v-menu").hidden', "Menú principal visible");
+    await c.pulsar("#op-docentes", "Entrar en «Asignar docentes al plan de ciclo»");
+    await c.esperar('!document.getElementById("v-docentes").hidden && document.querySelectorAll("#tb-vista-carrera tr").length > 0', "Secciones del departamento listadas");
+    await c.esperar('document.getElementById("btn-doc-editar").hidden && !document.querySelector("[data-acc-sec]")', "Sin botones de edición para el coordinador");
+    asegurar(c.errores.length === 0, "Sin errores en la consola del coordinador (" + c.errores.join(", ") + ")");
 
-    console.log("Verificación 2: Entrada a CU-002 Carga de Docentes");
-    await p.pulsar("#op-docentes", "Pulsar «Asignar docentes al plan de ciclo (CU-002)» en el menú");
-    await p.esperar('!document.getElementById("v-docentes").hidden', "El panel #v-docentes está visible y activo");
-    await p.esperar('document.getElementById("v-menu").hidden', "El panel del menú se ocultó correctamente");
+    console.log("Verificación 2: el director entra a su departamento");
+    const p = await Pestana.abrir(url(USUARIO));
+    await p.esperar('document.getElementById("u-rol").textContent === "Director del DIMA · Ingeniería y Matemáticas"', "La cabecera dice de qué departamento es el director");
+    await p.pulsar("#op-docentes", "Entrar en la asignación docente");
+    await p.esperar('document.getElementById("sel-doc-dpto").value === "DIMA" && parseInt(document.getElementById("met-doc-req").textContent, 10) > 0', "Abre en DIMA con las horas pedidas");
+    await p.esperar('!document.getElementById("btn-doc-editar").hidden', "Puede editar su departamento");
 
-    console.log("Verificación 3: Métricas y datos de CU-002");
-    await p.esperar('parseInt(document.getElementById("met-doc-req").textContent, 10) > 0', "Horas requeridas calculadas (> 0)");
-    await p.esperar('document.getElementById("met-doc-cob").textContent.includes("%")', "Porcentaje de cobertura visible");
-    await p.esperar('document.querySelectorAll("#tb-vista-dpto tr").length > 0', "Filas de docentes renderizadas en vista departamento");
+    console.log("Verificación 3: edición con bloqueo y asignación por componente");
+    await p.pulsar("#btn-doc-editar", "Pulsar «Editar asignaciones»");
+    await p.esperar('appDocentes.editando && /Sesión de edición/.test(document.getElementById("reloj-asignacion").textContent)', "Bloqueo tomado y reloj en marcha");
+    await p.pulsar('#tb-vista-carrera [data-acc-sec="asignar"]', "Abrir la ventana de asignación de una sección");
+    await p.esperar('document.getElementById("dlg").open && document.querySelectorAll("#dlg-cuerpo [data-comp]").length >= 1', "Ventana con un bloque por componente");
+    await p.evaluar(`(() => { const n = appDocentes.datos.catalogo.find(d => d.dpto === "DIMA").nombreCompleto;
+      document.querySelectorAll("#dlg-cuerpo [data-doc]").forEach(i => { i.value = n; }); })()`);
+    await p.evaluar(pie("Guardar en la carga"));
+    await p.esperar('appDocentes.sucio && document.querySelector("#tb-vista-carrera .badge-doc.ok")', "La sección queda cubierta y hay cambios sin guardar");
 
-    console.log("Verificación 4: Conmutación de vistas (Departamento ↔ Carrera)");
-    await p.pulsar("#btn-vista-carrera", "Cambiar a Vista por Carrera");
-    await p.esperar('!document.getElementById("vista-carrera-contenedor").hidden', "Contenedor de vista carrera visible");
-    await p.esperar('document.getElementById("vista-dpto-contenedor").hidden', "Contenedor de vista departamento oculto");
-    await p.esperar('document.querySelectorAll("#tb-vista-carrera tr").length > 0', "Asignaturas renderizadas en vista carrera");
+    console.log("Verificación 4: guardar crea una versión");
+    await p.pulsar("#btn-doc-guardar", "Pulsar «Guardar asignaciones»");
+    await p.esperar('document.getElementById("dlg").open && /A13/.test(document.getElementById("dlg-cuerpo").textContent)', "La confirmación avisa de los componentes sin docente (A13)");
+    await p.evaluar(pie("Confirmar y guardar"));
+    await p.esperar('!appDocentes.sucio && appDocentes.base === 1', "Carga guardada como v1");
 
-    console.log("Verificación 5: Flujo Alternativo FA-001 - Cátedra Compartida (Teoría y Práctica)");
-    await p.esperar('document.querySelector("[data-acc-asig=\'compartida\']") !== null', "Botón Cátedra disponible en curso con HT > 0 y HP > 0");
-    await p.pulsar("[data-acc-asig='compartida']", "Pulsar botón Cátedra en la grilla");
-    await p.esperar('document.getElementById("dlg").open', "Modal de Cátedra Compartida abierto");
-    await p.evaluar(`(() => {
-      const st = document.getElementById("dlg-doc-teoria");
-      if (st && st.options.length > 1) st.selectedIndex = 1;
-      const sp = document.getElementById("dlg-doc-practica");
-      if (sp && sp.options.length > 2) sp.selectedIndex = 2;
-    })()`);
-    await p.evaluar(`(() => {
-      const btns = Array.from(document.querySelectorAll("#dlg-pie button"));
-      const btnOk = btns.find(b => b.textContent.includes("Confirmar"));
-      if (btnOk) btnOk.click();
-    })()`);
-    await p.esperar('!document.getElementById("dlg").open', "Modal de Cátedra Compartida cerrado tras confirmar");
-    await p.esperar('document.querySelector("#tb-vista-carrera").textContent.includes("Cátedra compartida")', "Insignia de Cátedra Compartida visible en la vista carrera");
+    console.log("Verificación 5: reemplazo de docente con fecha de efectividad");
+    await p.pulsar('#tb-vista-carrera [data-acc-sec="reemplazar"]', "Pulsar «Reemplazar» en la sección");
+    await p.esperar('document.getElementById("dlg").open && !!document.getElementById("dlg-fecha")', "Ventana de reemplazo con fecha de efectividad");
+    await p.evaluar(`(() => { const t = appDocentes.trabajo[0].docente;
+      document.getElementById("dlg-sust").value = appDocentes.datos.catalogo.find(d => d.nombreCompleto !== t).nombreCompleto; })()`);
+    await p.evaluar(pie("Confirmar reemplazo"));
+    await p.esperar('appDocentes.trabajo.some(a => a.reemplazo && a.historial && a.historial.length)', "El titular queda en el historial de la asignación");
 
-    await p.pulsar("#btn-vista-dpto", "Volver a Vista por Departamento");
-    await p.esperar('!document.getElementById("vista-dpto-contenedor").hidden', "Contenedor de vista departamento restaurado");
+    console.log("Verificación 6: vista por docente e historial");
+    await p.pulsar("#btn-vista-dpto", "Cambiar a la vista por docente");
+    await p.esperar('!document.getElementById("vista-dpto-contenedor").hidden && document.querySelectorAll("#tb-vista-dpto tr").length > 0', "Docentes con su balance");
+    await p.pulsar("#btn-vista-carrera", "Volver a la vista por sección");
+    await p.pulsar("#btn-doc-historial", "Abrir el historial de la carga");
+    await p.esperar('document.getElementById("dlg").open && /v1/.test(document.getElementById("dlg-cuerpo").textContent)', "El historial lista la v1");
+    await p.evaluar('document.getElementById("dlg").close()');
 
-    console.log("Verificación 6: Flujo Alternativo FA-002 - Reemplazo de Docente (Licencia / Sustitución)");
-    await p.esperar('document.querySelector("[data-acc-doc=\'reemplazar-doc\']") !== null', "Botón Reemplazar disponible en la vista departamento");
-    await p.pulsar("[data-acc-doc='reemplazar-doc']", "Pulsar botón Reemplazar en fila de docente");
-    await p.esperar('document.getElementById("dlg").open', "Modal de Reemplazo de Docente abierto");
-    await p.evaluar(`(() => {
-      const sust = document.getElementById("dlg-sel-sustituto");
-      if (sust && sust.options.length > 1) sust.selectedIndex = 1;
-      const mot = document.getElementById("dlg-motivo-reemplazo");
-      if (mot) mot.value = "Licencia médica";
-    })()`);
-    await p.evaluar(`(() => {
-      const btns = Array.from(document.querySelectorAll("#dlg-pie button"));
-      const btnOk = btns.find(b => b.textContent.includes("Confirmar"));
-      if (btnOk) btnOk.click();
-    })()`);
-    await p.esperar('!document.getElementById("dlg").open', "Modal de Reemplazo cerrado tras confirmación");
+    console.log("Verificación 7: carga masiva desde la hoja del departamento");
+    await p.pulsar("#btn-doc-masiva", "Abrir la carga masiva");
+    await p.esperar('!document.getElementById("v-docentes-carga").hidden', "Panel de carga masiva visible");
+    await p.evaluar(`rejillaDocentes.pintar([
+      ["DOCENTE","CARRERA","MALLA","SEMESTRE","CODIGO","ASIGNATURA","HT","HP","TOTAL HORAS","CONDICIÓN"],
+      ["APAZA VALDIVIA ADELUZ","ING","2024","2","3.2.3.24","Cálculo I","2","4","6",""],
+      ["","","","","","","","TOTAL","6",""]])`);
+    await p.pulsar("#btn-procesar-pegado-doc", "Previsualizar");
+    await p.esperar('!document.getElementById("caja-previa-doc").hidden && document.querySelectorAll("#tb-previa-doc tr").length === 1', "Una fila leída; la de TOTAL se ignora");
+    await p.evaluar('document.querySelectorAll("#tb-resolver-doc select").forEach(s => { s.value = "tal-cual"; })');
+    await p.pulsar("#btn-aplicar-previa-doc", "Aplicar a la asignación");
+    await p.esperar('!document.getElementById("v-docentes").hidden && appDocentes.sucio', "Vuelve a la asignación con los cambios aplicados");
 
-    console.log("Verificación 7: Carga Masiva Rejilla / Archivo (Flujo Básico)");
-    await p.pulsar("#btn-doc-masiva", "Abrir panel de carga masiva de asignaciones");
-    await p.esperar('!document.getElementById("v-docentes-carga").hidden', "Panel #v-docentes-carga visible");
-    await p.esperar('document.getElementById("v-docentes").hidden', "Panel #v-docentes oculto durante la carga masiva");
+    console.log("Verificación 8: terminar la edición libera el bloqueo");
+    await p.pulsar("#btn-doc-terminar", "Pulsar «Terminar edición»");
+    await p.evaluar(pie("Terminar"));
+    await p.esperar('!appDocentes.editando && !document.getElementById("btn-doc-editar").hidden', "Fuera de la edición");
 
-    await p.pulsar("#volver-doc-carga", "Pulsar volver a carga de docentes");
-    await p.esperar('!document.getElementById("v-docentes").hidden', "Regresa al panel #v-docentes");
-
-    console.log("Verificación 8: Errores en consola");
+    console.log("Verificación 9: errores en consola");
     asegurar(p.errores.length === 0, "Cero errores o excepciones de JavaScript en la consola (" + p.errores.join(", ") + ")");
 
     console.log(`\n¡ÉXITO TOTAL! ${comprobaciones} comprobaciones E2E de CU-002 superadas sin errores.`);

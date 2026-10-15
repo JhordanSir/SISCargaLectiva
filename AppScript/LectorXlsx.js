@@ -1,5 +1,5 @@
 /* Lectura de libros .xlsx sin convertirlos a Hoja de cálculo de Google.
-   leerLibroXlsx() es pura: recibe las partes del zip ya descomprimidas
+   leerLibroXlsx_() es pura: recibe las partes del zip ya descomprimidas
    ({ruta: textoXml}) y devuelve [{nombre, filas}], con cada celda como el texto
    que mostraría Excel. descomprimirXlsx_() es la única parte que usa Apps Script. */
 
@@ -13,7 +13,7 @@ function descomprimirXlsx_(blob) {
   return archivos;
 }
 
-function leerLibroXlsx(archivos) {
+function leerLibroXlsx_(archivos) {
   const libro = xlsxParte_(archivos, "xl/workbook.xml");
   if (!libro) throw new Error("El archivo no es un libro .xlsx: falta xl/workbook.xml.");
 
@@ -241,7 +241,7 @@ function xlsxFilas_(xml, compartidas, estilos) {
 /* libroCarrera: una hoja por carrera. libroDepartamento (opcional) aporta la
    CONDICIÓN de cada código: si la asignatura no trae OBSERVACIONES y la condición
    habla de INTERNACIONAL, VIRTUAL o FUSIÓN, esa condición pasa a ser su observación. */
-function ofertaDesdeLibros(libroCarrera, libroDepartamento) {
+function ofertaDesdeLibros_(libroCarrera, libroDepartamento) {
   const oferta = {}, avisos = [];
 
   libroCarrera.forEach(function (hoja) {

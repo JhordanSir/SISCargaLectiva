@@ -3,13 +3,13 @@
 function doGet() {
   const t = HtmlService.createTemplateFromFile("Index");
   t.inicial = JSON.stringify(datosIniciales_()).replace(/</g, "\\u003c");
-  t.dominio = "(" + crearDominio.toString() + ")()";
+  t.dominio = "(" + crearDominio_.toString() + ")()";
   return t.evaluate()
     .setTitle("SISCargaLectiva · Universidad La Salle")
     .addMetaTag("viewport", "width=device-width, initial-scale=1");
 }
 
-function include(nombre) {
+function include_(nombre) {
   return HtmlService.createHtmlOutputFromFile(nombre).getContent();
 }
 

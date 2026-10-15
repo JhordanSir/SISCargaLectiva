@@ -97,7 +97,7 @@ function pintarInicio(){
   const suma = clave => filas.reduce((n, f) => n + (Number((f.totales || {})[clave]) || 0), 0);
   const total = filas.length || CARRERAS.length;
 
-  $("#inicio-saludo").textContent = saludo() + (app.usuario && app.usuario.rol === "director" ? " · Director de departamento" : " · Coordinador de carrera");
+  $("#inicio-saludo").textContent = saludo() + " · " + describirRol(app.usuario).texto;
   $("#inicio-ciclo").textContent = app.ciclo || "";
   $("#inicio-total").textContent = total;
   $("#inicio-avance").setAttribute("aria-label", registrados + " de " + total + " planes registrados en " + (app.ciclo || ""));

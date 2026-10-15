@@ -73,9 +73,9 @@ function iniciales(correo){
     }
     const u = app.usuario || {};
     $("#u-correo").textContent = u.correo || "";
-    $("#u-rol").textContent = u.rol === "director"
-      ? "Director de departamento"
-      : "Coordinador de carrera" + (u.carreras && u.carreras.length ? " · " + u.carreras.join(", ") : " · solo lectura");
+    const rol = describirRol(u);
+    $("#u-rol").textContent = rol.texto;
+    $("#u-rol").title = rol.detalle;
     $("#u-avatar").textContent = iniciales(u.correo);
     $("#usuario").hidden = false;
     $("#navegacion").hidden = false;
