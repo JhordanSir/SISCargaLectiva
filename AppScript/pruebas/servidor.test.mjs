@@ -322,7 +322,7 @@ test("cambiar solo la fecha del xlsx no crea versiones; cambiar su contenido sí
 
   /* Sin el libro por departamento desaparecen las marcas de CONDICIÓN: cambian las
      carreras que tenían alguna y solo esas reciben «actualización desde xlsx». */
-  const ctx = cargar(["Dominio.js", "LectorXlsx.js"]);
+  const ctx = cargar(["Dominio.js", "LectorXlsx.js", "OfertaXlsx.js"]);
   const lc = ctx.leerLibroXlsx_(partesXlsx(XLSX_CARRERA));
   const con = plano(ctx.ofertaDesdeLibros_(lc, ctx.leerLibroXlsx_(partesXlsx(XLSX_DEPARTAMENTO)))).oferta;
   const sin = plano(ctx.ofertaDesdeLibros_(lc, null)).oferta;

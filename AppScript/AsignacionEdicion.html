@@ -39,7 +39,7 @@ alPulsar("#btn-doc-editar", async () => {
   if (r.recuperacion && Array.isArray(r.recuperacion.contenido)) {
     const rec = await ofrecerRecuperacion(r.recuperacion, appCarga.base, "la carga de " + appCarga.dpto);
     if (rec === true) { appCarga.trabajo = r.recuperacion.contenido; marcarDocentesSucio(true); aviso("Cambios recuperados: revísalos y guarda."); }
-    else if (rec === false) llamarEnSilencio("descartarRecuperacion", appCarga.ciclo, Dominio.REF.carga(appCarga.dpto)).catch(() => {});
+    else if (rec === false) llamarEnSilencio("descartarRecuperacion", appCarga.ciclo, Dominio.REF.carga(appCarga.dpto)).catch(e => console.warn("descartarRecuperacion:", e));
   }
   pintarVistaDocentes();
 });
@@ -56,7 +56,7 @@ async function terminarEdicionCarga(){
   const ciclo = appCarga.ciclo, dpto = appCarga.dpto;
   sesionCarga.detener();
   appCarga.editando = false;
-  if (appCarga.sucio) llamarEnSilencio("descartarRecuperacion", ciclo, Dominio.REF.carga(dpto)).catch(() => {});
+  if (appCarga.sucio) llamarEnSilencio("descartarRecuperacion", ciclo, Dominio.REF.carga(dpto)).catch(e => console.warn("descartarRecuperacion:", e));
   marcarDocentesSucio(false);
   try { await llamarEnSilencio("liberarBloqueoCarga", ciclo, dpto); } catch (e) { /* caduca solo */ }
   if (appCarga.datos) appCarga.trabajo = clonar(appCarga.datos.cargas[dpto].asignaciones || []);

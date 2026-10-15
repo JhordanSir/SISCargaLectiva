@@ -22,6 +22,10 @@ var TABLA_ = {
   CARGAS: "Cargas", VERSIONES_CARGA: "VersionesCarga", RECUPERACION: "Recuperacion"
 };
 
+/* Pestañas de versiones anteriores del sistema que instalar() retira aunque tengan datos.
+   «Asignaciones» guardaba la asignación docente antes de la carga por departamento. */
+var PESTANAS_OBSOLETAS_ = ["Asignaciones"];
+
 /* Una celda admite 50 000 caracteres; el contenido de una versión se reparte en
    celdas consecutivas a partir de la columna «contenido». */
 var MAX_CELDA_ = 45000;
@@ -77,14 +81,16 @@ function prepararTabla_(libro, nombre) {
 }
 
 /**
- * Prepara todas las pestañas de TABLAS_ y borra las desconocidas que estén vacías.
+ * Prepara todas las pestañas de TABLAS_ y borra las desconocidas que estén vacías y las de
+ * PESTANAS_OBSOLETAS_.
  * @param {GoogleAppsScript.Spreadsheet.Spreadsheet} libro
  * @returns {void}
  */
 function prepararTablas_(libro) {
   Object.keys(TABLAS_).forEach(function (nombre) { prepararTabla_(libro, nombre); });
   libro.getSheets().forEach(function (h) {
-    if (!TABLAS_[h.getName()] && h.getLastRow() === 0 && libro.getSheets().length > 1) libro.deleteSheet(h);
+    const obsoleta = PESTANAS_OBSOLETAS_.indexOf(h.getName()) >= 0;
+    if ((obsoleta || (!TABLAS_[h.getName()] && h.getLastRow() === 0)) && libro.getSheets().length > 1) libro.deleteSheet(h);
   });
 }
 
@@ -279,6 +285,27 @@ function guardarEnCache_(clave, valor, segundos) {
     cache_().put(clave, JSON.stringify(valor), segundos);
   } catch (e) {
     /* Un valor de más de 100 KB no cabe: se volverá a leer de la hoja. */
+  }
+}
+
+/**
+ * Como conCandado_, pero solo espera unos instantes: si el candado está ocupado, no
+ * ejecuta fn y devuelve null. Es para escrituras que se pueden saltar, como la copia de
+ * recuperación, que el navegador repite al minuto siguiente: así no hacen esperar a los
+ * guardados de verdad ni se quedan 30 s en cola.
+ * @template T
+ * @param {function(): T} fn
+ * @param {number} milisegundos
+ * @returns {T|null}
+ */
+function conCandadoSiLibre_(fn, milisegundos) {
+  const candado = LockService.getScriptLock();
+  if (!candado.tryLock(milisegundos)) return null;
+  try {
+    return fn();
+  } finally {
+    SpreadsheetApp.flush();
+    candado.releaseLock();
   }
 }
 

@@ -6,7 +6,15 @@
      - las versiones, con una fila por guardado: sus datos y el contenido completo en JSON,
        repartido en celdas a partir de la columna «contenido».
    El contenido de una versión nunca cambia, así que se guarda también en la caché del
-   script; la lista de versiones de cada documento, también. */
+   script; la lista de versiones de cada documento, también.
+
+   Crecimiento (auditoría P3.6-j; solo política, sin implementar): cada guardado, también
+   cada autoguardado y cada fusión llevada a otro plan, añade una fila con el contenido
+   completo (con los Excel de ejemplo, un plan ocupa de 2 a 16 KB de JSON). Leer la vigente no se encarece,
+   porque el índice dice su fila, pero el historial y la búsqueda de una versión sin fila
+   conocida leen la tabla entera. Política propuesta para cuando exista el CU «Administrar
+   ciclos»: al cerrar un ciclo, pasar a un libro de archivo sus versiones y dejar en
+   Versiones y VersionesCarga solo la vigente y la última «registrar» de cada documento. */
 
 var REPO_PLAN_ = { indice: "Planes", versiones: "Versiones", clave: "carrera", cache: "v", nombre: "del plan" };
 var REPO_CARGA_ = { indice: "Cargas", versiones: "VersionesCarga", clave: "departamento", cache: "vc", nombre: "de la carga" };

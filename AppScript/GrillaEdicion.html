@@ -66,7 +66,7 @@ async function expirar(){
 /* Libera el bloqueo y vuelve al tablero, descartando lo no guardado. */
 async function terminarEdicion(){
   const sig = app.carrera, confirmado = !!(app.plan && app.plan.confirmado);
-  if (sig && app.plan && app.plan.sucio) llamarEnSilencio("descartarRecuperacion", app.ciclo, Dominio.REF.plan(sig)).catch(() => {});
+  if (sig && app.plan && app.plan.sucio) llamarEnSilencio("descartarRecuperacion", app.ciclo, Dominio.REF.plan(sig)).catch(e => console.warn("descartarRecuperacion:", e));
   sesionPlan.detener();
   app.carrera = null; app.plan = null; app.seleccion = null;
   pintarTablero();
@@ -185,7 +185,7 @@ async function recuperarPlan(sig, rec){
     app.seleccion = null;
     pintarGrilla();
     aviso("Cambios recuperados: revísalos y guarda.");
-  } else if (r === false) llamarEnSilencio("descartarRecuperacion", app.ciclo, Dominio.REF.plan(sig)).catch(() => {});
+  } else if (r === false) llamarEnSilencio("descartarRecuperacion", app.ciclo, Dominio.REF.plan(sig)).catch(e => console.warn("descartarRecuperacion:", e));
 }
 
 /* Sale de la edición sin guardar ni liberar nada: el bloqueo no llegó a tomarse. */

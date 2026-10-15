@@ -112,6 +112,35 @@ test("cada Dominio.aviso usa un tipo del catálogo TIPOS_AVISO", () => {
     assert.doesNotMatch(fs.readFileSync(path.join(RAIZ, f), "utf8"), /avisos\.push\("/, f + " empuja un aviso sin tipo");
 });
 
+test("la copia de recuperación se salta sin error si el candado está ocupado", () => {
+  const e = sistema();
+  const ing = ejecutar(e, A, "obtenerPlan", CICLO, "ING");
+  ejecutar(e, A, "abrirEdicion", CICLO, "ING");
+  const copia = { contenido: ing.asignaturas, versionBase: ing.version };
+  e.candadoOcupado = true;
+  try {
+    assert.deepEqual(ejecutar(e, A, "guardarRecuperacion", CICLO, "plan:ING", copia), { fecha: null, omitida: true });
+    assert.equal(e.hoja("Recuperacion").filas().length, 0);
+    assert.throws(() => ejecutar(e, A, "liberarBloqueo", CICLO, "ING"), { codigo: "OCUPADO" }, "lo demás sigue esperando su turno");
+  } finally {
+    e.candadoOcupado = false;
+  }
+  assert.ok(ejecutar(e, A, "guardarRecuperacion", CICLO, "plan:ING", copia).fecha, "al minuto siguiente se guarda");
+  assert.equal(e.hoja("Recuperacion").filas().length, 1);
+});
+
+test("instalar() retira las pestañas obsoletas aunque tengan datos", () => {
+  const e = sistema();
+  const libro = e.libros.get(e.propiedades.SIS_BD_ID);
+  const vieja = libro.insertSheet("Asignaciones");
+  vieja.getRange(1, 1, 2, 2).setNumberFormat("@").setValues([["ciclo", "docente"], ["2026-1", "X"]]);
+  const ajena = libro.insertSheet("Notas del equipo");
+  ajena.getRange(1, 1).setNumberFormat("@").setValues([["no tocar"]]);
+  ejecutar(e, A, "instalar");
+  assert.equal(libro.getSheetByName("Asignaciones"), null);
+  assert.ok(libro.getSheetByName("Notas del equipo"), "una pestaña desconocida con datos se conserva");
+});
+
 test("los repositorios con versiones usan los nombres de pestaña de TABLA_", () => {
   const e = crearEntorno();
   const ctx = cargarServidor(e);

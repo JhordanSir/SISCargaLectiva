@@ -89,6 +89,10 @@ Hace falta Node.js y `clasp` (`npm install -g @google/clasp`), con la sesión in
 4. **Probar.** En el editor, **Implementar → Probar implementaciones** (*Deploy → Test deployments*) da la URL que termina en `/dev`. La primera vez que alguien abre el tablero se leen los Excel.
 5. **Publicar.** `clasp deploy -d "descripción"` crea una versión publicada. Para actualizarla sin cambiar la URL: `clasp deploy -i <ID> -d "descripción"`, con el ID que muestra `clasp list-deployments`. En clasp 3, `deploy` es otro nombre de `create-deployment`. El manifest ya fija *Ejecutar como: yo* y *Acceso: cualquier usuario de ulasalle.edu.pe*.
 
+### Crecimiento de las versiones
+
+Cada guardado de un plan o de una carga añade una fila con el contenido completo a `Versiones` o `VersionesCarga`, y ninguna se borra. Mientras no exista el caso de uso *Administrar ciclos*, la política propuesta es: al cerrar un ciclo, archivar en otro libro sus versiones y conservar solo la vigente y la última «registrar» de cada documento. El detalle está en la cabecera de `AppScript/Versionado.js`.
+
 ### Configuración
 
 Vive en las propiedades del script (**Configuración del proyecto → Propiedades del script**). `instalar()` crea las que falten.

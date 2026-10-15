@@ -1,7 +1,14 @@
 // @ts-check
 /* Copia de recuperación: mientras alguien edita un plan o una carga docente, el navegador
    envía cada minuto lo que aún no guardó. Si la página se cierra o se cae, al volver a
-   editar se ofrece recuperarlo. No es una versión: se borra al guardar o al descartar. */
+   editar se ofrece recuperarlo. No es una versión: se borra al guardar o al descartar.
+   Decisión (auditoría P3.6-f): la copia sigue en la hoja, que no caduca como CacheService,
+   pero se escribe con un candado breve (conCandadoSiLibre_, 2 s). Si otro guardado tiene el
+   candado, esta copia se salta y el navegador la repite al minuto siguiente. El candado
+   sigue siendo el del script: las filas de Recuperacion se borran por número de fila al
+   guardar, y un candado por usuario no protegería de esos borrados. */
+
+var MS_CANDADO_RECUPERACION_ = 2000;
 
 /**
  * Valida una referencia («plan:ADM», «carga:DIMA»); si no lo es, falla con DATO_INVALIDO.
@@ -75,7 +82,7 @@ function borrarRecuperacion_(ciclo, ref, correo) {
  * @param {string} ciclo
  * @param {Ref} ref
  * @param {{contenido: *, versionBase: number}} datos
- * @returns {Respuesta<{fecha: string}>}
+ * @returns {Respuesta<{fecha: (string|null), omitida?: boolean}>} omitida: el sistema estaba ocupado; se repite luego.
  */
 function guardarRecuperacion(ciclo, ref, datos) {
   return responder_(function () {
@@ -84,7 +91,7 @@ function guardarRecuperacion(ciclo, ref, datos) {
     exigirRecuperacion_(usuario, r);
     const contenido = datos && datos.contenido != null ? datos.contenido : [];
     const texto = JSON.stringify(r.tipo === "plan" ? Dominio.sanearAsignaturas(contenido) : Dominio.sanearAsignaciones(contenido));
-    return conCandado_(function () {
+    const guardada = conCandadoSiLibre_(function () {
       const f = filaRecuperacion_(c, r.ref, usuario.correo);
       const fecha = new Date().toISOString();
       const valores = [c, r.ref, usuario.correo, fecha, String(parseInt(String(datos && datos.versionBase), 10) || 0)].concat(trocear_(texto));
@@ -94,7 +101,8 @@ function guardarRecuperacion(ciclo, ref, datos) {
         escribirFila_(TABLA_.RECUPERACION, f._fila, valores);
       } else agregarFila_(TABLA_.RECUPERACION, valores);
       return { fecha: fecha };
-    });
+    }, MS_CANDADO_RECUPERACION_);
+    return guardada || { fecha: null, omitida: true };
   });
 }
 

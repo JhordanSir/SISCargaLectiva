@@ -84,8 +84,11 @@ function crearSesionEdicion(op){
     if (!d) return;
     const texto = JSON.stringify(d.contenido);
     if (texto === s.ultimaCopia) return;
-    s.ultimaCopia = texto;
-    op.guardarCopia(d).catch(e => console.warn("No se pudo guardar la copia de recuperación:", e));
+    /* Solo cuenta como copiada si el servidor la guardó: si estaba ocupado ({omitida}) o
+       falló, se vuelve a intentar al minuto siguiente. */
+    op.guardarCopia(d)
+      .then(r => { if (r && r.fecha) s.ultimaCopia = texto; })
+      .catch(e => console.warn("No se pudo guardar la copia de recuperación:", e));
   }
 
   return {

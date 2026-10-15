@@ -185,7 +185,8 @@ export function crearEntorno({ propietario = "mfloresl@ulasalle.edu.pe" } = {}) 
       getActiveUser: () => ({ getEmail: () => e.usuario }),
       getEffectiveUser: () => ({ getEmail: () => e.propietario })
     },
-    LockService: { getScriptLock: () => ({ tryLock: () => true, waitLock: () => {}, releaseLock: () => {}, hasLock: () => true }) },
+    /* e.candadoOcupado simula que otra ejecución tiene el candado del script. */
+    LockService: { getScriptLock: () => ({ tryLock: () => !e.candadoOcupado, waitLock: () => {}, releaseLock: () => {}, hasLock: () => !e.candadoOcupado }) },
     SpreadsheetApp: {
       create: nombre => { const l = new Libro(e, nombre); e.libros.set(l.id, l); e.archivos.set(l.id, new Archivo({ nombre, tipo: "application/vnd.google-apps.spreadsheet", entorno: e })); e.archivos.get(l.id).id = l.id; return l; },
       openById: id => { e.cuentas.sheets++; const l = e.libros.get(id); if (!l) throw new Error("No existe la hoja " + id); return l; },

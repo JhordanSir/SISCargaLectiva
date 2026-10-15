@@ -16,9 +16,9 @@ const pestanas = {
 
 function iniciarPestanas(){
   if (!app.usuario || !("BroadcastChannel" in window)) return;
-  try { pestanas.canal = new BroadcastChannel("siscargalectiva"); } catch (e) { return; }
+  try { pestanas.canal = new BroadcastChannel("siscargalectiva"); } catch (e) { return; }   // sin canal, sin avisos entre pestañas
   pestanas.canal.onmessage = ev => {
-    try { recibirDePestana(ev.data); } catch (e) { /* un mensaje inesperado no debe romper la página */ }
+    try { recibirDePestana(ev.data); } catch (e) { console.warn("Mensaje de otra pestaña no reconocido:", e); }
   };
   anunciar("hola");
 }
@@ -33,7 +33,7 @@ function anunciar(tipo, datos){
   if (!pestanas.canal) return;
   try {
     pestanas.canal.postMessage(Object.assign({ tipo: tipo, de: pestanas.id, correo: (app.usuario || {}).correo || "" }, datos || {}));
-  } catch (e) { /* p. ej., un contenido que no se puede copiar */ }
+  } catch (e) { console.warn("No se pudo avisar a las otras pestañas:", e); }   // p. ej., un contenido que no se puede copiar
 }
 
 /**

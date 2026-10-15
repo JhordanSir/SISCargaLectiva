@@ -33,6 +33,20 @@ test("el catálogo sale de CargaDeDocentes con su departamento y dedicación", (
   assert.deepEqual(cat.columnas, { tcOtra: false, cargo: false, noLectivas: false });
 });
 
+test("el catálogo se precalcula al revisar los xlsx y se renueva antes de caducar", () => {
+  const e = sistema();
+  ejecutar(e, A, "obtenerTablero", CICLO, { releer: true });
+  e.reiniciarCuentas();
+  assert.equal(ejecutar(e, DIMA, "obtenerCargaDocente", CICLO, "DIMA").catalogo.length, 12);
+  assert.equal(e.cuentas.drive, 0, "la asignación no espera a leer CargaDeDocentes");
+
+  const clave = ejecutar(e, A, "claveCache_", "catalogo", e.propiedades.SIS_CARPETA_ID);
+  const antes = ejecutar(e, A, "leerDeCache_", clave).leidoEn;
+  e.desfase = 55 * 60000;   // quedan 5 minutos de caché y ya pasó el intervalo de revisión
+  ejecutar(e, A, "obtenerTablero", CICLO);
+  assert.notEqual(ejecutar(e, A, "leerDeCache_", clave).leidoEn, antes, "la revisión de los xlsx lo vuelve a leer");
+});
+
 test("las secciones salen de los planes Registrados y cada una lleva sus componentes", () => {
   const e = sistema();
   const st = ejecutar(e, DIMA, "obtenerCargaDocente", CICLO, "DIMA");

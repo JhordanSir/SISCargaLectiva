@@ -211,6 +211,7 @@
  * @property {DocenteCatalogo[]} docentes
  * @property {Aviso[]} avisos
  * @property {{tcOtra?: boolean, cargo?: boolean, noLectivas?: boolean}} columnas
+ * @property {string} [leidoEn] Cuándo se leyó el archivo (ISO).
  */
 
 /**

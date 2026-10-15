@@ -20,6 +20,7 @@ function sincronizarFuentes_(forzar) {
   }
   const avisos = revisarFuentes_();
   if (cfg.minutosRevisionXlsx > 0) guardarEnCache_(clave, { avisos: avisos }, cfg.minutosRevisionXlsx * 60);
+  calentarCatalogo_(forzar);
   return avisos;
 }
 

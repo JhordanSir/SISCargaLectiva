@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { cargar, partesXlsx, plano, ofertaPatron, XLSX_CARRERA, XLSX_DEPARTAMENTO } from "./soporte.mjs";
 
-const ctx = cargar(["Dominio.js", "LectorXlsx.js"]);
+const ctx = cargar(["Dominio.js", "LectorXlsx.js", "OfertaXlsx.js"]);
 const libroCarrera = ctx.leerLibroXlsx_(partesXlsx(XLSX_CARRERA));
 const libroDepartamento = ctx.leerLibroXlsx_(partesXlsx(XLSX_DEPARTAMENTO));
 

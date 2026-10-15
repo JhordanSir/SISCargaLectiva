@@ -3,6 +3,22 @@
    sistema, y se guarda una hora en la caché. Nunca se modifica el archivo. */
 
 var SEGUNDOS_CACHE_CATALOGO_ = 3600;
+/* Leer CargaDeDocentes tarda unos segundos. Para que ninguna consulta lo espere, la revisión
+   de los xlsx (sincronizarFuentes_, que el tablero pide en segundo plano) lo vuelve a leer
+   cuando falta en la caché o le quedan menos de estos segundos; «Releer Excel», siempre. */
+var SEGUNDOS_RENOVAR_CATALOGO_ = 600;
+
+/**
+ * Deja el catálogo en la caché si falta, está por caducar o se pide con forzar.
+ * @param {boolean} forzar
+ * @returns {void}
+ */
+function calentarCatalogo_(forzar) {
+  const guardado = leerDeCache_(claveCache_("catalogo", config_().carpetaId));
+  const leidoEn = guardado && guardado.leidoEn ? Date.parse(guardado.leidoEn) : 0;
+  if (forzar || !leidoEn || Date.now() - leidoEn > (SEGUNDOS_CACHE_CATALOGO_ - SEGUNDOS_RENOVAR_CATALOGO_) * 1000)
+    leerCatalogoDocentes_(true);
+}
 
 /**
  * Columnas opcionales que amplían el catálogo: «TC OTRA UNIVERSIDAD» (Sí/No), «CARGO»
@@ -70,6 +86,7 @@ function leerCatalogoDocentes_(forzar) {
         noLectivas: col.noLect !== undefined ? Dominio.num(v(f, "noLect")) : null
       });
     }
+    res.leidoEn = new Date().toISOString();
     guardarEnCache_(clave, res, SEGUNDOS_CACHE_CATALOGO_);
   } catch (e) {
     res.avisos.push(Dominio.aviso("CATALOGO_ILEGIBLE", "No se pudo leer CargaDeDocentes: " + e.message));
