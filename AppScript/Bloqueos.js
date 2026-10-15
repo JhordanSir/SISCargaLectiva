@@ -1,16 +1,12 @@
 /* Bloqueos de edición. Un bloqueo reserva un documento a una cuenta: el plan de una
-   carrera («plan:ADM») o la carga docente de un departamento («carga:DIMA») en un ciclo.
+   carrera («plan:ADM») o la carga docente de un departamento («carga:DIMA») en un ciclo
+   (Dominio.REF).
    Caduca SIS_MINUTOS_BLOQUEO minutos después de la última actividad; el navegador lo
    renueva con un latido mientras hay actividad. Las mismas referencias identifican las
    copias de recuperación (Recuperacion.js). */
 
-var REF_ = {
-  plan: function (sig) { return "plan:" + sig; },
-  carga: function (dpto) { return "carga:" + dpto; }
-};
-
 function leerBloqueos_() {
-  return leerTabla_("Bloqueos");
+  return leerTabla_(TABLA_.BLOQUEOS);
 }
 
 function bloqueoVigente_(b) {
@@ -38,8 +34,8 @@ function tomarBloqueo_(ciclo, ref, correo) {
   const desde = bloqueoVigente_(b) ? b.desde : new Date().toISOString();
   const expira = new Date(Date.now() + config_().minutosBloqueo * 60000).toISOString();
   const valores = [ciclo, ref, correo, desde, expira];
-  if (b) escribirFila_("Bloqueos", b._fila, valores);
-  else agregarFila_("Bloqueos", valores);
+  if (b) escribirFila_(TABLA_.BLOQUEOS, b._fila, valores);
+  else agregarFila_(TABLA_.BLOQUEOS, valores);
   return { ok: true, desde: desde, expira: expira };
 }
 
@@ -54,7 +50,7 @@ function renovarBloqueo_(ciclo, ref, correo) {
 /* Suelta los bloqueos de la cuenta sobre ese documento. */
 function soltarBloqueo_(ciclo, ref, correo) {
   return conCandado_(function () {
-    borrarFilasDonde_("Bloqueos", function (x) { return x.ciclo === ciclo && x.ref === ref && x.correo === correo; });
+    borrarFilasDonde_(TABLA_.BLOQUEOS, function (x) { return x.ciclo === ciclo && x.ref === ref && x.correo === correo; });
     return true;
   });
 }
@@ -67,11 +63,11 @@ function renovarBloqueo(ciclo, sig) {
   const u = exigirUsuario_();
   const c = validarCiclo_(ciclo), s = validarCarrera_(sig);
   exigirEdicion_(u, s);
-  return renovarBloqueo_(c, REF_.plan(s), u.correo);
+  return renovarBloqueo_(c, Dominio.REF.plan(s), u.correo);
 }
 
 function liberarBloqueo(ciclo, sig) {
   const u = exigirUsuario_();
   const c = validarCiclo_(ciclo), s = validarCarrera_(sig);
-  return soltarBloqueo_(c, REF_.plan(s), u.correo);
+  return soltarBloqueo_(c, Dominio.REF.plan(s), u.correo);
 }

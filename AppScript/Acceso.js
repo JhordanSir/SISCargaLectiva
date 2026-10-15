@@ -36,7 +36,7 @@ function usuarioActual_() {
 }
 
 function rolDeCuenta_(correo, cfg) {
-  const fila = leerTabla_("Usuarios").filter(function (f) { return f.correo.trim().toLowerCase() === correo; })[0];
+  const fila = leerTabla_(TABLA_.USUARIOS).filter(function (f) { return f.correo.trim().toLowerCase() === correo; })[0];
   const rol = rolNormalizado_(fila ? fila.rol : cfg.rolPorDefecto);
   if (!rol) {
     return { correo: correo, denegado: "La cuenta " + correo + " no tiene un rol en SISCargaLectiva. " +

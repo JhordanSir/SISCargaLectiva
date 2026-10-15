@@ -4,7 +4,7 @@ var TABLAS_ = {
   Usuarios: ["correo", "rol", "carreras", "departamento"],
   Planes: ["ciclo", "carrera", "estado", "version", "actualizado_por", "actualizado_en", "firma_xlsx", "totales", "fila_version"],
   Versiones: ["ciclo", "carrera", "n", "estado", "tipo", "usuario", "fecha", "motivo", "contenido"],
-  /* «ref» es el documento bloqueado: «plan:ADM» o «carga:DIMA» (REF_ en Bloqueos.js). */
+  /* «ref» es el documento bloqueado: «plan:ADM» o «carga:DIMA» (Dominio.REF). */
   Bloqueos: ["ciclo", "ref", "correo", "desde", "expira"],
   Fuentes: ["tipo", "archivo_id", "nombre", "modificado", "procesado_en", "avisos"],
   /* Carga docente de cada departamento en cada ciclo: como Planes y Versiones. «planes»
@@ -13,6 +13,12 @@ var TABLAS_ = {
   VersionesCarga: ["ciclo", "departamento", "n", "tipo", "usuario", "fecha", "motivo", "planes", "contenido"],
   /* Copia de lo que se está editando y aún no se guardó, por si se cierra la página. */
   Recuperacion: ["ciclo", "ref", "correo", "fecha", "version_base", "contenido"]
+};
+
+/* Nombres de las pestañas, para no repetirlos como texto en el código. */
+var TABLA_ = {
+  USUARIOS: "Usuarios", PLANES: "Planes", VERSIONES: "Versiones", BLOQUEOS: "Bloqueos", FUENTES: "Fuentes",
+  CARGAS: "Cargas", VERSIONES_CARGA: "VersionesCarga", RECUPERACION: "Recuperacion"
 };
 
 /* Una celda admite 50 000 caracteres; el contenido de una versión se reparte en

@@ -98,3 +98,11 @@ test("reconciliarFusiones funciona sin la hoja: incorpora, elige principal y dis
   assert.deepEqual([r2.cambios.PSI.asignaturas[0].grupos[0].fusion, r2.cambios.PSI.asignaturas[0].grupos[0].hp], [null, "1"]);
   assert.deepEqual(plano(Dominio.reconciliarFusiones("ING", ing, ing, [], {})).cambios, {}, "sin fusiones no hay cambios");
 });
+
+test("los repositorios con versiones usan los nombres de pestaña de TABLA_", () => {
+  const e = crearEntorno();
+  const ctx = cargarServidor(e);
+  assert.deepEqual([ctx.REPO_PLAN_.indice, ctx.REPO_PLAN_.versiones], [ctx.TABLA_.PLANES, ctx.TABLA_.VERSIONES]);
+  assert.deepEqual([ctx.REPO_CARGA_.indice, ctx.REPO_CARGA_.versiones], [ctx.TABLA_.CARGAS, ctx.TABLA_.VERSIONES_CARGA]);
+  assert.deepEqual(Object.values(ctx.TABLA_).sort(), Object.keys(ctx.TABLAS_).sort());
+});

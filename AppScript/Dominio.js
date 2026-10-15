@@ -30,6 +30,20 @@ function crearDominio_() {
 
   const ESTADOS = { SIN: "Sin Iniciar", BORRADOR: "Borrador", REGISTRADO: "Registrado" };
 
+  /* Tipo de cada guardado, tal como queda escrito en el historial de versiones. */
+  const TIPO_VERSION = {
+    BORRADOR: "guardar borrador", REGISTRAR: "registrar", CAMBIOS: "guardar cambios", AUTOGUARDADO: "autoguardado",
+    FUSION: "fusión", CAMBIO_DPTO: "cambio de departamento",
+    IMPORTACION_XLSX: "importación desde xlsx", ACTUALIZACION_XLSX: "actualización desde xlsx",
+    GUARDAR_CARGA: "guardar",
+    restauracion: n => "restauración de v" + n,
+    esRestauracion: t => /^restauración de v\d+$/.test(String(t))
+  };
+
+  /* Documento que se bloquea o se recupera: el plan de una carrera («plan:ADM») o la carga
+     docente de un departamento («carga:DIMA»). */
+  const REF = { plan: sig => "plan:" + sig, carga: dpto => "carga:" + dpto };
+
   const nombreCarrera = sig => (CARRERAS.find(c => c.sig === sig) || {}).nombre || sig;
 
   /* ============================================================
@@ -1045,26 +1059,25 @@ function crearDominio_() {
   }
 
   return {
-    DPTOS: DPTOS, DPTOS_INFO: DPTOS_INFO, normalizarDpto: normalizarDpto, nombreDpto: nombreDpto,
+    DPTOS: DPTOS, normalizarDpto: normalizarDpto, nombreDpto: nombreDpto,
     claveDocente: claveDocente, LIMITES: LIMITES, PENDIENTE_INTERNACIONAL: PENDIENTE_INTERNACIONAL,
-    esPendienteInternacional: esPendienteInternacional, componentesDe: componentesDe,
+    esPendienteInternacional: esPendienteInternacional,
     unidadesDelCiclo: unidadesDelCiclo, indiceUnidades: indiceUnidades, unidadDe: unidadDe,
-    asignacionesVigentes: asignacionesVigentes, horasAsignacion: horasAsignacion, coberturaUnidad: coberturaUnidad,
+    asignacionesVigentes: asignacionesVigentes, coberturaUnidad: coberturaUnidad,
     claveDeDocente: claveDeDocente, calcularBalance: calcularBalance, excesosAlGuardar: excesosAlGuardar,
     sugerirDocentes: sugerirDocentes, interpretarCargaDepartamento: interpretarCargaDepartamento,
-    CARRERAS: CARRERAS, COLUMNAS: COLUMNAS, ESTADOS: ESTADOS,
+    CARRERAS: CARRERAS, ESTADOS: ESTADOS, TIPO_VERSION: TIPO_VERSION, REF: REF,
     nombreCarrera: nombreCarrera, normalizar: normalizar, canonica: canonica,
     matrizDesdeTexto: matrizDesdeTexto, ubicarCabeceras: ubicarCabeceras,
-    coincideCarrera: coincideCarrera, siglaDeCarrera: siglaDeCarrera,
-    descomponerSemestre: descomponerSemestre, deducirColumnas: deducirColumnas,
+    siglaDeCarrera: siglaDeCarrera,
     interpretar: interpretar, num: num, th: th, totales: totales, esInternacional: esInternacional,
     agregarAsignatura: agregarAsignatura, eliminarAsignatura: eliminarAsignatura,
     agregarGrupo: agregarGrupo, agregarGrupoSemestre: agregarGrupoSemestre,
     eliminarGrupo: eliminarGrupo, desdoblar: desdoblar, quitarDesdoble: quitarDesdoble,
-    fusionar: fusionar, deshacerFusion: deshacerFusion, limpiarFusionHuerfana: limpiarFusionHuerfana,
-    quitarDeFusion: quitarDeFusion, conservarIds: conservarIds,
+    fusionar: fusionar, deshacerFusion: deshacerFusion,
+    conservarIds: conservarIds,
     marcasAfectadas: marcasAfectadas, reconciliarFusiones: reconciliarFusiones,
-    LIMITES_DATOS: LIMITES_DATOS, sanearAsignaturas: sanearAsignaturas, sanearAsignaciones: sanearAsignaciones, sanearMarcas: sanearMarcas,
+    sanearAsignaturas: sanearAsignaturas, sanearAsignaciones: sanearAsignaciones, sanearMarcas: sanearMarcas,
     contenidoCanonico: contenidoCanonico, hash: hash
   };
 }

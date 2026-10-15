@@ -40,16 +40,16 @@ function revisarFuentes_() {
      para mostrarlos a todos mientras el xlsx no cambie. Los xlsx se leen antes de tomar
      el candado: leerlos tarda, y mientras tanto los demás usuarios pueden seguir guardando. */
   const actuales = firmaFuentes_(f);
-  const guardadas = leerTabla_("Fuentes");
+  const guardadas = leerTabla_(TABLA_.FUENTES);
   if (fuentesIguales_(guardadas, actuales)) return avisos.concat(avisosGuardados_(guardadas));
   try {
     const lectura = leerOfertaXlsx_(f);
     const deLectura = conCandado_(function () {
-      const otraVez = leerTabla_("Fuentes");
+      const otraVez = leerTabla_(TABLA_.FUENTES);
       if (fuentesIguales_(otraVez, actuales)) return avisosGuardados_(otraVez);
       const nuevos = aplicarOferta_(f, lectura);
       const ahora = new Date().toISOString();
-      reemplazarFilas_("Fuentes", actuales.map(function (a) {
+      reemplazarFilas_(TABLA_.FUENTES, actuales.map(function (a) {
         return [a.tipo, a.archivo_id, a.nombre, a.modificado, ahora, a.tipo === "carrera" ? JSON.stringify(nuevos) : ""];
       }));
       return nuevos;
@@ -150,7 +150,7 @@ function aplicarOferta_(f, r) {
     const fecha = new Date(modificado).toISOString();
     registrarVersionPlan_(ciclo, sig, fila, {
       estado: p.estado === Dominio.ESTADOS.SIN ? Dominio.ESTADOS.REGISTRADO : p.estado,
-      tipo: p.version ? "actualización desde xlsx" : "importación desde xlsx",
+      tipo: p.version ? Dominio.TIPO_VERSION.ACTUALIZACION_XLSX : Dominio.TIPO_VERSION.IMPORTACION_XLSX,
       usuario: usuario,
       fecha: fecha,
       motivo: "",

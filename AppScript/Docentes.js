@@ -212,7 +212,7 @@ function obtenerEstadoDocentes(ciclo, dpto) {
   const cargas = cargasVigentes_(c);
   const vig = Dominio.asignacionesVigentes(unidades, soloAsignaciones_(cargas));
   const metas = cargas[d].version ? metaVersionesCarga_(c, d, cargas[d].version) : [];
-  const b = bloqueoDe_(c, REF_.carga(d));
+  const b = bloqueoDe_(c, Dominio.REF.carga(d));
   return {
     ciclo: c, departamento: d, departamentoNombre: Dominio.nombreDpto(d),
     puedeEditar: puedeEditarCarga_(u, d),
@@ -230,10 +230,10 @@ function abrirEdicionCarga(ciclo, dpto, versionConocida) {
   const c = validarCiclo_(ciclo), d = validarDpto_(dpto);
   exigirCarga_(u, d);
   return conCandado_(function () {
-    const r = tomarBloqueo_(c, REF_.carga(d), u.correo);
+    const r = tomarBloqueo_(c, Dominio.REF.carga(d), u.correo);
     if (!r.ok) return { bloqueado: datosBloqueo_(r.bloqueo) };
     const v = vigente_(filaCarga_(c, d));
-    const res = { version: v.version, expira: r.expira, recuperacion: leerRecuperacion_(c, REF_.carga(d), u.correo) };
+    const res = { version: v.version, expira: r.expira, recuperacion: leerRecuperacion_(c, Dominio.REF.carga(d), u.correo) };
     if (versionConocida == null || parseInt(versionConocida, 10) !== v.version)
       res.asignaciones = v.version ? contenidoCarga_(c, d, v.version, v.filaVersion) : [];
     return res;
@@ -244,13 +244,13 @@ function renovarBloqueoCarga(ciclo, dpto) {
   const u = exigirUsuario_();
   const c = validarCiclo_(ciclo), d = validarDpto_(dpto);
   exigirCarga_(u, d);
-  return renovarBloqueo_(c, REF_.carga(d), u.correo);
+  return renovarBloqueo_(c, Dominio.REF.carga(d), u.correo);
 }
 
 function liberarBloqueoCarga(ciclo, dpto) {
   const u = exigirUsuario_();
   const c = validarCiclo_(ciclo), d = validarDpto_(dpto);
-  return soltarBloqueo_(c, REF_.carga(d), u.correo);
+  return soltarBloqueo_(c, Dominio.REF.carga(d), u.correo);
 }
 
 /* Quita de la carga las asignaciones de secciones que hoy piden docente a otro
@@ -273,10 +273,11 @@ function guardarCarga(ciclo, dpto, datos) {
   exigirCarga_(u, d);
   if (!datos) throw new Error("No llegó la carga que se quería guardar.");
   const recibidas = Dominio.sanearAsignaciones(datos.asignaciones);
-  const tipo = datos.tipo === "autoguardado" || /^restauración de v\d+$/.test(String(datos.tipo)) ? datos.tipo : "guardar";
+  const T = Dominio.TIPO_VERSION;
+  const tipo = datos.tipo === T.AUTOGUARDADO || T.esRestauracion(datos.tipo) ? datos.tipo : T.GUARDAR_CARGA;
 
   return conCandado_(function () {
-    const b = bloqueoDe_(c, REF_.carga(d));
+    const b = bloqueoDe_(c, Dominio.REF.carga(d));
     if (b && b.correo !== u.correo)
       throw new Error("La carga de " + d + " la está editando " + b.correo + ", así que no se guardó.");
     const fila = filaCarga_(c, d);
@@ -307,8 +308,8 @@ function guardarCarga(ciclo, dpto, datos) {
     const vistos = {};
     planes.forEach(function (p) { if (p.version) vistos[p.sig] = p.version; });
     const n = registrarVersionCarga_(c, d, fila, { tipo: tipo, usuario: u.correo, fecha: fecha, motivo: motivo.slice(0, 500), planes: vistos, asignaciones: asignaciones });
-    borrarRecuperacion_(c, REF_.carga(d), u.correo);
-    const r = b ? tomarBloqueo_(c, REF_.carga(d), u.correo) : null;
+    borrarRecuperacion_(c, Dominio.REF.carga(d), u.correo);
+    const r = b ? tomarBloqueo_(c, Dominio.REF.carga(d), u.correo) : null;
     return { version: n, fecha: fecha, asignaciones: asignaciones, expira: r && r.ok ? r.expira : null };
   });
 }
@@ -336,5 +337,5 @@ function restaurarCarga(ciclo, dpto, n) {
   const vigente = vigente_(filaCarga_(c, d)).version;
   if (!(k >= 1 && k <= vigente)) throw new Error("La versión v" + n + " no existe.");
   const asignaciones = contenidoCarga_(c, d, k, 0);
-  return guardarCarga(c, d, { asignaciones: asignaciones, versionBase: vigente, tipo: "restauración de v" + k, motivoExceso: "restauración de v" + k });
+  return guardarCarga(c, d, { asignaciones: asignaciones, versionBase: vigente, tipo: Dominio.TIPO_VERSION.restauracion(k), motivoExceso: Dominio.TIPO_VERSION.restauracion(k) });
 }

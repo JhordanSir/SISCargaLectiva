@@ -111,7 +111,7 @@ function abrirLibro_(id) {
 }
 
 function sembrarUsuarios_(libro) {
-  const hoja = libro.getSheetByName("Usuarios");
+  const hoja = libro.getSheetByName(TABLA_.USUARIOS);
   if (hoja.getLastRow() > 1) return 0;
   hoja.getRange(2, 1, USUARIOS_INICIALES_.length, 3).setNumberFormat("@")
     .setValues(USUARIOS_INICIALES_.map(function (c) { return [c, "director", ""]; }));

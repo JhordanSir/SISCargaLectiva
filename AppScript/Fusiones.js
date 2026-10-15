@@ -15,7 +15,7 @@ function prepararFusiones_(ciclo, sig, antes, despues, disueltas, u, opciones) {
   const tocados = Object.keys(r.cambios);
   if (!(opciones && opciones.sinBloqueo)) {
     tocados.forEach(function (s) {
-      const b = bloqueoDe_(ciclo, REF_.plan(s));
+      const b = bloqueoDe_(ciclo, Dominio.REF.plan(s));
       if (b && b.correo !== u.correo)
         throw new Error("No se guardó: la fusión cambia el plan de " + Dominio.nombreCarrera(s) + ", que está editando " +
                         b.correo + ". Espera a que termine o deshaz esa fusión.");
@@ -37,7 +37,7 @@ function guardarFusionesAjenas_(ciclo, otros, usuario, fecha) {
     const p = estadoDePlan_(fila);
     const estado = p.estado === Dominio.ESTADOS.SIN ? Dominio.ESTADOS.BORRADOR : p.estado;
     const n = registrarVersionPlan_(ciclo, o.sig, fila, {
-      estado: estado, tipo: "fusión", usuario: usuario, fecha: fecha, motivo: o.motivo, asignaturas: o.asignaturas
+      estado: estado, tipo: Dominio.TIPO_VERSION.FUSION, usuario: usuario, fecha: fecha, motivo: o.motivo, asignaturas: o.asignaturas
     });
     return { sig: o.sig, version: n, estado: estado, totales: Dominio.totales(o.asignaturas), contenido: o.asignaturas };
   });

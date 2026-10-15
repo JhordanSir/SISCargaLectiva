@@ -15,7 +15,7 @@ const sesionCarga = crearSesionEdicion({
   },
   alExpirar: () => expirarCarga(),
   copia: () => appDocentes.editando && appDocentes.sucio ? { contenido: appDocentes.trabajo, versionBase: appDocentes.base } : null,
-  guardarCopia: d => llamarEnSilencio("guardarRecuperacion", appDocentes.ciclo, "carga:" + appDocentes.dpto, d)
+  guardarCopia: d => llamarEnSilencio("guardarRecuperacion", appDocentes.ciclo, Dominio.REF.carga(appDocentes.dpto), d)
 });
 
 alPulsar("#btn-doc-editar", async () => {
@@ -37,7 +37,7 @@ alPulsar("#btn-doc-editar", async () => {
   if (r.recuperacion && Array.isArray(r.recuperacion.contenido)) {
     const rec = await ofrecerRecuperacion(r.recuperacion, appDocentes.base, "la carga de " + appDocentes.dpto);
     if (rec === true) { appDocentes.trabajo = r.recuperacion.contenido; marcarDocentesSucio(true); aviso("Cambios recuperados: revísalos y guarda."); }
-    else if (rec === false) llamarEnSilencio("descartarRecuperacion", appDocentes.ciclo, "carga:" + appDocentes.dpto).catch(() => {});
+    else if (rec === false) llamarEnSilencio("descartarRecuperacion", appDocentes.ciclo, Dominio.REF.carga(appDocentes.dpto)).catch(() => {});
   }
   pintarVistaDocentes();
 });
@@ -54,7 +54,7 @@ async function terminarEdicionCarga(){
   const ciclo = appDocentes.ciclo, dpto = appDocentes.dpto;
   sesionCarga.detener();
   appDocentes.editando = false;
-  if (appDocentes.sucio) llamarEnSilencio("descartarRecuperacion", ciclo, "carga:" + dpto).catch(() => {});
+  if (appDocentes.sucio) llamarEnSilencio("descartarRecuperacion", ciclo, Dominio.REF.carga(dpto)).catch(() => {});
   marcarDocentesSucio(false);
   try { await llamarEnSilencio("liberarBloqueoCarga", ciclo, dpto); } catch (e) { /* caduca solo */ }
   if (appDocentes.datos) appDocentes.trabajo = clonar(appDocentes.datos.cargas[dpto].asignaciones || []);
@@ -68,7 +68,7 @@ async function expirarCarga(){
   let texto = "No había cambios sin guardar.";
   if (appDocentes.sucio) {
     try {
-      const r = await llamar("guardarCarga", appDocentes.ciclo, appDocentes.dpto, { asignaciones: limpiarParaGuardar(), versionBase: appDocentes.base, tipo: "autoguardado", forzar: true });
+      const r = await llamar("guardarCarga", appDocentes.ciclo, appDocentes.dpto, { asignaciones: limpiarParaGuardar(), versionBase: appDocentes.base, tipo: Dominio.TIPO_VERSION.AUTOGUARDADO, forzar: true });
       fijarGuardado(r);
       texto = "Los cambios se guardaron como la versión v" + r.version + ".";
     } catch (e) {
