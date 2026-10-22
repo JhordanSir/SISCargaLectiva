@@ -1,8 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import { crearEntorno, cargarServidor, ejecutar, ejecutarFallo, fijarUsuarios, USUARIOS_PRUEBA, DIRECTORES } from "./falsos.mjs";
-import { XLSX_CARRERA, XLSX_DEPARTAMENTO, XLSX_DOCENTES, plano, partesXlsx } from "./soporte.mjs";
+import { crearEntorno, cargarServidor, cargarPestanasEjemplo, librosEjemplo, ejecutar, ejecutarFallo, fijarUsuarios, USUARIOS_PRUEBA, DIRECTORES } from "./falsos.mjs";
+import { plano } from "./soporte.mjs";
 
 const A = "mfloresl@ulasalle.edu.pe";      // coordinador de todas las carreras
 const B = "fmaresg@ulasalle.edu.pe";       // otro coordinador
@@ -14,17 +13,15 @@ function sistema({ conDocentes = true } = {}) {
   cargarServidor(e);
   ejecutar(e, A, "instalar");
   fijarUsuarios(e, USUARIOS_PRUEBA);
-  e.subir(e.propiedades.SIS_CARPETA_ID, "SISCargaLectiva-Ejemplo-CargaXCarrera.xlsx", fs.readFileSync(XLSX_CARRERA), { fecha: "2026-09-20T10:00:00Z" });
-  e.subir(e.propiedades.SIS_CARPETA_ID, "SISCargaLectiva-Ejemplo-CargaXDepartamento.xlsx", fs.readFileSync(XLSX_DEPARTAMENTO), { fecha: "2026-09-20T10:05:00Z" });
-  if (conDocentes) e.subir(e.propiedades.SIS_CARPETA_ID, "SISCargaLectiva-Ejemplo-CargaDeDocentes.xlsx", fs.readFileSync(XLSX_DOCENTES), { fecha: "2026-09-20T10:10:00Z" });
-  ejecutar(e, A, "tableroObtener", CICLO);   // lee los xlsx: 8 planes Registrados
+  cargarPestanasEjemplo(e, { docentes: conDocentes });
+  ejecutar(e, A, "tableroObtener", CICLO);   // lee las pestañas: 8 planes Registrados
   return e;
 }
 
 const unidad = (estado, carrera, codigo, n = 1) =>
   estado.unidades.find(u => u.miembros.some(m => m.carrera === carrera && m.codigo === codigo && String(m.n) === String(n)));
 
-test("el catálogo sale de CargaDeDocentes con su departamento y dedicación", () => {
+test("el catálogo sale de «Docentes - General» con su departamento y dedicación", () => {
   const e = sistema();
   const cat = ejecutar(e, A, "leerCatalogoDocentes_", true);
   assert.equal(cat.docentes.length, 12);
@@ -33,18 +30,18 @@ test("el catálogo sale de CargaDeDocentes con su departamento y dedicación", (
   assert.deepEqual(cat.columnas, { tcOtra: false, cargo: false, noLectivas: false });
 });
 
-test("el catálogo se precalcula al revisar los xlsx y se renueva antes de caducar", () => {
+test("el catálogo se precalcula al revisar las pestañas y se renueva antes de caducar", () => {
   const e = sistema();
   ejecutar(e, A, "tableroObtener", CICLO, { releer: true });
   e.reiniciarCuentas();
   assert.equal(ejecutar(e, DIMA, "asignacionObtener", CICLO, "ING").catalogo.length, 12);
-  assert.equal(e.cuentas.drive, 0, "la asignación no espera a leer CargaDeDocentes");
+  assert.equal(e.cuentas.datos, 0, "la asignación no espera a leer el catálogo");
 
-  const clave = ejecutar(e, A, "claveCache_", "catalogo", e.propiedades.SIS_CARPETA_ID);
+  const clave = ejecutar(e, A, "claveCache_", "catalogo", e.propiedades.SIS_BD_ID);
   const antes = ejecutar(e, A, "leerDeCache_", clave).leidoEn;
   e.desfase = 55 * 60000;   // quedan 5 minutos de caché y ya pasó el intervalo de revisión
   ejecutar(e, A, "tableroObtener", CICLO);
-  assert.notEqual(ejecutar(e, A, "leerDeCache_", clave).leidoEn, antes, "la revisión de los xlsx lo vuelve a leer");
+  assert.notEqual(ejecutar(e, A, "leerDeCache_", clave).leidoEn, antes, "la revisión de las pestañas lo vuelve a leer");
 });
 
 test("las secciones salen de los planes Registrados y las asigna el departamento de su carrera", () => {
@@ -177,11 +174,11 @@ test("advertencias A10, A11 y A14 del balance, que suma todas las carreras", () 
   assert.equal(bal.docentes.find(d => d.nombre === "TP, POCAS").horas, 6, "suma ING y DER");
 });
 
-test("lee la hoja real de CargaXDepartamento y separa las filas de otras carreras", () => {
+test("lee la carga real de un departamento y separa las filas de otras carreras", () => {
   const e = sistema();
   const Dominio = e.ctx.Dominio;
   const st = ejecutar(e, DIMA, "asignacionObtener", CICLO, "DER");
-  const libro = e.ctx.leerLibroXlsx_(partesXlsx(XLSX_DEPARTAMENTO));
+  const libro = librosEjemplo("departamento");
   const hoja = libro.find(h => /DACJ/.test(h.nombre));
   const r = plano(Dominio.interpretarCargaDepartamento(hoja.filas, st.unidades, { carrera: "DER", dpto: "DACJ" }, st.catalogo));
   const historia = r.filas.filter(f => f.codigo === "2.1.3.24");
@@ -197,7 +194,7 @@ test("lee la hoja real de CargaXDepartamento y separa las filas de otras carrera
 test("la carga avisa con tipo si el plan cambió después de guardarla o una asignación quedó sin sección", () => {
   const e = sistema({ conDocentes: false });
   let st = ejecutar(e, DIMA, "asignacionObtener", CICLO, "ING");
-  assert.deepEqual(st.avisos.map(a => a.tipo), ["CATALOGO_FALTA"], "sin CargaDeDocentes, el aviso va con los demás");
+  assert.deepEqual(st.avisos.map(a => a.tipo), ["CATALOGO_FALTA"], "sin catálogo de docentes, el aviso va con los demás");
   const u = unidad(st, "ING", "3.4.4.24");
   ejecutar(e, DIMA, "asignacionEdicionAbrir", CICLO, "ING");
   ejecutar(e, DIMA, "asignacionEdicionGuardar", CICLO, "ING", { asignaciones: [{ unidad: u.id, componente: "T", docente: "VELASQUEZ DOIG, MIGUEL EDUARDO", horas: null }], versionBase: 0 });

@@ -37,14 +37,14 @@
 /**
  * Configuración leída de las propiedades del script (comun/Config.js).
  * @typedef {Object} Configuracion
- * @property {string} carpetaId
  * @property {string} bdId
+ * @property {string} generacion
  * @property {string} dominio
  * @property {number} minutosBloqueo
  * @property {number} maxSubgrupos
  * @property {string[]} ciclos
- * @property {string} cicloXlsx
- * @property {number} minutosRevisionXlsx
+ * @property {string} cicloHoja
+ * @property {number} minutosRevisionHoja
  * @property {string} rolPorDefecto
  */
 
@@ -199,7 +199,7 @@
  */
 
 /**
- * Docente del catálogo (CargaDeDocentes.xlsx).
+ * Docente del catálogo (pestaña «Docentes - General»).
  * @typedef {Object} DocenteCatalogo
  * @property {string} dni
  * @property {string} nombreCompleto
@@ -213,12 +213,12 @@
  */
 
 /**
- * Catálogo leído de CargaDeDocentes.
+ * Catálogo leído de la pestaña «Docentes - General».
  * @typedef {Object} Catalogo
  * @property {DocenteCatalogo[]} docentes
  * @property {Aviso[]} avisos
  * @property {{tcOtra?: boolean, cargo?: boolean, noLectivas?: boolean}} columnas
- * @property {string} [leidoEn] Cuándo se leyó el archivo (ISO).
+ * @property {string} [leidoEn] Cuándo se leyó la pestaña (ISO).
  */
 
 /**
@@ -267,11 +267,111 @@
  */
 
 /**
- * Hoja de un libro .xlsx leída sin convertir: cada celda, el texto que mostraría Excel.
- * @typedef {{nombre: string, filas: string[][]}} HojaXlsx
+ * Qué datos tiene una pestaña de la hoja del sistema (comun/FuenteHoja.js).
+ * @typedef {"usuarios"|"carrera"|"departamento"|"docentes"} TipoPestana
  */
 
 /**
- * Archivos .xlsx de la carpeta de Drive, uno de cada tipo (el más reciente).
- * @typedef {{carrera: (GoogleAppsScript.Drive.File|null), departamento: (GoogleAppsScript.Drive.File|null), docentes: (GoogleAppsScript.Drive.File|null)}} FuentesXlsx
+ * Las fuentes de la oferta y del catálogo: todas las pestañas de datos menos Usuarios.
+ * @typedef {"carrera"|"departamento"|"docentes"} TipoFuente
+ */
+
+/**
+ * Pestaña de una fuente: su nombre sin el prefijo («Derecho») y sus celdas tal como se ven.
+ * @typedef {{nombre: string, filas: string[][]}} PestanaFuente
+ */
+
+/**
+ * Las pestañas de cada fuente, en el orden de la hoja.
+ * @typedef {{carrera: PestanaFuente[], departamento: PestanaFuente[], docentes: PestanaFuente[]}} FuentesHoja
+ */
+
+/**
+ * Fila del catálogo leída por catalogoDesdeFilas_ (cu002/CatalogoDocentes.js). r: su
+ * índice en las filas de la pestaña.
+ * @typedef {Object} FilaCatalogo
+ * @property {number} r
+ * @property {string} dni
+ * @property {string} pat
+ * @property {string} nom
+ * @property {string} nombreCompleto
+ * @property {string} condicion
+ * @property {string} categoria
+ * @property {string} dptoTexto
+ * @property {string} dedicTexto
+ * @property {"TC"|"TP"|""} dedicacion
+ * @property {boolean} dedicClara
+ * @property {boolean} tcOtra
+ * @property {string} cargo
+ * @property {number|null} noLectivas
+ * @property {string} lectivas
+ */
+
+/* ============================================================
+   Hoja del sistema: revisión, migración y limpieza (hoja/)
+   ============================================================ */
+
+/**
+ * @typedef {"error"|"advertencia"|"observacion"} NivelHoja
+ */
+
+/**
+ * Advertencia de una celda de una pestaña de datos (hoja/ReglasHoja.js).
+ * @typedef {Object} AvisoCelda
+ * @property {string} hoja Nombre completo de la pestaña.
+ * @property {number} fila Desde 1.
+ * @property {number} col Desde 1.
+ * @property {NivelHoja} nivel
+ * @property {string} codigo
+ * @property {string} mensaje
+ */
+
+/**
+ * Pestaña de datos que se revisa: su nombre completo, sin el prefijo y sus celdas.
+ * @typedef {{nombre: string, original: string, valores: string[][]}} PestanaRevisada
+ */
+
+/**
+ * Lo que muestra el panel de advertencias (hoja/PanelServidor.js).
+ * @typedef {Object} DatosPanel
+ * @property {string} generado Hora de la revisión.
+ * @property {number} total
+ * @property {Object<NivelHoja, number>} cuentas
+ * @property {Array<{hoja: string, a1: string, nivel: NivelHoja, codigo: string, mensaje: string}>} items
+ */
+
+/**
+ * Lo que hay en la BD anterior y en esta hoja (hoja/MigracionServidor.js).
+ * @typedef {Object} ResumenMigracion
+ * @property {string} nombre
+ * @property {string} url
+ * @property {string[]} carpetas
+ * @property {string} ultimaVersion
+ * @property {Array<{nombre: string, anterior: (number|null), actual: (number|null)}>} tablas
+ */
+
+/**
+ * Archivo o carpeta de la carpeta de la app (hoja/LimpiezaServidor.js).
+ * @typedef {Object} ArchivoLimpieza
+ * @property {string} id
+ * @property {string} nombre
+ * @property {string} tipo
+ * @property {string} propietario
+ * @property {boolean} propio Es de la cuenta que limpia.
+ * @property {string} modificado
+ * @property {string} ruta Carpeta donde está.
+ * @property {string} padre Id de esa carpeta.
+ * @property {boolean} carpeta
+ * @property {boolean} completa Si es carpeta: se listó todo lo que contiene.
+ * @property {boolean} conHoja Si es carpeta: contiene la hoja del sistema.
+ * @property {string} url
+ * @property {string} aviso
+ */
+
+/**
+ * Las carpetas de la app y lo que contienen, sin la hoja del sistema.
+ * @typedef {Object} ListaLimpieza
+ * @property {{id: string, nombre: string, url: string}} hoja
+ * @property {Array<{id: string, nombre: string, url: string, conHoja: boolean}>} carpetas
+ * @property {ArchivoLimpieza[]} archivos
  */

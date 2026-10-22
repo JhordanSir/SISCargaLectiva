@@ -16,10 +16,10 @@ function crearDominioComun_() {
      ============================================================ */
   const DPTOS = ["DIMA", "DAHUC", "DACJ", "DACTE"];
 
-  /* «alias» recoge las formas con que cada carrera aparece en los Sheets y Excel
-     reales (las siglas de la columna CARRERA y los nombres de las hojas). */
+  /* «alias» recoge las formas con que cada carrera aparece en las hojas reales (las siglas
+     de la columna CARRERA y los nombres de las pestañas). */
   /* dpto: el departamento al que pertenece la carrera. Su director asigna los docentes de
-     todos los cursos del plan de la carrera, diga lo que diga la columna DPTO del Excel,
+     todos los cursos del plan de la carrera, diga lo que diga la columna DPTO de la oferta,
      salvo los cursos que se deriven a otro departamento (asignatura.derivado). */
   const CARRERAS = [
     { sig: "ING", nombre: "Ingeniería de Software", dpto: "DIMA", alias: ["Ing. Software"] },
@@ -44,7 +44,7 @@ function crearDominioComun_() {
   const TIPO_VERSION = {
     BORRADOR: "guardar borrador", REGISTRAR: "registrar", CAMBIOS: "guardar cambios", AUTOGUARDADO: "autoguardado",
     FUSION: "fusión", CAMBIO_DPTO: "cambio de departamento",
-    IMPORTACION_XLSX: "importación desde xlsx", ACTUALIZACION_XLSX: "actualización desde xlsx",
+    IMPORTACION_HOJA: "importación desde la hoja", ACTUALIZACION_HOJA: "actualización desde la hoja",
     GUARDAR_CARGA: "guardar", MIGRACION_CARGA: "migración a carga por carrera",
     restauracion: n => "restauración de v" + n,
     esRestauracion: t => /^restauración de v\d+$/.test(String(t))
@@ -58,11 +58,10 @@ function crearDominioComun_() {
      decide por el tipo, nunca por el texto. Cada tipo trae su nivel: "info", "aviso" o
      "error". TEXTO es un aviso guardado antes de que los avisos tuvieran tipo. */
   const TIPOS_AVISO = {
-    CARPETA_INACCESIBLE: "error", FALTA_CARGA_CARRERA: "aviso", LECTURA_XLSX_FALLIDA: "error",
-    XLSX_CONVERTIDO: "aviso", VARIOS_ARCHIVOS: "info",
+    FALTA_OFERTA: "aviso", LECTURA_FALLIDA: "error",
     HOJA_DESCONOCIDA: "aviso", HOJA_REPETIDA: "aviso", FILA_REPETIDA: "aviso",
     PLAN_CAMBIADO: "aviso", SIN_SECCION: "aviso",
-    CATALOGO_SIN_CARPETA: "aviso", CATALOGO_FALTA: "aviso", CATALOGO_SIN_CABECERAS: "aviso", CATALOGO_ILEGIBLE: "aviso",
+    CATALOGO_FALTA: "aviso", CATALOGO_SIN_CABECERAS: "aviso", CATALOGO_ILEGIBLE: "aviso",
     TEXTO: "aviso"
   };
   const aviso = (tipo, texto, datos, nivel) =>

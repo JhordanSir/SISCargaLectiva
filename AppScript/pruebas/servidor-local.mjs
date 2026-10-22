@@ -8,10 +8,8 @@
    El parámetro «usuario» elige la cuenta; dos pestañas con cuentas distintas sirven
    para probar el bloqueo. Los datos viven en memoria mientras el proceso sigue vivo. */
 import http from "node:http";
-import fs from "node:fs";
 import { fileURLToPath } from "node:url";
-import { crearEntorno, cargarServidor, ejecutar, ejecutarCrudo, fijarUsuarios, USUARIOS_PRUEBA } from "./falsos.mjs";
-import { XLSX_CARRERA, XLSX_DEPARTAMENTO, XLSX_DOCENTES } from "./soporte.mjs";
+import { crearEntorno, cargarServidor, cargarPestanasEjemplo, ejecutar, ejecutarCrudo, fijarUsuarios, USUARIOS_PRUEBA } from "./falsos.mjs";
 
 const USUARIO_POR_DEFECTO = "mfloresl@ulasalle.edu.pe";
 
@@ -37,15 +35,13 @@ const PUENTE = usuario => `<script>
 })();
 </script>`;
 
-export function iniciarServidorLocal({ puerto = 8765, conXlsx = true } = {}) {
+export function iniciarServidorLocal({ puerto = 8765, conDatos = true } = {}) {
   const e = crearEntorno();
   const ctx = cargarServidor(e);
   ejecutar(e, e.propietario, "instalar");
   fijarUsuarios(e, USUARIOS_PRUEBA);   // coordinadores mfloresl y fmaresg; un director por departamento
-  if (conXlsx) {
-    e.subir(e.propiedades.SIS_CARPETA_ID, "SISCargaLectiva-Ejemplo-CargaXCarrera.xlsx", fs.readFileSync(XLSX_CARRERA));
-    e.subir(e.propiedades.SIS_CARPETA_ID, "SISCargaLectiva-Ejemplo-CargaXDepartamento.xlsx", fs.readFileSync(XLSX_DEPARTAMENTO));
-    e.subir(e.propiedades.SIS_CARPETA_ID, "SISCargaLectiva-Ejemplo-CargaDeDocentes.xlsx", fs.readFileSync(XLSX_DOCENTES));
+  if (conDatos) {
+    cargarPestanasEjemplo(e);
   }
 
   const servidor = http.createServer((req, res) => {

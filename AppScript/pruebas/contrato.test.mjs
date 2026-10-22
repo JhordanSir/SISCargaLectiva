@@ -2,9 +2,7 @@
    {ok: false, codigo, mensaje, detalle}, con un código del catálogo de Respuesta.js. */
 import test from "node:test";
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import { crearEntorno, cargarServidor, ejecutar, ejecutarCrudo, fijarUsuarios, USUARIOS_PRUEBA, DIRECTORES } from "./falsos.mjs";
-import { XLSX_CARRERA, XLSX_DEPARTAMENTO, XLSX_DOCENTES } from "./soporte.mjs";
+import { crearEntorno, cargarServidor, cargarPestanasEjemplo, ejecutar, ejecutarCrudo, fijarUsuarios, USUARIOS_PRUEBA, DIRECTORES } from "./falsos.mjs";
 
 const A = "mfloresl@ulasalle.edu.pe";      // coordinador de todas las carreras
 const DIMA = DIRECTORES.DIMA;
@@ -15,9 +13,7 @@ function sistema() {
   cargarServidor(e);
   ejecutar(e, A, "instalar");
   fijarUsuarios(e, USUARIOS_PRUEBA);
-  e.subir(e.propiedades.SIS_CARPETA_ID, "SISCargaLectiva-Ejemplo-CargaXCarrera.xlsx", fs.readFileSync(XLSX_CARRERA));
-  e.subir(e.propiedades.SIS_CARPETA_ID, "SISCargaLectiva-Ejemplo-CargaXDepartamento.xlsx", fs.readFileSync(XLSX_DEPARTAMENTO));
-  e.subir(e.propiedades.SIS_CARPETA_ID, "SISCargaLectiva-Ejemplo-CargaDeDocentes.xlsx", fs.readFileSync(XLSX_DOCENTES));
+  cargarPestanasEjemplo(e);
   ejecutar(e, A, "tableroObtener", CICLO);
   return e;
 }

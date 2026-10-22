@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<!-- Diálogo «Limpiar la carpeta» de la hoja del sistema. Entradas: hoja/LimpiezaServidor.js. -->
+<html lang="es">
+<head>
+<base target="_top">
+<title>Limpiar la carpeta</title>
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root { --azul: #1F3A5F; --texto: #1F2933; --tenue: #5F6B7A; --borde: #D5DBE3; --gris: #F4F6F9;
+    --error: #B3261E; --error-claro: #FCE8E6; --ok: #1E6B34; --ok-claro: #E6F4EA; --adv: #8A6100; --adv-claro: #FEF7E0; }
+  * { box-sizing: border-box; }
+  body { margin: 0; color: var(--texto); font: 13px/1.5 Roboto, Arial, sans-serif; }
+  main { padding: 4px 4px 64px; }
+  p { margin: 0 0 10px; }
+  a { color: var(--azul); }
+  .tenue { color: var(--tenue); font-size: 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--borde); vertical-align: top; }
+  th { background: var(--gris); color: var(--azul); font-weight: 500; position: sticky; top: 0; }
+  td.marca { width: 28px; }
+  tr.no td { color: var(--tenue); }
+  .aviso { color: var(--adv); font-size: 11.5px; }
+  .ok { color: var(--ok); } .mal { color: var(--error); }
+  .nota { padding: 8px 10px; border-radius: 6px; background: var(--gris); margin: 10px 0; }
+  .nota.error { background: var(--error-claro); color: var(--error); }
+  .nota.adv { background: var(--adv-claro); color: var(--adv); }
+  select { font: inherit; padding: 4px 6px; border: 1px solid var(--borde); border-radius: 6px; max-width: 100%; }
+  footer { position: fixed; left: 0; right: 0; bottom: 0; padding: 10px 4px; background: #fff; border-top: 1px solid var(--borde); display: flex; gap: 8px; align-items: center; }
+  button { border: 1px solid var(--azul); background: var(--azul); color: #fff; border-radius: 6px; padding: 8px 14px; font: 500 13px Roboto, Arial, sans-serif; cursor: pointer; }
+  button.peligro { border-color: var(--error); background: var(--error); }
+  button.sec { background: #fff; color: var(--azul); }
+  button:disabled { opacity: .5; cursor: default; }
+  #cuenta { margin-left: auto; color: var(--tenue); font-size: 12px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <p>En la carpeta de la app solo debe quedar esta hoja. Marca lo que quieres mandar a la papelera de Drive (se puede recuperar durante 30 días). Solo puedes mandar a la papelera lo que es de tu cuenta.</p>
+  <div id="mensaje" class="nota">Buscando los archivos de la carpeta…</div>
+  <div id="mover" hidden>
+    <p><label><input type="checkbox" id="moverSi"> Mover esta hoja a la carpeta</label> <select id="moverA"></select></p>
+  </div>
+  <table id="tabla" hidden>
+    <thead><tr><th></th><th>Archivo</th><th>Tipo</th><th>Propietario</th><th>Carpeta</th></tr></thead>
+    <tbody id="filas"></tbody>
+  </table>
+</main>
+<footer>
+  <button class="peligro" id="papelera" disabled>Mandar a la papelera</button>
+  <button class="sec" id="cerrar">Cerrar</button>
+  <span id="cuenta"></span>
+</footer>
+<script>
+  /* Llama a una entrada del servidor y desenvuelve su respuesta {ok, datos} / {ok:false, mensaje}. */
+  function pedir(nombre, args, alTerminar, alFallar) {
+    var run = google.script.run
+      .withSuccessHandler(function (r) { if (r && r.ok) alTerminar(r.datos); else alFallar(new Error(r && r.mensaje || "Respuesta inesperada.")); })
+      .withFailureHandler(alFallar);
+    run[nombre].apply(run, args || []);
+  }
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+  function avisar(texto, clase) { var m = $("mensaje"); m.className = "nota" + (clase ? " " + clase : ""); m.textContent = texto; m.hidden = !texto; }
+
+  var lista = null, confirmar = false;
+
+  /* Lo que se puede mandar a la papelera viene marcado, salvo los proyectos de Apps Script. */
+  function pintar(d) {
+    lista = d;
+    var otras = d.carpetas.filter(function (c) { return !c.conHoja; });
+    $("mover").hidden = !otras.length;
+    $("moverA").innerHTML = otras.map(function (c) { return "<option value='" + esc(c.id) + "'>" + esc(c.nombre) + "</option>"; }).join("");
+    if (!d.archivos.length) { avisar("La carpeta ya solo tiene esta hoja.", ""); return; }
+    avisar("Carpetas revisadas: " + d.carpetas.map(function (c) { return "«" + c.nombre + "»"; }).join(", ") + ".", "");
+    $("filas").innerHTML = d.archivos.map(function (a, i) {
+      var puede = a.propio && !a.conHoja;
+      var marcado = puede && a.tipo !== "Proyecto de Apps Script";
+      return "<tr class='" + (puede ? "" : "no") + "' data-i='" + i + "'>" +
+        "<td class='marca'><input type='checkbox' " + (puede ? "" : "disabled ") + (marcado ? "checked" : "") + " aria-label='Mandar a la papelera " + esc(a.nombre) + "'></td>" +
+        "<td><a href='" + esc(a.url) + "' target='_blank'>" + esc(a.nombre) + "</a>" + (a.aviso ? "<div class='aviso'>" + esc(a.aviso) + "</div>" : "") +
+        (!a.propio ? "<div class='aviso'>Solo " + esc(a.propietario || "su propietario") + " puede mandarlo a la papelera.</div>" : "") + "<div class='resultado'></div></td>" +
+        "<td>" + esc(a.tipo) + "</td><td>" + esc(a.propietario) + "</td><td>" + esc(a.ruta) + "</td></tr>";
+    }).join("");
+    $("tabla").hidden = false;
+    $("papelera").disabled = false;
+  }
+
+  function elegidos() {
+    return Array.prototype.filter.call(document.querySelectorAll("#filas tr"), function (tr) { return tr.querySelector("input").checked; })
+      .map(function (tr) { return lista.archivos[+tr.dataset.i].id; });
+  }
+
+  /* Primer clic: resume lo que se hará. Segundo clic: lo hace. */
+  $("papelera").addEventListener("click", function () {
+    var ids = elegidos(), mover = !$("mover").hidden && $("moverSi").checked ? $("moverA").value : "";
+    if (!ids.length && !mover) { avisar("No hay nada marcado.", "adv"); return; }
+    if (!confirmar) {
+      confirmar = true;
+      this.textContent = "Sí, mandar " + ids.length + (ids.length === 1 ? " elemento" : " elementos") + " a la papelera";
+      avisar("Revisa la lista y vuelve a pulsar para confirmar." + (mover ? " La hoja se moverá a «" + $("moverA").selectedOptions[0].textContent + "»." : ""), "adv");
+      return;
+    }
+    var boton = this;
+    boton.disabled = true;
+    pedir("limpiezaAplicar", [ids, mover], function (d) {
+      var porId = {};
+      d.resultados.forEach(function (r) { porId[r.id] = r; });
+      Array.prototype.forEach.call(document.querySelectorAll("#filas tr"), function (tr) {
+        var r = porId[lista.archivos[+tr.dataset.i].id];
+        if (!r) return;
+        tr.querySelector("input").disabled = true;
+        tr.querySelector(".resultado").innerHTML = r.ok ? "<span class='ok'>En la papelera.</span>" : "<span class='mal'>" + esc(r.motivo) + "</span>";
+      });
+      var bien = d.resultados.filter(function (r) { return r.ok; }).length;
+      avisar(bien + " de " + d.resultados.length + " en la papelera." + (d.movida ? " La hoja se movió de carpeta." : ""), bien === d.resultados.length ? "" : "adv");
+      boton.textContent = "Hecho";
+    }, function (e) { boton.disabled = false; avisar(e.message, "error"); });
+  });
+
+  $("cerrar").addEventListener("click", function () { google.script.host.close(); });
+  pedir("limpiezaListar", [], pintar, function (e) { avisar(e.message, "error"); });
+</script>
+</body>
+</html>

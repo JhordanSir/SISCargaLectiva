@@ -9,5 +9,5 @@
     "strict": false,
     "noImplicitAny": false
   },
-  "include": ["*.js", "comun/*.js", "cu001/*.js", "cu002/*.js", "comun/*.d.ts"]
+  "include": ["*.js", "comun/*.js", "cu001/*.js", "cu002/*.js", "hoja/*.js", "comun/*.d.ts"]
 }

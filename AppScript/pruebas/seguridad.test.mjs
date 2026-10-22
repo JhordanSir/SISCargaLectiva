@@ -1,11 +1,11 @@
 /* Pruebas de la auditoría P0: superficie pública, saneamiento de lo que llega del
-   navegador, DNI restringido y lectura de los xlsx fuera del candado. */
+   navegador, DNI restringido y lectura de las pestañas de datos fuera del candado. */
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { crearEntorno, cargarServidor, ejecutar, fijarUsuarios, USUARIOS_PRUEBA, DIRECTORES } from "./falsos.mjs";
-import { RAIZ, archivosApp, XLSX_CARRERA, XLSX_DEPARTAMENTO, XLSX_DOCENTES } from "./soporte.mjs";
+import { crearEntorno, cargarServidor, cargarPestanasEjemplo, ejecutar, fijarUsuarios, USUARIOS_PRUEBA, DIRECTORES } from "./falsos.mjs";
+import { RAIZ, archivosApp } from "./soporte.mjs";
 
 const A = "mfloresl@ulasalle.edu.pe";            // coordinador
 const DIMA = DIRECTORES.DIMA, DAHUC = DIRECTORES.DAHUC;
@@ -16,9 +16,7 @@ function sistema() {
   cargarServidor(e);
   ejecutar(e, A, "instalar");
   fijarUsuarios(e, USUARIOS_PRUEBA);
-  e.subir(e.propiedades.SIS_CARPETA_ID, "SISCargaLectiva-Ejemplo-CargaXCarrera.xlsx", fs.readFileSync(XLSX_CARRERA));
-  e.subir(e.propiedades.SIS_CARPETA_ID, "SISCargaLectiva-Ejemplo-CargaXDepartamento.xlsx", fs.readFileSync(XLSX_DEPARTAMENTO));
-  e.subir(e.propiedades.SIS_CARPETA_ID, "SISCargaLectiva-Ejemplo-CargaDeDocentes.xlsx", fs.readFileSync(XLSX_DOCENTES));
+  cargarPestanasEjemplo(e);
   return e;
 }
 
@@ -29,10 +27,13 @@ const PUBLICAS = [
   "asignacionObtener", "asignacionHistorial", "asignacionVerVersion",
   "asignacionEdicionAbrir", "asignacionEdicionGuardar", "asignacionEdicionRestaurar",
   "sesionEdicionRenovar", "sesionEdicionLiberar", "sesionEdicionGuardarCopia", "sesionEdicionDescartarCopia",
-  "derivacionGuardar", "docentesAsignadosObtener"
+  "derivacionGuardar", "docentesAsignadosObtener",
+  /* Hoja del sistema: disparadores, menú y diálogos (responden solo desde la hoja). */
+  "onOpen", "onEdit", "menuAbrirPanel", "menuActualizarRevision", "menuInstalar", "menuTraerBdAnterior", "menuLimpiarCarpeta",
+  "panelObtener", "panelActualizar", "panelIrA", "migracionRevisar", "migracionAplicar", "limpiezaListar", "limpiezaAplicar"
 ].sort();
 
-test("solo los endpoints y doGet/instalar se pueden llamar desde el navegador", () => {
+test("solo los endpoints, doGet/instalar y las funciones de la hoja se pueden llamar desde el navegador", () => {
   const publicas = archivosApp(".js")
     .flatMap(f => [...fs.readFileSync(path.join(RAIZ, f), "utf8").matchAll(/^function\s+([A-Za-z]\w*)\s*\(/gm)].map(m => m[1]))
     .filter(n => !n.endsWith("_"))
@@ -112,15 +113,15 @@ test("el DNI solo llega al director del departamento, y solo el de los suyos", (
   assert.equal(ejecutar(e, DIMA, "asignacionVerVersion", CICLO, "ING", 1)[0].dni, docente.dni);
 });
 
-test("los xlsx se leen antes de tomar el candado", () => {
+test("las pestañas de datos se leen e interpretan antes de tomar el candado", () => {
   const e = sistema();
   const ctx = e.ctx;
   let dentro = false, leidosDentro = 0, leidosFuera = 0;
-  const candado = ctx.conCandado_, leer = ctx.leerLibroXlsx_;
-  ctx.conCandado_ = fn => { dentro = true; try { return candado(fn); } finally { dentro = false; } };
-  ctx.leerLibroXlsx_ = partes => { if (dentro) leidosDentro++; else leidosFuera++; return leer(partes); };
+  const candado = ctx.conCandado_, interpretar = ctx.ofertaDesdePestanas_;
+  ctx.conCandado_ = fn => { dentro = true; const antes = e.cuentas.datos; try { return candado(fn); } finally { dentro = false; leidosDentro += e.cuentas.datos - antes; } };
+  ctx.ofertaDesdePestanas_ = (c, d) => { if (dentro) leidosDentro++; else leidosFuera++; return interpretar(c, d); };
   const t = ejecutar(e, A, "tableroObtener", CICLO);
   assert.ok(t.filas.every(f => f.estado === "Registrado"), "la lectura se aplicó");
-  assert.equal(leidosDentro, 0, "ningún xlsx se lee con el candado tomado");
-  assert.ok(leidosFuera >= 2);
+  assert.equal(leidosDentro, 0, "ninguna pestaña de datos se lee con el candado tomado");
+  assert.equal(leidosFuera, 1);
 });

@@ -45,7 +45,7 @@ function icono_(nombre, clase) {
 
 /**
  * Lo que la página necesita al cargar: configuración, usuario y tablero del ciclo (sin
- * mirar Drive). Con la cuenta denegada, CU-001 FA-001 a FA-003 y CU-002 FA-003 a FA-005.
+ * leer las pestañas de datos). Con la cuenta denegada, CU-001 FA-001 a FA-003 y CU-002 FA-003 a FA-005.
  * @returns {{estado: string, config: Object, usuario?: Usuario, motivo?: string, tablero?: {ciclo: string, filas: FilaTablero[], avisos: Aviso[], pendiente: boolean}}}
  */
 function datosIniciales_() {
@@ -53,17 +53,17 @@ function datosIniciales_() {
   const config = {
     dominio: cfg.dominio,
     ciclos: cfg.ciclos,
-    ciclo: cfg.cicloXlsx,
+    ciclo: cfg.cicloHoja,
     minutosBloqueo: cfg.minutosBloqueo,
     maxSubgrupos: cfg.maxSubgrupos
   };
-  if (!cfg.carpetaId || !cfg.bdId) return { estado: "sin-instalar", config: config };
+  if (!cfg.bdId) return { estado: "sin-instalar", config: config };
   try {
     const usuario = usuarioActual_();
     if (usuario.denegado) return { estado: "denegado", motivo: usuario.denegado, config: config };
-    /* La página llega con el tablero ya leído. No se mira Drive aquí para no retrasarla:
-       si hace falta revisar los xlsx, el navegador lo pide en segundo plano (pendiente). */
-    const revisado = xlsxRevisadoHacePoco_();
+    /* La página llega con el tablero ya leído. Las pestañas de datos no se leen aquí para no
+       retrasarla: si hace falta revisarlas, el navegador lo pide en segundo plano (pendiente). */
+    const revisado = fuentesRevisadasHacePoco_();
     return {
       estado: "ok", usuario: usuario, config: config,
       tablero: { ciclo: config.ciclo, filas: leerTablero_(config.ciclo), avisos: revisado ? revisado.avisos.map(Dominio.comoAviso) : [], pendiente: !revisado }

@@ -1,7 +1,7 @@
 // @ts-check
 /* Datos de los planes de ciclo (CU-001): el repositorio REPO_PLAN_ de comun/Versionado.js.
    La fila de cada plan en la pestaña Planes guarda su estado, su versión vigente, sus
-   totales y la firma del xlsx del que salió; cada guardado añade una fila a Versiones. */
+   totales y la firma de las pestañas de las que salió; cada guardado añade una fila a Versiones. */
 
 var REPO_PLAN_ = { indice: "Planes", versiones: "Versiones", clave: "carrera", cache: "v", nombre: "del plan" };
 
@@ -83,16 +83,16 @@ function sinFila_(v) {
 
 /**
  * Debe llamarse dentro de conCandado_. datos: {estado, tipo, usuario, fecha, motivo,
- * asignaturas, firma_xlsx?}. Devuelve el número de la versión nueva.
+ * asignaturas, firma_hoja?}. Devuelve el número de la versión nueva.
  * @param {string} ciclo
  * @param {Sigla} sig
  * @param {FilaTabla|null} fila
- * @param {{estado: string, tipo: string, usuario: string, fecha: string, motivo?: string, asignaturas: Asignatura[], firma_xlsx?: string}} datos
+ * @param {{estado: string, tipo: string, usuario: string, fecha: string, motivo?: string, asignaturas: Asignatura[], firma_hoja?: string}} datos
  * @returns {number}
  */
 function registrarVersionPlan_(ciclo, sig, fila, datos) {
   const indice = { estado: datos.estado, totales: JSON.stringify(Dominio.totales(datos.asignaturas)) };
-  if (datos.firma_xlsx != null) indice.firma_xlsx = datos.firma_xlsx;
+  if (datos.firma_hoja != null) indice.firma_hoja = datos.firma_hoja;
   return registrarVersion_(REPO_PLAN_, ciclo, sig, fila, {
     usuario: datos.usuario, fecha: datos.fecha, contenido: datos.asignaturas, indice: indice,
     meta: { estado: datos.estado, tipo: datos.tipo, motivo: datos.motivo || "" }

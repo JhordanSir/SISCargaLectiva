@@ -5,8 +5,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
-import { crearEntorno, cargarServidor, ejecutar, fijarUsuarios, USUARIOS_PRUEBA, DIRECTORES } from "./falsos.mjs";
-import { cargar, plano, RAIZ, archivosApp, ARCHIVOS_DOMINIO, XLSX_CARRERA, XLSX_DEPARTAMENTO } from "./soporte.mjs";
+import { crearEntorno, cargarServidor, cargarPestanasEjemplo, ejecutar, fijarUsuarios, USUARIOS_PRUEBA, DIRECTORES } from "./falsos.mjs";
+import { cargar, plano, RAIZ, archivosApp, ARCHIVOS_DOMINIO } from "./soporte.mjs";
 
 const A = "mfloresl@ulasalle.edu.pe", B = "fmaresg@ulasalle.edu.pe";
 const DIMA = DIRECTORES.DIMA;
@@ -17,8 +17,7 @@ function sistema() {
   cargarServidor(e);
   ejecutar(e, A, "instalar");
   fijarUsuarios(e, USUARIOS_PRUEBA);
-  e.subir(e.propiedades.SIS_CARPETA_ID, "SISCargaLectiva-Ejemplo-CargaXCarrera.xlsx", fs.readFileSync(XLSX_CARRERA));
-  e.subir(e.propiedades.SIS_CARPETA_ID, "SISCargaLectiva-Ejemplo-CargaXDepartamento.xlsx", fs.readFileSync(XLSX_DEPARTAMENTO));
+  cargarPestanasEjemplo(e, { docentes: false });
   ejecutar(e, A, "tableroObtener", CICLO);
   return e;
 }
@@ -59,7 +58,7 @@ test("la lista de versiones se toma de la caché y se completa al guardar", () =
   e.reiniciarCuentas();
   ejecutar(e, A, "edicionPlanGuardar", CICLO, "ARQ", { asignaturas: p.asignaturas, estado: "Registrado", tipo: "guardar cambios", versionBase: 1 });
   const h = ejecutar(e, A, "edicionPlanHistorial", CICLO, "ARQ");
-  assert.deepEqual(h.map(v => [v.n, v.tipo]), [[1, "importación desde xlsx"], [2, "guardar cambios"]]);
+  assert.deepEqual(h.map(v => [v.n, v.tipo]), [[1, "importación desde la hoja"], [2, "guardar cambios"]]);
   assert.equal(e.cuentas.lecturas.Versiones || 0, 0, "ni guardar ni el historial leen la tabla de versiones");
 });
 
@@ -108,7 +107,7 @@ test("cada Dominio.aviso usa un tipo del catálogo TIPOS_AVISO", () => {
   for (const f of archivosApp(".js").concat(archivosApp(".html"))) {
     for (const m of fs.readFileSync(path.join(RAIZ, f), "utf8").matchAll(/Dominio\.aviso\("([A-Z_]+)"/g)) usados.add(m[1]);
   }
-  assert.ok(usados.size >= 14, [...usados].join(" "));
+  assert.ok(usados.size >= 10, [...usados].join(" "));
   for (const t of usados) assert.ok(t in ctx.Dominio.TIPOS_AVISO, t);
   for (const f of archivosApp(".js"))
     assert.doesNotMatch(fs.readFileSync(path.join(RAIZ, f), "utf8"), /avisos\.push\("/, f + " empuja un aviso sin tipo");

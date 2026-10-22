@@ -13,7 +13,7 @@
 function asignacionObtener(ciclo, carrera) {
   return responder_(function () {
     const usuario = exigirUsuario_();
-    const c = validarCiclo_(ciclo || config_().cicloXlsx);
+    const c = validarCiclo_(ciclo || config_().cicloHoja);
     const s = validarCarrera_(carrera || carreraPorDefecto_(usuario));
     return cargaDeCarrera_(usuario, c, s);
   });

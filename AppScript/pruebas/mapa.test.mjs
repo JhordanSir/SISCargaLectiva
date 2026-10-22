@@ -13,7 +13,8 @@ const leer = f => fs.readFileSync(path.join(RAIZ, f), "utf8");
 const define = (texto, nombre) => new RegExp("function\\s+" + nombre.replace(/\$/g, "\\$") + "\\s*\\(").test(texto);
 const GENERADOS = ["comun/Estilos.html", "comun/Iconos.html"];
 const VISTAS = archivosApp(".html").filter(f => !GENERADOS.includes(f));
-const conBoton = DATOS.pantallas.filter(p => !p.automatica);
+/* Las pantallas de la hoja del sistema (menú y diálogos de hoja/) no usan data-accion ni enlazarAcciones. */
+const conBoton = DATOS.pantallas.filter(p => !p.automatica && !p.sinMapa);
 
 test("cada función del navegador que nombra el mapa existe en su archivo", () => {
   const faltan = [];
@@ -66,6 +67,8 @@ test("cada llamada del mapa es una entrada y el navegador la usa de verdad", () 
   const navegador = VISTAS.map(leer).join("\n");
   const faltan = [];
   for (const p of DATOS.pantallas) for (const a of p.acciones) for (const n of a.llamadas) {
+    /* Los disparadores y el menú de la hoja los llama Google Sheets, no una vista. */
+    if (p.sinMapa && /^(on|menu)[A-Z]/.test(n)) { if (!DATOS.entradas[n]) faltan.push(p.id + "/" + a.accion + ": " + n + " no es una entrada del mapa"); continue; }
     if (!DATOS.entradas[n]) faltan.push(p.id + "/" + a.accion + ": " + n + " no es una entrada del mapa");
     else if (n !== "doGet" && !navegador.includes('"' + n + '"') && !navegador.includes("run." + n + "(")) faltan.push(n + " no se llama desde ninguna vista");
   }

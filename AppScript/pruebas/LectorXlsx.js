@@ -1,5 +1,7 @@
 // @ts-check
-/* Lectura de libros .xlsx sin convertirlos a Hoja de cálculo de Google.
+/* Lector de libros .xlsx de las pruebas: convierte los Excel de ejemplo de docs/archivos en
+   las pestañas de datos de la hoja del sistema (pruebas/falsos.mjs). La app ya no lee .xlsx.
+   Lectura de libros .xlsx sin convertirlos a Hoja de cálculo de Google.
    leerLibroXlsx_() es pura: recibe las partes del zip ya descomprimidas
    ({ruta: textoXml}) y devuelve [{nombre, filas}], con cada celda como el texto
    que mostraría Excel. descomprimirXlsx_() es la única parte que usa Apps Script. */

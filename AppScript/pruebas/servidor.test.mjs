@@ -1,23 +1,19 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import { crearEntorno, cargarServidor, ejecutar, ejecutarFallo, fijarUsuarios, USUARIOS_PRUEBA, DIRECTORES } from "./falsos.mjs";
-import { cargar, partesXlsx, plano, ARCHIVOS_DOMINIO, XLSX_CARRERA, XLSX_DEPARTAMENTO } from "./soporte.mjs";
+import { crearEntorno, cargarServidor, cargarPestanasEjemplo, librosEjemplo, ejecutar, ejecutarFallo, fijarUsuarios, USUARIOS_PRUEBA, DIRECTORES } from "./falsos.mjs";
+import { cargar, plano, ARCHIVOS_DOMINIO } from "./soporte.mjs";
 
 const A = "mfloresl@ulasalle.edu.pe";
 const B = "fmaresg@ulasalle.edu.pe";
 const CICLO = "2026-1";
 
-/* Sistema instalado y con los dos xlsx de ejemplo en la carpeta. */
-function sistema({ conXlsx = true } = {}) {
+/* Sistema instalado y con las pestañas de oferta y de carga de ejemplo. */
+function sistema({ conDatos = true } = {}) {
   const e = crearEntorno();
   cargarServidor(e);
   ejecutar(e, A, "instalar");
   fijarUsuarios(e, USUARIOS_PRUEBA);
-  if (conXlsx) {
-    e.subir(e.propiedades.SIS_CARPETA_ID, "SISCargaLectiva-Ejemplo-CargaXCarrera.xlsx", fs.readFileSync(XLSX_CARRERA), { fecha: "2026-09-20T10:00:00Z" });
-    e.subir(e.propiedades.SIS_CARPETA_ID, "SISCargaLectiva-Ejemplo-CargaXDepartamento.xlsx", fs.readFileSync(XLSX_DEPARTAMENTO), { fecha: "2026-09-20T10:05:00Z" });
-  }
+  if (conDatos) cargarPestanasEjemplo(e, { docentes: false });
   return e;
 }
 const fila = (tablero, sig) => tablero.filas.find(f => f.sig === sig);
@@ -28,31 +24,47 @@ test("sin instalar, la aplicación lo indica", () => {
   assert.equal(ejecutar(e, A, "datosIniciales_").estado, "sin-instalar");
 });
 
-test("instalar() crea carpeta, hoja, pestañas y usuarios, y se puede repetir", () => {
-  const e = sistema({ conXlsx: false });
-  const carpeta = e.propiedades.SIS_CARPETA_ID, bd = e.propiedades.SIS_BD_ID;
-  assert.ok(carpeta && bd);
-  assert.equal(e.propiedades.SIS_CICLO_XLSX, "2026-1");
+test("instalar() prepara la hoja ligada al script: tablas ocultas, Usuarios e Inicio; se puede repetir", () => {
+  const e = sistema({ conDatos: false });
+  const bd = e.propiedades.SIS_BD_ID;
+  assert.equal(bd, e.activo.getId(), "la hoja del sistema es la hoja ligada al script");
+  assert.equal(e.propiedades.SIS_CICLO_HOJA, "2026-1");
+  assert.equal(e.propiedades.SIS_CARPETA_ID, undefined, "ya no hay carpeta de archivos");
   const libro = e.libros.get(bd);
-  assert.deepEqual(libro.getSheets().map(h => h.getName()), ["Usuarios", "Planes", "Versiones", "Bloqueos", "Fuentes", "Cargas", "VersionesCarga", "Recuperacion"]);
+  assert.deepEqual(libro.getSheets().map(h => h.getName()), ["Inicio", "Usuarios", "Planes", "Versiones", "Bloqueos", "Fuentes", "Cargas", "VersionesCarga", "Recuperacion"]);
+  const ocultas = libro.getSheets().filter(h => h.isSheetHidden()).map(h => h.getName());
+  assert.deepEqual(ocultas, ["Planes", "Versiones", "Bloqueos", "Fuentes", "Cargas", "VersionesCarga", "Recuperacion"]);
+  assert.ok(ocultas.every(n => libro.getSheetByName(n).getProtections().some(p => p.avisar)), "las tablas del sistema avisan antes de editarlas");
   assert.equal(e.hoja("Usuarios").filas().length, 6);
   ejecutar(e, A, "instalar");
-  assert.equal(e.propiedades.SIS_CARPETA_ID, carpeta);
   assert.equal(e.propiedades.SIS_BD_ID, bd);
-  assert.equal(e.carpetas.size, 1);
+  assert.equal(libro.getSheets().length, 9);
+  assert.equal(e.hoja("Planes").getProtections().length, 1, "no repite la protección");
   assert.equal(e.hoja("Usuarios").filas().length, 6);
   assert.throws(() => ejecutar(e, B, "instalar"), /propietaria/);
 });
 
-test("sin el xlsx en la carpeta, el tablero avisa y queda en Sin Iniciar", () => {
-  const e = sistema({ conXlsx: false });
+test("instalar() convierte «BD - Usuarios» del Centro de datos en la tabla Usuarios y conserva las pestañas de datos", () => {
+  const e = crearEntorno();
+  cargarServidor(e);
+  e.pestana("BD - Usuarios", [["correo", "rol", "carreras", "departamento"], ["fmaresg@ulasalle.edu.pe", "coordinador", "ADM", ""]]);
+  e.pestana("Oferta - Derecho", []);
+  ejecutar(e, A, "instalar");
+  assert.equal(e.activo.getSheetByName("BD - Usuarios"), null);
+  assert.deepEqual(e.hoja("Usuarios").filas(), [["fmaresg@ulasalle.edu.pe", "coordinador", "ADM", ""]], "no se siembran cuentas si ya había");
+  assert.ok(e.activo.getSheetByName("Oferta - Derecho"), "una pestaña de datos vacía no se borra");
+  assert.equal(e.activo.getSheetByName("Hoja 1"), null, "la pestaña vacía que trae una hoja nueva sí");
+});
+
+test("sin pestañas de oferta, el tablero avisa y queda en Sin Iniciar", () => {
+  const e = sistema({ conDatos: false });
   const t = ejecutar(e, A, "tableroObtener", CICLO);
-  assert.deepEqual(t.avisos.map(a => [a.tipo, a.nivel]), [["FALTA_CARGA_CARRERA", "aviso"]]);
-  assert.match(t.avisos[0].texto, /no tiene el archivo CargaXCarrera/);
+  assert.deepEqual(t.avisos.map(a => [a.tipo, a.nivel]), [["FALTA_OFERTA", "aviso"]]);
+  assert.match(t.avisos[0].texto, /no tiene pestañas «Oferta - …»/);
   assert.ok(t.filas.every(f => f.estado === "Sin Iniciar" && f.version === 0));
 });
 
-test("el tablero lee los xlsx de Drive: 8 carreras Registradas v1 con 365 grupos", () => {
+test("el tablero lee las pestañas de oferta: 8 carreras Registradas v1 con 365 grupos", () => {
   const e = sistema();
   const t = ejecutar(e, A, "tableroObtener", CICLO);
   assert.equal(t.filas.length, 8);
@@ -64,8 +76,8 @@ test("el tablero lee los xlsx de Drive: 8 carreras Registradas v1 con 365 grupos
   assert.deepEqual([fila.datos.carrera, fila.datos.codigo], ["PSI", "9.2.5.24"]);
   const versiones = e.hoja("Versiones").filas();
   assert.equal(versiones.length, 8);
-  assert.ok(versiones.every(v => v[4] === "importación desde xlsx" && v[5] === "xlsx: SISCargaLectiva-Ejemplo-CargaXCarrera.xlsx"));
-  assert.equal(versiones[0][6], "2026-09-20T05:05:00-05:00", "la fecha del Excel, en hora de Perú");
+  assert.ok(versiones.every(v => v[4] === "importación desde la hoja" && v[5] === "hoja: pestañas de oferta"));
+  assert.match(versiones[0][6], /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}-05:00$/, "la fecha de la lectura, en hora de Perú");
 
   const otra = ejecutar(e, B, "tableroObtener", CICLO);
   assert.equal(e.hoja("Versiones").filas().length, 8, "una segunda lectura no crea versiones");
@@ -122,7 +134,7 @@ test("guardar crea versiones y un plan Registrado nunca vuelve a Borrador", () =
   const r2 = ejecutar(e, A, "edicionPlanGuardar", CICLO, "ARQ", { asignaturas: p.asignaturas, estado: "Registrado", tipo: "guardar cambios", motivo: "=Matrícula extemporánea", versionBase: 2 });
   assert.equal(r2.version, 3);
   const h = ejecutar(e, B, "edicionPlanHistorial", CICLO, "ARQ");
-  assert.deepEqual(h.map(v => [v.n, v.tipo]), [[1, "importación desde xlsx"], [2, "guardar borrador"], [3, "guardar cambios"]]);
+  assert.deepEqual(h.map(v => [v.n, v.tipo]), [[1, "importación desde la hoja"], [2, "guardar borrador"], [3, "guardar cambios"]]);
   assert.equal(h[2].motivo, "=Matrícula extemporánea");
   assert.equal(ejecutar(e, B, "consultaObtener", CICLO, "ARQ").asignaturas[0].grupos[0].ht, "5");
 });
@@ -238,23 +250,23 @@ test("el tablero trae el contenido vigente de cada plan", () => {
   assert.ok(ejecutar(e, A, "tableroObtener", "2026-2").filas.every(f => f.contenido.length === 0));
 });
 
-test("dentro del intervalo el tablero no llama a Drive; «Releer Excel» sí", () => {
+test("dentro del intervalo el tablero no lee las pestañas de datos; «Releer la hoja» sí", () => {
   const e = sistema();
   ejecutar(e, A, "tableroObtener", CICLO);
   e.reiniciarCuentas();
   ejecutar(e, B, "tableroObtener", CICLO);
-  assert.equal(e.cuentas.drive, 0, "segunda carga sin Drive");
+  assert.equal(e.cuentas.datos, 0, "segunda carga sin leer las pestañas");
   e.reiniciarCuentas();
   ejecutar(e, B, "tableroObtener", CICLO, { releer: true });
-  assert.ok(e.cuentas.drive > 0, "releer mira la carpeta");
+  assert.ok(e.cuentas.datos > 0, "releer lee las pestañas");
   e.desfase = 6 * 60000;
   e.reiniciarCuentas();
   ejecutar(e, B, "tableroObtener", CICLO);
-  assert.ok(e.cuentas.drive > 0, "pasado el intervalo vuelve a mirar");
-  e.propiedades.SIS_MINUTOS_REVISION_XLSX = "0";
+  assert.ok(e.cuentas.datos > 0, "pasado el intervalo vuelve a leerlas");
+  e.propiedades.SIS_MINUTOS_REVISION_HOJA = "0";
   e.reiniciarCuentas();
   ejecutar(e, B, "tableroObtener", CICLO);
-  assert.ok(e.cuentas.drive > 0, "con 0 mira en cada carga");
+  assert.ok(e.cuentas.datos > 0, "con 0 las lee en cada carga");
 });
 
 test("con la caché caliente, el tablero y la consulta no leen Versiones ni Usuarios", () => {
@@ -299,12 +311,12 @@ test("abrirEdicion solo devuelve el contenido si la versión que tiene el navega
   assert.equal(ejecutarFallo(e, B, "edicionPlanAbrir", CICLO, "ARQ", 2).detalle.correo, A);
 });
 
-test("la página llega con el tablero y avisa si falta revisar los xlsx", () => {
+test("la página llega con el tablero y avisa si falta revisar las pestañas", () => {
   const e = sistema();
   const d = ejecutar(e, A, "datosIniciales_");
   assert.equal(d.tablero.ciclo, CICLO);
   assert.equal(d.tablero.pendiente, true, "sin revisión reciente, el navegador la pide aparte");
-  assert.ok(d.tablero.filas.every(f => f.estado === "Sin Iniciar"), "doGet no lee Drive");
+  assert.ok(d.tablero.filas.every(f => f.estado === "Sin Iniciar"), "doGet no lee las pestañas de datos");
   ejecutar(e, A, "tableroObtener", CICLO);
   const d2 = ejecutar(e, B, "datosIniciales_");
   assert.equal(d2.tablero.pendiente, false);
@@ -312,29 +324,28 @@ test("la página llega con el tablero y avisa si falta revisar los xlsx", () => 
   assert.match(d2.tablero.avisos.map(a => a.texto).join(" "), /9\.2\.5\.24/);
 });
 
-test("cambiar solo la fecha del xlsx no crea versiones; cambiar su contenido sí", () => {
+test("cambiar una celda que no es de la oferta no crea versiones; cambiar la oferta sí", () => {
   const e = sistema();
   ejecutar(e, A, "tableroObtener", CICLO);
-  const carpeta = e.carpetas.get(e.propiedades.SIS_CARPETA_ID);
-  const [carrera, departamento] = [...carpeta.archivos].filter(a => /CargaX/.test(a.getName())).sort((x, y) => x.getName().localeCompare(y.getName()));
-  carrera.fecha = new Date("2026-09-25T08:00:00Z");
+  const titulo = e.activo.getSheets().find(h => h.getName().startsWith("Oferta - "));
+  titulo.celdaCreada(1, 5).v = "CARGA LECTIVA 2026-I (revisada)";
   ejecutar(e, A, "tableroObtener", CICLO, { releer: true });
   assert.equal(e.hoja("Versiones").filas().length, 8);
 
-  /* Sin el libro por departamento desaparecen las marcas de CONDICIÓN: cambian las
-     carreras que tenían alguna y solo esas reciben «actualización desde xlsx». */
-  const ctx = cargar(ARCHIVOS_DOMINIO.concat(["comun/LectorXlsx.js", "cu001/OfertaXlsx.js"]));
-  const lc = ctx.leerLibroXlsx_(partesXlsx(XLSX_CARRERA));
-  const con = plano(ctx.ofertaDesdeLibros_(lc, ctx.leerLibroXlsx_(partesXlsx(XLSX_DEPARTAMENTO)))).oferta;
-  const sin = plano(ctx.ofertaDesdeLibros_(lc, null)).oferta;
+  /* Sin las pestañas de carga desaparecen las marcas de CONDICIÓN: cambian las carreras
+     que tenían alguna y solo esas reciben «actualización desde la hoja». */
+  const ctx = cargar(ARCHIVOS_DOMINIO.concat(["comun/FuenteHoja.js", "cu001/OfertaPestanas.js"]));
+  const lc = librosEjemplo("carrera");
+  const con = plano(ctx.ofertaDesdePestanas_(lc, librosEjemplo("departamento"))).oferta;
+  const sin = plano(ctx.ofertaDesdePestanas_(lc, null)).oferta;
   const cambian = Object.keys(con).filter(s => JSON.stringify(con[s].map(a => a.obs)) !== JSON.stringify(sin[s].map(a => a.obs)));
   assert.ok(cambian.includes("ING"));
 
-  carpeta.archivos.delete(departamento);
+  e.activo.getSheets().filter(h => h.getName().startsWith("Carga - ")).forEach(h => e.activo.deleteSheet(h));
   ejecutar(e, A, "tableroObtener", CICLO);
   assert.equal(e.hoja("Versiones").filas().length, 8, "dentro del intervalo aún no se ve el cambio");
   const t = ejecutar(e, A, "tableroObtener", CICLO, { releer: true });
-  const actualizadas = e.hoja("Versiones").filas().filter(v => v[4] === "actualización desde xlsx").map(v => v[1]).sort();
+  const actualizadas = e.hoja("Versiones").filas().filter(v => v[4] === "actualización desde la hoja").map(v => v[1]).sort();
   assert.deepEqual(actualizadas, cambian.sort());
   assert.equal(fila(t, "ING").version, 2);
   assert.equal(fila(t, "ING").estado, "Registrado");
@@ -347,18 +358,21 @@ test("los avisos guardados como texto en Fuentes llegan como avisos con tipo TEX
   const hoja = e.hoja("Fuentes");
   const filas = hoja.filas();
   const i = filas.findIndex(f => f[0] === "carrera");
-  hoja.getRange(i + 2, 6).setNumberFormat("@").setValues([[JSON.stringify(["Aviso de antes"])]]);
+  hoja.getRange(i + 2, 5).setNumberFormat("@").setValues([[JSON.stringify(["Aviso de antes"])]]);
   const t = ejecutar(e, B, "tableroObtener", CICLO, { releer: true });
   assert.deepEqual(t.avisos.map(a => [a.tipo, a.nivel, a.texto]), [["TEXTO", "aviso", "Aviso de antes"]]);
 });
 
-test("un xlsx convertido a Hoja de cálculo de Google se señala y no se lee", () => {
-  const e = sistema({ conXlsx: false });
-  e.subir(e.propiedades.SIS_CARPETA_ID, "SISCargaLectiva-Ejemplo-CargaXCarrera", Buffer.from(""), { tipo: "application/vnd.google-apps.spreadsheet" });
+test("una pestaña de oferta que no es de ninguna carrera se señala; las que no son de datos no se leen", () => {
+  const e = sistema();
+  e.pestana("Oferta - Borrador", [["CODIGO", "ASIGNATURA"], ["1.1.1.24", "Curso suelto"]]);
+  e.pestana("Notas", [["CARRERA", "CODIGO"], ["ING", "9.9.9.99"]]);
   const t = ejecutar(e, A, "tableroObtener", CICLO);
-  const conv = t.avisos.find(a => a.tipo === "XLSX_CONVERTIDO");
-  assert.match(conv.texto, /convertido a Hoja de cálculo de Google/);
-  assert.equal(conv.datos.archivo, "SISCargaLectiva-Ejemplo-CargaXCarrera");
+  const desconocida = t.avisos.find(a => a.tipo === "HOJA_DESCONOCIDA");
+  assert.match(desconocida.texto, /«Oferta - Borrador» no corresponde a ninguna carrera/);
+  assert.equal(desconocida.datos.hoja, "Oferta - Borrador");
+  assert.equal(t.filas.length, 8);
+  assert.ok(!e.cuentas.lecturas.Notas, "«Notas» no es una pestaña de datos");
 });
 
 test("doGet arma la página con los datos iniciales y el dominio compartido", () => {

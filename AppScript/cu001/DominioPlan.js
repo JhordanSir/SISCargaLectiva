@@ -432,7 +432,7 @@ function crearDominioPlan_(C) {
       const id = ids.get(String(a.codigo).trim() + "|" + String(g.n).trim());
       if (id && !usados.has(id)) { g.id = id; usados.add(id); }
     }));
-    /* La derivación de un curso a otro departamento no viene en el Excel: también se conserva. */
+    /* La derivación de un curso a otro departamento no viene en la oferta de la hoja: también se conserva. */
     const derivados = new Map();
     (anteriores || []).forEach(a => { if (a.derivado) derivados.set(String(a.codigo).trim(), a.derivado); });
     (nuevas || []).forEach(a => { const d = derivados.get(String(a.codigo).trim()); if (d && !a.derivado) a.derivado = d; });

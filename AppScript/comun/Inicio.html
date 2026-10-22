@@ -3,11 +3,11 @@
   <div class="tarjeta estado-acceso">
     <span class="estado-ico aviso"><?!= icono_("warning") ?></span>
     <h1 class="titulo">El sistema todavía no está instalado</h1>
-    <p class="subtitulo">Faltan la carpeta de Drive y la hoja de cálculo del sistema. La cuenta propietaria del script debe instalarlas una vez.</p>
+    <p class="subtitulo">Faltan las tablas de la hoja del sistema. La cuenta propietaria del script debe prepararlas una vez.</p>
     <ol class="pasos-guia">
-      <li><span>Abre el proyecto en el editor de Apps Script (<code>clasp open-script</code>).</span></li>
-      <li><span>Elige la función <code>instalar</code> y pulsa <b>Ejecutar</b>. Acepta los permisos que pide Google.</span></li>
-      <li><span>El registro de ejecución muestra el enlace de la carpeta <b>SISCargaLectiva</b>. Sube ahí los archivos <code>CargaXCarrera</code> y <code>CargaXDepartamento</code> (.xlsx, sin convertir).</span></li>
+      <li><span>Abre la hoja <b>SISCargaLectiva - Centro de datos</b>, la hoja a la que está ligado el script.</span></li>
+      <li><span>En el menú <b>SISCargaLectiva</b>, elige <b>Instalar o reparar</b>. Acepta los permisos que pide Google.</span></li>
+      <li><span>Revisa que la hoja tenga una pestaña <code>Oferta - …</code> por carrera, las de <code>Carga - …</code> y <code>Docentes - General</code>.</span></li>
       <li><span>Recarga esta página.</span></li>
     </ol>
   </div>

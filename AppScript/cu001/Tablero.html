@@ -11,7 +11,7 @@
         <label for="sel-ciclo">Ciclo académico</label>
         <select id="sel-ciclo" class="control" data-accion="cambiarCiclo"></select>
       </div>
-      <button type="button" class="btn" id="btn-releer" data-accion="releerExcel" title="Vuelve a leer ahora los .xlsx de la carpeta de Drive"><?!= icono_("arrows-clockwise") ?>Releer Excel</button>
+      <button type="button" class="btn" id="btn-releer" data-accion="releerHoja" title="Vuelve a leer ahora las pestañas de oferta, carga y docentes de la hoja del sistema"><?!= icono_("arrows-clockwise") ?>Releer la hoja</button>
     </div>
   </header>
 
@@ -66,7 +66,7 @@ $("#sel-ciclo").innerHTML = (CONFIG.ciclos || []).map(c => "<option" + (c === ap
 
 enlazarAcciones($("#v-planes"), () => ({
   cambiarCiclo: (d, e, el) => { app.ciclo = el.value; mostrarTablero(); },   // paso 9
-  releerExcel: () => cargarTablero({ releer: true }),                        // FA-009
+  releerHoja: () => cargarTablero({ releer: true }),                         // FA-009
   consultar: d => abrirConsulta(d.sig),                                      // FA-013
   editar: d => entrarAEditarPlan(d.sig)                                      // paso 13
 }));
@@ -81,8 +81,8 @@ function mostrarTablero(){
 }
 
 /**
- * Lee el tablero del ciclo a la vista (pasos 10 y 11); con opciones.releer, mira antes los
- * xlsx de Drive (FA-009).
+ * Lee el tablero del ciclo a la vista (pasos 10 y 11); con opciones.releer, lee antes las
+ * pestañas de datos de la hoja (FA-009).
  * @param {{releer?: boolean}=} opciones
  * @returns {Promise<void>}
  */
@@ -93,14 +93,14 @@ async function cargarTablero(opciones){
     const r = await (releer ? llamar : llamarDeFondo)("tableroObtener", ciclo, { releer: releer });
     if (pedido !== tablero.pedido || ciclo !== app.ciclo) return;
     fijarTablero(ciclo, r.filas, r.avisos);
-    if (releer) { brindis("Excel revisado", "info"); anunciar("tablero", { ciclo: ciclo }); }
+    if (releer) { brindis("Hoja revisada", "info"); anunciar("tablero", { ciclo: ciclo }); }
   } catch (e) {
     if (pedido === tablero.pedido) informarError(e);
   }
 }
 
 /**
- * El tablero que trajo la página. Si hace un rato que nadie revisa los xlsx de Drive, se
+ * El tablero que trajo la página. Si hace un rato que nadie revisa las pestañas de datos, se
  * revisan ahora de fondo, mientras el usuario está en el inicio.
  * @param {{ciclo: string, filas: Array<Object>, avisos: Array<Object>, pendiente: boolean}} t
  * @returns {void}

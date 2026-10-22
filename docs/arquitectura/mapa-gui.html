@@ -262,11 +262,17 @@ footer.pie { margin: 36px 0 28px; color: var(--tinta-suave); font-size: 13px; }
       { "vista": ["cu002/Asignacion.html"], "servidor": ["cu002/AsignacionServidor.js"], "pantalla": "asignacion" },
       { "vista": ["cu002/AsignacionEdicion.html"], "servidor": ["cu002/AsignacionEdicionServidor.js"], "pantalla": "asignacion" },
       { "vista": ["cu002/AsignacionCarga.html"], "servidor": [], "pantalla": "asignacionCarga" }
+    ] },
+    { "id": "hoja", "nombre": "hoja/", "texto": "Hoja del sistema: menú, advertencias e instalación", "pares": [
+      { "vista": ["hoja/Panel.html"], "servidor": ["hoja/PanelServidor.js"], "pantalla": "panelHoja" },
+      { "vista": ["hoja/Migracion.html"], "servidor": ["hoja/MigracionServidor.js"], "pantalla": "migracionHoja" },
+      { "vista": ["hoja/Limpieza.html"], "servidor": ["hoja/LimpiezaServidor.js"], "pantalla": "limpiezaHoja" },
+      { "vista": [], "servidor": ["hoja/MenuHoja.js", "hoja/RevisionHoja.js", "hoja/ReglasHoja.js", "hoja/PintadoHoja.js", "hoja/InicioHoja.js"], "pantalla": "menuHoja" }
     ] }
   ],
   "entradas": {
     "doGet": { "archivo": "IndexServidor.js", "servicio": [{ "funcion": "datosIniciales_", "archivo": "IndexServidor.js" }], "cu": "CU-001 y CU-002 pasos 1 a 6, FA de acceso denegado" },
-    "tableroObtener": { "archivo": "cu001/TableroServidor.js", "servicio": [{ "funcion": "sincronizarFuentes_", "archivo": "cu001/OfertaDrive.js" }, { "funcion": "leerTablero_", "archivo": "cu001/PlanServicio.js" }], "cu": "CU-001 pasos 9 a 11, FA-009 a FA-012" },
+    "tableroObtener": { "archivo": "cu001/TableroServidor.js", "servicio": [{ "funcion": "sincronizarFuentes_", "archivo": "cu001/OfertaHoja.js" }, { "funcion": "leerTablero_", "archivo": "cu001/PlanServicio.js" }], "cu": "CU-001 pasos 9 a 11, FA-009 a FA-012" },
     "consultaObtener": { "archivo": "cu001/ConsultaServidor.js", "servicio": [{ "funcion": "planVigente_", "archivo": "cu001/PlanServicio.js" }], "cu": "CU-001 FA-013" },
     "edicionPlanAbrir": { "archivo": "cu001/EdicionPlanServidor.js", "servicio": [{ "funcion": "abrirEdicionPlan_", "archivo": "cu001/PlanServicio.js" }], "cu": "CU-001 pasos 13 a 18, FA-014 a FA-016, FA-104" },
     "edicionPlanGuardar": { "archivo": "cu001/EdicionPlanServidor.js", "servicio": [{ "funcion": "guardarPlan_", "archivo": "cu001/PlanServicio.js" }, { "funcion": "prepararFusiones_", "archivo": "cu001/Fusiones.js" }, { "funcion": "guardarFusionesAjenas_", "archivo": "cu001/Fusiones.js" }], "cu": "CU-001 pasos 43 a 50, FA-099 a FA-118" },
@@ -283,7 +289,21 @@ footer.pie { margin: 36px 0 28px; color: var(--tinta-suave); font-size: 13px; }
     "sesionEdicionGuardarCopia": { "archivo": "comun/SesionEdicionServidor.js", "servicio": [{ "funcion": "guardarRecuperacion_", "archivo": "comun/Recuperacion.js" }], "cu": "CU-001 y CU-002, «Copia de recuperación»" },
     "sesionEdicionDescartarCopia": { "archivo": "comun/SesionEdicionServidor.js", "servicio": [{ "funcion": "borrarRecuperacion_", "archivo": "comun/Recuperacion.js" }], "cu": "CU-001 FA-017, FA-115; CU-002 FA-017, FA-110" },
     "derivacionGuardar": { "archivo": "comun/DerivacionServidor.js", "servicio": [{ "funcion": "derivarAsignatura_", "archivo": "comun/DerivacionServidor.js" }], "cu": "CU-001 FA-005 a FA-008; CU-002 FA-079 a FA-083" },
-    "docentesAsignadosObtener": { "archivo": "comun/DocentesAsignadosServidor.js", "servicio": [{ "funcion": "docentesPorGrupo_", "archivo": "cu002/CargaServicio.js" }], "cu": "CU-001 FA-013, FA-057, FA-064, FA-071" }
+    "docentesAsignadosObtener": { "archivo": "comun/DocentesAsignadosServidor.js", "servicio": [{ "funcion": "docentesPorGrupo_", "archivo": "cu002/CargaServicio.js" }], "cu": "CU-001 FA-013, FA-057, FA-064, FA-071" },
+    "onOpen": { "archivo": "hoja/MenuHoja.js", "servicio": [], "cu": "Hoja del sistema: menú" },
+    "onEdit": { "archivo": "hoja/MenuHoja.js", "servicio": [{ "funcion": "revisarHoja_", "archivo": "hoja/RevisionHoja.js" }, { "funcion": "reaccionarEdicion_", "archivo": "hoja/PintadoHoja.js" }, { "funcion": "actualizarInicio_", "archivo": "hoja/InicioHoja.js" }], "cu": "Hoja del sistema: advertencias al editar" },
+    "menuAbrirPanel": { "archivo": "hoja/MenuHoja.js", "servicio": [{ "funcion": "exigirHoja_", "archivo": "hoja/MenuHoja.js" }], "cu": "Hoja del sistema: advertencias" },
+    "menuActualizarRevision": { "archivo": "hoja/MenuHoja.js", "servicio": [{ "funcion": "revisarHoja_", "archivo": "hoja/RevisionHoja.js" }, { "funcion": "actualizarInicio_", "archivo": "hoja/InicioHoja.js" }], "cu": "Hoja del sistema: advertencias" },
+    "menuInstalar": { "archivo": "hoja/MenuHoja.js", "servicio": [{ "funcion": "instalar", "archivo": "comun/Config.js" }, { "funcion": "prepararHojaDatos_", "archivo": "hoja/InicioHoja.js" }], "cu": "Hoja del sistema: instalación" },
+    "menuTraerBdAnterior": { "archivo": "hoja/MenuHoja.js", "servicio": [{ "funcion": "exigirPropietarioHoja_", "archivo": "hoja/MenuHoja.js" }], "cu": "Hoja del sistema: instalación" },
+    "menuLimpiarCarpeta": { "archivo": "hoja/MenuHoja.js", "servicio": [{ "funcion": "exigirPropietarioHoja_", "archivo": "hoja/MenuHoja.js" }], "cu": "Hoja del sistema: instalación" },
+    "panelObtener": { "archivo": "hoja/PanelServidor.js", "servicio": [{ "funcion": "avisosGuardadosHoja_", "archivo": "hoja/RevisionHoja.js" }, { "funcion": "revisarHoja_", "archivo": "hoja/RevisionHoja.js" }, { "funcion": "datosPanel_", "archivo": "hoja/PanelServidor.js" }], "cu": "Hoja del sistema: advertencias" },
+    "panelActualizar": { "archivo": "hoja/PanelServidor.js", "servicio": [{ "funcion": "revisarHoja_", "archivo": "hoja/RevisionHoja.js" }, { "funcion": "actualizarInicio_", "archivo": "hoja/InicioHoja.js" }, { "funcion": "datosPanel_", "archivo": "hoja/PanelServidor.js" }], "cu": "Hoja del sistema: advertencias" },
+    "panelIrA": { "archivo": "hoja/PanelServidor.js", "servicio": [{ "funcion": "tipoDePestana_", "archivo": "comun/FuenteHoja.js" }], "cu": "Hoja del sistema: advertencias" },
+    "migracionRevisar": { "archivo": "hoja/MigracionServidor.js", "servicio": [{ "funcion": "abrirBdAnterior_", "archivo": "hoja/MigracionServidor.js" }, { "funcion": "resumenMigracion_", "archivo": "hoja/MigracionServidor.js" }], "cu": "Hoja del sistema: instalación" },
+    "migracionAplicar": { "archivo": "hoja/MigracionServidor.js", "servicio": [{ "funcion": "copiarTablasAnteriores_", "archivo": "hoja/MigracionServidor.js" }, { "funcion": "sincronizarFuentes_", "archivo": "cu001/OfertaHoja.js" }], "cu": "Hoja del sistema: instalación" },
+    "limpiezaListar": { "archivo": "hoja/LimpiezaServidor.js", "servicio": [{ "funcion": "listaLimpieza_", "archivo": "hoja/LimpiezaServidor.js" }], "cu": "Hoja del sistema: instalación" },
+    "limpiezaAplicar": { "archivo": "hoja/LimpiezaServidor.js", "servicio": [{ "funcion": "listaLimpieza_", "archivo": "hoja/LimpiezaServidor.js" }], "cu": "Hoja del sistema: instalación" }
   },
   "pantallas": [
     { "id": "cabecera", "nombre": "Cabecera", "cu": "comun", "contenedor": ".cabecera", "vista": ["Index.html"], "mapa": "comun/Nucleo.html", "acciones": [
@@ -296,7 +316,7 @@ footer.pie { margin: 36px 0 28px; color: var(--tinta-suave); font-size: 13px; }
     ] },
     { "id": "planes", "nombre": "Planes de ciclo", "cu": "cu001", "contenedor": "#v-planes", "vista": ["cu001/Tablero.html"], "mapa": "cu001/Tablero.html", "acciones": [
       { "accion": "cambiarCiclo", "boton": "Selector «Ciclo académico»", "pasos": [{ "funcion": "mostrarTablero", "archivo": "cu001/Tablero.html" }, { "funcion": "cargarTablero", "archivo": "cu001/Tablero.html" }], "llamadas": ["tableroObtener"], "cu": "CU-001 pasos 9 a 11" },
-      { "accion": "releerExcel", "boton": "Releer Excel", "pasos": [{ "funcion": "cargarTablero", "archivo": "cu001/Tablero.html" }], "llamadas": ["tableroObtener"], "cu": "CU-001 FA-009 a FA-012" },
+      { "accion": "releerHoja", "boton": "Releer la hoja", "pasos": [{ "funcion": "cargarTablero", "archivo": "cu001/Tablero.html" }], "llamadas": ["tableroObtener"], "cu": "CU-001 FA-009 a FA-012" },
       { "accion": "consultar", "boton": "Fila de una carrera", "pasos": [{ "funcion": "abrirConsulta", "archivo": "cu001/Consulta.html" }], "llamadas": ["consultaObtener"], "nota": "Solo llama al servidor si el tablero no trajo el plan.", "cu": "CU-001 FA-013" },
       { "accion": "editar", "boton": "Editar", "pasos": [{ "funcion": "entrarAEditarPlan", "archivo": "cu001/EdicionPlanSesion.html" }, { "funcion": "confirmarEdicion", "archivo": "cu001/EdicionPlanSesion.html" }], "llamadas": ["edicionPlanAbrir"], "cu": "CU-001 pasos 13 a 19, FA-015, FA-016" }
     ] },
@@ -374,6 +394,28 @@ footer.pie { margin: 36px 0 28px; color: var(--tinta-suave); font-size: 13px; }
       { "accion": "aplicar", "boton": "Aplicar a la asignación", "pasos": [{ "funcion": "aplicarAsignaciones", "archivo": "cu002/AsignacionCarga.html" }, { "funcion": "cambiado", "archivo": "cu002/AsignacionEdicion.html" }], "llamadas": [], "cu": "CU-002 pasos 51 a 59, FA-045, FA-047" },
       { "accion": "descartar", "boton": "Descartar", "pasos": [{ "funcion": "mostrarPegadoDocentes", "archivo": "cu002/AsignacionCarga.html" }], "llamadas": [], "cu": "CU-002 FA-046" }
     ] },
+    { "id": "menuHoja", "nombre": "Menú SISCargaLectiva de la hoja", "cu": "hoja", "sinMapa": true, "vista": ["hoja/MenuHoja.js", "hoja/InicioHoja.js"], "acciones": [
+      { "accion": "abrirHoja", "boton": "Se abre la hoja", "pasos": [], "llamadas": ["onOpen"], "nota": "Disparador simple: añade el menú.", "cu": "Hoja del sistema: menú" },
+      { "accion": "editarCelda", "boton": "Se edita una celda de una pestaña de datos", "pasos": [], "llamadas": ["onEdit"], "nota": "Disparador simple: revisa, pinta y avisa.", "cu": "Hoja del sistema: advertencias al editar" },
+      { "accion": "abrirPanel", "boton": "Panel de advertencias (menú o botón de Inicio)", "pasos": [], "llamadas": ["menuAbrirPanel"], "cu": "Hoja del sistema: advertencias" },
+      { "accion": "actualizarRevision", "boton": "Actualizar la revisión", "pasos": [], "llamadas": ["menuActualizarRevision"], "cu": "Hoja del sistema: advertencias" },
+      { "accion": "instalar", "boton": "Instalación → Instalar o reparar", "pasos": [], "llamadas": ["menuInstalar"], "cu": "Hoja del sistema: instalación" },
+      { "accion": "traerBdAnterior", "boton": "Instalación → Traer los datos de la BD anterior…", "pasos": [], "llamadas": ["menuTraerBdAnterior"], "cu": "Hoja del sistema: instalación" },
+      { "accion": "limpiarCarpeta", "boton": "Instalación → Limpiar la carpeta…", "pasos": [], "llamadas": ["menuLimpiarCarpeta"], "cu": "Hoja del sistema: instalación" }
+    ] },
+    { "id": "panelHoja", "nombre": "Panel de advertencias", "cu": "hoja", "sinMapa": true, "vista": ["hoja/Panel.html"], "acciones": [
+      { "accion": "leer", "boton": "Se abre el panel (y cada 5 s)", "pasos": [{ "funcion": "leer", "archivo": "hoja/Panel.html" }, { "funcion": "recibir", "archivo": "hoja/Panel.html" }], "llamadas": ["panelObtener"], "cu": "Hoja del sistema: advertencias" },
+      { "accion": "irA", "boton": "Una advertencia de la lista", "pasos": [{ "funcion": "pintarLista", "archivo": "hoja/Panel.html" }], "llamadas": ["panelIrA"], "cu": "Hoja del sistema: advertencias" },
+      { "accion": "actualizar", "boton": "Actualizar", "pasos": [{ "funcion": "recibir", "archivo": "hoja/Panel.html" }], "llamadas": ["panelActualizar"], "cu": "Hoja del sistema: advertencias" }
+    ] },
+    { "id": "migracionHoja", "nombre": "Traer los datos de la BD anterior", "cu": "hoja", "sinMapa": true, "vista": ["hoja/Migracion.html"], "acciones": [
+      { "accion": "revisar", "boton": "Revisar", "pasos": [{ "funcion": "pedir", "archivo": "hoja/Migracion.html" }], "llamadas": ["migracionRevisar"], "cu": "Hoja del sistema: instalación" },
+      { "accion": "traer", "boton": "Traer los datos", "pasos": [{ "funcion": "pedir", "archivo": "hoja/Migracion.html" }], "llamadas": ["migracionAplicar"], "nota": "Reemplaza las tablas de la hoja y lee las pestañas de datos.", "cu": "Hoja del sistema: instalación" }
+    ] },
+    { "id": "limpiezaHoja", "nombre": "Limpiar la carpeta", "cu": "hoja", "sinMapa": true, "vista": ["hoja/Limpieza.html"], "acciones": [
+      { "accion": "listar", "boton": "Se abre el diálogo", "pasos": [{ "funcion": "pintar", "archivo": "hoja/Limpieza.html" }], "llamadas": ["limpiezaListar"], "cu": "Hoja del sistema: instalación" },
+      { "accion": "papelera", "boton": "Mandar a la papelera (dos clics)", "pasos": [{ "funcion": "elegidos", "archivo": "hoja/Limpieza.html" }], "llamadas": ["limpiezaAplicar"], "nota": "Solo lo propio y lo elegido; la papelera lo guarda 30 días.", "cu": "Hoja del sistema: instalación" }
+    ] },
     { "id": "automaticas", "nombre": "Llamadas sin botón", "cu": "automatica", "automatica": true, "acciones": [
       { "accion": "abrirLaPagina", "boton": "Se abre la URL del sistema", "pasos": [{ "funcion": "arrancar", "archivo": "comun/Arranque.html" }], "llamadas": ["doGet"], "nota": "doGet arma la página en el servidor; no pasa por google.script.run.", "cu": "CU-001 y CU-002 pasos 1 a 6, FA de acceso denegado" },
       { "accion": "llegaElTablero", "boton": "Llega el tablero", "pasos": [{ "funcion": "fijarTablero", "archivo": "cu001/Tablero.html" }, { "funcion": "actualizarDocentesAsignados", "archivo": "comun/DocentesAsignados.html" }], "llamadas": ["docentesAsignadosObtener"], "cu": "CU-001 FA-013 (docente de cada grupo)" },
@@ -398,7 +440,7 @@ footer.pie { margin: 36px 0 28px; color: var(--tinta-suave); font-size: 13px; }
   const quieto = () => !G || (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
   const $ = s => document.querySelector(s);
   const el = (etiqueta, clase, texto) => { const e = document.createElement(etiqueta); if (clase) e.className = clase; if (texto != null) e.textContent = texto; return e; };
-  const ETIQUETA_CU = { comun: "Común", cu001: "CU-001", cu002: "CU-002", automatica: "Sin botón" };
+  const ETIQUETA_CU = { comun: "Común", cu001: "CU-001", cu002: "CU-002", hoja: "Hoja del sistema", automatica: "Sin botón" };
   const COLOR_CAPA = { vista: "var(--c-vista)", nav: "var(--c-nav)", entrada: "var(--c-entrada)", servicio: "var(--c-servicio)" };
 
   /* ---------- tema ---------- */
@@ -457,7 +499,7 @@ footer.pie { margin: 36px 0 28px; color: var(--tinta-suave); font-size: 13px; }
 
   /* ---------- filtros ---------- */
   const estado = { cu: "todos", texto: "", pantalla: null };
-  [["todos", "Todas"], ["cu001", "CU-001"], ["cu002", "CU-002"], ["comun", "Comunes"], ["automatica", "Sin botón"]].forEach(([id, t]) => {
+  [["todos", "Todas"], ["cu001", "CU-001"], ["cu002", "CU-002"], ["comun", "Comunes"], ["hoja", "Hoja"], ["automatica", "Sin botón"]].forEach(([id, t]) => {
     const b = el("button", "filtro", t); b.type = "button"; b.dataset.cu = id; b.setAttribute("aria-pressed", String(id === "todos"));
     b.addEventListener("click", () => { estado.cu = id; estado.pantalla = null; document.querySelectorAll(".filtro").forEach(x => x.setAttribute("aria-pressed", String(x === b))); pintar(); });
     $("#filtros").append(b);
@@ -467,7 +509,7 @@ footer.pie { margin: 36px 0 28px; color: var(--tinta-suave); font-size: 13px; }
   /* ---------- lista de pantallas ---------- */
   function pintarLista(){
     const nav = $("#pantallas"); nav.innerHTML = "";
-    ["comun", "cu001", "cu002", "automatica"].forEach(cu => {
+    ["comun", "cu001", "cu002", "hoja", "automatica"].forEach(cu => {
       const delCu = pantallas.filter(p => p.cu === cu);
       if (!delCu.length) return;
       nav.append(el("h3", null, ETIQUETA_CU[cu]));
@@ -507,7 +549,7 @@ footer.pie { margin: 36px 0 28px; color: var(--tinta-suave); font-size: 13px; }
   function filaDe(a){
     const f = el("div", "fila"); f.tabIndex = 0;
     const quien = el("div", "quien");
-    const btn = el("div", "boton-gui", a.boton); btn.append(el("small", "mono", a.pantalla.automatica ? "sin botón" : 'data-accion="' + a.accion + '"'));
+    const btn = el("div", "boton-gui", a.boton); btn.append(el("small", "mono", a.pantalla.automatica ? "sin botón" : a.pantalla.sinMapa ? "en la hoja" : 'data-accion="' + a.accion + '"'));
     quien.append(btn, el("span", "ficha f-cu", a.cu));
     if (a.nota) quien.append(el("span", "vacio", a.nota));
     const carril = (titulo, nodos, vacio) => {

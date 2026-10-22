@@ -1,8 +1,10 @@
+/* El lector de .xlsx de las pruebas (pruebas/LectorXlsx.js) convierte los Excel de ejemplo de
+   docs/archivos en las pestañas de la hoja del sistema, y ofertaDesdePestanas_ las interpreta. */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { cargar, partesXlsx, plano, ofertaPatron, ARCHIVOS_DOMINIO, XLSX_CARRERA, XLSX_DEPARTAMENTO } from "./soporte.mjs";
 
-const ctx = cargar(ARCHIVOS_DOMINIO.concat(["comun/LectorXlsx.js", "cu001/OfertaXlsx.js"]));
+const ctx = cargar(ARCHIVOS_DOMINIO.concat(["pruebas/LectorXlsx.js", "comun/FuenteHoja.js", "cu001/OfertaPestanas.js"]));
 const libroCarrera = ctx.leerLibroXlsx_(partesXlsx(XLSX_CARRERA));
 const libroDepartamento = ctx.leerLibroXlsx_(partesXlsx(XLSX_DEPARTAMENTO));
 
@@ -47,8 +49,8 @@ const OBSERVACIONES_OMITIDAS = {
   "17.3.1.24": "FUSIÓN CON ARQ-3"
 };
 
-test("los Excel reales dan la misma oferta que datos/oferta-ejemplo.js", () => {
-  const { oferta } = plano(ctx.ofertaDesdeLibros_(libroCarrera, libroDepartamento));
+test("las pestañas de los Excel reales dan la misma oferta que datos/oferta-ejemplo.js", () => {
+  const { oferta } = plano(ctx.ofertaDesdePestanas_(libroCarrera, libroDepartamento));
   const patron = ofertaPatron();
   assert.deepEqual(Object.keys(oferta).sort(), Object.keys(patron).sort());
 
@@ -75,17 +77,17 @@ test("los Excel reales dan la misma oferta que datos/oferta-ejemplo.js", () => {
 });
 
 test("las marcas de CONDICIÓN solo rellenan observaciones vacías", () => {
-  const { oferta } = plano(ctx.ofertaDesdeLibros_(libroCarrera, libroDepartamento));
+  const { oferta } = plano(ctx.ofertaDesdePestanas_(libroCarrera, libroDepartamento));
   const ing = new Map(oferta.ING.map(a => [a.codigo, a]));
   assert.equal(ing.get("3.4.1.24").obs, "INTERNACIONAL - MÉXICO");
   const com = new Map(oferta.COM.map(a => [a.codigo, a]));
   assert.equal(com.get("8.7.7.22").obs, "INTERNACIONAL MÉXICO - VIRTUAL");
-  const sinDepartamento = plano(ctx.ofertaDesdeLibros_(libroCarrera, null)).oferta;
+  const sinDepartamento = plano(ctx.ofertaDesdePestanas_(libroCarrera, null)).oferta;
   assert.equal(new Map(sinDepartamento.ING.map(a => [a.codigo, a])).get("3.4.1.24").obs, "");
 });
 
 test("avisa de la fila que repite código y grupo", () => {
-  const { avisos } = plano(ctx.ofertaDesdeLibros_(libroCarrera, libroDepartamento));
+  const { avisos } = plano(ctx.ofertaDesdePestanas_(libroCarrera, libroDepartamento));
   assert.equal(avisos.length, 1);
   assert.equal(avisos[0].tipo, "FILA_REPETIDA");
   assert.match(avisos[0].texto, /Psicología.*9\.2\.5\.24.*grupo 1/);

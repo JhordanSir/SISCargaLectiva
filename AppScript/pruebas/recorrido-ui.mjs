@@ -135,14 +135,14 @@ async function recorrido(srv) {
   asegurar(await pa.evaluar(`typeof XLSX === "undefined"`), "SheetJS no se descarga al abrir la página");
   await pa.pulsar("#op-planes");
   await pa.esperar(`document.querySelectorAll("#tb-tablero tr").length === 8 && [...document.querySelectorAll("#tb-tablero .pill")].every(p => p.textContent === "Registrado")`,
-    "el tablero lista las 8 carreras, leídas del xlsx de fondo");
+    "el tablero lista las 8 carreras, leídas de las pestañas de fondo");
   let filas = await pa.filasTablero();
-  asegurar(filas.every(f => f.celdas[1] === "Registrado" && f.celdas[6] === "v1"), "todas Registrado v1, leídas del xlsx");
+  asegurar(filas.every(f => f.celdas[1] === "Registrado" && f.celdas[6] === "v1"), "todas Registrado v1, leídas de las pestañas");
   asegurar(filas.reduce((n, f) => n + Number(f.celdas[4]), 0) === 365, "suman 365 grupos");
   await pa.captura("01-tablero.png");
 
   await pa.pulsar("#btn-releer");
-  await pa.esperar(`[...document.querySelectorAll("#brindis div")].some(d => d.textContent === "Excel revisado")`, "«Releer Excel» revisa la carpeta");
+  await pa.esperar(`[...document.querySelectorAll("#brindis div")].some(d => d.textContent === "Hoja revisada")`, "«Releer la hoja» lee las pestañas");
 
   const antesConsulta = await pa.evaluar("window.__llamadas.length");
   await pa.pulsar('#tb-tablero tr[data-sig="DER"]');

@@ -5,7 +5,7 @@
 /* Columnas con fecha y hora de cada pestaña. */
 var COLUMNAS_FECHA_ = {
   Planes: ["actualizado_en"], Versiones: ["fecha"], Bloqueos: ["desde", "expira"],
-  Fuentes: ["modificado", "procesado_en"], Cargas: ["actualizado_en"], VersionesCarga: ["fecha"],
+  Fuentes: ["procesado_en"], Cargas: ["actualizado_en"], VersionesCarga: ["fecha"],
   Recuperacion: ["fecha"]
 };
 

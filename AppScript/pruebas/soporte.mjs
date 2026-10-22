@@ -12,7 +12,7 @@ export const XLSX_DEPARTAMENTO = path.join(REPO, "docs/archivos/SISCargaLectiva-
 export const XLSX_DOCENTES = path.join(REPO, "docs/archivos/SISCargaLectiva-Ejemplo-CargaDeDocentes.xlsx");
 
 /* Carpetas del proyecto de Apps Script que se suben con clasp (ver .claspignore). */
-export const CARPETAS_APP = ["", "comun", "cu001", "cu002"];
+export const CARPETAS_APP = ["", "comun", "cu001", "cu002", "hoja"];
 
 /* Archivos de la aplicación con esa extensión, como rutas relativas a AppScript/ («cu001/TableroServidor.js»), ordenados. */
 export function archivosApp(extension) {

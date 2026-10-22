@@ -11,7 +11,7 @@
 
    Crecimiento (auditoría P3.6-j; solo política, sin implementar): cada guardado, también
    cada autoguardado y cada fusión llevada a otro plan, añade una fila con el contenido
-   completo (con los Excel de ejemplo, un plan ocupa de 2 a 16 KB de JSON). Leer la vigente no se encarece,
+   completo (con la oferta de ejemplo, un plan ocupa de 2 a 16 KB de JSON). Leer la vigente no se encarece,
    porque el índice dice su fila, pero el historial y la búsqueda de una versión sin fila
    conocida leen la tabla entera. Política propuesta para cuando exista el CU «Administrar
    ciclos»: al cerrar un ciclo, pasar a un libro de archivo sus versiones y dejar en
@@ -215,7 +215,7 @@ function contenidoVersion_(repo, ciclo, clave, n, filaVersion) {
 /**
  * Contenido vigente de varios documentos de un ciclo ({clave: contenido}): primero de la
  * caché y, lo que falte, de la hoja, en un solo bloque si sus filas están cerca (como
- * tras leer los xlsx). filasIndice: filas del índice de ese ciclo.
+ * tras leer las pestañas de oferta). filasIndice: filas del índice de ese ciclo.
  * @param {Repo} repo
  * @param {string} ciclo
  * @param {FilaTabla[]} filasIndice
