@@ -130,6 +130,27 @@ test("nadie pasa de 40 h; un docente con cargo sobre 24 h exige motivo", () => {
   assert.equal(exc.severos.length, horas > 24 ? 1 : 0);
 });
 
+test("el autoguardado y la restauración guardan sin los límites de horas (FA-112, FA-087)", () => {
+  const e = sistema();
+  const st = ejecutar(e, DIMA, "asignacionObtener", CICLO, "ING");
+  const secciones = st.unidades.filter(u => u.carrera === "ING" && u.ht + u.hp >= 4).slice(0, 11);
+  const asignar = lista => lista.flatMap(u => u.componentes.map(c => ({ unidad: u.id, componente: c.c, docente: "PRUEBA, DOCENTE", horas: null })));
+  ejecutar(e, DIMA, "asignacionEdicionAbrir", CICLO, "ING");
+  /* CU-002 FA-112: al expirar, la carga se guarda según los pasos 69 a 76, sin el control A07. */
+  const g = ejecutar(e, DIMA, "asignacionEdicionGuardar", CICLO, "ING", { asignaciones: asignar(secciones), versionBase: 0, tipo: "autoguardado", forzar: true });
+  assert.equal(g.version, 1);
+  ejecutar(e, DIMA, "asignacionEdicionGuardar", CICLO, "ING", { asignaciones: [], versionBase: 1 });
+  /* CU-002 FA-087: restaurar la v1 la guarda según los pasos 69 a 77, también sin A07 ni A12. */
+  const r = ejecutar(e, DIMA, "asignacionEdicionRestaurar", CICLO, "ING", 1);
+  assert.equal(r.version, 3);
+  const h = ejecutar(e, DIMA, "asignacionHistorial", CICLO, "ING");
+  assert.deepEqual(h.map(v => v.tipo), ["autoguardado", "guardar", "restauración de v1"]);
+  assert.equal(h[2].motivo, "", "la restauración no lleva motivo de exceso");
+  /* Un guardado normal que lleva al docente por encima de 40 h sí se detiene en A07. */
+  ejecutar(e, DIMA, "asignacionEdicionGuardar", CICLO, "ING", { asignaciones: [], versionBase: 3 });
+  assert.throws(() => ejecutar(e, DIMA, "asignacionEdicionGuardar", CICLO, "ING", { asignaciones: asignar(secciones), versionBase: 4 }), { codigo: "EXCESO_HORAS" });
+});
+
 test("advertencias A10, A11 y A14 del balance, que suma todas las carreras", () => {
   const e = sistema();
   const Dominio = e.ctx.Dominio;
@@ -205,6 +226,8 @@ test("derivar un curso es una excepción: lo asigna otro departamento, en la car
   const mate = unidad(st, "ADM", "1.1.4.24");                       // Matemática Básica: la asigna DACTE
   const otra = st.unidades.find(u => u.carrera === "ADM" && u.id !== mate.id);
   assert.throws(() => ejecutar(e, DIMA, "derivacionGuardar", CICLO, "ADM", mate.id, "DIMA", ""), { codigo: "SIN_PERMISO", message: /Solo puedes derivar/ });
+  /* CU-001 FA-005: deriva el director del departamento que asigna; el coordinador no. */
+  assert.throws(() => ejecutar(e, A, "derivacionGuardar", CICLO, "ADM", mate.id, "DIMA", ""), { codigo: "SIN_PERMISO", message: /coordinador de carrera no deriva/ });
   const r = ejecutar(e, DACTE, "derivacionGuardar", CICLO, "ADM", mate.id, "DIMA", "lo dicta Matemáticas");
   assert.equal(r.version, 2);
   assert.match(ejecutar(e, B, "edicionPlanHistorial", CICLO, "ADM")[1].motivo, /DACTE → DIMA\. lo dicta Matemáticas/);

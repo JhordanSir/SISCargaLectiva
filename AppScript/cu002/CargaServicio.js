@@ -200,9 +200,11 @@ function abrirEdicionCarga_(usuario, ciclo, carrera, versionConocida) {
 }
 
 /**
- * datos: {asignaciones, versionBase, tipo («guardar» o «autoguardado»), motivo,
- * motivoExceso, forzar}. Orquesta: permiso, bloqueo, conflicto, combinación con lo que no
- * le toca a la cuenta, depuración, excesos de horas y guardado.
+ * datos: {asignaciones, versionBase, tipo («guardar», «autoguardado» o «restauración de
+ * vN»), motivo, motivoExceso, forzar}. Orquesta: permiso, bloqueo, conflicto, combinación
+ * con lo que no le toca a la cuenta, depuración, excesos de horas y guardado. El
+ * autoguardado (FA-112) y la restauración (FA-087) guardan según los pasos 69 en adelante:
+ * no aplican los límites de horas de los pasos 62 y 63 (A07, A12).
  * @param {Usuario} usuario
  * @param {string} ciclo
  * @param {Sigla} carrera
@@ -213,7 +215,8 @@ function guardarCarga_(usuario, ciclo, carrera, datos) {
   if (!datos) fallo_("DATO_INVALIDO", "No llegó la carga que se quería guardar.");
   const recibidas = Dominio.sanearAsignaciones(datos.asignaciones);
   const T = Dominio.TIPO_VERSION;
-  const tipo = datos.tipo === T.AUTOGUARDADO || T.esRestauracion(datos.tipo) ? datos.tipo : T.GUARDAR_CARGA;
+  const automatico = datos.tipo === T.AUTOGUARDADO || T.esRestauracion(datos.tipo);
+  const tipo = automatico ? datos.tipo : T.GUARDAR_CARGA;
   const planes = planesDelCiclo_(ciclo);
   const unidades = Dominio.unidadesDelCiclo(planes);
   exigirCarga_(usuario, carrera, unidades);
@@ -230,7 +233,7 @@ function guardarCarga_(usuario, ciclo, carrera, datos) {
     const actuales = v.version ? contenidoCarga_(ciclo, carrera, v.version, v.filaVersion) : [];
     const combinadas = combinarCarga_(usuario, carrera, actuales, recibidas, unidades);
     const asignaciones = depurarCarga_(carrera, combinadas, unidades, cargas);
-    const motivoExceso = validarExcesos_(leerCatalogoDocentes_(false).docentes, unidades, cargas, carrera, asignaciones, datos.motivoExceso);
+    const motivoExceso = automatico ? "" : validarExcesos_(leerCatalogoDocentes_(false).docentes, unidades, cargas, carrera, asignaciones, datos.motivoExceso);
     const g = persistirCarga_(ciclo, carrera, fila, { tipo: tipo, usuario: usuario.correo, motivo: datos.motivo, motivoExceso: motivoExceso, planes: planes, asignaciones: asignaciones });
     const r = b ? tomarBloqueo_(ciclo, Dominio.REF.carga(carrera), usuario.correo) : null;
     return { version: g.version, fecha: g.fecha, asignaciones: asignaciones, expira: r && r.ok ? r.expira : null };
@@ -278,9 +281,9 @@ function persistirCarga_(ciclo, carrera, fila, datos) {
 }
 
 /**
- * Restaurar no borra el historial: crea una versión nueva con el contenido recuperado,
- * con las mismas reglas de un guardado (cada director solo restaura las secciones que le
- * tocan).
+ * CU-002 FA-087: restaurar no borra el historial: crea una versión nueva con el contenido
+ * recuperado, según los pasos 69 a 77 de un guardado (cada director solo restaura las
+ * secciones que le tocan; no se aplican los límites de horas).
  * @param {Usuario} usuario
  * @param {string} ciclo
  * @param {Sigla} carrera
@@ -292,5 +295,5 @@ function restaurarCarga_(usuario, ciclo, carrera, n) {
   const vigente = vigente_(filaCarga_(ciclo, carrera)).version;
   if (!(k >= 1 && k <= vigente)) fallo_("NO_ENCONTRADO", "La versión v" + n + " no existe.");
   const asignaciones = contenidoCarga_(ciclo, carrera, k, 0);
-  return guardarCarga_(usuario, ciclo, carrera, { asignaciones: asignaciones, versionBase: vigente, tipo: Dominio.TIPO_VERSION.restauracion(k), motivoExceso: Dominio.TIPO_VERSION.restauracion(k) });
+  return guardarCarga_(usuario, ciclo, carrera, { asignaciones: asignaciones, versionBase: vigente, tipo: Dominio.TIPO_VERSION.restauracion(k) });
 }

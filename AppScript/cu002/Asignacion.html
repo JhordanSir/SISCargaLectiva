@@ -389,7 +389,7 @@ function pintarTablaSecciones(){
       '<td><div class="acciones-fila">' +
         (ed && mia ? '<button type="button" class="btn btn-sm' + (alguna ? "" : " primario") + '" data-accion="asignarSeccion" data-u="' + esc(seccion.id) + '">' + icono("user-plus") + (alguna ? "Cambiar" : "Asignar") + "</button>" : "") +
         (ed && mia && asigs.some(a => String(a.docente || "").trim()) ? '<button type="button" class="btn btn-sm" data-accion="reemplazarEnSeccion" data-u="' + esc(seccion.id) + '">' + icono("user-switch") + "Reemplazar</button>" : "") +
-        (mia ? '<button type="button" class="btn btn-sm" data-accion="derivarSeccion" data-u="' + esc(seccion.id) + '" title="Que asigne el docente de esta asignatura otro departamento">' + icono("swap") + "Derivar</button>" : "") +
+        (ed && mia ? '<button type="button" class="btn btn-sm" data-accion="derivarSeccion" data-u="' + esc(seccion.id) + '" title="Que asigne el docente de esta asignatura otro departamento">' + icono("swap") + "Derivar</button>" : "") +
       "</div></td></tr>");
   });
   tb.innerHTML = filas.length ? filas.join("")   // FA-014

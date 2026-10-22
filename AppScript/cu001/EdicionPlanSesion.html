@@ -29,7 +29,7 @@ const enEdicionPlan = () => !!(edicion.carrera && edicion.plan && ["carga","pega
 registrarGuardaDeSalida(async () => {
   if (!enEdicionPlan()) return true;
   if (!(await confirmarSalidaEdicion())) return false;
-  salirDeEdicionPlan();
+  salirDeEdicionPlan(true);
   return true;
 });
 registrarCambiosPendientes(() => !!(edicion.plan && edicion.plan.sucio));
@@ -78,10 +78,12 @@ async function expirarEdicionPlan(){
   await informar("La sesión de edición ha expirado", "Transcurrieron " + CONFIG.minutosBloqueo + " minutos sin actividad. " + esc(texto));
 }
 
-/* FA-029 y FA-115: libera el bloqueo y vuelve al tablero, descartando lo no guardado. */
-async function salirDeEdicionPlan(){
+/* FA-029 y FA-115: libera el bloqueo y vuelve al tablero, descartando lo no guardado. En
+   FA-115 («Salir de la edición», borrarCopia) la copia de recuperación se borra siempre
+   (paso 4); en FA-029 («Volver al tablero» desde la carga masiva), solo si había cambios. */
+async function salirDeEdicionPlan(borrarCopia){
   const sig = edicion.carrera, confirmado = !!(edicion.plan && edicion.plan.confirmado);
-  if (sig && edicion.plan && edicion.plan.sucio) descartarCopia(app.ciclo, refPlan(sig));
+  if (sig && edicion.plan && (borrarCopia || edicion.plan.sucio)) descartarCopia(app.ciclo, refPlan(sig));
   sesionPlan.detener();
   edicion.carrera = null; edicion.plan = null; edicion.seleccion = null;
   pintarTablero();
@@ -108,7 +110,7 @@ function confirmarSalidaEdicion(){
 
 /* FA-115: «Salir de la edición» en la grilla. */
 async function salirDeLaEdicion(){
-  if (await confirmarSalidaEdicion()) salirDeEdicionPlan();
+  if (await confirmarSalidaEdicion()) salirDeEdicionPlan(true);
 }
 
 /* ============================================================

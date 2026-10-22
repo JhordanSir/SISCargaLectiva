@@ -26,8 +26,9 @@ function derivacionGuardar(ciclo, sig, grupoId, nuevo, motivo) {
 }
 
 /**
- * Lo hace el director del departamento que hoy asigna la asignatura o el coordinador de la
- * carrera. Si otra cuenta edita el plan, no se guarda (CU-001 FA-008, CU-002 FA-083).
+ * Solo lo hace el director del departamento que hoy asigna la asignatura (CU-001 FA-005 y
+ * su actor «Director de departamento»; el coordinador no deriva). Si otra cuenta edita el
+ * plan, no se guarda (CU-001 FA-008, CU-002 FA-083).
  * @param {Usuario} usuario
  * @param {string} ciclo
  * @param {Sigla} sig
@@ -46,11 +47,10 @@ function derivarAsignatura_(usuario, ciclo, sig, grupoId, nuevo, motivo) {
     if (!a) fallo_("NO_ENCONTRADO", "La asignatura ya no está en el plan de " + Dominio.nombreCarrera(sig) + ". Actualiza la pantalla.");
     const propio = Dominio.dptoDeCarrera(sig);
     const actual = Dominio.DPTOS.indexOf(a.derivado) >= 0 ? a.derivado : propio;
-    const esDirector = usuario.rol === "director" && !!usuario.departamento && usuario.departamento === actual;
-    if (!esDirector && usuario.carreras.indexOf(sig) < 0)
-      fallo_("SIN_PERMISO", usuario.rol === "director"
-        ? "Solo puedes derivar los cursos que asigna tu departamento (" + (usuario.departamento || "sin departamento") + ")."
-        : "Solo el coordinador de " + Dominio.nombreCarrera(sig) + " puede cambiar el departamento de sus asignaturas.");
+    if (usuario.rol !== "director")
+      fallo_("SIN_PERMISO", "El coordinador de carrera no deriva cursos: lo hace el director del departamento que los asigna.");
+    if (!usuario.departamento || usuario.departamento !== actual)
+      fallo_("SIN_PERMISO", "Solo puedes derivar los cursos que asigna tu departamento (" + (usuario.departamento || "sin departamento") + ").");
     if (actual === nuevo) return { version: p.version, estado: p.estado, totales: Dominio.totales(asignaturas), contenido: asignaturas, sinCambios: true };
     exigirSinBloqueoAjeno_(ciclo, sig, usuario, "el cambio de departamento no se guardó");
     if (nuevo === propio) delete a.derivado; else a.derivado = nuevo;

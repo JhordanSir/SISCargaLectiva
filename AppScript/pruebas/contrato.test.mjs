@@ -37,7 +37,7 @@ function llamadasValidas(e) {
     [A, "edicionPlanHistorial", CICLO, "ING"],
     [A, "edicionPlanRestaurar", CICLO, "ING", 1],
     [A, "sesionEdicionLiberar", CICLO, "plan:ING"],
-    [A, "derivacionGuardar", CICLO, "ADM", grupoAdm, "DACTE", "prueba"],
+    [DIRECTORES.DACTE, "derivacionGuardar", CICLO, "ADM", grupoAdm, "DACTE", "prueba"],
     [DIMA, "asignacionObtener", CICLO, "ING"],
     [A, "docentesAsignadosObtener", CICLO],
     [DIMA, "asignacionEdicionAbrir", CICLO, "ING"],
@@ -90,10 +90,10 @@ test("una excepción no prevista llega como INTERNO, sin detalles técnicos", ()
   }
 });
 
-test("cambiarDepartamento sin cambios devuelve también el contenido del plan", () => {
+test("derivacionGuardar sin cambios devuelve también el contenido del plan", () => {
   const e = sistema();
   const a = ejecutar(e, A, "consultaObtener", CICLO, "ADM").asignaturas[0];
-  const r = ejecutar(e, A, "derivacionGuardar", CICLO, "ADM", a.grupos[0].id, e.ctx.Dominio.dptoDeCarrera("ADM"), "");
+  const r = ejecutar(e, DIRECTORES.DACTE, "derivacionGuardar", CICLO, "ADM", a.grupos[0].id, e.ctx.Dominio.dptoDeCarrera("ADM"), "");
   assert.equal(r.sinCambios, true);
   assert.ok(Array.isArray(r.contenido) && r.contenido.length > 0 && r.totales);
 });
