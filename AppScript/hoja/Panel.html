@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --azul: #1F3A5F; --texto: #1F2933; --tenue: #5F6B7A; --borde: #D5DBE3; --fondo: #FFFFFF; --gris: #F4F6F9;
+    --error: #B3261E; --error-claro: #FCE8E6; --adv: #8A6100; --adv-claro: #FEF7E0; --obs: #0B57D0; --obs-claro: #EDF3FC;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--fondo); color: var(--texto); font: 13px/1.45 Roboto, Arial, sans-serif; }
+  main { padding: 16px 16px 76px; }
+  h1 { margin: 0; font-size: 16px; font-weight: 700; color: var(--azul); }
+  .sub { margin: 2px 0 14px; color: var(--tenue); font-size: 12px; }
+  .resumen { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+  .tarjeta { border: 1px solid var(--borde); border-top: 3px solid var(--c); border-radius: 6px; padding: 8px 10px; background: var(--fondo);
+    cursor: pointer; text-align: left; font: inherit; color: inherit; }
+  .tarjeta b { display: block; font-size: 20px; font-weight: 700; color: var(--c); }
+  .tarjeta span { font-size: 11px; color: var(--tenue); }
+  .tarjeta[aria-pressed="true"] { background: var(--gris); outline: 2px solid var(--c); outline-offset: -2px; }
+  .tarjeta.error { --c: var(--error); } .tarjeta.advertencia { --c: var(--adv); } .tarjeta.observacion { --c: var(--obs); }
+  .estado { padding: 8px 10px; border-radius: 6px; background: var(--gris); color: var(--texto); margin-bottom: 12px; font-size: 12.5px; }
+  .estado.error { background: var(--error-claro); color: var(--error); }
+  .estado.advertencia { background: var(--adv-claro); color: var(--adv); }
+  .buscar { width: 100%; border: 1px solid var(--borde); border-radius: 6px; padding: 7px 9px; font: inherit; margin-bottom: 12px; }
+  .buscar:focus { outline: 2px solid var(--azul); outline-offset: -1px; }
+  details { border: 1px solid var(--borde); border-radius: 6px; margin-bottom: 8px; overflow: hidden; }
+  summary { list-style: none; cursor: pointer; padding: 8px 10px; display: flex; gap: 8px; align-items: center; font-weight: 500; background: var(--gris); }
+  summary::-webkit-details-marker { display: none; }
+  summary .flecha { color: var(--tenue); transition: transform .15s; font-size: 10px; }
+  details[open] summary .flecha { transform: rotate(90deg); }
+  summary .n { margin-left: auto; color: var(--tenue); font-size: 12px; }
+  .item { padding: 8px 10px 8px 12px; border-top: 1px solid var(--borde); cursor: pointer; border-left: 3px solid var(--c); }
+  .item:hover { background: var(--gris); }
+  .item.error { --c: var(--error); } .item.advertencia { --c: var(--adv); } .item.observacion { --c: var(--obs); }
+  .item .ref { font-size: 11px; color: var(--c); font-weight: 700; }
+  .vacio { text-align: center; padding: 18px 10px; color: var(--tenue); border: 1px dashed var(--borde); border-radius: 6px; }
+  footer { position: fixed; left: 0; right: 0; bottom: 0; padding: 10px 16px; background: var(--fondo); border-top: 1px solid var(--borde);
+    display: flex; gap: 8px; align-items: center; }
+  button.accion { border: 1px solid var(--azul); background: var(--azul); color: #fff; border-radius: 6px; padding: 8px 12px; font: 500 12.5px Roboto, Arial, sans-serif; cursor: pointer; }
+  button.accion.sec { background: #fff; color: var(--azul); }
+  button.accion:disabled { opacity: .5; cursor: default; }
+  .hora { margin-left: auto; font-size: 11px; color: var(--tenue); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Panel de advertencias</h1>
+  <p class="sub"><?= titulo ?></p>
+  <div class="resumen" role="group" aria-label="Filtrar por nivel">
+    <button class="tarjeta error" data-f="error" aria-pressed="false"><b id="nError">0</b><span>Errores</span></button>
+    <button class="tarjeta advertencia" data-f="advertencia" aria-pressed="false"><b id="nAdv">0</b><span>Advertencias</span></button>
+    <button class="tarjeta observacion" data-f="observacion" aria-pressed="false"><b id="nObs">0</b><span>Observaciones</span></button>
+  </div>
+  <div class="estado" id="estado" aria-live="polite">Revisando los datos…</div>
+  <input class="buscar" id="buscar" type="search" placeholder="Buscar por docente, código u hoja" aria-label="Buscar en las advertencias">
+  <div id="lista"></div>
+</main>
+<footer>
+  <? if (modo === "centro") { ?>
+    <button class="accion" onclick="accion('abrirEnviar', this)">Enviar cambios a la app</button>
+    <button class="accion sec" onclick="accion('actualizarRevision', this)">Actualizar</button>
+  <? } else { ?>
+    <button class="accion sec" onclick="accion('aplicarFormato', this)">Actualizar formato</button>
+  <? } ?>
+  <span class="hora" id="hora"></span>
+</footer>
+<script>
+  var estado = { datos: null, filtro: null, texto: "" };
+  var NOMBRE = { error: "Error", advertencia: "Advertencia", observacion: "Observación" };
+
+  document.querySelectorAll(".tarjeta").forEach(function (b) {
+    b.addEventListener("click", function () {
+      estado.filtro = estado.filtro === b.dataset.f ? null : b.dataset.f;
+      document.querySelectorAll(".tarjeta").forEach(function (x) { x.setAttribute("aria-pressed", String(x.dataset.f === estado.filtro)); });
+      pintarLista();
+    });
+  });
+  document.getElementById("buscar").addEventListener("input", function (e) { estado.texto = e.target.value.toLowerCase(); pintarLista(); });
+
+  function recibir(d) {
+    estado.datos = d;
+    var c = d.cuentas;
+    document.getElementById("nError").textContent = c.error;
+    document.getElementById("nAdv").textContent = c.advertencia;
+    document.getElementById("nObs").textContent = c.observacion;
+    var e = document.getElementById("estado");
+    e.className = "estado" + (c.error ? " error" : c.advertencia ? " advertencia" : "");
+    e.textContent = c.error ? c.error + (c.error === 1 ? " error: la app rechaza o descarta ese dato." : " errores: la app rechaza o descarta esos datos.")
+      : c.advertencia ? "Sin errores. " + c.advertencia + (c.advertencia === 1 ? " advertencia por revisar." : " advertencias por revisar.")
+      : c.observacion ? "Sin errores ni advertencias." : "Los datos no tienen advertencias.";
+    document.getElementById("hora").textContent = "Revisado a las " + d.generado;
+    pintarLista();
+  }
+
+  function pintarLista() {
+    var d = estado.datos; if (!d) return;
+    var caja = document.getElementById("lista");
+    var abiertos = {};
+    caja.querySelectorAll("details").forEach(function (x) { abiertos[x.dataset.hoja] = x.open; });
+    var items = d.items.filter(function (it) {
+      if (estado.filtro && it.nivel !== estado.filtro) return false;
+      return !estado.texto || (it.hoja + " " + it.a1 + " " + it.codigo + " " + it.mensaje).toLowerCase().indexOf(estado.texto) >= 0;
+    });
+    caja.innerHTML = "";
+    if (!items.length) {
+      caja.innerHTML = "<div class='vacio'>" + (d.total ? "Ninguna advertencia coincide con el filtro." : "No hay advertencias.") + "</div>";
+      return;
+    }
+    var grupos = {}, orden = [];
+    items.forEach(function (it) { if (!grupos[it.hoja]) { grupos[it.hoja] = []; orden.push(it.hoja); } grupos[it.hoja].push(it); });
+    orden.forEach(function (hoja, i) {
+      var det = document.createElement("details");
+      det.dataset.hoja = hoja;
+      det.open = abiertos[hoja] !== undefined ? abiertos[hoja] : i < 3;
+      det.innerHTML = "<summary><span class='flecha'>&#9654;</span><span>" + esc(hoja) + "</span><span class='n'>" + grupos[hoja].length + "</span></summary>";
+      grupos[hoja].slice(0, 150).forEach(function (it) {
+        var div = document.createElement("div");
+        div.className = "item " + it.nivel;
+        div.title = "Ir a " + it.hoja + "!" + it.a1;
+        div.innerHTML = "<div class='ref'>" + NOMBRE[it.nivel] + " · " + esc(it.a1) + " · " + esc(it.codigo) + "</div><div>" + esc(it.mensaje) + "</div>";
+        div.addEventListener("click", function () { google.script.run.irA(it.hoja, it.a1); });
+        det.appendChild(div);
+      });
+      caja.appendChild(det);
+    });
+  }
+
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+
+  function leer() {
+    google.script.run.withSuccessHandler(function (d) { recibir(d); setTimeout(leer, 5000); })
+      .withFailureHandler(function (e) { document.getElementById("hora").textContent = "Sin conexión: " + e.message; setTimeout(leer, 10000); })
+      .datosDelPanel();
+  }
+  function accion(nombre, boton) {
+    boton.disabled = true;
+    google.script.run.withSuccessHandler(function () { boton.disabled = false; })
+      .withFailureHandler(function (e) { boton.disabled = false; alert(e.message); })[nombre]();
+  }
+  leer();
+</script>
+</body>
+</html>
