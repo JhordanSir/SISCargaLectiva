@@ -5,8 +5,11 @@
 
 @import "tailwindcss" source(none);
 @source "../*.html";
-@source not "../Estilos.html";
-@source not "../Iconos.html";
+@source "../comun/*.html";
+@source "../cu001/*.html";
+@source "../cu002/*.html";
+@source not "../comun/Estilos.html";
+@source not "../comun/Iconos.html";
 
 /* ============================================================
    Tokens

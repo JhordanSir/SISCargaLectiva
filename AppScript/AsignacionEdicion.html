@@ -5,7 +5,7 @@
    ============================================================ */
 const sesionCarga = crearSesionEdicion({
   relojes: "#reloj-asignacion",
-  renovar: () => llamarEnSilencio("renovarBloqueoCarga", appCarga.ciclo, appCarga.carrera),
+  renovar: () => llamarEnSilencio("sesionEdicionRenovar", appCarga.ciclo, Dominio.REF.carga(appCarga.carrera)),
   alPerder: correo => {
     appCarga.editando = false;
     marcarDocentesSucio(false);
@@ -15,14 +15,14 @@ const sesionCarga = crearSesionEdicion({
   },
   alExpirar: () => expirarCarga(),
   copia: () => appCarga.editando && appCarga.sucio ? { contenido: appCarga.trabajo, versionBase: appCarga.base } : null,
-  guardarCopia: d => llamarEnSilencio("guardarRecuperacion", appCarga.ciclo, Dominio.REF.carga(appCarga.carrera), d)
+  guardarCopia: d => llamarEnSilencio("sesionEdicionGuardarCopia", appCarga.ciclo, Dominio.REF.carga(appCarga.carrera), d)
 });
 
 alPulsar("#btn-doc-editar", async () => {
   const d = appCarga.datos;
   let r;
   try {
-    r = await llamar("abrirEdicionCarga", appCarga.ciclo, appCarga.carrera, appCarga.base);
+    r = await llamar("asignacionEdicionAbrir", appCarga.ciclo, appCarga.carrera, appCarga.base);
   } catch (e) {
     if (e.codigo !== "BLOQUEADO") return informarError(e);
     d.bloqueo = e.detalle;
@@ -39,7 +39,7 @@ alPulsar("#btn-doc-editar", async () => {
   if (r.recuperacion && Array.isArray(r.recuperacion.contenido)) {
     const rec = await ofrecerRecuperacion(r.recuperacion, appCarga.base, "la carga de " + appCarga.carrera);
     if (rec === true) { appCarga.trabajo = r.recuperacion.contenido; marcarDocentesSucio(true); aviso("Cambios recuperados: revísalos y guarda."); }
-    else if (rec === false) llamarEnSilencio("descartarRecuperacion", appCarga.ciclo, Dominio.REF.carga(appCarga.carrera)).catch(e => console.warn("descartarRecuperacion:", e));
+    else if (rec === false) llamarEnSilencio("sesionEdicionDescartarCopia", appCarga.ciclo, Dominio.REF.carga(appCarga.carrera)).catch(e => console.warn("sesionEdicionDescartarCopia:", e));
   }
   pintarVistaDocentes();
 });
@@ -56,9 +56,9 @@ async function terminarEdicionCarga(){
   const ciclo = appCarga.ciclo, carrera = appCarga.carrera;
   sesionCarga.detener();
   appCarga.editando = false;
-  if (appCarga.sucio) llamarEnSilencio("descartarRecuperacion", ciclo, Dominio.REF.carga(carrera)).catch(e => console.warn("descartarRecuperacion:", e));
+  if (appCarga.sucio) llamarEnSilencio("sesionEdicionDescartarCopia", ciclo, Dominio.REF.carga(carrera)).catch(e => console.warn("sesionEdicionDescartarCopia:", e));
   marcarDocentesSucio(false);
-  try { await llamarEnSilencio("liberarBloqueoCarga", ciclo, carrera); } catch (e) { /* caduca solo */ }
+  try { await llamarEnSilencio("sesionEdicionLiberar", ciclo, Dominio.REF.carga(carrera)); } catch (e) { /* caduca solo */ }
   if (appCarga.datos) appCarga.trabajo = clonar(appCarga.datos.cargas[carrera].asignaciones || []);
   pintarVistaDocentes();
 }
@@ -70,7 +70,7 @@ async function expirarCarga(){
   let texto = "No había cambios sin guardar.";
   if (appCarga.sucio) {
     try {
-      const r = await llamar("guardarCarga", appCarga.ciclo, appCarga.carrera, { asignaciones: limpiarParaGuardar(), versionBase: appCarga.base, tipo: Dominio.TIPO_VERSION.AUTOGUARDADO, forzar: true });
+      const r = await llamar("asignacionEdicionGuardar", appCarga.ciclo, appCarga.carrera, { asignaciones: limpiarParaGuardar(), versionBase: appCarga.base, tipo: Dominio.TIPO_VERSION.AUTOGUARDADO, forzar: true });
       fijarGuardado(r);
       texto = "Los cambios se guardaron como la versión v" + r.version + ".";
     } catch (e) {
@@ -79,14 +79,14 @@ async function expirarCarga(){
   }
   appCarga.editando = false;
   marcarDocentesSucio(false);
-  try { await llamarEnSilencio("liberarBloqueoCarga", appCarga.ciclo, appCarga.carrera); } catch (e) { /* caduca solo */ }
+  try { await llamarEnSilencio("sesionEdicionLiberar", appCarga.ciclo, Dominio.REF.carga(appCarga.carrera)); } catch (e) { /* caduca solo */ }
   pintarVistaDocentes();
   await informar("La sesión de edición ha expirado", "Transcurrieron " + CONFIG.minutosBloqueo + " minutos sin actividad. " + esc(texto));
 }
 
 window.addEventListener("pagehide", () => {
   /* Sin esperar respuesta: la página se cierra. */
-  if (appCarga.editando) google.script.run.liberarBloqueoCarga(appCarga.ciclo, appCarga.carrera);
+  if (appCarga.editando) google.script.run.sesionEdicionLiberar(appCarga.ciclo, Dominio.REF.carga(appCarga.carrera));
 });
 
 /* ============================================================
@@ -337,7 +337,7 @@ async function derivarSeccion(seccion){
                                  Dominio.dptoDeCarrera(p.carrera));
   if (!r) return;
   try {
-    const res = await llamar("cambiarDepartamento", appCarga.ciclo, p.carrera, p.grupoId, r.dpto, r.motivo);
+    const res = await llamar("derivacionGuardar", appCarga.ciclo, p.carrera, p.grupoId, r.dpto, r.motivo);
     if (res.sinCambios) return aviso("A " + seccion.codigo + " ya lo asigna " + r.dpto + ".", "info");
     actualizarFilaTablero(p.carrera, { version: res.version, estado: res.estado, totales: res.totales, contenido: res.contenido });
     aviso("Ahora " + seccion.codigo + " lo asigna " + r.dpto + ".");
@@ -408,11 +408,11 @@ alPulsar("#btn-doc-guardar", async () => {
   try {
     let res;
     try {
-      res = await llamar("guardarCarga", appCarga.ciclo, appCarga.carrera, datos);
+      res = await llamar("asignacionEdicionGuardar", appCarga.ciclo, appCarga.carrera, datos);
     } catch (e) {
       if (e.codigo !== "CONFLICTO") throw e;
       if (!await confirmarConflicto(e.detalle, "de la carga")) return;
-      res = await llamar("guardarCarga", appCarga.ciclo, appCarga.carrera, Object.assign(datos, { forzar: true }));
+      res = await llamar("asignacionEdicionGuardar", appCarga.ciclo, appCarga.carrera, Object.assign(datos, { forzar: true }));
     }
     fijarGuardado(res);
     pintarVistaDocentes();
@@ -422,13 +422,13 @@ alPulsar("#btn-doc-guardar", async () => {
 
 alPulsar("#btn-doc-historial", async () => {
   let versiones;
-  try { versiones = await llamar("obtenerHistorialCarga", appCarga.ciclo, appCarga.carrera); } catch (e) { return informarError(e); }
+  try { versiones = await llamar("asignacionHistorial", appCarga.ciclo, appCarga.carrera); } catch (e) { return informarError(e); }
   if (!versiones.length) return aviso("Todavía no hay versiones guardadas de esta carga.", "info");
   const v = await dialogoHistorial({ titulo: "Historial de la carga de " + appCarga.carrera, versiones: versiones, ver: true, restaurar: appCarga.editando });
   if (!v) return;
   if (v.ver) {
     let lista;
-    try { lista = await llamar("obtenerVersionCarga", appCarga.ciclo, appCarga.carrera, v.ver); } catch (e) { return informarError(e); }
+    try { lista = await llamar("asignacionVerVersion", appCarga.ciclo, appCarga.carrera, v.ver); } catch (e) { return informarError(e); }
     return preguntar({
       titulo: "Carga de " + appCarga.carrera + " · v" + v.ver,
       cuerpo: '<div class="tabla-caja"><table><thead><tr><th>Carrera</th><th>Código</th><th>Asignatura</th><th class="num">Grupo</th><th>Comp.</th><th>Docente</th><th class="num">Horas</th></tr></thead><tbody>' +
@@ -445,7 +445,7 @@ alPulsar("#btn-doc-historial", async () => {
     if (!ok) return;
   }
   try {
-    const res = await llamar("restaurarCarga", appCarga.ciclo, appCarga.carrera, v.restaurar);
+    const res = await llamar("asignacionEdicionRestaurar", appCarga.ciclo, appCarga.carrera, v.restaurar);
     fijarGuardado(res);
     pintarVistaDocentes();
     aviso("Versión v" + v.restaurar + " restaurada como v" + res.version + ".");

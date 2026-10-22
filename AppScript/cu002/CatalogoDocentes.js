@@ -1,6 +1,7 @@
 // @ts-check
-/* Catálogo de docentes (CU-002): sale de CargaDeDocentes.xlsx, en la carpeta de Drive del
-   sistema, y se guarda una hora en la caché. Nunca se modifica el archivo. */
+/* Catálogo de docentes (CU-002 paso 10, FA-007 a FA-009): sale de CargaDeDocentes.xlsx, en
+   la carpeta de Drive del sistema, y se guarda una hora en la caché. Nunca se modifica el
+   archivo. */
 
 var SEGUNDOS_CACHE_CATALOGO_ = 3600;
 /* Leer CargaDeDocentes tarda unos segundos. Para que ninguna consulta lo espere, la revisión

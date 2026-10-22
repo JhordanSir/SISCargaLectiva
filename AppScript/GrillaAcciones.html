@@ -264,13 +264,13 @@ async function accion(tipo){
 
     case "historial": {
       let versiones;
-      try { versiones = await llamar("obtenerHistorial", app.ciclo, app.carrera); } catch (e) { return informarError(e); }
+      try { versiones = await llamar("edicionPlanHistorial", app.ciclo, app.carrera); } catch (e) { return informarError(e); }
       if (!versiones.length) return aviso("Todavía no hay versiones guardadas de este plan.", "info");
       const elegido = await dialogoHistorial({ titulo: "Historial de versiones", versiones: versiones, conEstado: true, restaurar: true });
       if (!elegido) return;
       const n = elegido.restaurar;
       let res;
-      try { res = await llamar("restaurarVersion", app.ciclo, app.carrera, n); } catch (e) { return informarError(e); }
+      try { res = await llamar("edicionPlanRestaurar", app.ciclo, app.carrera, n); } catch (e) { return informarError(e); }
       Object.assign(p, { asignaturas: res.asignaturas, version: res.version, estado: res.estado, sucio: false, fusionesDisueltas: [] });
       sesionPlan.renovada(res.expira);
       sesionPlan.olvidarCopia();

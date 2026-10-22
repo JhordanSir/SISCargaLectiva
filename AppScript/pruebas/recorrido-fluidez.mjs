@@ -142,7 +142,7 @@ try {
   await pd.pulsar('[data-ir="docentes"]');
   await pd.esperar(`!document.querySelector("#v-docentes").hidden`, "vuelve a la asignación docente");
   asegurar(await pd.evaluar(`appCarga.trabajo.length`) === asignadas && await pd.evaluar(`appCarga.editando`), "las asignaciones sin guardar siguen ahí (" + asignadas + ")");
-  asegurar(!(await pd.evaluar(`window.__llamadas.slice(${llamadasAntes})`)).includes("obtenerCargaDocente"), "volver no vuelve a pedir los datos al servidor");
+  asegurar(!(await pd.evaluar(`window.__llamadas.slice(${llamadasAntes})`)).includes("asignacionObtener"), "volver no vuelve a pedir los datos al servidor");
 
   await pd.evaluar(`(() => { const s = document.querySelector("#sel-doc-carrera"); s.value = "IND"; s.dispatchEvent(new Event("change")); })()`);
   await pd.esperar(`document.querySelector("#dlg").open && document.querySelector("#dlg-titulo").textContent === "Terminar la edición"`, "cambiar de carrera mientras edita pide terminar la edición");

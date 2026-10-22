@@ -1,12 +1,11 @@
 // @ts-check
-/* Identidad y permisos. La aplicación se publica con acceso para el dominio
-   institucional, así que Google ya exige una cuenta de ese dominio; aquí se
-   comprueba de nuevo y se busca el rol en la pestaña Usuarios.
-   Coordinador: registra y edita el plan de las carreras de su columna «carreras»;
-   consulta los demás planes y la asignación docente en solo lectura.
-   Director: es de un departamento (columna «departamento»). Asigna los docentes de los
-   cursos que piden a su departamento y puede derivar esos cursos a otro departamento;
-   no edita los planes. Consulta todo lo demás en solo lectura.
+/* Identidad de la cuenta y validación de lo que llega del navegador. La aplicación se
+   publica con acceso para el dominio institucional, así que Google ya exige una cuenta de
+   ese dominio; aquí se comprueba de nuevo y se busca el rol en la pestaña Usuarios
+   (CU-001 y CU-002, pasos 2 a 5 y FA de acceso denegado).
+   Coordinador: su columna «carreras» dice qué planes edita (cu001/PlanServicio.js).
+   Director: su columna «departamento» dice qué cargas docentes asigna
+   (cu002/CargaServicio.js). Todo lo demás lo consultan en solo lectura.
    Una cuenta que no figura en Usuarios no entra (propiedad SIS_ROL_POR_DEFECTO).
    El rol de cada cuenta se guarda 5 minutos en la caché del script: un cambio en la
    pestaña Usuarios tarda como mucho eso en aplicarse. */
@@ -53,13 +52,11 @@ function rolDeCuenta_(correo, cfg) {
     return { correo: correo, codigo: "SIN_ROL", denegado: "La cuenta " + correo + " no tiene un rol en SISCargaLectiva. " +
              "Pide que la añadan a la pestaña Usuarios de la hoja del sistema." };
   }
-  const coordina = rol === "coordinador" ? carrerasDeTexto_(fila ? fila.carreras : "") : [];
   return {
     correo: correo,
     rol: rol,
-    /* Carreras cuyo plan puede editar. */
-    carreras: coordina,
-    coordina: coordina,
+    /* Carreras cuyo plan coordina (y puede editar). */
+    carreras: rol === "coordinador" ? carrerasDeTexto_(fila ? fila.carreras : "") : [],
     /* Departamento del director: uno solo; si la celda trae varios, vale el primero. */
     departamento: rol === "director" ? (departamentosDeTexto_(fila ? fila.departamento : "")[0] || "") : "",
     pordefecto: !fila
@@ -114,66 +111,6 @@ function exigirUsuario_() {
   const usuario = usuarioActual_();
   if (usuario.denegado) fallo_(usuario.codigo || "SIN_ROL", usuario.denegado);
   return usuario;
-}
-
-/**
- * Falla con SIN_PERMISO si la cuenta no coordina esa carrera.
- * @param {Usuario} usuario
- * @param {Sigla} sig
- * @returns {void}
- */
-function exigirEdicion_(usuario, sig) {
-  if (usuario.carreras.indexOf(sig) < 0)
-    fallo_("SIN_PERMISO", usuario.rol === "director"
-      ? "El director de departamento no edita los planes de ciclo: los consulta y puede derivar a otro departamento los cursos que piden al suyo."
-      : "Tu cuenta no tiene permiso para editar el plan de " + Dominio.nombreCarrera(sig) + ": solo puedes consultarlo.");
-}
-
-/**
- * La carga de una carrera la edita el director del departamento de la carrera. El de otro
- * departamento solo si tiene cursos de esa carrera derivados a él; para saberlo hacen falta
- * las secciones del ciclo (unidades).
- * @param {Usuario} usuario
- * @param {string} carrera
- * @param {Seccion[]=} unidades
- * @returns {boolean}
- */
-function puedeEditarCarga_(usuario, carrera, unidades) {
-  if (usuario.rol !== "director" || !usuario.departamento) return false;
-  if (Dominio.dptoDeCarrera(carrera) === usuario.departamento) return true;
-  return (unidades || []).some(function (s) { return s.carrera === carrera && s.dpto === usuario.departamento; });
-}
-
-/**
- * Falla con SIN_PERMISO si la cuenta no puede editar la carga de esa carrera.
- * @param {Usuario} usuario
- * @param {string} carrera
- * @param {Seccion[]=} unidades
- * @returns {void}
- */
-function exigirCarga_(usuario, carrera, unidades) {
-  if (puedeEditarCarga_(usuario, carrera, unidades)) return;
-  if (usuario.rol !== "director") fallo_("SIN_PERMISO", "El coordinador de carrera consulta la asignación docente en solo lectura.");
-  if (!usuario.departamento) fallo_("SIN_PERMISO", "Tu cuenta de director no tiene departamento. Pide que lo escriban en la columna «departamento» de la pestaña Usuarios.");
-  const d = usuario.departamento;
-  fallo_("SIN_PERMISO", "Solo asignas docentes en las carreras de " + d + " (" + Dominio.carrerasDeDpto(d).join(", ") + ") y en los cursos derivados a " + d +
-                        ". La carga de " + Dominio.nombreCarrera(carrera) + " la consultas en solo lectura.");
-}
-
-/**
- * Para lo que se repite mientras se edita (latido, copia de recuperación, restaurar):
- * basta con ser el director de la carrera o tener su bloqueo, que solo se da tras
- * comprobar el permiso completo. Si no, se comprueba con las secciones del ciclo.
- * @param {Usuario} usuario
- * @param {string} ciclo
- * @param {string} carrera
- * @returns {void}
- */
-function exigirCargaEnEdicion_(usuario, ciclo, carrera) {
-  if (puedeEditarCarga_(usuario, carrera)) return;
-  const b = bloqueoDe_(ciclo, Dominio.REF.carga(carrera));
-  if (usuario.rol === "director" && b && b.correo === usuario.correo) return;
-  exigirCarga_(usuario, carrera, seccionesDelCiclo_(ciclo));
 }
 
 /**

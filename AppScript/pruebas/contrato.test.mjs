@@ -18,42 +18,42 @@ function sistema() {
   e.subir(e.propiedades.SIS_CARPETA_ID, "SISCargaLectiva-Ejemplo-CargaXCarrera.xlsx", fs.readFileSync(XLSX_CARRERA));
   e.subir(e.propiedades.SIS_CARPETA_ID, "SISCargaLectiva-Ejemplo-CargaXDepartamento.xlsx", fs.readFileSync(XLSX_DEPARTAMENTO));
   e.subir(e.propiedades.SIS_CARPETA_ID, "SISCargaLectiva-Ejemplo-CargaDeDocentes.xlsx", fs.readFileSync(XLSX_DOCENTES));
-  ejecutar(e, A, "obtenerTablero", CICLO);
+  ejecutar(e, A, "tableroObtener", CICLO);
   return e;
 }
 
 /* Cada endpoint con una cuenta y unos argumentos válidos, en un orden que tiene sentido. */
 function llamadasValidas(e) {
-  const ing = ejecutar(e, A, "obtenerPlan", CICLO, "ING");
-  const grupoAdm = ejecutar(e, A, "obtenerPlan", CICLO, "ADM").asignaturas[0].grupos[0].id;
+  const ing = ejecutar(e, A, "consultaObtener", CICLO, "ING");
+  const grupoAdm = ejecutar(e, A, "consultaObtener", CICLO, "ADM").asignaturas[0].grupos[0].id;
   return [
-    [A, "obtenerTablero", CICLO],
-    [A, "obtenerPlan", CICLO, "ING"],
-    [A, "abrirEdicion", CICLO, "ING"],
-    [A, "renovarBloqueo", CICLO, "ING"],
-    [A, "guardarRecuperacion", CICLO, "plan:ING", { contenido: ing.asignaturas, versionBase: 1 }],
-    [A, "descartarRecuperacion", CICLO, "plan:ING"],
-    [A, "guardarPlan", CICLO, "ING", { asignaturas: ing.asignaturas, estado: "Registrado", tipo: "guardar cambios", versionBase: 1 }],
-    [A, "obtenerHistorial", CICLO, "ING"],
-    [A, "restaurarVersion", CICLO, "ING", 1],
-    [A, "liberarBloqueo", CICLO, "ING"],
-    [A, "cambiarDepartamento", CICLO, "ADM", grupoAdm, "DACTE", "prueba"],
-    [DIMA, "obtenerCargaDocente", CICLO, "ING"],
-    [A, "obtenerDocentesPorGrupo", CICLO],
-    [DIMA, "abrirEdicionCarga", CICLO, "ING"],
-    [DIMA, "renovarBloqueoCarga", CICLO, "ING"],
-    [DIMA, "guardarCarga", CICLO, "ING", { asignaciones: [], versionBase: 0 }],
-    [DIMA, "obtenerHistorialCarga", CICLO, "ING"],
-    [DIMA, "obtenerVersionCarga", CICLO, "ING", 1],
-    [DIMA, "restaurarCarga", CICLO, "ING", 1],
-    [DIMA, "liberarBloqueoCarga", CICLO, "ING"]
+    [A, "tableroObtener", CICLO],
+    [A, "consultaObtener", CICLO, "ING"],
+    [A, "edicionPlanAbrir", CICLO, "ING"],
+    [A, "sesionEdicionRenovar", CICLO, "plan:ING"],
+    [A, "sesionEdicionGuardarCopia", CICLO, "plan:ING", { contenido: ing.asignaturas, versionBase: 1 }],
+    [A, "sesionEdicionDescartarCopia", CICLO, "plan:ING"],
+    [A, "edicionPlanGuardar", CICLO, "ING", { asignaturas: ing.asignaturas, estado: "Registrado", tipo: "guardar cambios", versionBase: 1 }],
+    [A, "edicionPlanHistorial", CICLO, "ING"],
+    [A, "edicionPlanRestaurar", CICLO, "ING", 1],
+    [A, "sesionEdicionLiberar", CICLO, "plan:ING"],
+    [A, "derivacionGuardar", CICLO, "ADM", grupoAdm, "DACTE", "prueba"],
+    [DIMA, "asignacionObtener", CICLO, "ING"],
+    [A, "docentesAsignadosObtener", CICLO],
+    [DIMA, "asignacionEdicionAbrir", CICLO, "ING"],
+    [DIMA, "sesionEdicionRenovar", CICLO, "carga:ING"],
+    [DIMA, "asignacionEdicionGuardar", CICLO, "ING", { asignaciones: [], versionBase: 0 }],
+    [DIMA, "asignacionHistorial", CICLO, "ING"],
+    [DIMA, "asignacionVerVersion", CICLO, "ING", 1],
+    [DIMA, "asignacionEdicionRestaurar", CICLO, "ING", 1],
+    [DIMA, "sesionEdicionLiberar", CICLO, "carga:ING"]
   ];
 }
 
 test("todos los endpoints responden {ok: true, datos} cuando salen bien", () => {
   const e = sistema();
   const llamadas = llamadasValidas(e);
-  assert.equal(new Set(llamadas.map(l => l[1])).size, 20, "están los 20 endpoints");
+  assert.equal(new Set(llamadas.map(l => l[1])).size, 18, "están los 18 endpoints");
   for (const [correo, funcion, ...args] of llamadas) {
     const r = ejecutarCrudo(e, correo, funcion, ...args);
     assert.equal(r.ok, true, funcion + ": " + JSON.stringify(r).slice(0, 200));
@@ -80,7 +80,7 @@ test("una excepción no prevista llega como INTERNO, sin detalles técnicos", ()
   e.ctx.leerTablero_ = () => { throw new TypeError("Cannot read properties of undefined (reading 'filas')"); };
   console.error = m => registrados.push(String(m));
   try {
-    const r = ejecutarCrudo(e, A, "obtenerTablero", CICLO);
+    const r = ejecutarCrudo(e, A, "tableroObtener", CICLO);
     assert.deepEqual([r.ok, r.codigo, r.detalle], [false, "INTERNO", null]);
     assert.doesNotMatch(r.mensaje, /TypeError|undefined/);
     assert.ok(registrados.some(m => /TypeError/.test(m)), "el detalle queda en el registro del servidor");
@@ -92,8 +92,8 @@ test("una excepción no prevista llega como INTERNO, sin detalles técnicos", ()
 
 test("cambiarDepartamento sin cambios devuelve también el contenido del plan", () => {
   const e = sistema();
-  const a = ejecutar(e, A, "obtenerPlan", CICLO, "ADM").asignaturas[0];
-  const r = ejecutar(e, A, "cambiarDepartamento", CICLO, "ADM", a.grupos[0].id, e.ctx.Dominio.dptoDeCarrera("ADM"), "");
+  const a = ejecutar(e, A, "consultaObtener", CICLO, "ADM").asignaturas[0];
+  const r = ejecutar(e, A, "derivacionGuardar", CICLO, "ADM", a.grupos[0].id, e.ctx.Dominio.dptoDeCarrera("ADM"), "");
   assert.equal(r.sinCambios, true);
   assert.ok(Array.isArray(r.contenido) && r.contenido.length > 0 && r.totales);
 });

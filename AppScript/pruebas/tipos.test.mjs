@@ -4,9 +4,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { RAIZ } from "./soporte.mjs";
+import { RAIZ, archivosApp } from "./soporte.mjs";
 
-const ARCHIVOS = fs.readdirSync(RAIZ).filter(f => f.endsWith(".js")).sort();
+const ARCHIVOS = archivosApp(".js");
 
 test("todos los .js empiezan con // @ts-check", () => {
   for (const f of ARCHIVOS)
@@ -18,7 +18,7 @@ test("cada función del servidor tiene JSDoc con @param de cada parámetro y @re
   for (const f of ARCHIVOS) {
     const lineas = fs.readFileSync(path.join(RAIZ, f), "utf8").split(/\r?\n/);
     lineas.forEach((l, i) => {
-      /* Funciones de primer nivel y, en Dominio.js, las de cada fábrica. */
+      /* Funciones de primer nivel y, en los archivos de Dominio, las de cada fábrica. */
       const m = l.match(/^( {0,2})(?:async )?function ([A-Za-z_$][\w$]*)\(([^)]*)\)/);
       if (!m) return;
       const [, , nombre, params] = m;
@@ -49,13 +49,13 @@ function parametrosDocumentados(doc) {
   return nombres;
 }
 
-test("Tipos.js solo tiene comentarios: en Apps Script no ejecuta nada", () => {
-  const sinComentarios = fs.readFileSync(path.join(RAIZ, "Tipos.js"), "utf8")
+test("comun/Tipos.js solo tiene comentarios: en Apps Script no ejecuta nada", () => {
+  const sinComentarios = fs.readFileSync(path.join(RAIZ, "comun/Tipos.js"), "utf8")
     .replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "").trim();
   assert.equal(sinComentarios, "");
 });
 
 test("clasp no sube las herramientas de tipos", () => {
   const ignorados = fs.readFileSync(path.join(RAIZ, ".claspignore"), "utf8").split(/\r?\n/);
-  for (const f of ["package.json", "package-lock.json", "jsconfig.json"]) assert.ok(ignorados.includes(f), f);
+  for (const f of ["package.json", "package-lock.json", "jsconfig.json", "**/*.d.ts"]) assert.ok(ignorados.includes(f), f);
 });

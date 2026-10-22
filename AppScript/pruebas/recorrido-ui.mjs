@@ -148,7 +148,7 @@ async function recorrido(srv) {
   await pa.pulsar('#tb-tablero tr[data-sig="DER"]');
   await pa.esperar(`!document.querySelector("#v-lectura").hidden`, "la fila abre la consulta en solo lectura");
   asegurar((await pa.resumen("#lectura-resumen")).Asignaturas === 80, "Derecho tiene 80 asignaturas");
-  asegurar(!(await pa.evaluar(`window.__llamadas.slice(${antesConsulta})`)).includes("obtenerPlan"), "consultar no llama al servidor");
+  asegurar(!(await pa.evaluar(`window.__llamadas.slice(${antesConsulta})`)).includes("consultaObtener"), "consultar no llama al servidor");
   await pa.pulsar("#v-lectura [data-volver]");
   await pa.esperar(`!document.querySelector("#v-planes").hidden`, "vuelve al tablero");
 

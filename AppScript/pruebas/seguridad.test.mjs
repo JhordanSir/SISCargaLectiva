@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { crearEntorno, cargarServidor, ejecutar, fijarUsuarios, USUARIOS_PRUEBA, DIRECTORES } from "./falsos.mjs";
-import { RAIZ, XLSX_CARRERA, XLSX_DEPARTAMENTO, XLSX_DOCENTES } from "./soporte.mjs";
+import { RAIZ, archivosApp, XLSX_CARRERA, XLSX_DEPARTAMENTO, XLSX_DOCENTES } from "./soporte.mjs";
 
 const A = "mfloresl@ulasalle.edu.pe";            // coordinador
 const DIMA = DIRECTORES.DIMA, DAHUC = DIRECTORES.DAHUC;
@@ -25,15 +25,15 @@ function sistema() {
 /* google.script.run puede llamar a cualquier función global que no termine en «_». */
 const PUBLICAS = [
   "doGet", "instalar",
-  "obtenerTablero", "obtenerPlan", "abrirEdicion", "guardarPlan", "obtenerHistorial", "restaurarVersion", "cambiarDepartamento",
-  "renovarBloqueo", "liberarBloqueo",
-  "obtenerCargaDocente", "obtenerDocentesPorGrupo", "abrirEdicionCarga", "renovarBloqueoCarga", "liberarBloqueoCarga", "guardarCarga",
-  "obtenerHistorialCarga", "obtenerVersionCarga", "restaurarCarga",
-  "guardarRecuperacion", "descartarRecuperacion"
+  "tableroObtener", "consultaObtener", "edicionPlanAbrir", "edicionPlanGuardar", "edicionPlanHistorial", "edicionPlanRestaurar",
+  "asignacionObtener", "asignacionHistorial", "asignacionVerVersion",
+  "asignacionEdicionAbrir", "asignacionEdicionGuardar", "asignacionEdicionRestaurar",
+  "sesionEdicionRenovar", "sesionEdicionLiberar", "sesionEdicionGuardarCopia", "sesionEdicionDescartarCopia",
+  "derivacionGuardar", "docentesAsignadosObtener"
 ].sort();
 
 test("solo los endpoints y doGet/instalar se pueden llamar desde el navegador", () => {
-  const publicas = fs.readdirSync(RAIZ).filter(f => f.endsWith(".js"))
+  const publicas = archivosApp(".js")
     .flatMap(f => [...fs.readFileSync(path.join(RAIZ, f), "utf8").matchAll(/^function\s+([A-Za-z]\w*)\s*\(/gm)].map(m => m[1]))
     .filter(n => !n.endsWith("_"))
     .sort();
@@ -42,14 +42,14 @@ test("solo los endpoints y doGet/instalar se pueden llamar desde el navegador", 
 
 test("guardarPlan guarda solo los campos del modelo y rechaza un volumen desmedido", () => {
   const e = sistema();
-  ejecutar(e, A, "obtenerTablero", CICLO);
-  const p = ejecutar(e, A, "abrirEdicion", CICLO, "ARQ");
+  ejecutar(e, A, "tableroObtener", CICLO);
+  const p = ejecutar(e, A, "edicionPlanAbrir", CICLO, "ARQ");
   const a = p.asignaturas[0];
   a.intruso = "<script>"; a.nombre = "x".repeat(400);
   a.grupos[0].extra = { mucho: 1 }; a.grupos[0].desdoble = "cualquier cosa"; a.grupos[0].fusion = "no es una marca";
   a.grupos[0].id = "id con espacios";
-  ejecutar(e, A, "guardarPlan", CICLO, "ARQ", { asignaturas: p.asignaturas, estado: "Registrado", tipo: "guardar cambios", versionBase: 1 });
-  const g = ejecutar(e, A, "obtenerPlan", CICLO, "ARQ").asignaturas[0];
+  ejecutar(e, A, "edicionPlanGuardar", CICLO, "ARQ", { asignaturas: p.asignaturas, estado: "Registrado", tipo: "guardar cambios", versionBase: 1 });
+  const g = ejecutar(e, A, "consultaObtener", CICLO, "ARQ").asignaturas[0];
   assert.equal(g.intruso, undefined);
   assert.equal(g.nombre.length, 250);
   assert.deepEqual(Object.keys(g.grupos[0]).sort(), ["desdoble", "fusion", "hp", "ht", "id", "n"]);
@@ -57,20 +57,20 @@ test("guardarPlan guarda solo los campos del modelo y rechaza un volumen desmedi
   assert.equal(g.grupos[0].fusion, null);
   assert.match(g.grupos[0].id, /^[A-Za-z0-9_-]+$/, "un identificador no válido se reemplaza");
 
-  assert.throws(() => ejecutar(e, A, "guardarPlan", CICLO, "ARQ", { asignaturas: "nada", tipo: "guardar cambios", versionBase: 2 }), { codigo: "DATO_INVALIDO", message: /se esperaba una lista/ });
+  assert.throws(() => ejecutar(e, A, "edicionPlanGuardar", CICLO, "ARQ", { asignaturas: "nada", tipo: "guardar cambios", versionBase: 2 }), { codigo: "DATO_INVALIDO", message: /se esperaba una lista/ });
   const enorme = [{ sem: 1, codigo: "X", nombre: "Y", obs: "z".repeat(500), grupos: Array.from({ length: 61 }, (_, i) => ({ id: "g" + i, n: i, ht: 1, hp: 1 })) }];
-  assert.throws(() => ejecutar(e, A, "guardarPlan", CICLO, "ARQ", { asignaturas: enorme, tipo: "guardar cambios", versionBase: 2 }), { codigo: "DATO_INVALIDO", message: /máximo es 60/ });
+  assert.throws(() => ejecutar(e, A, "edicionPlanGuardar", CICLO, "ARQ", { asignaturas: enorme, tipo: "guardar cambios", versionBase: 2 }), { codigo: "DATO_INVALIDO", message: /máximo es 60/ });
   const pesado = Array.from({ length: 1500 }, (_, i) => ({ sem: 1, codigo: "C" + i, nombre: "n".repeat(240), obs: "o".repeat(490), grupos: [{ id: "g" + i, n: 1, ht: 1, hp: 1 }] }));
-  assert.throws(() => ejecutar(e, A, "guardarPlan", CICLO, "ARQ", { asignaturas: pesado, tipo: "guardar cambios", versionBase: 2 }), { codigo: "DATO_INVALIDO", message: /demasiado grande/ });
+  assert.throws(() => ejecutar(e, A, "edicionPlanGuardar", CICLO, "ARQ", { asignaturas: pesado, tipo: "guardar cambios", versionBase: 2 }), { codigo: "DATO_INVALIDO", message: /demasiado grande/ });
 });
 
 test("guardarCarga sanea cada asignación: campos, componente y horas", () => {
   const e = sistema();
-  ejecutar(e, A, "obtenerTablero", CICLO);
-  const st = ejecutar(e, DIMA, "obtenerCargaDocente", CICLO, "ING");
+  ejecutar(e, A, "tableroObtener", CICLO);
+  const st = ejecutar(e, DIMA, "asignacionObtener", CICLO, "ING");
   const u = st.unidades.find(x => x.carrera === "ING");
-  ejecutar(e, DIMA, "abrirEdicionCarga", CICLO, "ING");
-  const r = ejecutar(e, DIMA, "guardarCarga", CICLO, "ING", { versionBase: 0, asignaciones: [
+  ejecutar(e, DIMA, "asignacionEdicionAbrir", CICLO, "ING");
+  const r = ejecutar(e, DIMA, "asignacionEdicionGuardar", CICLO, "ING", { versionBase: 0, asignaciones: [
     { unidad: u.id, componente: "T", docente: "  PRUEBA, UNO ", horas: "3 h", heredada: true, cargaDe: "PSI", raro: 1 },
     { unidad: u.id, componente: "<img>", docente: "PRUEBA, DOS", horas: "-5", dni: "12 34" }
   ] });
@@ -85,31 +85,31 @@ test("guardarCarga sanea cada asignación: campos, componente y horas", () => {
   assert.equal(y.horas, 0, "las horas no bajan de 0");
   assert.equal(e.ctx.Dominio.sanearAsignaciones([{ horas: 500 }])[0].horas, 60, "ni pasan de 60");
   assert.equal(y.dni, "", "un DNI con caracteres no válidos se descarta");
-  assert.throws(() => ejecutar(e, DIMA, "guardarCarga", CICLO, "ING", { versionBase: 1, asignaciones: { no: "lista" } }), { codigo: "DATO_INVALIDO", message: /se esperaba una lista/ });
-  assert.throws(() => ejecutar(e, DIMA, "guardarRecuperacion", CICLO, "carga:ING", { contenido: "texto" }), { codigo: "DATO_INVALIDO", message: /se esperaba una lista/ });
+  assert.throws(() => ejecutar(e, DIMA, "asignacionEdicionGuardar", CICLO, "ING", { versionBase: 1, asignaciones: { no: "lista" } }), { codigo: "DATO_INVALIDO", message: /se esperaba una lista/ });
+  assert.throws(() => ejecutar(e, DIMA, "sesionEdicionGuardarCopia", CICLO, "carga:ING", { contenido: "texto" }), { codigo: "DATO_INVALIDO", message: /se esperaba una lista/ });
 });
 
 test("el DNI solo llega al director del departamento, y solo el de los suyos", () => {
   const e = sistema();
-  ejecutar(e, A, "obtenerTablero", CICLO);
-  const dimaSt = ejecutar(e, DIMA, "obtenerCargaDocente", CICLO, "ING");
+  ejecutar(e, A, "tableroObtener", CICLO);
+  const dimaSt = ejecutar(e, DIMA, "asignacionObtener", CICLO, "ING");
   const conDni = dimaSt.catalogo.filter(d => d.dni);
   assert.ok(conDni.length > 0 && conDni.every(d => d.dpto === "DIMA"), "el director ve el DNI de los docentes de su departamento");
   assert.ok(dimaSt.catalogo.some(d => d.dpto !== "DIMA" && d.dni === undefined), "y no el de los demás");
 
   const docente = conDni[0];
   const u = dimaSt.unidades.find(x => x.carrera === "ING");
-  ejecutar(e, DIMA, "abrirEdicionCarga", CICLO, "ING");
-  ejecutar(e, DIMA, "guardarCarga", CICLO, "ING", { versionBase: 0, asignaciones: [{ unidad: u.id, componente: "T", docente: docente.nombreCompleto, dni: docente.dni }] });
-  assert.equal(ejecutar(e, DIMA, "obtenerCargaDocente", CICLO, "ING").cargas.ING.asignaciones[0].dni, docente.dni);
-  assert.equal(ejecutar(e, DIMA, "obtenerCargaDocente", CICLO, "PSI").cargas.ING.asignaciones[0].dni, docente.dni, "lo ve en cualquier pantalla: la asignación es de su departamento");
+  ejecutar(e, DIMA, "asignacionEdicionAbrir", CICLO, "ING");
+  ejecutar(e, DIMA, "asignacionEdicionGuardar", CICLO, "ING", { versionBase: 0, asignaciones: [{ unidad: u.id, componente: "T", docente: docente.nombreCompleto, dni: docente.dni }] });
+  assert.equal(ejecutar(e, DIMA, "asignacionObtener", CICLO, "ING").cargas.ING.asignaciones[0].dni, docente.dni);
+  assert.equal(ejecutar(e, DIMA, "asignacionObtener", CICLO, "PSI").cargas.ING.asignaciones[0].dni, docente.dni, "lo ve en cualquier pantalla: la asignación es de su departamento");
 
-  const coord = ejecutar(e, A, "obtenerCargaDocente", CICLO, "ING");
+  const coord = ejecutar(e, A, "asignacionObtener", CICLO, "ING");
   assert.ok(coord.catalogo.every(d => d.dni === undefined), "el coordinador no recibe DNI");
   assert.equal(coord.cargas.ING.asignaciones[0].dni, undefined);
-  assert.equal(ejecutar(e, DAHUC, "obtenerCargaDocente", CICLO, "ING").cargas.ING.asignaciones[0].dni, undefined, "ni el director de otro departamento");
-  assert.equal(ejecutar(e, A, "obtenerVersionCarga", CICLO, "ING", 1)[0].dni, undefined);
-  assert.equal(ejecutar(e, DIMA, "obtenerVersionCarga", CICLO, "ING", 1)[0].dni, docente.dni);
+  assert.equal(ejecutar(e, DAHUC, "asignacionObtener", CICLO, "ING").cargas.ING.asignaciones[0].dni, undefined, "ni el director de otro departamento");
+  assert.equal(ejecutar(e, A, "asignacionVerVersion", CICLO, "ING", 1)[0].dni, undefined);
+  assert.equal(ejecutar(e, DIMA, "asignacionVerVersion", CICLO, "ING", 1)[0].dni, docente.dni);
 });
 
 test("los xlsx se leen antes de tomar el candado", () => {
@@ -119,7 +119,7 @@ test("los xlsx se leen antes de tomar el candado", () => {
   const candado = ctx.conCandado_, leer = ctx.leerLibroXlsx_;
   ctx.conCandado_ = fn => { dentro = true; try { return candado(fn); } finally { dentro = false; } };
   ctx.leerLibroXlsx_ = partes => { if (dentro) leidosDentro++; else leidosFuera++; return leer(partes); };
-  const t = ejecutar(e, A, "obtenerTablero", CICLO);
+  const t = ejecutar(e, A, "tableroObtener", CICLO);
   assert.ok(t.filas.every(f => f.estado === "Registrado"), "la lectura se aplicó");
   assert.equal(leidosDentro, 0, "ningún xlsx se lee con el candado tomado");
   assert.ok(leidosFuera >= 2);

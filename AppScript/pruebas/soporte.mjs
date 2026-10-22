@@ -11,6 +11,19 @@ export const XLSX_CARRERA = path.join(REPO, "docs/archivos/SISCargaLectiva-Ejemp
 export const XLSX_DEPARTAMENTO = path.join(REPO, "docs/archivos/SISCargaLectiva-Ejemplo-CargaXDepartamento.xlsx");
 export const XLSX_DOCENTES = path.join(REPO, "docs/archivos/SISCargaLectiva-Ejemplo-CargaDeDocentes.xlsx");
 
+/* Carpetas del proyecto de Apps Script que se suben con clasp (ver .claspignore). */
+export const CARPETAS_APP = ["", "comun", "cu001", "cu002"];
+
+/* Archivos de la aplicación con esa extensión, como rutas relativas a AppScript/ («cu001/Tablero.js»), ordenados. */
+export function archivosApp(extension) {
+  return CARPETAS_APP.flatMap(c => fs.readdirSync(path.join(RAIZ, c))
+    .filter(f => f.endsWith(extension) && fs.statSync(path.join(RAIZ, c, f)).isFile())
+    .map(f => (c ? c + "/" : "") + f)).sort();
+}
+
+/* Las tres fábricas de Dominio y el archivo que las combina (comun/Dominio.js). */
+export const ARCHIVOS_DOMINIO = ["comun/DominioComun.js", "cu001/DominioPlan.js", "cu002/DominioCarga.js", "comun/Dominio.js"];
+
 /* Lector zip mínimo: directorio central + inflate. Devuelve {ruta: Buffer}. */
 export function descomprimir(buffer) {
   let eocd = -1;

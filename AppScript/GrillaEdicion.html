@@ -8,7 +8,7 @@ let pedidoEdicion = 0;   // descarta las respuestas de abrirEdicion que llegan t
 
 const sesionPlan = crearSesionEdicion({
   relojes: "#reloj-carga, #reloj-pegado, #reloj-grilla",
-  renovar: () => llamarEnSilencio("renovarBloqueo", app.ciclo, app.carrera),
+  renovar: () => llamarEnSilencio("sesionEdicionRenovar", app.ciclo, Dominio.REF.plan(app.carrera)),
   alRenovar: () => anunciarEdicion(false),
   alPerder: correo => bloqueoPerdido(correo),
   alExpirar: () => expirar(),
@@ -16,7 +16,7 @@ const sesionPlan = crearSesionEdicion({
     const p = app.plan;
     return p && p.sucio && p.confirmado && app.carrera ? { contenido: p.asignaturas, versionBase: p.version } : null;
   },
-  guardarCopia: d => llamarEnSilencio("guardarRecuperacion", app.ciclo, Dominio.REF.plan(app.carrera), d)
+  guardarCopia: d => llamarEnSilencio("sesionEdicionGuardarCopia", app.ciclo, Dominio.REF.plan(app.carrera), d)
 });
 /* La actividad en la carga masiva o en la grilla también renueva el bloqueo. */
 const latido = () => sesionPlan.latido();
@@ -37,7 +37,7 @@ async function expirar(){
   let resultado = "sin cambios";
   if (p && p.sucio && p.asignaturas.length) {
     try {
-      const r = await llamar("guardarPlan", app.ciclo, sig, {
+      const r = await llamar("edicionPlanGuardar", app.ciclo, sig, {
         asignaturas: p.asignaturas, versionBase: p.version, forzar: true, tipo: Dominio.TIPO_VERSION.AUTOGUARDADO,
         estado: p.estado === ESTADOS.REGISTRADO ? ESTADOS.REGISTRADO : ESTADOS.BORRADOR,
         fusionesDisueltas: p.fusionesDisueltas || []
@@ -50,7 +50,7 @@ async function expirar(){
       resultado = (e && e.message) || String(e);
     }
   }
-  try { await llamarEnSilencio("liberarBloqueo", app.ciclo, sig); } catch (e) { /* caduca solo */ }
+  try { await llamarEnSilencio("sesionEdicionLiberar", app.ciclo, Dominio.REF.plan(sig)); } catch (e) { /* caduca solo */ }
   anunciar("soltado", { ciclo: app.ciclo, sig: sig });
   app.carrera = null; app.plan = null; app.seleccion = null;
   app.tableroHora = 0;
@@ -66,7 +66,7 @@ async function expirar(){
 /* Libera el bloqueo y vuelve al tablero, descartando lo no guardado. */
 async function terminarEdicion(){
   const sig = app.carrera, confirmado = !!(app.plan && app.plan.confirmado);
-  if (sig && app.plan && app.plan.sucio) llamarEnSilencio("descartarRecuperacion", app.ciclo, Dominio.REF.plan(sig)).catch(e => console.warn("descartarRecuperacion:", e));
+  if (sig && app.plan && app.plan.sucio) llamarEnSilencio("sesionEdicionDescartarCopia", app.ciclo, Dominio.REF.plan(sig)).catch(e => console.warn("sesionEdicionDescartarCopia:", e));
   sesionPlan.detener();
   app.carrera = null; app.plan = null; app.seleccion = null;
   pintarTablero();
@@ -74,7 +74,7 @@ async function terminarEdicion(){
   /* Si el bloqueo aún no estaba confirmado, lo devuelve abrirEdicion cuando responda. */
   if (sig && confirmado) {
     anunciar("soltado", { ciclo: app.ciclo, sig: sig });
-    try { await llamarEnSilencio("liberarBloqueo", app.ciclo, sig); } catch (e) { /* caduca solo */ }
+    try { await llamarEnSilencio("sesionEdicionLiberar", app.ciclo, Dominio.REF.plan(sig)); } catch (e) { /* caduca solo */ }
   }
   cargarTablero();
 }
@@ -93,7 +93,7 @@ function confirmarSalidaEdicion(){
 window.addEventListener("pagehide", () => {
   if (sesionPlan.activa && app.carrera) {
     anunciar("soltado", { ciclo: app.ciclo, sig: app.carrera });
-    google.script.run.liberarBloqueo(app.ciclo, app.carrera);   // sin esperar respuesta: la página se cierra
+    google.script.run.sesionEdicionLiberar(app.ciclo, Dominio.REF.plan(app.carrera));   // sin esperar respuesta: la página se cierra
   }
 });
 
@@ -114,7 +114,7 @@ async function abrirEdicion(sig, sinAvisoDePestana){
   entrarEnEdicion(sig, { estado: f.estado, version: f.version, asignaturas: clonar(f.contenido) });
   let r;
   try {
-    r = await llamarDeFondo("abrirEdicion", app.ciclo, sig, f.version);
+    r = await llamarDeFondo("edicionPlanAbrir", app.ciclo, sig, f.version);
   } catch (e) {
     if (pedido !== pedidoEdicion || app.carrera !== sig) return;
     const habiaCambios = app.plan.sucio;
@@ -125,7 +125,7 @@ async function abrirEdicion(sig, sinAvisoDePestana){
   }
   if (pedido !== pedidoEdicion || app.carrera !== sig) {
     /* Ya se salió de este plan: el bloqueo que se acaba de tomar se devuelve. */
-    if (app.carrera !== sig) llamarEnSilencio("liberarBloqueo", app.ciclo, sig).catch(e => console.warn("liberarBloqueo:", e));
+    if (app.carrera !== sig) llamarEnSilencio("sesionEdicionLiberar", app.ciclo, Dominio.REF.plan(sig)).catch(e => console.warn("sesionEdicionLiberar:", e));
     return;
   }
   confirmarEdicion(sig, r);
@@ -134,7 +134,7 @@ async function abrirEdicion(sig, sinAvisoDePestana){
 async function abrirEdicionEsperando(sig){
   let r;
   try {
-    r = await llamar("abrirEdicion", app.ciclo, sig);
+    r = await llamar("edicionPlanAbrir", app.ciclo, sig);
   } catch (e) {
     return e.codigo === "BLOQUEADO" ? avisarBloqueado(sig, e.detalle, false) : informarError(e);
   }
@@ -185,7 +185,7 @@ async function recuperarPlan(sig, rec){
     app.seleccion = null;
     pintarGrilla();
     aviso("Cambios recuperados: revísalos y guarda.");
-  } else if (r === false) llamarEnSilencio("descartarRecuperacion", app.ciclo, Dominio.REF.plan(sig)).catch(e => console.warn("descartarRecuperacion:", e));
+  } else if (r === false) llamarEnSilencio("sesionEdicionDescartarCopia", app.ciclo, Dominio.REF.plan(sig)).catch(e => console.warn("sesionEdicionDescartarCopia:", e));
 }
 
 /* Sale de la edición sin guardar ni liberar nada: el bloqueo no llegó a tomarse. */
@@ -225,11 +225,11 @@ async function guardar(datos){
   const base = { asignaturas: p.asignaturas, versionBase: p.version, fusionesDisueltas: p.fusionesDisueltas || [] };
   let r;
   try {
-    r = await llamar("guardarPlan", app.ciclo, sig, Object.assign({}, base, datos));
+    r = await llamar("edicionPlanGuardar", app.ciclo, sig, Object.assign({}, base, datos));
   } catch (e) {
     if (e.codigo !== "CONFLICTO") throw e;
     if (!await confirmarConflicto(e.detalle, "del plan")) return null;
-    r = await llamar("guardarPlan", app.ciclo, sig, Object.assign({}, base, datos, { forzar: true }));
+    r = await llamar("edicionPlanGuardar", app.ciclo, sig, Object.assign({}, base, datos, { forzar: true }));
   }
   Object.assign(p, { version: r.version, estado: r.estado, sucio: false, fusionesDisueltas: [] });
   if (Array.isArray(r.asignaturas)) p.asignaturas = r.asignaturas;
@@ -309,7 +309,7 @@ $("#btn-registrar").onclick = async () => {
     "La asignación docente queda habilitada para DIMA, DAHUC, DACJ y DACTE. El plan sigue siendo editable: cada guardado generará una versión nueva.";
   celebrar();
   anunciar("soltado", { ciclo: app.ciclo, sig: sig });
-  try { await llamarEnSilencio("liberarBloqueo", app.ciclo, sig); } catch (e) { /* caduca solo */ }
+  try { await llamarEnSilencio("sesionEdicionLiberar", app.ciclo, Dominio.REF.plan(sig)); } catch (e) { /* caduca solo */ }
 };
 
 $("#exito-editar").onclick = () => { if (app.carrera) abrirEdicion(app.carrera); };

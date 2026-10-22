@@ -3,7 +3,7 @@
    setValues) y avisa de lo que en Sheets saldría mal (texto sin formato «@»). */
 import fs from "node:fs";
 import path from "node:path";
-import { descomprimir, cargar, plano, RAIZ } from "./soporte.mjs";
+import { descomprimir, cargar, plano, RAIZ, archivosApp } from "./soporte.mjs";
 
 let secuencia = 0;
 const nuevoId = prefijo => prefijo + (++secuencia).toString(36).padStart(6, "0");
@@ -241,7 +241,8 @@ export function crearEntorno({ propietario = "mfloresl@ulasalle.edu.pe" } = {}) 
   return e;
 }
 
-const ARCHIVOS_SERVIDOR = fs.readdirSync(RAIZ).filter(f => f.endsWith(".js")).sort();
+/* En orden alfabético por ruta, como los sube clasp: Dominio no depende del orden (comun/Dominio.js). */
+const ARCHIVOS_SERVIDOR = archivosApp(".js");
 
 /* Carga todo el servidor en un contexto con los servicios falsos. */
 export function cargarServidor(entorno) {

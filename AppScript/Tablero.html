@@ -76,13 +76,13 @@ const docentesGrupo = { ciclo: "", mapa: null, pedido: null, cicloPedido: "" };
  */
 function pedirDocentesGrupo(){
   const ciclo = app.ciclo;
-  const pedido = llamarEnSilencio("obtenerDocentesPorGrupo", ciclo).then(mapa => {
+  const pedido = llamarEnSilencio("docentesAsignadosObtener", ciclo).then(mapa => {
     if (docentesGrupo.pedido !== pedido) return;
     const anterior = docentesGrupo.ciclo === ciclo ? docentesGrupo.mapa : null;
     Object.assign(docentesGrupo, { ciclo: ciclo, mapa: mapa, pedido: null });
     if (ciclo === app.ciclo) repintarDocentes(anterior);
   }, e => {
-    console.warn("obtenerDocentesPorGrupo:", e);
+    console.warn("docentesAsignadosObtener:", e);
     if (docentesGrupo.pedido === pedido) docentesGrupo.pedido = null;
   });
   Object.assign(docentesGrupo, { pedido: pedido, cicloPedido: ciclo });
@@ -143,7 +143,7 @@ async function cargarTablero(opciones){
   const ciclo = app.ciclo, pedido = ++app.tableroPedido;
   const releer = !!(opciones && opciones.releer);
   try {
-    const r = await (releer ? llamar : llamarDeFondo)("obtenerTablero", ciclo, { releer: releer });
+    const r = await (releer ? llamar : llamarDeFondo)("tableroObtener", ciclo, { releer: releer });
     if (pedido !== app.tableroPedido || ciclo !== app.ciclo) return;
     fijarTablero(ciclo, r.filas, r.avisos);
     if (releer) { aviso("Excel revisado", "info"); anunciar("tablero", { ciclo: ciclo }); }
@@ -248,7 +248,7 @@ async function abrirLectura(sig){
     ? { estado: f.estado, version: f.version, asignaturas: f.contenido, bloqueo: bloqueoVigente(f.bloqueo) }
     : null;
   if (!p) {
-    try { p = await llamar("obtenerPlan", app.ciclo, sig); } catch (e) { return informarError(e); }
+    try { p = await llamar("consultaObtener", app.ciclo, sig); } catch (e) { return informarError(e); }
   }
   mostrar("lectura");
   app.lectura = sig;
@@ -300,7 +300,7 @@ async function derivarAsignatura(sig, a){
   const r = await pedirNuevoDpto(dptoQueAsigna(sig, a), a.codigo + " " + a.nombre + " · " + nombreCarrera(sig), Dominio.dptoDeCarrera(sig));
   if (!r) return;
   let res;
-  try { res = await llamar("cambiarDepartamento", app.ciclo, sig, a.grupos[0].id, r.dpto, r.motivo); } catch (e) { return informarError(e); }
+  try { res = await llamar("derivacionGuardar", app.ciclo, sig, a.grupos[0].id, r.dpto, r.motivo); } catch (e) { return informarError(e); }
   if (res.sinCambios) return aviso("A " + a.codigo + " ya lo asigna " + r.dpto + ".", "info");
   actualizarFilaTablero(sig, { version: res.version, estado: res.estado, totales: res.totales, contenido: res.contenido });
   if (appCarga.cargado) appCarga.cargado.hora = 0;

@@ -4,3 +4,4 @@ estilos/**
 package.json
 package-lock.json
 jsconfig.json
+**/*.d.ts

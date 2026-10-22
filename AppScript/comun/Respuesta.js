@@ -2,7 +2,7 @@
 /* Contrato de las respuestas al navegador. Todo endpoint devuelve
      {ok: true, datos}                         si salió bien, o
      {ok: false, codigo, mensaje, detalle}     si no se pudo,
-   y el navegador decide por el código (Nucleo.html, invocar). Un fallo previsto se lanza
+   y el navegador decide por el código (comun/Nucleo.html, invocar). Un fallo previsto se lanza
    con fallo_(); cualquier otra excepción se registra y llega como INTERNO, sin detalles
    técnicos. */
 

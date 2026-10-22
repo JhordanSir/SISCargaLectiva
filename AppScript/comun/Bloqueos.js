@@ -1,10 +1,9 @@
 // @ts-check
-/* Bloqueos de edición. Un bloqueo reserva un documento a una cuenta: el plan de una
-   carrera («plan:ADM») o la carga docente de un departamento («carga:DIMA») en un ciclo
-   (Dominio.REF).
+/* Bloqueos de edición. Un bloqueo reserva un documento a una cuenta en un ciclo: el plan de
+   una carrera («plan:ADM») o su carga docente («carga:ADM») (Dominio.REF).
    Caduca SIS_MINUTOS_BLOQUEO minutos después de la última actividad; el navegador lo
-   renueva con un latido mientras hay actividad. Las mismas referencias identifican las
-   copias de recuperación (Recuperacion.js). */
+   renueva con un latido mientras hay actividad (SesionEdicion.js). Las mismas referencias
+   identifican las copias de recuperación (Recuperacion.js). */
 
 /**
  * Filas de la pestaña Bloqueos, vigentes o no.
@@ -105,38 +104,5 @@ function soltarBloqueo_(ciclo, ref, correo) {
   return conCandado_(function () {
     borrarFilasDonde_(TABLA_.BLOQUEOS, function (x) { return x.ciclo === ciclo && x.ref === ref && x.correo === correo; });
     return true;
-  });
-}
-
-/* ============================================================
-   Funciones que llama el navegador: bloqueo del plan de una carrera
-   ============================================================ */
-
-/**
- * Endpoint: renueva el bloqueo del plan (latido del navegador). Falla con BLOQUEO_PERDIDO si otra cuenta lo tomó.
- * @param {string} ciclo
- * @param {Sigla} sig
- * @returns {Respuesta<{expira: string}>}
- */
-function renovarBloqueo(ciclo, sig) {
-  return responder_(function () {
-    const usuario = exigirUsuario_();
-    const c = validarCiclo_(ciclo), s = validarCarrera_(sig);
-    exigirEdicion_(usuario, s);
-    return renovarBloqueo_(c, Dominio.REF.plan(s), usuario.correo);
-  });
-}
-
-/**
- * Endpoint: suelta el bloqueo del plan que tenga la cuenta.
- * @param {string} ciclo
- * @param {Sigla} sig
- * @returns {Respuesta<boolean>}
- */
-function liberarBloqueo(ciclo, sig) {
-  return responder_(function () {
-    const usuario = exigirUsuario_();
-    const c = validarCiclo_(ciclo), s = validarCarrera_(sig);
-    return soltarBloqueo_(c, Dominio.REF.plan(s), usuario.correo);
   });
 }

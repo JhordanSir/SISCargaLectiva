@@ -1,8 +1,8 @@
 // @ts-check
-/* Fusiones entre carreras: la parte que lee y escribe la hoja. La reconciliación (qué
-   cambia en cada plan) es Dominio.reconciliarFusiones, sin acceso a la hoja. Los planes
-   de las otras carreras no se tocan si otra cuenta los está editando: en ese caso no se
-   guarda nada y se avisa. */
+/* CU-001 FA-101 a FA-103: fusiones con otras carreras al guardar, la parte que lee y
+   escribe la hoja. La reconciliación (qué cambia en cada plan) es
+   Dominio.reconciliarFusiones, sin acceso a la hoja. Los planes de las otras carreras no se
+   tocan si otra cuenta los está editando: en ese caso no se guarda nada y se avisa. */
 
 /**
  * Debe llamarse dentro de conCandado_. antes: contenido vigente del plan; despues: el que

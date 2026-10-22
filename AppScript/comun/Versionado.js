@@ -1,6 +1,7 @@
 // @ts-check
-/* Documentos con versiones. Lo usan los planes de ciclo (una carrera en un ciclo) y las
-   cargas docentes (una carrera en un ciclo). Cada repositorio tiene dos tablas:
+/* Documentos con versiones. Lo usan los planes de ciclo (REPO_PLAN_, cu001/PlanRepositorio.js)
+   y las cargas docentes (REPO_CARGA_, cu002/CargaRepositorio.js), una por carrera y ciclo.
+   Cada repositorio tiene dos tablas:
      - el índice, con una fila por documento: su versión vigente y en qué fila de la
        tabla de versiones está (para leerla sin recorrerla);
      - las versiones, con una fila por guardado: sus datos y el contenido completo en JSON,
@@ -15,9 +16,6 @@
    conocida leen la tabla entera. Política propuesta para cuando exista el CU «Administrar
    ciclos»: al cerrar un ciclo, pasar a un libro de archivo sus versiones y dejar en
    Versiones y VersionesCarga solo la vigente y la última «registrar» de cada documento. */
-
-var REPO_PLAN_ = { indice: "Planes", versiones: "Versiones", clave: "carrera", cache: "v", nombre: "del plan" };
-var REPO_CARGA_ = { indice: "Cargas", versiones: "VersionesCarga", clave: "carrera", cache: "vcc", nombre: "de la carga" };
 
 var SEGUNDOS_CACHE_VERSION_ = 21600;   // el máximo que admite CacheService
 var MAX_TEXTO_CACHE_ = 45000;          // holgura frente al límite de 100 KB por valor

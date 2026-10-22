@@ -1,9 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import vm from "node:vm";
-import { cargar, plano } from "./soporte.mjs";
+import { cargar, plano, ARCHIVOS_DOMINIO } from "./soporte.mjs";
 
-const D = cargar(["Dominio.js"]).Dominio;
+const D = cargar(ARCHIVOS_DOMINIO).Dominio;
 
 const CABECERA = ["CARRERA", "MALLA", "SEMESTRE", "CÓDIGO", "ASIGNATURA", "GRUPO", "HT", "HP", "TH", "DPTO", "OBSERVACIÓN"];
 
@@ -139,7 +139,7 @@ test("reconoce la carrera por sigla, nombre o alias de hoja", () => {
 });
 
 test("fuenteDominio_() recrea Dominio fuera de su archivo, como en el navegador", () => {
-  const ctx = cargar(["Dominio.js"]);
+  const ctx = cargar(ARCHIVOS_DOMINIO);
   const fuente = ctx.fuenteDominio_();
   const dominio = vm.runInNewContext(fuente, {});
   assert.equal(dominio.nombreCarrera("ING"), "Ingeniería de Software");

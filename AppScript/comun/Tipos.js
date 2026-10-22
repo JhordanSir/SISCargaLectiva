@@ -17,18 +17,17 @@
  */
 
 /**
- * Documento que se bloquea o se recupera: «plan:ADM» o «carga:DIMA» (Dominio.REF).
+ * Documento que se bloquea o se recupera: «plan:ADM» o «carga:ADM» (Dominio.REF).
  * @typedef {string} Ref
  */
 
 /**
- * Cuenta que hace la llamada, con su rol (Acceso.js). Si no puede entrar, solo trae
+ * Cuenta que hace la llamada, con su rol (comun/Acceso.js). Si no puede entrar, solo trae
  * «denegado» y «codigo» (y el correo, si se conoce).
  * @typedef {Object} Usuario
  * @property {string} [correo]
  * @property {"coordinador"|"director"} [rol]
- * @property {Sigla[]} [carreras] Carreras cuyo plan puede editar.
- * @property {Sigla[]} [coordina]
+ * @property {Sigla[]} [carreras] Carreras que coordina (y cuyo plan puede editar).
  * @property {Dpto|""} [departamento] Departamento del director.
  * @property {boolean} [pordefecto] No figura en Usuarios: entró con SIS_ROL_POR_DEFECTO.
  * @property {string} [denegado] Por qué no puede entrar.
@@ -36,7 +35,7 @@
  */
 
 /**
- * Configuración leída de las propiedades del script (Config.js).
+ * Configuración leída de las propiedades del script (comun/Config.js).
  * @typedef {Object} Configuracion
  * @property {string} carpetaId
  * @property {string} bdId
@@ -191,7 +190,7 @@
  */
 
 /**
- * Carga vigente de un departamento.
+ * Carga docente vigente de una carrera.
  * @typedef {Object} Carga
  * @property {number} version
  * @property {string} usuario
@@ -235,7 +234,7 @@
    ============================================================ */
 
 /**
- * Respuesta de todo endpoint (Respuesta.js).
+ * Respuesta de toda función que llama el navegador (comun/Respuesta.js).
  * @template T
  * @typedef {{ok: true, datos: T} | {ok: false, codigo: string, mensaje: string, detalle: (Object|null)}} Respuesta
  */
@@ -258,7 +257,7 @@
  */
 
 /**
- * Repositorio con versiones (Versionado.js): REPO_PLAN_ o REPO_CARGA_.
+ * Repositorio con versiones (comun/Versionado.js): REPO_PLAN_ o REPO_CARGA_.
  * @typedef {Object} Repo
  * @property {string} indice Pestaña del índice.
  * @property {string} versiones Pestaña de las versiones.

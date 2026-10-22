@@ -220,7 +220,7 @@ async function cargarEstadoDocentes(opciones){
   const fondo = !!(opciones && opciones.fondo);
   const ciclo = appCarga.ciclo, carrera = appCarga.carrera, pedido = ++appCarga.pedido;
   try {
-    const res = await (fondo ? llamarDeFondo : llamar)("obtenerCargaDocente", ciclo, carrera);
+    const res = await (fondo ? llamarDeFondo : llamar)("asignacionObtener", ciclo, carrera);
     if (pedido !== appCarga.pedido || appCarga.editando) return;
     appCarga.datos = res;
     appCarga.trabajo = clonar(res.cargas[carrera].asignaciones || []);

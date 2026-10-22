@@ -1,8 +1,12 @@
 // @ts-check
-/* Punto de entrada de la aplicación web. */
+/* Punto de entrada de la aplicación web: arma Index.html con los datos iniciales y el texto
+   de Dominio. Las vistas viven en comun/, cu001/ y cu002/; las funciones del servidor que
+   llama cada vista están en el .js del mismo nombre y se llaman «vista + acción»
+   (tableroObtener, edicionPlanGuardar, asignacionEdicionGuardar…). */
 
 /**
- * Página de la aplicación, con los datos iniciales y Dominio ya incluidos.
+ * CU-001 y CU-002, pasos 1 a 6: la página de la aplicación, con los datos iniciales y
+ * Dominio ya incluidos.
  * @returns {GoogleAppsScript.HTML.HtmlOutput}
  */
 function doGet() {
@@ -15,11 +19,11 @@ function doGet() {
 }
 
 /* Archivos generados que no tienen scriptlets: se incluyen tal cual, sin evaluarlos. */
-var SIN_PLANTILLA_ = ["Estilos", "Iconos"];
+var SIN_PLANTILLA_ = ["comun/Estilos", "comun/Iconos"];
 
 /**
- * Contenido de un archivo HTML del proyecto, para incluirlo en Index.html. Las pantallas
- * son plantillas (usan icono_); Estilos e Iconos se copian tal cual.
+ * Contenido de un archivo HTML del proyecto («cu001/Tablero»), para incluirlo en
+ * Index.html. Las vistas son plantillas (usan icono_); Estilos e Iconos se copian tal cual.
  * @param {string} nombre
  * @returns {string}
  */
@@ -39,7 +43,8 @@ function icono_(nombre, clase) {
 }
 
 /**
- * Lo que la página necesita al cargar: configuración, usuario y tablero del ciclo (sin mirar Drive).
+ * Lo que la página necesita al cargar: configuración, usuario y tablero del ciclo (sin
+ * mirar Drive). Con la cuenta denegada, CU-001 FA-001 a FA-003 y CU-002 FA-003 a FA-005.
  * @returns {{estado: string, config: Object, usuario?: Usuario, motivo?: string, tablero?: {ciclo: string, filas: FilaTablero[], avisos: Aviso[], pendiente: boolean}}}
  */
 function datosIniciales_() {
