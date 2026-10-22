@@ -58,9 +58,9 @@ export function cargar(archivos, globales = {}) {
    antes de compararlos con assert. */
 export const plano = x => JSON.parse(JSON.stringify(x));
 
-/* Oferta de datos-ejemplo.js, la que el prototipo extrajo a mano de los mismos Excel. */
+/* Oferta de datos/oferta-ejemplo.js, la que el prototipo extrajo a mano de los mismos Excel. */
 export function ofertaPatron() {
   const window = {};
-  vm.runInNewContext(fs.readFileSync(path.join(REPO, "docs/prototipo/funcional/datos-ejemplo.js"), "utf8"), { window });
+  vm.runInNewContext(fs.readFileSync(path.join(RAIZ, "pruebas/datos/oferta-ejemplo.js"), "utf8"), { window });
   return plano(window.SISDATOS.oferta);
 }

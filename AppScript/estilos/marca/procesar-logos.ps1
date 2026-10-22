@@ -1,10 +1,10 @@
-# Prepara los logotipos de la interfaz a partir de los originales de la raíz del repositorio:
+# Prepara los logotipos de la interfaz a partir de los originales de marca/fuente/:
 #   universidad-la-salle-logo.jpg → lasalle.png (recortado al contenido, sin el fondo blanco)
 #   logoWayrasimi.png             → wayrasimi.png (pie) y wayrasimi-marca.png (spinner), trazo blanco con alfa
 # Usa System.Drawing, así que corre en Windows PowerShell:
 #   powershell -ExecutionPolicy Bypass -File AppScript\estilos\marca\procesar-logos.ps1
 # Después, «npm run construir» en AppScript/estilos los incrusta en Estilos.html.
-param([string]$Raiz = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path, [string]$Salida = $PSScriptRoot)
+param([string]$Raiz = (Join-Path $PSScriptRoot 'fuente'), [string]$Salida = $PSScriptRoot)
 
 Add-Type -ReferencedAssemblies System.Drawing -TypeDefinition @'
 using System;

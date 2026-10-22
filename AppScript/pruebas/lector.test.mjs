@@ -36,7 +36,7 @@ test("da formato a fechas seriales con códigos de Excel", () => {
   assert.equal(ctx.xlsxEsFecha_('[$-409]d\\-mmm'), true);
 });
 
-/* datos-ejemplo.js se extrajo a mano de los mismos Excel. Su extracción no leyó la
+/* datos/oferta-ejemplo.js se extrajo a mano de los mismos Excel. Su extracción no leyó la
    columna «OBSERVACIÓN» (en singular) de las hojas de Arquitectura e Ingeniería
    Industrial; el lector sí la lee, y estos son los valores que trae el Excel. */
 const OBSERVACIONES_OMITIDAS = {
@@ -47,7 +47,7 @@ const OBSERVACIONES_OMITIDAS = {
   "17.3.1.24": "FUSIÓN CON ARQ-3"
 };
 
-test("los Excel reales dan la misma oferta que datos-ejemplo.js", () => {
+test("los Excel reales dan la misma oferta que datos/oferta-ejemplo.js", () => {
   const { oferta } = plano(ctx.ofertaDesdeLibros_(libroCarrera, libroDepartamento));
   const patron = ofertaPatron();
   assert.deepEqual(Object.keys(oferta).sort(), Object.keys(patron).sort());
