@@ -1,6 +1,6 @@
 // @ts-check
 /* CU-002 «Asignar docentes al plan de ciclo»: lo que usan las entradas de cu002/
-   (Asignacion.js y AsignacionEdicion.js). Cada carrera tiene su carga docente en cada
+   (AsignacionServidor.js y AsignacionEdicionServidor.js). Cada carrera tiene su carga docente en cada
    ciclo: la lista de docentes asignados a las secciones de su plan Registrado (una sección
    fusionada va en la carga de la carrera de su grupo principal).
    La carga de una carrera la edita, con bloqueo, el director del departamento al que

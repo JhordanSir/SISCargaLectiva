@@ -2,7 +2,7 @@
 /* Entradas de la edición del plan de ciclo (cu001/EdicionPlan*.html y CargaOferta.html).
    Validan, comprueban que la cuenta coordina la carrera y delegan en PlanServicio.js. El
    latido del bloqueo, su liberación y la copia de recuperación son comunes con CU-002:
-   están en comun/SesionEdicion.js. */
+   están en comun/SesionEdicionServidor.js. */
 
 /**
  * CU-001 pasos 13 a 18, FA-014, FA-015, FA-016 y FA-104: toma el bloqueo del plan y

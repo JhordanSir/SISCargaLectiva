@@ -2,7 +2,7 @@
 /* Entradas de la asignación docente en modo de edición (cu002/AsignacionEdicion.html y
    AsignacionCarga.html). Validan, comprueban que la cuenta asigna esa carga y delegan en
    CargaServicio.js. El latido del bloqueo, su liberación y la copia de recuperación son
-   comunes con CU-001: están en comun/SesionEdicion.js. */
+   comunes con CU-001: están en comun/SesionEdicionServidor.js. */
 
 /**
  * CU-002 pasos 18 a 23, FA-015, FA-016 y FA-017: toma el bloqueo de la carga y devuelve su

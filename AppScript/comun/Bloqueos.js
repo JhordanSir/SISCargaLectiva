@@ -2,7 +2,7 @@
 /* Bloqueos de edición. Un bloqueo reserva un documento a una cuenta en un ciclo: el plan de
    una carrera («plan:ADM») o su carga docente («carga:ADM») (Dominio.REF).
    Caduca SIS_MINUTOS_BLOQUEO minutos después de la última actividad; el navegador lo
-   renueva con un latido mientras hay actividad (SesionEdicion.js). Las mismas referencias
+   renueva con un latido mientras hay actividad (SesionEdicionServidor.js). Las mismas referencias
    identifican las copias de recuperación (Recuperacion.js). */
 
 /**

@@ -2,8 +2,8 @@
 "use strict";
 /* ============================================================
    Edición del plan de ciclo: sesión con bloqueo, entrar y salir de la edición, guardado,
-   registro y avisos entre pestañas. Llama a cu001/EdicionPlan.js (edicionPlanAbrir,
-   edicionPlanGuardar) y, a través de comun/SesionEdicion.html, a comun/SesionEdicion.js.
+   registro y avisos entre pestañas. Llama a cu001/EdicionPlanServidor.js (edicionPlanAbrir,
+   edicionPlanGuardar) y, a través de comun/SesionEdicion.html, a comun/SesionEdicionServidor.js.
    ============================================================ */
 let pedidoEdicion = 0;   // descarta las respuestas de edicionPlanAbrir que llegan tarde
 const refPlan = sig => Dominio.REF.plan(sig);

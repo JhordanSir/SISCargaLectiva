@@ -1,6 +1,6 @@
 // @ts-check
-/* Reglas de CU-001 «Registrar plan de ciclo» que usan las entradas de cu001/ (Tablero.js,
-   Consulta.js y EdicionPlan.js): quién edita un plan, el tablero del ciclo, la consulta, la
+/* Reglas de CU-001 «Registrar plan de ciclo» que usan las entradas de cu001/ (TableroServidor.js,
+   ConsultaServidor.js y EdicionPlanServidor.js): quién edita un plan, el tablero del ciclo, la consulta, la
    apertura de la edición y el guardado y la restauración de versiones. Leen y escriben a
    través de PlanRepositorio.js; las fusiones con otras carreras están en Fusiones.js. */
 

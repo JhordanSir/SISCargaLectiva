@@ -161,3 +161,11 @@ test("el servidor funciona aunque Apps Script cargue los archivos en otro orden"
     assert.equal(navegador.CARRERAS.length, 8, "el texto de Dominio para el navegador se evalúa solo");
   }
 });
+
+test("ningún .js se llama igual que un .html de su carpeta: Apps Script exige nombres únicos", () => {
+  /* En Apps Script, cu001/Tablero.gs y cu001/Tablero.html serían los dos «cu001/Tablero» y
+     clasp push fallaría. Por eso el .js que atiende una vista lleva «Servidor». */
+  const sinExtension = f => f.replace(/\.(js|html)$/, "");
+  const html = new Set(archivosApp(".html").map(sinExtension));
+  assert.deepEqual(archivosApp(".js").map(sinExtension).filter(n => html.has(n)), []);
+});

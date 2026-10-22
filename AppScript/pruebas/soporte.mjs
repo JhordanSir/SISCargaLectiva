@@ -14,7 +14,7 @@ export const XLSX_DOCENTES = path.join(REPO, "docs/archivos/SISCargaLectiva-Ejem
 /* Carpetas del proyecto de Apps Script que se suben con clasp (ver .claspignore). */
 export const CARPETAS_APP = ["", "comun", "cu001", "cu002"];
 
-/* Archivos de la aplicación con esa extensión, como rutas relativas a AppScript/ («cu001/Tablero.js»), ordenados. */
+/* Archivos de la aplicación con esa extensión, como rutas relativas a AppScript/ («cu001/TableroServidor.js»), ordenados. */
 export function archivosApp(extension) {
   return CARPETAS_APP.flatMap(c => fs.readdirSync(path.join(RAIZ, c))
     .filter(f => f.endsWith(extension) && fs.statSync(path.join(RAIZ, c, f)).isFile())

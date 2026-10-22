@@ -1,6 +1,6 @@
 // @ts-check
 /* Entradas de la consulta de un plan en solo lectura (cu001/Consulta.html). La derivación
-   de una asignatura (FA-005) es común con CU-002: está en comun/Derivacion.js. */
+   de una asignatura (FA-005) es común con CU-002: está en comun/DerivacionServidor.js. */
 
 /**
  * CU-001 FA-013: contenido vigente de un plan para consultarlo. El navegador solo lo pide

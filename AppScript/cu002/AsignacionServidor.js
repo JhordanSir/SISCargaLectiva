@@ -1,7 +1,7 @@
 // @ts-check
 /* Entradas de la pantalla de asignación docente (cu002/Asignacion.html) en modo de
    consulta. Validan, comprueban la cuenta y delegan en CargaServicio.js. La derivación de
-   una sección (FA-079) es común con CU-001: está en comun/Derivacion.js. */
+   una sección (FA-079) es común con CU-001: está en comun/DerivacionServidor.js. */
 
 /**
  * CU-002 pasos 7 a 17 y FA-006 a FA-014: secciones del ciclo, cargas de todas las carreras

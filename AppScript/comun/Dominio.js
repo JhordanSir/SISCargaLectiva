@@ -47,7 +47,7 @@ function crearDominio_() {
 }
 
 /**
- * Texto que recrea Dominio en el navegador (Index.js lo inserta en la página).
+ * Texto que recrea Dominio en el navegador (IndexServidor.js lo inserta en la página).
  * @returns {string}
  */
 function fuenteDominio_() {

@@ -245,45 +245,45 @@ footer.pie { margin: 36px 0 28px; color: var(--tinta-suave); font-size: 13px; }
   ],
   "carpetas": [
     { "id": "comun", "nombre": "comun/", "texto": "Común a CU-001 y CU-002", "pares": [
-      { "vista": ["Index.html"], "servidor": ["Index.js"], "pantalla": "cabecera" },
+      { "vista": ["Index.html"], "servidor": ["IndexServidor.js"], "pantalla": "cabecera" },
       { "vista": ["comun/Inicio.html"], "servidor": [], "pantalla": "inicio" },
-      { "vista": ["comun/SesionEdicion.html"], "servidor": ["comun/SesionEdicion.js"], "pantalla": "automaticas" },
-      { "vista": ["comun/Derivacion.html"], "servidor": ["comun/Derivacion.js"], "pantalla": "consulta" },
-      { "vista": ["comun/DocentesAsignados.html"], "servidor": ["comun/DocentesAsignados.js"], "pantalla": "automaticas" },
+      { "vista": ["comun/SesionEdicion.html"], "servidor": ["comun/SesionEdicionServidor.js"], "pantalla": "automaticas" },
+      { "vista": ["comun/Derivacion.html"], "servidor": ["comun/DerivacionServidor.js"], "pantalla": "consulta" },
+      { "vista": ["comun/DocentesAsignados.html"], "servidor": ["comun/DocentesAsignadosServidor.js"], "pantalla": "automaticas" },
       { "vista": ["comun/Nucleo.html", "comun/Ventanas.html", "comun/Pestanas.html", "comun/Rejilla.html", "comun/Arranque.html"], "servidor": [], "pantalla": "cabecera" }
     ] },
     { "id": "cu001", "nombre": "cu001/", "texto": "CU-001 Registrar plan de ciclo", "pares": [
-      { "vista": ["cu001/Tablero.html"], "servidor": ["cu001/Tablero.js"], "pantalla": "planes" },
-      { "vista": ["cu001/Consulta.html", "cu001/PlanBloques.html"], "servidor": ["cu001/Consulta.js"], "pantalla": "consulta" },
+      { "vista": ["cu001/Tablero.html"], "servidor": ["cu001/TableroServidor.js"], "pantalla": "planes" },
+      { "vista": ["cu001/Consulta.html", "cu001/PlanBloques.html"], "servidor": ["cu001/ConsultaServidor.js"], "pantalla": "consulta" },
       { "vista": ["cu001/CargaOferta.html"], "servidor": [], "pantalla": "carga" },
-      { "vista": ["cu001/EdicionPlan.html", "cu001/EdicionPlanAcciones.html", "cu001/EdicionPlanSesion.html"], "servidor": ["cu001/EdicionPlan.js"], "pantalla": "grilla" }
+      { "vista": ["cu001/EdicionPlan.html", "cu001/EdicionPlanAcciones.html", "cu001/EdicionPlanSesion.html"], "servidor": ["cu001/EdicionPlanServidor.js"], "pantalla": "grilla" }
     ] },
     { "id": "cu002", "nombre": "cu002/", "texto": "CU-002 Asignar docentes a plan de ciclo", "pares": [
-      { "vista": ["cu002/Asignacion.html"], "servidor": ["cu002/Asignacion.js"], "pantalla": "asignacion" },
-      { "vista": ["cu002/AsignacionEdicion.html"], "servidor": ["cu002/AsignacionEdicion.js"], "pantalla": "asignacion" },
+      { "vista": ["cu002/Asignacion.html"], "servidor": ["cu002/AsignacionServidor.js"], "pantalla": "asignacion" },
+      { "vista": ["cu002/AsignacionEdicion.html"], "servidor": ["cu002/AsignacionEdicionServidor.js"], "pantalla": "asignacion" },
       { "vista": ["cu002/AsignacionCarga.html"], "servidor": [], "pantalla": "asignacionCarga" }
     ] }
   ],
   "entradas": {
-    "doGet": { "archivo": "Index.js", "servicio": [{ "funcion": "datosIniciales_", "archivo": "Index.js" }], "cu": "CU-001 y CU-002 pasos 1 a 6, FA de acceso denegado" },
-    "tableroObtener": { "archivo": "cu001/Tablero.js", "servicio": [{ "funcion": "sincronizarFuentes_", "archivo": "cu001/OfertaDrive.js" }, { "funcion": "leerTablero_", "archivo": "cu001/PlanServicio.js" }], "cu": "CU-001 pasos 9 a 11, FA-009 a FA-012" },
-    "consultaObtener": { "archivo": "cu001/Consulta.js", "servicio": [{ "funcion": "planVigente_", "archivo": "cu001/PlanServicio.js" }], "cu": "CU-001 FA-013" },
-    "edicionPlanAbrir": { "archivo": "cu001/EdicionPlan.js", "servicio": [{ "funcion": "abrirEdicionPlan_", "archivo": "cu001/PlanServicio.js" }], "cu": "CU-001 pasos 13 a 18, FA-014 a FA-016, FA-104" },
-    "edicionPlanGuardar": { "archivo": "cu001/EdicionPlan.js", "servicio": [{ "funcion": "guardarPlan_", "archivo": "cu001/PlanServicio.js" }, { "funcion": "prepararFusiones_", "archivo": "cu001/Fusiones.js" }, { "funcion": "guardarFusionesAjenas_", "archivo": "cu001/Fusiones.js" }], "cu": "CU-001 pasos 43 a 50, FA-099 a FA-118" },
-    "edicionPlanHistorial": { "archivo": "cu001/EdicionPlan.js", "servicio": [{ "funcion": "historialPlan_", "archivo": "cu001/PlanServicio.js" }], "cu": "CU-001 FA-092, FA-093" },
-    "edicionPlanRestaurar": { "archivo": "cu001/EdicionPlan.js", "servicio": [{ "funcion": "restaurarPlan_", "archivo": "cu001/PlanServicio.js" }], "cu": "CU-001 FA-094" },
-    "asignacionObtener": { "archivo": "cu002/Asignacion.js", "servicio": [{ "funcion": "cargaDeCarrera_", "archivo": "cu002/CargaServicio.js" }], "cu": "CU-002 pasos 7 a 17, FA-006 a FA-014" },
-    "asignacionHistorial": { "archivo": "cu002/Asignacion.js", "servicio": [{ "funcion": "historialCarga_", "archivo": "cu002/CargaServicio.js" }], "cu": "CU-002 FA-084, FA-085" },
-    "asignacionVerVersion": { "archivo": "cu002/Asignacion.js", "servicio": [{ "funcion": "versionCarga_", "archivo": "cu002/CargaServicio.js" }], "cu": "CU-002 FA-086" },
-    "asignacionEdicionAbrir": { "archivo": "cu002/AsignacionEdicion.js", "servicio": [{ "funcion": "abrirEdicionCarga_", "archivo": "cu002/CargaServicio.js" }], "cu": "CU-002 pasos 18 a 23, FA-015 a FA-017" },
-    "asignacionEdicionGuardar": { "archivo": "cu002/AsignacionEdicion.js", "servicio": [{ "funcion": "guardarCarga_", "archivo": "cu002/CargaServicio.js" }, { "funcion": "combinarCarga_", "archivo": "cu002/CargaReglas.js" }, { "funcion": "depurarCarga_", "archivo": "cu002/CargaReglas.js" }, { "funcion": "validarExcesos_", "archivo": "cu002/CargaReglas.js" }, { "funcion": "persistirCarga_", "archivo": "cu002/CargaServicio.js" }], "cu": "CU-002 pasos 61 a 80, FA-103 a FA-109, FA-112" },
-    "asignacionEdicionRestaurar": { "archivo": "cu002/AsignacionEdicion.js", "servicio": [{ "funcion": "restaurarCarga_", "archivo": "cu002/CargaServicio.js" }], "cu": "CU-002 FA-087, FA-088" },
-    "sesionEdicionRenovar": { "archivo": "comun/SesionEdicion.js", "servicio": [{ "funcion": "renovarBloqueo_", "archivo": "comun/Bloqueos.js" }], "cu": "CU-001 paso 16, FA-120; CU-002 paso 21, FA-114" },
-    "sesionEdicionLiberar": { "archivo": "comun/SesionEdicion.js", "servicio": [{ "funcion": "soltarBloqueo_", "archivo": "comun/Bloqueos.js" }], "cu": "CU-001 paso 53, FA-029, FA-115, FA-117 a FA-119; CU-002 pasos 84 a 85, FA-112, FA-113" },
-    "sesionEdicionGuardarCopia": { "archivo": "comun/SesionEdicion.js", "servicio": [{ "funcion": "guardarRecuperacion_", "archivo": "comun/Recuperacion.js" }], "cu": "CU-001 y CU-002, «Copia de recuperación»" },
-    "sesionEdicionDescartarCopia": { "archivo": "comun/SesionEdicion.js", "servicio": [{ "funcion": "borrarRecuperacion_", "archivo": "comun/Recuperacion.js" }], "cu": "CU-001 FA-017, FA-115; CU-002 FA-017, FA-110" },
-    "derivacionGuardar": { "archivo": "comun/Derivacion.js", "servicio": [{ "funcion": "derivarAsignatura_", "archivo": "comun/Derivacion.js" }], "cu": "CU-001 FA-005 a FA-008; CU-002 FA-079 a FA-083" },
-    "docentesAsignadosObtener": { "archivo": "comun/DocentesAsignados.js", "servicio": [{ "funcion": "docentesPorGrupo_", "archivo": "cu002/CargaServicio.js" }], "cu": "CU-001 FA-013, FA-057, FA-064, FA-071" }
+    "doGet": { "archivo": "IndexServidor.js", "servicio": [{ "funcion": "datosIniciales_", "archivo": "IndexServidor.js" }], "cu": "CU-001 y CU-002 pasos 1 a 6, FA de acceso denegado" },
+    "tableroObtener": { "archivo": "cu001/TableroServidor.js", "servicio": [{ "funcion": "sincronizarFuentes_", "archivo": "cu001/OfertaDrive.js" }, { "funcion": "leerTablero_", "archivo": "cu001/PlanServicio.js" }], "cu": "CU-001 pasos 9 a 11, FA-009 a FA-012" },
+    "consultaObtener": { "archivo": "cu001/ConsultaServidor.js", "servicio": [{ "funcion": "planVigente_", "archivo": "cu001/PlanServicio.js" }], "cu": "CU-001 FA-013" },
+    "edicionPlanAbrir": { "archivo": "cu001/EdicionPlanServidor.js", "servicio": [{ "funcion": "abrirEdicionPlan_", "archivo": "cu001/PlanServicio.js" }], "cu": "CU-001 pasos 13 a 18, FA-014 a FA-016, FA-104" },
+    "edicionPlanGuardar": { "archivo": "cu001/EdicionPlanServidor.js", "servicio": [{ "funcion": "guardarPlan_", "archivo": "cu001/PlanServicio.js" }, { "funcion": "prepararFusiones_", "archivo": "cu001/Fusiones.js" }, { "funcion": "guardarFusionesAjenas_", "archivo": "cu001/Fusiones.js" }], "cu": "CU-001 pasos 43 a 50, FA-099 a FA-118" },
+    "edicionPlanHistorial": { "archivo": "cu001/EdicionPlanServidor.js", "servicio": [{ "funcion": "historialPlan_", "archivo": "cu001/PlanServicio.js" }], "cu": "CU-001 FA-092, FA-093" },
+    "edicionPlanRestaurar": { "archivo": "cu001/EdicionPlanServidor.js", "servicio": [{ "funcion": "restaurarPlan_", "archivo": "cu001/PlanServicio.js" }], "cu": "CU-001 FA-094" },
+    "asignacionObtener": { "archivo": "cu002/AsignacionServidor.js", "servicio": [{ "funcion": "cargaDeCarrera_", "archivo": "cu002/CargaServicio.js" }], "cu": "CU-002 pasos 7 a 17, FA-006 a FA-014" },
+    "asignacionHistorial": { "archivo": "cu002/AsignacionServidor.js", "servicio": [{ "funcion": "historialCarga_", "archivo": "cu002/CargaServicio.js" }], "cu": "CU-002 FA-084, FA-085" },
+    "asignacionVerVersion": { "archivo": "cu002/AsignacionServidor.js", "servicio": [{ "funcion": "versionCarga_", "archivo": "cu002/CargaServicio.js" }], "cu": "CU-002 FA-086" },
+    "asignacionEdicionAbrir": { "archivo": "cu002/AsignacionEdicionServidor.js", "servicio": [{ "funcion": "abrirEdicionCarga_", "archivo": "cu002/CargaServicio.js" }], "cu": "CU-002 pasos 18 a 23, FA-015 a FA-017" },
+    "asignacionEdicionGuardar": { "archivo": "cu002/AsignacionEdicionServidor.js", "servicio": [{ "funcion": "guardarCarga_", "archivo": "cu002/CargaServicio.js" }, { "funcion": "combinarCarga_", "archivo": "cu002/CargaReglas.js" }, { "funcion": "depurarCarga_", "archivo": "cu002/CargaReglas.js" }, { "funcion": "validarExcesos_", "archivo": "cu002/CargaReglas.js" }, { "funcion": "persistirCarga_", "archivo": "cu002/CargaServicio.js" }], "cu": "CU-002 pasos 61 a 80, FA-103 a FA-109, FA-112" },
+    "asignacionEdicionRestaurar": { "archivo": "cu002/AsignacionEdicionServidor.js", "servicio": [{ "funcion": "restaurarCarga_", "archivo": "cu002/CargaServicio.js" }], "cu": "CU-002 FA-087, FA-088" },
+    "sesionEdicionRenovar": { "archivo": "comun/SesionEdicionServidor.js", "servicio": [{ "funcion": "renovarBloqueo_", "archivo": "comun/Bloqueos.js" }], "cu": "CU-001 paso 16, FA-120; CU-002 paso 21, FA-114" },
+    "sesionEdicionLiberar": { "archivo": "comun/SesionEdicionServidor.js", "servicio": [{ "funcion": "soltarBloqueo_", "archivo": "comun/Bloqueos.js" }], "cu": "CU-001 paso 53, FA-029, FA-115, FA-117 a FA-119; CU-002 pasos 84 a 85, FA-112, FA-113" },
+    "sesionEdicionGuardarCopia": { "archivo": "comun/SesionEdicionServidor.js", "servicio": [{ "funcion": "guardarRecuperacion_", "archivo": "comun/Recuperacion.js" }], "cu": "CU-001 y CU-002, «Copia de recuperación»" },
+    "sesionEdicionDescartarCopia": { "archivo": "comun/SesionEdicionServidor.js", "servicio": [{ "funcion": "borrarRecuperacion_", "archivo": "comun/Recuperacion.js" }], "cu": "CU-001 FA-017, FA-115; CU-002 FA-017, FA-110" },
+    "derivacionGuardar": { "archivo": "comun/DerivacionServidor.js", "servicio": [{ "funcion": "derivarAsignatura_", "archivo": "comun/DerivacionServidor.js" }], "cu": "CU-001 FA-005 a FA-008; CU-002 FA-079 a FA-083" },
+    "docentesAsignadosObtener": { "archivo": "comun/DocentesAsignadosServidor.js", "servicio": [{ "funcion": "docentesPorGrupo_", "archivo": "cu002/CargaServicio.js" }], "cu": "CU-001 FA-013, FA-057, FA-064, FA-071" }
   },
   "pantallas": [
     { "id": "cabecera", "nombre": "Cabecera", "cu": "comun", "contenedor": ".cabecera", "vista": ["Index.html"], "mapa": "comun/Nucleo.html", "acciones": [

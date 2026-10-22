@@ -1,6 +1,6 @@
 // @ts-check
 /* Copia de recuperación: mientras alguien edita un plan o una carga docente, el navegador
-   envía cada minuto lo que aún no guardó (SesionEdicion.js). Si la página se cierra o se
+   envía cada minuto lo que aún no guardó (SesionEdicionServidor.js). Si la página se cierra o se
    cae, al volver a editar se ofrece recuperarlo. No es una versión: se borra al guardar o al
    descartar.
    Decisión (auditoría P3.6-f): la copia sigue en la hoja, que no caduca como CacheService,

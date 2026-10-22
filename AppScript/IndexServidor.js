@@ -1,8 +1,9 @@
 // @ts-check
 /* Punto de entrada de la aplicación web: arma Index.html con los datos iniciales y el texto
    de Dominio. Las vistas viven en comun/, cu001/ y cu002/; las funciones del servidor que
-   llama cada vista están en el .js del mismo nombre y se llaman «vista + acción»
-   (tableroObtener, edicionPlanGuardar, asignacionEdicionGuardar…). */
+   llama cada vista están en el .js de su nombre con «Servidor» (Tablero.html ↔
+   TableroServidor.js: Apps Script no deja que un .gs y un .html se llamen igual) y se llaman
+   «vista + acción» (tableroObtener, edicionPlanGuardar, asignacionEdicionGuardar…). */
 
 /**
  * CU-001 y CU-002, pasos 1 a 6: la página de la aplicación, con los datos iniciales y

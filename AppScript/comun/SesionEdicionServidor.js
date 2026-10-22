@@ -2,7 +2,7 @@
 /* Entradas de la sesión de edición (comun/SesionEdicion.html), común al plan de ciclo
    (CU-001) y a la carga docente (CU-002). El documento se indica con su referencia:
    «plan:ADM» o «carga:ADM» (Dominio.REF). Abrir y guardar cada documento son propios de su
-   pantalla (cu001/EdicionPlan.js, cu002/AsignacionEdicion.js). */
+   pantalla (cu001/EdicionPlanServidor.js, cu002/AsignacionEdicionServidor.js). */
 
 /**
  * Valida una referencia («plan:ADM», «carga:ADM»); si no lo es, falla con DATO_INVALIDO.
