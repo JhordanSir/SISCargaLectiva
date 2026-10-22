@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mapa de la GUI</title>
+<meta name="description" content="Qué función del navegador y qué función del servidor actúan con cada botón de SISCargaLectiva, con su paso del caso de uso.">
+<style>
+:root {
+  --fondo: #f3f7fb; --superficie: #ffffff; --superficie-2: #f7fafd; --tinta: #2c2b29; --tinta-suave: #55606b;
+  --linea: #d6e3ee; --acento: #0778b2; --marino: #15567c;
+  --c-vista: #0280bd; --c-vista-f: #e3f2fb;
+  --c-nav: #0d7f71; --c-nav-f: #e0f4f1;
+  --c-entrada: #6447b8; --c-entrada-f: #efeafb;
+  --c-servicio: #a86200; --c-servicio-f: #fbf0df;
+  --c-cu: #15567c; --c-cu-f: #e6eef5;
+  --sombra: 0 1px 2px rgba(21, 86, 124, .08), 0 8px 24px rgba(21, 86, 124, .08);
+  --radio: 14px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --fondo: #0e161e; --superficie: #15202b; --superficie-2: #1a2734; --tinta: #e6edf3; --tinta-suave: #a7b4c1;
+    --linea: #2a3a4a; --acento: #5bb6e6; --marino: #9fd3f0;
+    --c-vista: #5bb6e6; --c-vista-f: #12324a;
+    --c-nav: #4fd1bd; --c-nav-f: #0f3530;
+    --c-entrada: #b39bff; --c-entrada-f: #2a2350;
+    --c-servicio: #f0b458; --c-servicio-f: #3a2a10;
+    --c-cu: #9fd3f0; --c-cu-f: #1b3346;
+    --sombra: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px rgba(0, 0, 0, .3);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --fondo: #0e161e; --superficie: #15202b; --superficie-2: #1a2734; --tinta: #e6edf3; --tinta-suave: #a7b4c1;
+  --linea: #2a3a4a; --acento: #5bb6e6; --marino: #9fd3f0;
+  --c-vista: #5bb6e6; --c-vista-f: #12324a;
+  --c-nav: #4fd1bd; --c-nav-f: #0f3530;
+  --c-entrada: #b39bff; --c-entrada-f: #2a2350;
+  --c-servicio: #f0b458; --c-servicio-f: #3a2a10;
+  --c-cu: #9fd3f0; --c-cu-f: #1b3346;
+  --sombra: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px rgba(0, 0, 0, .3);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--fondo); color: var(--tinta);
+  font: 15px/1.5 "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+}
+code, .mono { font-family: ui-monospace, "Cascadia Code", "SF Mono", Consolas, monospace; font-size: .86em; }
+.contenido { max-width: 1240px; margin: 0 auto; padding: 0 16px; }
+
+/* ---------- cabecera ---------- */
+.cab { background: linear-gradient(135deg, #15567c 0%, #0778b2 55%, #0280bd 100%); color: #fff; padding: 40px 0 34px; overflow: hidden; position: relative; }
+.cab::after { content: ""; position: absolute; inset: auto -10% -60% 45%; height: 140%; background: radial-gradient(closest-side, rgba(255,255,255,.16), transparent); pointer-events: none; }
+.cab .sobre { text-transform: uppercase; letter-spacing: .14em; font-size: 12px; opacity: .85; margin: 0 0 6px; }
+.cab h1 { margin: 0; font-size: clamp(26px, 4vw, 38px); line-height: 1.15; font-weight: 700; }
+.cab p.sub { margin: 10px 0 0; max-width: 760px; opacity: .92; }
+.cifras-cab { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
+.cifra-cab { background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.22); border-radius: 12px; padding: 8px 14px; min-width: 120px; }
+.cifra-cab b { display: block; font-size: 22px; line-height: 1.1; }
+.cifra-cab span { font-size: 12.5px; opacity: .9; }
+.tema { position: absolute; top: 16px; right: 16px; z-index: 1; background: rgba(255,255,255,.14); color: #fff; border: 1px solid rgba(255,255,255,.3); border-radius: 999px; padding: 6px 12px; font: inherit; font-size: 13px; cursor: pointer; }
+
+/* ---------- capas ---------- */
+.seccion { margin: 28px 0; }
+.seccion > h2 { font-size: 20px; margin: 0 0 4px; }
+.seccion > p.ayuda { margin: 0 0 14px; color: var(--tinta-suave); max-width: 820px; }
+.tubo { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; background: var(--superficie); border: 1px solid var(--linea); border-radius: var(--radio); box-shadow: var(--sombra); overflow: hidden; }
+.capa { padding: 16px 18px 18px; position: relative; }
+.capa + .capa { border-left: 1px solid var(--linea); }
+.capa h3 { margin: 0 0 4px; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+.capa h3 i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.capa p { margin: 0; font-size: 13.5px; color: var(--tinta-suave); }
+.capa .ej { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; }
+.capa .flecha-capa { position: absolute; top: 18px; right: -11px; z-index: 1; width: 22px; height: 22px; border-radius: 50%; background: var(--superficie); border: 1px solid var(--linea); display: grid; place-items: center; color: var(--tinta-suave); }
+.capa:last-child .flecha-capa { display: none; }
+
+.carpetas { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 16px; }
+.carpeta { background: var(--superficie); border: 1px solid var(--linea); border-radius: var(--radio); box-shadow: var(--sombra); padding: 14px; }
+.carpeta h3 { margin: 0 0 10px; font-size: 14px; display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.carpeta h3 small { color: var(--tinta-suave); font-weight: 400; }
+.par { display: grid; grid-template-columns: minmax(0, 1fr) 38px minmax(0, 1fr); align-items: center; gap: 4px; padding: 6px; border-radius: 10px; cursor: pointer; border: 1px solid transparent; background: none; width: 100%; font: inherit; color: inherit; text-align: left; }
+.par:hover, .par:focus-visible { background: var(--superficie-2); border-color: var(--linea); outline: none; }
+.par .lado { display: flex; flex-direction: column; gap: 4px; min-width: 0; align-items: flex-start; }
+.par svg { width: 38px; height: 14px; overflow: visible; }
+.par svg path { fill: none; stroke: var(--tinta-suave); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.par .sin { font-size: 12px; color: var(--tinta-suave); font-style: italic; padding: 3px 0; }
+
+/* ---------- fichas ---------- */
+.ficha { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 0 6px; max-width: 100%; border-radius: 8px; padding: 3px 8px; font-size: 12.5px; line-height: 1.35; border: 1px solid transparent; overflow-wrap: anywhere; text-align: left; }
+.ficha .arch { opacity: .75; font-size: 11px; }
+.f-vista { background: var(--c-vista-f); color: var(--c-vista); border-color: color-mix(in srgb, var(--c-vista) 25%, transparent); }
+.f-nav { background: var(--c-nav-f); color: var(--c-nav); border-color: color-mix(in srgb, var(--c-nav) 25%, transparent); }
+.f-entrada { background: var(--c-entrada-f); color: var(--c-entrada); border-color: color-mix(in srgb, var(--c-entrada) 30%, transparent); cursor: pointer; font: inherit; font-size: 12.5px; }
+.f-entrada:hover, .f-entrada:focus-visible { outline: 2px solid var(--c-entrada); outline-offset: 1px; }
+.ficha.mono { font-family: ui-monospace, "Cascadia Code", "SF Mono", Consolas, monospace; }
+.f-servicio { background: var(--c-servicio-f); color: var(--c-servicio); border-color: color-mix(in srgb, var(--c-servicio) 28%, transparent); }
+.f-cu { background: var(--c-cu-f); color: var(--c-cu); font-weight: 600; white-space: normal; }
+
+/* ---------- tablero de botones ---------- */
+.barra { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 14px; }
+.buscar { flex: 1 1 260px; position: relative; }
+.buscar input { width: 100%; padding: 10px 12px 10px 36px; border-radius: 12px; border: 1px solid var(--linea); background: var(--superficie); color: var(--tinta); font: inherit; }
+.buscar input:focus { outline: 2px solid var(--acento); outline-offset: 1px; }
+.buscar svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; stroke: var(--tinta-suave); fill: none; stroke-width: 2; }
+.filtros { display: flex; flex-wrap: wrap; gap: 6px; }
+.filtro { border: 1px solid var(--linea); background: var(--superficie); color: var(--tinta); border-radius: 999px; padding: 7px 13px; font: inherit; font-size: 13.5px; cursor: pointer; }
+.filtro[aria-pressed="true"] { background: var(--acento); border-color: var(--acento); color: #fff; }
+.filtro:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
+
+.cuerpo { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 16px; align-items: start; }
+.pantallas { position: sticky; top: 12px; background: var(--superficie); border: 1px solid var(--linea); border-radius: var(--radio); box-shadow: var(--sombra); padding: 8px; max-height: calc(100vh - 24px); overflow: auto; }
+.pantallas h3 { font-size: 11.5px; text-transform: uppercase; letter-spacing: .1em; color: var(--tinta-suave); margin: 10px 8px 4px; }
+.pant { display: flex; justify-content: space-between; gap: 8px; width: 100%; text-align: left; border: 0; background: none; color: inherit; font: inherit; font-size: 14px; padding: 7px 9px; border-radius: 9px; cursor: pointer; }
+.pant:hover { background: var(--superficie-2); }
+.pant[aria-current="true"] { background: var(--c-vista-f); color: var(--c-vista); font-weight: 600; }
+.pant span.n { color: var(--tinta-suave); font-size: 12px; font-weight: 400; }
+.pant:focus-visible { outline: 2px solid var(--acento); outline-offset: -2px; }
+
+.grupo-pant { background: var(--superficie); border: 1px solid var(--linea); border-radius: var(--radio); box-shadow: var(--sombra); margin-bottom: 16px; overflow: hidden; }
+.grupo-pant > header { padding: 14px 16px 10px; border-bottom: 1px solid var(--linea); display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 16px; }
+.grupo-pant h3 { margin: 0; font-size: 16px; }
+.grupo-pant header p { margin: 2px 0 0; color: var(--tinta-suave); font-size: 13px; }
+.grupo-pant header .pares { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.fila { display: grid; grid-template-columns: minmax(170px, 230px) minmax(0, 1fr); gap: 10px 16px; padding: 12px 16px; border-bottom: 1px solid var(--linea); position: relative; outline: none; }
+.fila .quien { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.flujo { display: grid; grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr) 24px minmax(0, 1fr); gap: 0 4px; align-items: start; }
+.carril { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.carril > b { font-size: 10.5px; text-transform: uppercase; letter-spacing: .09em; color: var(--tinta-suave); font-weight: 600; }
+.carril .fichas { display: flex; flex-wrap: wrap; gap: 4px; }
+.sep { padding-top: 22px; }
+.fila:last-child { border-bottom: 0; }
+.fila:hover, .fila:focus-within, .fila.activa { background: var(--superficie-2); }
+.boton-gui { font-weight: 600; font-size: 14px; }
+.boton-gui small { display: block; font-weight: 400; color: var(--tinta-suave); font-size: 12px; }
+.sep svg { width: 24px; height: 12px; display: block; overflow: visible; }
+.sep path { fill: none; stroke: var(--linea); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; transition: stroke .2s; }
+.fila:hover .sep path, .fila.activa .sep path, .fila:focus-within .sep path { stroke: var(--acento); }
+.vacio { color: var(--tinta-suave); font-size: 12.5px; font-style: italic; }
+.sin-resultados { padding: 28px; text-align: center; color: var(--tinta-suave); background: var(--superficie); border: 1px dashed var(--linea); border-radius: var(--radio); }
+
+/* ---------- detalle de una entrada ---------- */
+.detalle { position: fixed; inset: 0 0 0 auto; width: min(440px, 100%); background: var(--superficie); border-left: 1px solid var(--linea); box-shadow: -12px 0 40px rgba(0,0,0,.18); z-index: 20; display: flex; flex-direction: column; transform: translateX(105%); visibility: hidden; }
+.detalle.abierto { visibility: visible; }
+.detalle header { padding: 18px 18px 12px; border-bottom: 1px solid var(--linea); display: flex; justify-content: space-between; gap: 10px; align-items: start; }
+.detalle h3 { margin: 0; font-size: 18px; word-break: break-all; }
+.detalle .cerrar { border: 1px solid var(--linea); background: var(--superficie-2); color: var(--tinta); border-radius: 10px; padding: 6px 10px; cursor: pointer; font: inherit; }
+.detalle .cuerpo-det { padding: 16px 18px 24px; overflow: auto; }
+.detalle dl { margin: 0; display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 8px 10px; font-size: 13.5px; }
+.detalle dt { color: var(--tinta-suave); }
+.detalle dd { margin: 0; display: flex; flex-wrap: wrap; gap: 4px; }
+.detalle h4 { margin: 18px 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--tinta-suave); }
+.detalle ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.detalle li { border: 1px solid var(--linea); border-radius: 10px; padding: 8px 10px; font-size: 13.5px; }
+.detalle li b { display: block; }
+.velo { position: fixed; inset: 0; background: rgba(9, 20, 30, .35); z-index: 19; opacity: 0; visibility: hidden; }
+
+footer.pie { margin: 36px 0 28px; color: var(--tinta-suave); font-size: 13px; }
+
+@media (max-width: 980px) {
+  .cuerpo { grid-template-columns: minmax(0, 1fr); }
+  .pantallas { position: static; max-height: none; display: flex; flex-wrap: wrap; gap: 4px; }
+  .pantallas h3 { width: 100%; }
+  .pant { width: auto; }
+  .carpetas { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 860px) {
+  .tubo { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .capa:nth-child(3) { border-left: 0; }
+  .capa:nth-child(n+3) { border-top: 1px solid var(--linea); }
+  .capa .flecha-capa { display: none; }
+  .fila { grid-template-columns: minmax(0, 1fr); }
+  .flujo { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .sep { padding: 0 0 0 6px; height: 16px; }
+  .sep svg { transform: rotate(90deg); transform-origin: 6px 6px; width: 16px; }
+}
+@media (max-width: 520px) {
+  .tubo { grid-template-columns: minmax(0, 1fr); }
+  .capa + .capa { border-left: 0; border-top: 1px solid var(--linea); }
+  .tema { position: static; margin-bottom: 14px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}
+</style>
+</head>
+<body>
+
+<header class="cab">
+  <div class="contenido" style="position:relative">
+    <button type="button" class="tema" id="tema" aria-label="Cambiar entre tema claro y oscuro">Tema</button>
+    <p class="sobre">SISCargaLectiva · Universidad La Salle</p>
+    <h1>Mapa de la GUI: qué código actúa en cada botón</h1>
+    <p class="sub">Cada pantalla enlaza sus botones con un mapa de acciones (<code>data-accion</code>). La función del navegador llama, si hace falta, a la entrada del servidor del <code>.js</code> que tiene el mismo nombre que la vista; la entrada valida, comprueba la cuenta y delega en un servicio. Cada fila dice el paso del caso de uso que cumple.</p>
+    <div class="cifras-cab" id="cifras"></div>
+  </div>
+</header>
+
+<main class="contenido">
+  <section class="seccion" aria-labelledby="t-capas">
+    <h2 id="t-capas">Las cuatro capas</h2>
+    <p class="ayuda">Una llamada recorre las capas de izquierda a derecha. La vista nunca habla con la hoja: siempre pasa por una entrada del servidor.</p>
+    <div class="tubo" id="tubo"></div>
+    <div class="carpetas" id="carpetas"></div>
+  </section>
+
+  <section class="seccion" aria-labelledby="t-botones">
+    <h2 id="t-botones">Botón por botón</h2>
+    <p class="ayuda">Busca por el texto del botón, por el nombre de una función o por un paso del caso de uso (por ejemplo «FA-055» o «edicionPlanGuardar»). Pulsa una entrada del servidor para ver qué botones la usan.</p>
+    <div class="barra">
+      <label class="buscar">
+        <span class="sr" style="position:absolute;left:-9999px">Buscar</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+        <input type="search" id="buscar" placeholder="Buscar botón, función o paso del CU…" autocomplete="off">
+      </label>
+      <div class="filtros" role="group" aria-label="Filtrar por caso de uso" id="filtros"></div>
+    </div>
+    <div class="cuerpo">
+      <nav class="pantallas" id="pantallas" aria-label="Pantallas"></nav>
+      <div id="tablero"></div>
+    </div>
+  </section>
+
+  <footer class="pie">Los datos de este mapa están en el bloque <code>#datos-mapa</code> de este archivo. La prueba <code>AppScript/pruebas/mapa.test.mjs</code> comprueba que cada botón, función y entrada que nombra existe en el código, y que ningún botón de la aplicación falta en el mapa.</footer>
+</main>
+
+<div class="velo" id="velo"></div>
+<aside class="detalle" id="detalle" aria-labelledby="det-titulo" aria-hidden="true">
+  <header>
+    <div><p class="sobre" style="margin:0;color:var(--c-entrada);font-size:12px;text-transform:uppercase;letter-spacing:.1em">Entrada del servidor</p><h3 id="det-titulo"></h3></div>
+    <button type="button" class="cerrar" id="cerrar-detalle">Cerrar</button>
+  </header>
+  <div class="cuerpo-det" id="det-cuerpo"></div>
+</aside>
+
+<script type="application/json" id="datos-mapa">
+{
+  "capas": [
+    { "id": "vista", "nombre": "Vista", "texto": "El HTML de la pantalla: su marcado y su script. Enlaza los botones con su mapa de acciones.", "ejemplos": ["cu001/EdicionPlan.html", "cu002/Asignacion.html"] },
+    { "id": "nav", "nombre": "Función del navegador", "texto": "La función del mapa de acciones. Cambia lo que hay en pantalla y, si hace falta, llama al servidor con google.script.run.", "ejemplos": ["registrarPlan", "asignarSeccion"] },
+    { "id": "entrada", "nombre": "Entrada del servidor", "texto": "La función pública del .js de la vista, con nombre «vista + acción». Valida, comprueba la cuenta y delega.", "ejemplos": ["edicionPlanGuardar", "asignacionEdicionGuardar"] },
+    { "id": "servicio", "nombre": "Servicio y datos", "texto": "Las reglas del caso de uso (PlanServicio.js, CargaServicio.js…) y el acceso a la hoja (BaseDatos.js, Versionado.js).", "ejemplos": ["guardarPlan_", "guardarCarga_"] }
+  ],
+  "carpetas": [
+    { "id": "comun", "nombre": "comun/", "texto": "Común a CU-001 y CU-002", "pares": [
+      { "vista": ["Index.html"], "servidor": ["Index.js"], "pantalla": "cabecera" },
+      { "vista": ["comun/Inicio.html"], "servidor": [], "pantalla": "inicio" },
+      { "vista": ["comun/SesionEdicion.html"], "servidor": ["comun/SesionEdicion.js"], "pantalla": "automaticas" },
+      { "vista": ["comun/Derivacion.html"], "servidor": ["comun/Derivacion.js"], "pantalla": "consulta" },
+      { "vista": ["comun/DocentesAsignados.html"], "servidor": ["comun/DocentesAsignados.js"], "pantalla": "automaticas" },
+      { "vista": ["comun/Nucleo.html", "comun/Ventanas.html", "comun/Pestanas.html", "comun/Rejilla.html", "comun/Arranque.html"], "servidor": [], "pantalla": "cabecera" }
+    ] },
+    { "id": "cu001", "nombre": "cu001/", "texto": "CU-001 Registrar plan de ciclo", "pares": [
+      { "vista": ["cu001/Tablero.html"], "servidor": ["cu001/Tablero.js"], "pantalla": "planes" },
+      { "vista": ["cu001/Consulta.html", "cu001/PlanBloques.html"], "servidor": ["cu001/Consulta.js"], "pantalla": "consulta" },
+      { "vista": ["cu001/CargaOferta.html"], "servidor": [], "pantalla": "carga" },
+      { "vista": ["cu001/EdicionPlan.html", "cu001/EdicionPlanAcciones.html", "cu001/EdicionPlanSesion.html"], "servidor": ["cu001/EdicionPlan.js"], "pantalla": "grilla" }
+    ] },
+    { "id": "cu002", "nombre": "cu002/", "texto": "CU-002 Asignar docentes a plan de ciclo", "pares": [
+      { "vista": ["cu002/Asignacion.html"], "servidor": ["cu002/Asignacion.js"], "pantalla": "asignacion" },
+      { "vista": ["cu002/AsignacionEdicion.html"], "servidor": ["cu002/AsignacionEdicion.js"], "pantalla": "asignacion" },
+      { "vista": ["cu002/AsignacionCarga.html"], "servidor": [], "pantalla": "asignacionCarga" }
+    ] }
+  ],
+  "entradas": {
+    "doGet": { "archivo": "Index.js", "servicio": [{ "funcion": "datosIniciales_", "archivo": "Index.js" }], "cu": "CU-001 y CU-002 pasos 1 a 6, FA de acceso denegado" },
+    "tableroObtener": { "archivo": "cu001/Tablero.js", "servicio": [{ "funcion": "sincronizarFuentes_", "archivo": "cu001/OfertaDrive.js" }, { "funcion": "leerTablero_", "archivo": "cu001/PlanServicio.js" }], "cu": "CU-001 pasos 9 a 11, FA-009 a FA-012" },
+    "consultaObtener": { "archivo": "cu001/Consulta.js", "servicio": [{ "funcion": "planVigente_", "archivo": "cu001/PlanServicio.js" }], "cu": "CU-001 FA-013" },
+    "edicionPlanAbrir": { "archivo": "cu001/EdicionPlan.js", "servicio": [{ "funcion": "abrirEdicionPlan_", "archivo": "cu001/PlanServicio.js" }], "cu": "CU-001 pasos 13 a 18, FA-014 a FA-016, FA-104" },
+    "edicionPlanGuardar": { "archivo": "cu001/EdicionPlan.js", "servicio": [{ "funcion": "guardarPlan_", "archivo": "cu001/PlanServicio.js" }, { "funcion": "prepararFusiones_", "archivo": "cu001/Fusiones.js" }, { "funcion": "guardarFusionesAjenas_", "archivo": "cu001/Fusiones.js" }], "cu": "CU-001 pasos 43 a 50, FA-099 a FA-118" },
+    "edicionPlanHistorial": { "archivo": "cu001/EdicionPlan.js", "servicio": [{ "funcion": "historialPlan_", "archivo": "cu001/PlanServicio.js" }], "cu": "CU-001 FA-092, FA-093" },
+    "edicionPlanRestaurar": { "archivo": "cu001/EdicionPlan.js", "servicio": [{ "funcion": "restaurarPlan_", "archivo": "cu001/PlanServicio.js" }], "cu": "CU-001 FA-094" },
+    "asignacionObtener": { "archivo": "cu002/Asignacion.js", "servicio": [{ "funcion": "cargaDeCarrera_", "archivo": "cu002/CargaServicio.js" }], "cu": "CU-002 pasos 7 a 17, FA-006 a FA-014" },
+    "asignacionHistorial": { "archivo": "cu002/Asignacion.js", "servicio": [{ "funcion": "historialCarga_", "archivo": "cu002/CargaServicio.js" }], "cu": "CU-002 FA-084, FA-085" },
+    "asignacionVerVersion": { "archivo": "cu002/Asignacion.js", "servicio": [{ "funcion": "versionCarga_", "archivo": "cu002/CargaServicio.js" }], "cu": "CU-002 FA-086" },
+    "asignacionEdicionAbrir": { "archivo": "cu002/AsignacionEdicion.js", "servicio": [{ "funcion": "abrirEdicionCarga_", "archivo": "cu002/CargaServicio.js" }], "cu": "CU-002 pasos 18 a 23, FA-015 a FA-017" },
+    "asignacionEdicionGuardar": { "archivo": "cu002/AsignacionEdicion.js", "servicio": [{ "funcion": "guardarCarga_", "archivo": "cu002/CargaServicio.js" }, { "funcion": "combinarCarga_", "archivo": "cu002/CargaReglas.js" }, { "funcion": "depurarCarga_", "archivo": "cu002/CargaReglas.js" }, { "funcion": "validarExcesos_", "archivo": "cu002/CargaReglas.js" }, { "funcion": "persistirCarga_", "archivo": "cu002/CargaServicio.js" }], "cu": "CU-002 pasos 61 a 80, FA-103 a FA-109, FA-112" },
+    "asignacionEdicionRestaurar": { "archivo": "cu002/AsignacionEdicion.js", "servicio": [{ "funcion": "restaurarCarga_", "archivo": "cu002/CargaServicio.js" }], "cu": "CU-002 FA-087, FA-088" },
+    "sesionEdicionRenovar": { "archivo": "comun/SesionEdicion.js", "servicio": [{ "funcion": "renovarBloqueo_", "archivo": "comun/Bloqueos.js" }], "cu": "CU-001 paso 16, FA-120; CU-002 paso 21, FA-114" },
+    "sesionEdicionLiberar": { "archivo": "comun/SesionEdicion.js", "servicio": [{ "funcion": "soltarBloqueo_", "archivo": "comun/Bloqueos.js" }], "cu": "CU-001 paso 53, FA-029, FA-115, FA-117 a FA-119; CU-002 pasos 84 a 85, FA-112, FA-113" },
+    "sesionEdicionGuardarCopia": { "archivo": "comun/SesionEdicion.js", "servicio": [{ "funcion": "guardarRecuperacion_", "archivo": "comun/Recuperacion.js" }], "cu": "CU-001 y CU-002, «Copia de recuperación»" },
+    "sesionEdicionDescartarCopia": { "archivo": "comun/SesionEdicion.js", "servicio": [{ "funcion": "borrarRecuperacion_", "archivo": "comun/Recuperacion.js" }], "cu": "CU-001 FA-017, FA-115; CU-002 FA-017, FA-110" },
+    "derivacionGuardar": { "archivo": "comun/Derivacion.js", "servicio": [{ "funcion": "derivarAsignatura_", "archivo": "comun/Derivacion.js" }], "cu": "CU-001 FA-005 a FA-008; CU-002 FA-079 a FA-083" },
+    "docentesAsignadosObtener": { "archivo": "comun/DocentesAsignados.js", "servicio": [{ "funcion": "docentesPorGrupo_", "archivo": "cu002/CargaServicio.js" }], "cu": "CU-001 FA-013, FA-057, FA-064, FA-071" }
+  },
+  "pantallas": [
+    { "id": "cabecera", "nombre": "Cabecera", "cu": "comun", "contenedor": ".cabecera", "vista": ["Index.html"], "mapa": "comun/Nucleo.html", "acciones": [
+      { "accion": "irAlInicio", "boton": "Logotipo SISCargaLectiva", "pasos": [{ "funcion": "irA", "archivo": "comun/Nucleo.html" }, { "funcion": "entrarInicio", "archivo": "comun/Inicio.html" }], "llamadas": [], "cu": "CU-001 y CU-002 paso 6" },
+      { "accion": "irA", "boton": "Inicio · Registrar plan de ciclo · Asignar docentes", "pasos": [{ "funcion": "irA", "archivo": "comun/Nucleo.html" }, { "funcion": "salirDeEdicionPlan", "archivo": "cu001/EdicionPlanSesion.html" }], "llamadas": ["sesionEdicionDescartarCopia", "sesionEdicionLiberar"], "nota": "Solo si se sale de la edición de un plan (pide confirmarlo).", "cu": "CU-001 paso 7 y FA-115; CU-002 paso 7" }
+    ] },
+    { "id": "inicio", "nombre": "Inicio", "cu": "comun", "contenedor": "#v-menu", "vista": ["comun/Inicio.html"], "mapa": "comun/Inicio.html", "acciones": [
+      { "accion": "registrarPlan", "boton": "Registrar plan de ciclo", "pasos": [{ "funcion": "irA", "archivo": "comun/Nucleo.html" }, { "funcion": "mostrarTablero", "archivo": "cu001/Tablero.html" }], "llamadas": ["tableroObtener"], "cu": "CU-001 pasos 7 y 8" },
+      { "accion": "asignarDocentes", "boton": "Asignar docentes al plan de ciclo", "pasos": [{ "funcion": "irA", "archivo": "comun/Nucleo.html" }, { "funcion": "entrarEnAsignacion", "archivo": "cu002/Asignacion.html" }], "llamadas": ["asignacionObtener"], "cu": "CU-002 pasos 7 a 12" }
+    ] },
+    { "id": "planes", "nombre": "Planes de ciclo", "cu": "cu001", "contenedor": "#v-planes", "vista": ["cu001/Tablero.html"], "mapa": "cu001/Tablero.html", "acciones": [
+      { "accion": "cambiarCiclo", "boton": "Selector «Ciclo académico»", "pasos": [{ "funcion": "mostrarTablero", "archivo": "cu001/Tablero.html" }, { "funcion": "cargarTablero", "archivo": "cu001/Tablero.html" }], "llamadas": ["tableroObtener"], "cu": "CU-001 pasos 9 a 11" },
+      { "accion": "releerExcel", "boton": "Releer Excel", "pasos": [{ "funcion": "cargarTablero", "archivo": "cu001/Tablero.html" }], "llamadas": ["tableroObtener"], "cu": "CU-001 FA-009 a FA-012" },
+      { "accion": "consultar", "boton": "Fila de una carrera", "pasos": [{ "funcion": "abrirConsulta", "archivo": "cu001/Consulta.html" }], "llamadas": ["consultaObtener"], "nota": "Solo llama al servidor si el tablero no trajo el plan.", "cu": "CU-001 FA-013" },
+      { "accion": "editar", "boton": "Editar", "pasos": [{ "funcion": "entrarAEditarPlan", "archivo": "cu001/EdicionPlanSesion.html" }, { "funcion": "confirmarEdicion", "archivo": "cu001/EdicionPlanSesion.html" }], "llamadas": ["edicionPlanAbrir"], "cu": "CU-001 pasos 13 a 19, FA-015, FA-016" }
+    ] },
+    { "id": "consulta", "nombre": "Consulta en solo lectura", "cu": "cu001", "contenedor": "#v-lectura", "vista": ["cu001/Consulta.html", "cu001/PlanBloques.html"], "mapa": "cu001/Consulta.html", "acciones": [
+      { "accion": "volverAlTablero", "boton": "Volver al tablero", "pasos": [{ "funcion": "mostrarTablero", "archivo": "cu001/Tablero.html" }], "llamadas": [], "cu": "CU-001 FA-013 paso 3" },
+      { "accion": "editarEstePlan", "boton": "Editar este plan", "pasos": [{ "funcion": "entrarAEditarPlan", "archivo": "cu001/EdicionPlanSesion.html" }], "llamadas": ["edicionPlanAbrir"], "cu": "CU-001 FA-014" },
+      { "accion": "derivar", "boton": "Derivar (director)", "pasos": [{ "funcion": "derivarDesdeConsulta", "archivo": "cu001/Consulta.html" }, { "funcion": "derivarCurso", "archivo": "comun/Derivacion.html" }], "llamadas": ["derivacionGuardar"], "cu": "CU-001 FA-005 a FA-008" },
+      { "accion": "alternarBloque", "boton": "Cabecera de un semestre", "pasos": [{ "funcion": "alternarBloque", "archivo": "cu001/PlanBloques.html" }], "llamadas": [], "cu": "CU-001 FA-013 (bloques semestrales)" }
+    ] },
+    { "id": "carga", "nombre": "Carga masiva de la oferta", "cu": "cu001", "contenedor": "#v-carga", "vista": ["cu001/CargaOferta.html"], "mapa": "cu001/CargaOferta.html", "acciones": [
+      { "accion": "volverAlTablero", "boton": "Volver al tablero", "pasos": [{ "funcion": "salirDeEdicionPlan", "archivo": "cu001/EdicionPlanSesion.html" }], "llamadas": ["sesionEdicionDescartarCopia", "sesionEdicionLiberar"], "nota": "Borra la copia de recuperación solo si había cambios.", "cu": "CU-001 FA-029" },
+      { "accion": "pegarDesdeSheets", "boton": "Pegar desde Google Sheets", "pasos": [{ "funcion": "mostrar", "archivo": "comun/Nucleo.html" }], "llamadas": [], "cu": "CU-001 pasos 20 y 21" },
+      { "accion": "subirArchivo", "boton": "Subir archivo", "pasos": [], "llamadas": [], "nota": "Abre el selector de archivos del navegador.", "cu": "CU-001 FA-020" },
+      { "accion": "leerArchivoElegido", "boton": "Archivo elegido o soltado", "pasos": [{ "funcion": "leerArchivoOferta", "archivo": "cu001/CargaOferta.html" }, { "funcion": "procesarOferta", "archivo": "cu001/CargaOferta.html" }], "llamadas": [], "cu": "CU-001 FA-020 a FA-027" },
+      { "accion": "descargarPlantilla", "boton": "Descargar plantilla oficial", "pasos": [{ "funcion": "descargarPlantilla", "archivo": "cu001/CargaOferta.html" }], "llamadas": [], "cu": "CU-001 FA-028" }
+    ] },
+    { "id": "pegado", "nombre": "Pegar desde Google Sheets", "cu": "cu001", "contenedor": "#v-pegado", "vista": ["cu001/CargaOferta.html"], "mapa": "cu001/CargaOferta.html", "acciones": [
+      { "accion": "volverAOpciones", "boton": "Volver a las opciones de carga", "pasos": [{ "funcion": "mostrar", "archivo": "comun/Nucleo.html" }], "llamadas": [], "cu": "CU-001 FA-037" },
+      { "accion": "procesarContenido", "boton": "Procesar contenido", "pasos": [{ "funcion": "procesarOferta", "archivo": "cu001/CargaOferta.html" }, { "funcion": "pintarGrilla", "archivo": "cu001/EdicionPlan.html" }], "llamadas": [], "cu": "CU-001 pasos 31 a 41, FA-038 a FA-053" },
+      { "accion": "limpiar", "boton": "Limpiar", "pasos": [{ "funcion": "crearRejillaPegado", "archivo": "comun/Rejilla.html" }], "llamadas": [], "cu": "CU-001 FA-036" }
+    ] },
+    { "id": "grilla", "nombre": "Grilla de Vista Previa", "cu": "cu001", "contenedor": "#v-grilla", "vista": ["cu001/EdicionPlan.html", "cu001/PlanBloques.html"], "mapa": "cu001/EdicionPlan.html", "acciones": [
+      { "accion": "salirDeLaEdicion", "boton": "Salir de la edición", "pasos": [{ "funcion": "salirDeLaEdicion", "archivo": "cu001/EdicionPlanSesion.html" }, { "funcion": "salirDeEdicionPlan", "archivo": "cu001/EdicionPlanSesion.html" }], "llamadas": ["sesionEdicionDescartarCopia", "sesionEdicionLiberar"], "cu": "CU-001 FA-115, FA-116" },
+      { "accion": "colapsarTodo", "boton": "Colapsar todo / Expandir todo", "pasos": [{ "funcion": "colapsarTodo", "archivo": "cu001/EdicionPlanAcciones.html" }], "llamadas": [], "cu": "CU-001 FA-090, FA-091" },
+      { "accion": "alternarBloque", "boton": "Cabecera de un semestre", "pasos": [{ "funcion": "alternarBloque", "archivo": "cu001/PlanBloques.html" }], "llamadas": [], "cu": "CU-001 FA-088, FA-089" },
+      { "accion": "seleccionarGrupo", "boton": "Fila de un grupo", "pasos": [{ "funcion": "seleccionarGrupo", "archivo": "cu001/EdicionPlanAcciones.html" }], "llamadas": [], "cu": "CU-001 FA-054" },
+      { "accion": "agregarAsignatura", "boton": "Agregar asignatura", "pasos": [{ "funcion": "agregarAsignatura", "archivo": "cu001/EdicionPlanAcciones.html" }], "llamadas": [], "cu": "CU-001 FA-059 a FA-063" },
+      { "accion": "agregarGrupoAlSemestre", "boton": "Agregar grupo al semestre", "pasos": [{ "funcion": "agregarGrupoAlSemestre", "archivo": "cu001/EdicionPlanAcciones.html" }], "llamadas": [], "cu": "CU-001 FA-067 a FA-070" },
+      { "accion": "fusionarGrupos", "boton": "Fusionar grupos", "pasos": [{ "funcion": "fusionarGrupos", "archivo": "cu001/EdicionPlanAcciones.html" }], "llamadas": [], "nota": "La fusión con otras carreras se lleva a sus planes al guardar (FA-101).", "cu": "CU-001 FA-079 a FA-085" },
+      { "accion": "historialDeVersiones", "boton": "Historial de versiones", "pasos": [{ "funcion": "historialDeVersiones", "archivo": "cu001/EdicionPlanAcciones.html" }], "llamadas": ["edicionPlanHistorial", "edicionPlanRestaurar"], "cu": "CU-001 FA-092 a FA-094" },
+      { "accion": "reemplazarContenido", "boton": "Reemplazar contenido", "pasos": [{ "funcion": "reemplazarContenido", "archivo": "cu001/EdicionPlanAcciones.html" }, { "funcion": "mostrarCargaOferta", "archivo": "cu001/CargaOferta.html" }], "llamadas": [], "cu": "CU-001 FA-095, FA-096" },
+      { "accion": "guardarBorrador", "boton": "Guardar borrador", "pasos": [{ "funcion": "guardarBorrador", "archivo": "cu001/EdicionPlanSesion.html" }, { "funcion": "guardarVersionPlan", "archivo": "cu001/EdicionPlanSesion.html" }], "llamadas": ["edicionPlanGuardar"], "cu": "CU-001 FA-105 a FA-109" },
+      { "accion": "registrarPlan", "boton": "Registrar plan / Guardar cambios", "pasos": [{ "funcion": "registrarPlan", "archivo": "cu001/EdicionPlanSesion.html" }, { "funcion": "guardarVersionPlan", "archivo": "cu001/EdicionPlanSesion.html" }], "llamadas": ["edicionPlanGuardar", "sesionEdicionLiberar"], "cu": "CU-001 pasos 43 a 53, FA-097 a FA-101, FA-110 a FA-114" },
+      { "accion": "editarHoras", "boton": "Editar HT / HP", "pasos": [{ "funcion": "editarHoras", "archivo": "cu001/EdicionPlanAcciones.html" }], "llamadas": [], "cu": "CU-001 FA-055, FA-056" },
+      { "accion": "editarAsignatura", "boton": "Editar asignatura", "pasos": [{ "funcion": "editarAsignatura", "archivo": "cu001/EdicionPlanAcciones.html" }, { "funcion": "asegurarDocentesAsignados", "archivo": "comun/DocentesAsignados.html" }], "llamadas": ["docentesAsignadosObtener"], "nota": "Solo pide los docentes si aún no llegaron.", "cu": "CU-001 FA-057, FA-058" },
+      { "accion": "agregarGrupo", "boton": "Agregar grupo", "pasos": [{ "funcion": "agregarGrupo", "archivo": "cu001/EdicionPlanAcciones.html" }], "llamadas": [], "cu": "CU-001 FA-066" },
+      { "accion": "desdoblar", "boton": "Desdoblar", "pasos": [{ "funcion": "desdoblar", "archivo": "cu001/EdicionPlanAcciones.html" }], "llamadas": [], "cu": "CU-001 FA-073 a FA-076" },
+      { "accion": "quitarDesdoble", "boton": "Quitar desdoble", "pasos": [{ "funcion": "quitarDesdoble", "archivo": "cu001/EdicionPlanAcciones.html" }], "llamadas": [], "cu": "CU-001 FA-077, FA-078" },
+      { "accion": "deshacerFusion", "boton": "Deshacer fusión", "pasos": [{ "funcion": "deshacerFusion", "archivo": "cu001/EdicionPlanAcciones.html" }], "llamadas": [], "cu": "CU-001 FA-086, FA-087" },
+      { "accion": "eliminarGrupo", "boton": "Eliminar grupo", "pasos": [{ "funcion": "eliminarGrupo", "archivo": "cu001/EdicionPlanAcciones.html" }, { "funcion": "asegurarDocentesAsignados", "archivo": "comun/DocentesAsignados.html" }], "llamadas": ["docentesAsignadosObtener"], "cu": "CU-001 FA-071, FA-072" },
+      { "accion": "eliminarAsignatura", "boton": "Eliminar asignatura", "pasos": [{ "funcion": "eliminarAsignatura", "archivo": "cu001/EdicionPlanAcciones.html" }, { "funcion": "asegurarDocentesAsignados", "archivo": "comun/DocentesAsignados.html" }], "llamadas": ["docentesAsignadosObtener"], "cu": "CU-001 FA-064, FA-065" }
+    ] },
+    { "id": "exito", "nombre": "¡Plan registrado!", "cu": "cu001", "contenedor": "#v-exito", "vista": ["cu001/EdicionPlan.html"], "mapa": "cu001/EdicionPlan.html", "acciones": [
+      { "accion": "volverAlTablero", "boton": "Volver al tablero", "pasos": [{ "funcion": "mostrarTablero", "archivo": "cu001/Tablero.html" }], "llamadas": ["tableroObtener"], "cu": "CU-001 paso 52" },
+      { "accion": "seguirEditando", "boton": "Seguir editando el plan", "pasos": [{ "funcion": "entrarAEditarPlan", "archivo": "cu001/EdicionPlanSesion.html" }], "llamadas": ["edicionPlanAbrir"], "cu": "CU-001 FA-104" },
+      { "accion": "asignarDocentes", "boton": "Asignar docentes", "pasos": [{ "funcion": "irA", "archivo": "comun/Nucleo.html" }, { "funcion": "entrarEnAsignacion", "archivo": "cu002/Asignacion.html" }], "llamadas": ["asignacionObtener"], "cu": "CU-001 paso 52 → CU-002 paso 7" }
+    ] },
+    { "id": "asignacion", "nombre": "Asignación docente", "cu": "cu002", "contenedor": "#v-docentes", "vista": ["cu002/Asignacion.html"], "mapa": "cu002/Asignacion.html", "acciones": [
+      { "accion": "cambiarCiclo", "boton": "Selector «Ciclo académico»", "pasos": [{ "funcion": "cambiarFiltroDocentes", "archivo": "cu002/Asignacion.html" }, { "funcion": "cargarEstadoDocentes", "archivo": "cu002/Asignacion.html" }], "llamadas": ["asignacionObtener"], "cu": "CU-002 paso 13, FA-092, FA-093" },
+      { "accion": "cambiarCarrera", "boton": "Selector «Carrera»", "pasos": [{ "funcion": "cambiarFiltroDocentes", "archivo": "cu002/Asignacion.html" }, { "funcion": "cargarEstadoDocentes", "archivo": "cu002/Asignacion.html" }], "llamadas": ["asignacionObtener"], "cu": "CU-002 paso 15, FA-012, FA-013, FA-090, FA-091" },
+      { "accion": "verPorSeccion", "boton": "Por sección", "pasos": [{ "funcion": "elegirVistaDocentes", "archivo": "cu002/Asignacion.html" }], "llamadas": [], "cu": "CU-002 FA-068 paso 5" },
+      { "accion": "verPorDocente", "boton": "Por docente", "pasos": [{ "funcion": "elegirVistaDocentes", "archivo": "cu002/Asignacion.html" }], "llamadas": [], "cu": "CU-002 FA-068" },
+      { "accion": "soloSinDocente", "boton": "Solo secciones sin docente", "pasos": [{ "funcion": "pintarTablaSecciones", "archivo": "cu002/Asignacion.html" }], "llamadas": [], "cu": "CU-002 FA-066, FA-067" },
+      { "accion": "filtrarDocentes", "boton": "Selector «Mostrar»", "pasos": [{ "funcion": "pintarTablaDocentes", "archivo": "cu002/Asignacion.html" }], "llamadas": [], "cu": "CU-002 FA-069, FA-070" },
+      { "accion": "historial", "boton": "Historial", "pasos": [{ "funcion": "verHistorialCarga", "archivo": "cu002/Asignacion.html" }, { "funcion": "restaurarVersionCarga", "archivo": "cu002/AsignacionEdicion.html" }], "llamadas": ["asignacionHistorial", "asignacionVerVersion", "asignacionEdicionRestaurar"], "cu": "CU-002 FA-084 a FA-089" },
+      { "accion": "editarAsignaciones", "boton": "Editar asignaciones", "pasos": [{ "funcion": "editarAsignaciones", "archivo": "cu002/AsignacionEdicion.html" }], "llamadas": ["asignacionEdicionAbrir"], "cu": "CU-002 pasos 18 a 23, FA-015 a FA-017" },
+      { "accion": "cargaMasiva", "boton": "Carga masiva", "pasos": [{ "funcion": "mostrarCargaMasivaDocentes", "archivo": "cu002/AsignacionCarga.html" }], "llamadas": [], "cu": "CU-002 pasos 24 y 25" },
+      { "accion": "terminarEdicion", "boton": "Terminar edición", "pasos": [{ "funcion": "pulsarTerminarEdicion", "archivo": "cu002/AsignacionEdicion.html" }, { "funcion": "terminarEdicionCarga", "archivo": "cu002/AsignacionEdicion.html" }], "llamadas": ["sesionEdicionDescartarCopia", "sesionEdicionLiberar"], "cu": "CU-002 pasos 81 a 86, FA-110, FA-111" },
+      { "accion": "guardarAsignaciones", "boton": "Guardar asignaciones", "pasos": [{ "funcion": "guardarAsignaciones", "archivo": "cu002/AsignacionEdicion.html" }, { "funcion": "fijarGuardado", "archivo": "cu002/AsignacionEdicion.html" }], "llamadas": ["asignacionEdicionGuardar"], "cu": "CU-002 pasos 61 a 80, FA-103 a FA-109" },
+      { "accion": "asignarSeccion", "boton": "Asignar / Cambiar", "pasos": [{ "funcion": "asignarSeccion", "archivo": "cu002/AsignacionEdicion.html" }], "llamadas": [], "cu": "CU-002 FA-001, FA-048 a FA-060" },
+      { "accion": "reemplazarEnSeccion", "boton": "Reemplazar (en la sección)", "pasos": [{ "funcion": "reemplazarEnSeccion", "archivo": "cu002/AsignacionEdicion.html" }, { "funcion": "reemplazar", "archivo": "cu002/AsignacionEdicion.html" }], "llamadas": [], "cu": "CU-002 FA-002, FA-061 a FA-065" },
+      { "accion": "derivarSeccion", "boton": "Derivar", "pasos": [{ "funcion": "derivarSeccion", "archivo": "cu002/AsignacionEdicion.html" }, { "funcion": "derivarCurso", "archivo": "comun/Derivacion.html" }], "llamadas": ["derivacionGuardar", "asignacionObtener"], "cu": "CU-002 FA-079 a FA-083" },
+      { "accion": "asignarADocente", "boton": "Asignar (en el docente)", "pasos": [{ "funcion": "asignarADocente", "archivo": "cu002/AsignacionEdicion.html" }], "llamadas": [], "cu": "CU-002 FA-071 a FA-073" },
+      { "accion": "reemplazarDocente", "boton": "Reemplazar (en el docente)", "pasos": [{ "funcion": "reemplazarDocente", "archivo": "cu002/AsignacionEdicion.html" }, { "funcion": "reemplazar", "archivo": "cu002/AsignacionEdicion.html" }], "llamadas": [], "cu": "CU-002 FA-074" },
+      { "accion": "reasignarSinSeccion", "boton": "Reasignar", "pasos": [{ "funcion": "reasignarSinSeccion", "archivo": "cu002/AsignacionEdicion.html" }], "llamadas": [], "cu": "CU-002 FA-075 a FA-077" },
+      { "accion": "quitarSinSeccion", "boton": "Quitar", "pasos": [{ "funcion": "quitarSinSeccion", "archivo": "cu002/AsignacionEdicion.html" }], "llamadas": [], "cu": "CU-002 FA-078" }
+    ] },
+    { "id": "asignacionCarga", "nombre": "Carga masiva de asignaciones", "cu": "cu002", "contenedor": "#v-docentes-carga", "vista": ["cu002/AsignacionCarga.html"], "mapa": "cu002/AsignacionCarga.html", "acciones": [
+      { "accion": "volverALaAsignacion", "boton": "Volver a la asignación docente", "pasos": [{ "funcion": "pintarVistaDocentes", "archivo": "cu002/Asignacion.html" }], "llamadas": [], "cu": "CU-002 FA-028" },
+      { "accion": "pegarDesdeSheets", "boton": "Pegar desde Google Sheets", "pasos": [{ "funcion": "mostrarPegadoDocentes", "archivo": "cu002/AsignacionCarga.html" }], "llamadas": [], "cu": "CU-002 paso 26" },
+      { "accion": "subirCargaXDepartamento", "boton": "Subir CargaXDepartamento", "pasos": [], "llamadas": [], "nota": "Abre el selector de archivos del navegador.", "cu": "CU-002 FA-018" },
+      { "accion": "leerArchivoElegido", "boton": "Archivo elegido o soltado", "pasos": [{ "funcion": "leerArchivoDocentes", "archivo": "cu002/AsignacionCarga.html" }], "llamadas": [], "cu": "CU-002 FA-018 a FA-026" },
+      { "accion": "previsualizar", "boton": "Previsualizar asignaciones", "pasos": [{ "funcion": "previsualizarAsignaciones", "archivo": "cu002/AsignacionCarga.html" }], "llamadas": [], "cu": "CU-002 pasos 35 a 49, FA-029 a FA-044" },
+      { "accion": "limpiar", "boton": "Limpiar", "pasos": [{ "funcion": "crearRejillaPegado", "archivo": "comun/Rejilla.html" }], "llamadas": [], "cu": "CU-002 FA-027" },
+      { "accion": "aplicar", "boton": "Aplicar a la asignación", "pasos": [{ "funcion": "aplicarAsignaciones", "archivo": "cu002/AsignacionCarga.html" }, { "funcion": "cambiado", "archivo": "cu002/AsignacionEdicion.html" }], "llamadas": [], "cu": "CU-002 pasos 51 a 59, FA-045, FA-047" },
+      { "accion": "descartar", "boton": "Descartar", "pasos": [{ "funcion": "mostrarPegadoDocentes", "archivo": "cu002/AsignacionCarga.html" }], "llamadas": [], "cu": "CU-002 FA-046" }
+    ] },
+    { "id": "automaticas", "nombre": "Llamadas sin botón", "cu": "automatica", "automatica": true, "acciones": [
+      { "accion": "abrirLaPagina", "boton": "Se abre la URL del sistema", "pasos": [{ "funcion": "arrancar", "archivo": "comun/Arranque.html" }], "llamadas": ["doGet"], "nota": "doGet arma la página en el servidor; no pasa por google.script.run.", "cu": "CU-001 y CU-002 pasos 1 a 6, FA de acceso denegado" },
+      { "accion": "llegaElTablero", "boton": "Llega el tablero", "pasos": [{ "funcion": "fijarTablero", "archivo": "cu001/Tablero.html" }, { "funcion": "actualizarDocentesAsignados", "archivo": "comun/DocentesAsignados.html" }], "llamadas": ["docentesAsignadosObtener"], "cu": "CU-001 FA-013 (docente de cada grupo)" },
+      { "accion": "latido", "boton": "Clic o tecla mientras se edita", "pasos": [{ "funcion": "crearSesionEdicion", "archivo": "comun/SesionEdicion.html" }], "llamadas": ["sesionEdicionRenovar"], "cu": "CU-001 paso 16, FA-120; CU-002 paso 21, FA-114" },
+      { "accion": "copiaCadaMinuto", "boton": "Cada minuto con cambios sin guardar", "pasos": [{ "funcion": "crearSesionEdicion", "archivo": "comun/SesionEdicion.html" }], "llamadas": ["sesionEdicionGuardarCopia"], "cu": "CU-001 y CU-002, «Copia de recuperación»" },
+      { "accion": "expiraElPlan", "boton": "Pasan los minutos sin actividad (plan)", "pasos": [{ "funcion": "expirarEdicionPlan", "archivo": "cu001/EdicionPlanSesion.html" }], "llamadas": ["edicionPlanGuardar", "sesionEdicionLiberar"], "cu": "CU-001 FA-117 a FA-119" },
+      { "accion": "expiraLaCarga", "boton": "Pasan los minutos sin actividad (carga)", "pasos": [{ "funcion": "expirarCarga", "archivo": "cu002/AsignacionEdicion.html" }], "llamadas": ["asignacionEdicionGuardar", "sesionEdicionLiberar"], "cu": "CU-002 FA-112, FA-113" },
+      { "accion": "seCierraLaPagina", "boton": "Se cierra la página mientras se edita", "pasos": [{ "funcion": "crearSesionEdicion", "archivo": "comun/SesionEdicion.html" }], "llamadas": ["sesionEdicionLiberar"], "cu": "Bloqueo de edición (CU-001 y CU-002)" }
+    ] }
+  ]
+}
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/Flip.min.js"></script>
+<script>
+"use strict";
+(function () {
+  const DATOS = JSON.parse(document.getElementById("datos-mapa").textContent);
+  const G = window.gsap || null;
+  if (G && window.Flip) G.registerPlugin(window.Flip);
+  const quieto = () => !G || (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
+  const $ = s => document.querySelector(s);
+  const el = (etiqueta, clase, texto) => { const e = document.createElement(etiqueta); if (clase) e.className = clase; if (texto != null) e.textContent = texto; return e; };
+  const ETIQUETA_CU = { comun: "Común", cu001: "CU-001", cu002: "CU-002", automatica: "Sin botón" };
+  const COLOR_CAPA = { vista: "var(--c-vista)", nav: "var(--c-nav)", entrada: "var(--c-entrada)", servicio: "var(--c-servicio)" };
+
+  /* ---------- tema ---------- */
+  const raiz = document.documentElement;
+  try { const t = localStorage.getItem("mapa-gui-tema"); if (t) raiz.dataset.theme = t; } catch (e) { /* sin almacenamiento */ }
+  $("#tema").addEventListener("click", () => {
+    const oscuro = raiz.dataset.theme ? raiz.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+    raiz.dataset.theme = oscuro ? "light" : "dark";
+    try { localStorage.setItem("mapa-gui-tema", raiz.dataset.theme); } catch (e) { /* sin almacenamiento */ }
+  });
+
+  /* ---------- índices ---------- */
+  const pantallas = DATOS.pantallas;
+  const acciones = pantallas.flatMap(p => p.acciones.map(a => Object.assign({ pantalla: p }, a)));
+  const quienLlama = {};
+  acciones.forEach(a => a.llamadas.forEach(n => { (quienLlama[n] = quienLlama[n] || []).push(a); }));
+
+  /* ---------- cifras ---------- */
+  const conBoton = acciones.filter(a => !a.pantalla.automatica).length;
+  [[pantallas.filter(p => !p.automatica).length, "pantallas"], [conBoton, "botones y campos"], [Object.keys(DATOS.entradas).length, "entradas del servidor"],
+   [acciones.filter(a => a.pantalla.automatica).length, "llamadas sin botón"]].forEach(([n, t]) => {
+    const c = el("div", "cifra-cab"); c.append(el("b", null, String(n)), el("span", null, t)); $("#cifras").append(c);
+  });
+
+  /* ---------- capas ---------- */
+  DATOS.capas.forEach(c => {
+    const d = el("div", "capa");
+    const h = el("h3"); const i = el("i"); i.style.background = COLOR_CAPA[c.id]; h.append(i, document.createTextNode(c.nombre));
+    const ej = el("div", "ej");
+    c.ejemplos.forEach(x => ej.append(el("span", "ficha " + ({ vista: "f-vista", nav: "f-nav", entrada: "f-entrada", servicio: "f-servicio" }[c.id]), x)));
+    const f = el("span", "flecha-capa"); f.innerHTML = '<svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M2 5h6M5.5 2.5L8 5 5.5 7.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
+    d.append(h, el("p", null, c.texto), ej, f);
+    $("#tubo").append(d);
+  });
+
+  const svgFlecha = (ancho) => '<svg viewBox="0 0 ' + ancho + ' 12" aria-hidden="true"><path class="tramo" d="M1 6 H' + (ancho - 6) + '"/><path class="punta" d="M' + (ancho - 10) + ' 2 L' + (ancho - 4) + ' 6 L' + (ancho - 10) + ' 10"/></svg>';
+
+  DATOS.carpetas.forEach(cp => {
+    const caja = el("div", "carpeta");
+    const h = el("h3"); h.append(el("span", "mono", cp.nombre), el("small", null, cp.texto));
+    caja.append(h);
+    cp.pares.forEach(par => {
+      const b = el("button", "par"); b.type = "button";
+      b.setAttribute("aria-label", "Ver la pantalla de " + par.vista.join(", "));
+      const izq = el("div", "lado"); par.vista.forEach(v => izq.append(el("span", "ficha f-vista mono", v)));
+      const centro = el("div"); centro.innerHTML = svgFlecha(38);
+      const der = el("div", "lado");
+      if (par.servidor.length) par.servidor.forEach(s => der.append(el("span", "ficha f-entrada mono", s)));
+      else der.append(el("span", "sin", "sin servidor"));
+      b.append(izq, centro, der);
+      b.addEventListener("click", () => { elegirPantalla(par.pantalla); document.getElementById("t-botones").scrollIntoView({ behavior: quieto() ? "auto" : "smooth" }); });
+      caja.append(b);
+    });
+    $("#carpetas").append(caja);
+  });
+
+  /* ---------- filtros ---------- */
+  const estado = { cu: "todos", texto: "", pantalla: null };
+  [["todos", "Todas"], ["cu001", "CU-001"], ["cu002", "CU-002"], ["comun", "Comunes"], ["automatica", "Sin botón"]].forEach(([id, t]) => {
+    const b = el("button", "filtro", t); b.type = "button"; b.dataset.cu = id; b.setAttribute("aria-pressed", String(id === "todos"));
+    b.addEventListener("click", () => { estado.cu = id; estado.pantalla = null; document.querySelectorAll(".filtro").forEach(x => x.setAttribute("aria-pressed", String(x === b))); pintar(); });
+    $("#filtros").append(b);
+  });
+  $("#buscar").addEventListener("input", e => { estado.texto = e.target.value.trim().toLowerCase(); pintar(); });
+
+  /* ---------- lista de pantallas ---------- */
+  function pintarLista(){
+    const nav = $("#pantallas"); nav.innerHTML = "";
+    ["comun", "cu001", "cu002", "automatica"].forEach(cu => {
+      const delCu = pantallas.filter(p => p.cu === cu);
+      if (!delCu.length) return;
+      nav.append(el("h3", null, ETIQUETA_CU[cu]));
+      delCu.forEach(p => {
+        const b = el("button", "pant"); b.type = "button";
+        b.append(el("span", null, p.nombre), el("span", "n", String(p.acciones.length)));
+        b.setAttribute("aria-current", String(estado.pantalla === p.id));
+        b.addEventListener("click", () => elegirPantalla(estado.pantalla === p.id ? null : p.id));
+        nav.append(b);
+      });
+    });
+  }
+  function elegirPantalla(id){
+    estado.pantalla = id;
+    if (id) { estado.cu = "todos"; document.querySelectorAll(".filtro").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.cu === "todos"))); }
+    pintar();
+  }
+
+  /* ---------- filas ---------- */
+  const coincide = (a) => {
+    if (!estado.texto) return true;
+    const t = [a.boton, a.accion, a.cu, a.nota || "", a.pantalla.nombre].concat(a.pasos.map(p => p.funcion + " " + p.archivo))
+      .concat(a.llamadas).concat(a.llamadas.flatMap(n => (DATOS.entradas[n] || { servicio: [] }).servicio.map(s => s.funcion))).join(" ").toLowerCase();
+    return estado.texto.split(/\s+/).every(p => t.includes(p));
+  };
+
+  function fichaEntrada(n){
+    const b = el("button", "ficha f-entrada mono"); b.type = "button";
+    const e = DATOS.entradas[n];
+    b.append(document.createTextNode(n), el("span", "arch", e ? e.archivo : "?"));
+    b.title = "Ver quién usa " + n;
+    b.addEventListener("click", ev => { ev.stopPropagation(); abrirDetalle(n); });
+    return b;
+  }
+  const sep = () => { const s = el("div", "sep"); s.innerHTML = svgFlecha(26); return s; };
+
+  function filaDe(a){
+    const f = el("div", "fila"); f.tabIndex = 0;
+    const quien = el("div", "quien");
+    const btn = el("div", "boton-gui", a.boton); btn.append(el("small", "mono", a.pantalla.automatica ? "sin botón" : 'data-accion="' + a.accion + '"'));
+    quien.append(btn, el("span", "ficha f-cu", a.cu));
+    if (a.nota) quien.append(el("span", "vacio", a.nota));
+    const carril = (titulo, nodos, vacio) => {
+      const c = el("div", "carril"); c.append(el("b", null, titulo));
+      const fichas = el("div", "fichas");
+      if (nodos.length) nodos.forEach(n => fichas.append(n)); else fichas.append(el("span", "vacio", vacio));
+      c.append(fichas);
+      return c;
+    };
+    const conArchivo = (clase, nombre, archivo) => { const x = el("span", "ficha " + clase + " mono"); x.append(document.createTextNode(nombre), el("span", "arch", archivo)); return x; };
+    const servicios = [];
+    a.llamadas.forEach(n => (DATOS.entradas[n] || { servicio: [] }).servicio.forEach(s => { if (!servicios.some(x => x.funcion === s.funcion)) servicios.push(s); }));
+    const flujo = el("div", "flujo");
+    flujo.append(
+      carril("En el navegador", a.pasos.map(p => conArchivo("f-nav", p.funcion, p.archivo)), "solo en el navegador"), sep(),
+      carril("Servidor (entrada)", a.llamadas.map(fichaEntrada), "no llama al servidor"), sep(),
+      carril("Servicio", servicios.map(s => conArchivo("f-servicio", s.funcion, s.archivo)), "—"));
+    f.append(quien, flujo);
+    const animar = () => {
+      if (quieto()) return;
+      f.querySelectorAll(".sep .tramo").forEach((p, i) => {
+        const largo = p.getTotalLength();
+        G.fromTo(p, { strokeDasharray: largo, strokeDashoffset: largo }, { strokeDashoffset: 0, duration: .35, delay: i * .12, ease: "power2.out" });
+      });
+      G.fromTo(f.querySelectorAll(".flujo .ficha"), { y: 3, opacity: .55 }, { y: 0, opacity: 1, duration: .3, stagger: .03, ease: "power1.out" });
+    };
+    f.addEventListener("mouseenter", animar);
+    f.addEventListener("focus", animar);
+    return f;
+  }
+
+  function pintar(){
+    pintarLista();
+    const tablero = $("#tablero");
+    const estadoFlip = G && window.Flip && !quieto() ? window.Flip.getState(tablero.querySelectorAll(".grupo-pant")) : null;
+    tablero.innerHTML = "";
+    let visibles = 0;
+    pantallas.forEach(p => {
+      if (estado.pantalla && estado.pantalla !== p.id) return;
+      if (!estado.pantalla && estado.cu !== "todos" && p.cu !== estado.cu) return;
+      const filas = p.acciones.map(a => Object.assign({ pantalla: p }, a)).filter(coincide);
+      if (!filas.length) return;
+      visibles += filas.length;
+      const g = el("article", "grupo-pant"); g.dataset.flipId = p.id;
+      const cab = el("header");
+      const tit = el("div"); tit.append(el("h3", null, p.nombre), el("p", null, ETIQUETA_CU[p.cu] + (p.contenedor ? " · contenedor " + p.contenedor : "")));
+      const pares = el("div", "pares");
+      (p.vista || []).forEach(v => pares.append(el("span", "ficha f-vista mono", v)));
+      if (p.mapa) { const m = el("span", "ficha f-nav mono", "mapa en " + p.mapa); pares.append(m); }
+      cab.append(tit, pares);
+      g.append(cab);
+      filas.forEach(a => g.append(filaDe(a)));
+      tablero.append(g);
+    });
+    if (!visibles) tablero.append(el("div", "sin-resultados", "Nada coincide con la búsqueda."));
+    if (estadoFlip) window.Flip.from(estadoFlip, { duration: .35, ease: "power2.inOut", absolute: false, onEnter: e => G.fromTo(e, { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: .35 }) });
+  }
+
+  /* ---------- detalle de una entrada ---------- */
+  const detalle = $("#detalle"), velo = $("#velo");
+  function abrirDetalle(n){
+    const e = DATOS.entradas[n] || { archivo: "?", servicio: [], cu: "" };
+    $("#det-titulo").textContent = n;
+    const c = $("#det-cuerpo"); c.innerHTML = "";
+    const dl = el("dl");
+    const fila = (t, nodos) => { dl.append(el("dt", null, t)); const dd = el("dd"); nodos.forEach(x => dd.append(x)); dl.append(dd); };
+    fila("Archivo", [el("span", "ficha f-entrada mono", e.archivo)]);
+    fila("Servicio", e.servicio.map(s => { const x = el("span", "ficha f-servicio mono"); x.append(document.createTextNode(s.funcion), el("span", "arch", s.archivo)); return x; }));
+    fila("Caso de uso", [el("span", "ficha f-cu", e.cu)]);
+    c.append(dl, el("h4", null, "La usan"));
+    const ul = el("ul");
+    (quienLlama[n] || []).forEach(a => {
+      const li = el("li");
+      li.append(el("b", null, a.boton), el("span", null, a.pantalla.nombre + " · " + a.cu));
+      ul.append(li);
+    });
+    c.append(ul);
+    detalle.classList.add("abierto"); detalle.setAttribute("aria-hidden", "false");
+    velo.style.visibility = "visible";
+    if (quieto()) { detalle.style.transform = "translateX(0)"; velo.style.opacity = "1"; }
+    else { G.to(detalle, { x: "0%", xPercent: 0, duration: .35, ease: "power3.out", onStart: () => { detalle.style.transform = ""; } }); G.fromTo(detalle, { xPercent: 105 }, { xPercent: 0, duration: .35, ease: "power3.out" }); G.to(velo, { opacity: 1, duration: .25 }); }
+    $("#cerrar-detalle").focus();
+  }
+  function cerrarDetalle(){
+    const fin = () => { detalle.classList.remove("abierto"); detalle.setAttribute("aria-hidden", "true"); velo.style.visibility = "hidden"; };
+    if (quieto()) { detalle.style.transform = "translateX(105%)"; velo.style.opacity = "0"; fin(); return; }
+    G.to(detalle, { xPercent: 105, duration: .28, ease: "power2.in", onComplete: fin });
+    G.to(velo, { opacity: 0, duration: .25 });
+  }
+  $("#cerrar-detalle").addEventListener("click", cerrarDetalle);
+  velo.addEventListener("click", cerrarDetalle);
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && detalle.classList.contains("abierto")) cerrarDetalle(); });
+
+  pintar();
+
+  /* ---------- entrada animada ---------- */
+  if (!quieto()) {
+    G.from(".cab h1, .cab .sub, .cifra-cab", { y: 14, opacity: 0, duration: .55, stagger: .06, ease: "power2.out" });
+    G.from(".capa", { y: 16, opacity: 0, duration: .5, stagger: .08, delay: .15, ease: "power2.out" });
+    G.from(".carpeta", { y: 16, opacity: 0, duration: .5, stagger: .1, delay: .3, ease: "power2.out" });
+    document.querySelectorAll(".par .tramo").forEach((p, i) => {
+      const largo = p.getTotalLength();
+      G.fromTo(p, { strokeDasharray: largo, strokeDashoffset: largo }, { strokeDashoffset: 0, duration: .5, delay: .5 + i * .05, ease: "power2.out" });
+    });
+    G.from(".grupo-pant", { y: 18, opacity: 0, duration: .5, stagger: .07, delay: .35, ease: "power2.out" });
+  }
+})();
+</script>
+</body>
+</html>
