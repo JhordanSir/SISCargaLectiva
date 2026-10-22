@@ -1,22 +1,25 @@
 <script>
 "use strict";
 /* ============================================================
-   Edición con bloqueo, común al plan de ciclo y a la carga docente
-   - crearSesionEdicion: reloj, latido que renueva el bloqueo, expiración y copia de
-     recuperación cada minuto. Cada módulo decide qué hacer al perder el bloqueo o al
-     expirar.
-   - Diálogos comunes: recuperar cambios, conflicto de versión, historial e informar.
+   Sesión de edición con bloqueo, común al plan de ciclo (CU-001) y a la carga docente
+   (CU-002). Llama a las entradas de comun/SesionEdicion.js:
+     sesionEdicionRenovar        latido que renueva el bloqueo mientras hay actividad;
+     sesionEdicionLiberar        suelta el bloqueo (también al cerrar la página);
+     sesionEdicionGuardarCopia   copia de recuperación cada minuto;
+     sesionEdicionDescartarCopia borra esa copia.
+   Cada pantalla decide qué hacer al perder el bloqueo o al expirar. Aquí están también las
+   ventanas comunes: recuperar cambios, versión más reciente e historial.
    ============================================================ */
 
 /**
  * op: {
- *   relojes:      selector de los elementos donde se pinta el tiempo que queda,
- *   renovar:      () => Promise<{expira}>; se rechaza con codigo BLOQUEO_PERDIDO si otra cuenta lo tomó,
- *   alPerder:     correo => void, cuando otra cuenta tomó el bloqueo,
- *   alExpirar:    () => void, cuando pasó el tiempo sin actividad,
- *   alRenovar:    () => void (opcional), tras cada renovación,
- *   copia:        () => {contenido, versionBase} | null (null: nada que copiar),
- *   guardarCopia: datos => Promise
+ *   relojes:       selector de los elementos donde se pinta «Sesión de edición: mm:ss»,
+ *   documento:     () => {ciclo, ref} del documento en edición, o null,
+ *   alPerder:      correo => void, cuando otra cuenta tomó el bloqueo (CU-001 FA-120, CU-002 FA-114),
+ *   alExpirar:     () => void, cuando pasó el tiempo sin actividad,
+ *   alRenovar:     () => void (opcional), tras cada renovación,
+ *   copia:         () => {contenido, versionBase} | null (null: nada que copiar),
+ *   alCerrarPagina: () => void (opcional), antes de soltar el bloqueo al cerrar la página
  * }
  * @param {Object} op
  * @returns {Object} Sesión: iniciar, detener, latido, mensaje, activa, expira…
@@ -64,9 +67,11 @@ function crearSesionEdicion(op){
     if (Date.now() - s.ultimoLatido < intervalo) return;
     s.ultimoLatido = Date.now();
     const generacion = s.generacion;
+    const d = op.documento();
+    if (!d) return;
     let r;
     try {
-      r = await op.renovar();
+      r = await llamarEnSilencio("sesionEdicionRenovar", d.ciclo, d.ref);
     } catch (e) {
       if (generacion !== s.generacion || !s.temporizador) return;
       if (e && e.codigo === "BLOQUEO_PERDIDO") { detener(); return op.alPerder(e.detalle ? e.detalle.correo : ""); }
@@ -80,16 +85,24 @@ function crearSesionEdicion(op){
   ["click", "keydown"].forEach(ev => document.addEventListener(ev, latido, { passive: true }));
 
   function copiar(){
-    const d = op.copia();
-    if (!d) return;
-    const texto = JSON.stringify(d.contenido);
+    const c = op.copia(), d = op.documento();
+    if (!c || !d) return;
+    const texto = JSON.stringify(c.contenido);
     if (texto === s.ultimaCopia) return;
     /* Solo cuenta como copiada si el servidor la guardó: si estaba ocupado ({omitida}) o
        falló, se vuelve a intentar al minuto siguiente. */
-    op.guardarCopia(d)
+    llamarEnSilencio("sesionEdicionGuardarCopia", d.ciclo, d.ref, c)
       .then(r => { if (r && r.fecha) s.ultimaCopia = texto; })
       .catch(e => console.warn("No se pudo guardar la copia de recuperación:", e));
   }
+
+  /* Al cerrar la página se suelta el bloqueo sin esperar respuesta: la página se cierra. */
+  window.addEventListener("pagehide", () => {
+    const d = op.documento();
+    if (!s.temporizador || !d) return;
+    if (op.alCerrarPagina) op.alCerrarPagina();
+    google.script.run.sesionEdicionLiberar(d.ciclo, d.ref);
+  });
 
   return {
     iniciar, detener, latido, mensaje,
@@ -104,27 +117,32 @@ function crearSesionEdicion(op){
   };
 }
 
-/* ---------- diálogos comunes ---------- */
-
 /**
- * Diálogo informativo con un solo botón. despues: más contenido bajo la nota (opcional).
- * @param {string} titulo
- * @param {string} html
- * @param {string=} clase
- * @param {function(): void=} despues
- * @returns {Promise<*>}
+ * Suelta el bloqueo del documento. Si falla, el bloqueo caduca solo.
+ * @param {string} ciclo
+ * @param {string} ref «plan:ADM» o «carga:ADM».
+ * @returns {Promise<void>}
  */
-function informar(titulo, html, clase, despues){
-  return preguntar({
-    titulo: titulo,
-    cuerpo: '<div class="nota ' + (clase || "aviso") + '">' + html + "</div>" + (despues || ""),
-    acciones: [{ texto:"Entendido", clase:"primario", valor:true }]
-  });
+async function liberarEdicion(ciclo, ref){
+  try { await llamarEnSilencio("sesionEdicionLiberar", ciclo, ref); } catch (e) { /* caduca solo */ }
 }
 
 /**
- * Quedaron cambios sin guardar de una sesión anterior. Devuelve true (recuperarlos),
- * false (descartarlos) o null (se cerró sin elegir: la copia se conserva).
+ * Borra la copia de recuperación de la cuenta sin esperar respuesta.
+ * @param {string} ciclo
+ * @param {string} ref
+ * @returns {void}
+ */
+function descartarCopia(ciclo, ref){
+  llamarEnSilencio("sesionEdicionDescartarCopia", ciclo, ref).catch(e => console.warn("sesionEdicionDescartarCopia:", e));
+}
+
+/* ---------- ventanas comunes ---------- */
+
+/**
+ * CU-001 FA-016 y CU-002 FA-016: quedaron cambios sin guardar de una sesión anterior.
+ * Devuelve true (recuperarlos), false (descartarlos) o null (se cerró sin elegir: la copia
+ * se conserva).
  * @param {{fecha: string, versionBase: number, contenido: *}} rec
  * @param {number} versionActual
  * @param {string} donde
@@ -141,8 +159,9 @@ function ofrecerRecuperacion(rec, versionActual, donde){
 }
 
 /**
- * Mientras se editaba se guardó otra versión (c: {n, tipo, usuario, fecha}). de: «del
- * plan», «de la carga». Devuelve true si se quiere guardar igualmente.
+ * CU-001 FA-099, FA-108, FA-113 y CU-002 FA-108: mientras se editaba se guardó otra versión
+ * (c: {n, tipo, usuario, fecha}). de: «del plan», «de la carga». Devuelve true si se quiere
+ * guardar igualmente.
  * @param {{n: number, tipo?: string, usuario?: string, fecha?: string}} c
  * @param {string} de
  * @returns {Promise<boolean|null>}
@@ -158,9 +177,9 @@ function confirmarConflicto(c, de){
 }
 
 /**
- * Historial de versiones. op: {titulo, versiones, conEstado, ver, restaurar}.
- * Devuelve {ver: n}, {restaurar: n} o null.
- * @param {{titulo: string, versiones: Array<Object>, conEstado?: boolean}} op
+ * CU-001 FA-092 y CU-002 FA-084: ventana del historial de versiones. op: {titulo,
+ * versiones, conEstado, ver, restaurar}. Devuelve {ver: n}, {restaurar: n} o null.
+ * @param {{titulo: string, versiones: Array<Object>, conEstado?: boolean, ver?: boolean, restaurar?: boolean}} op
  * @returns {Promise<{ver: number}|{restaurar: number}|null>}
  */
 async function dialogoHistorial(op){

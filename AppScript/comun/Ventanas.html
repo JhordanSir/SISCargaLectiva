@@ -17,17 +17,18 @@
 <script>
 "use strict";
 /* ============================================================
-   Ventanas: diálogo genérico, avisos breves y errores
+   Ventanas: el diálogo de cada pantalla, los avisos breves (el «Aviso» de los CU, que
+   desaparece solo) y los errores del servidor
    ============================================================ */
 
 /**
- * Aviso breve. tipo: "ok" (por defecto), "info", "aviso", "error" o "pestana".
- * El texto del elemento es solo el mensaje; el ícono lo pone la hoja de estilos.
+ * Aviso breve que desaparece solo. tipo: "ok" (por defecto), "info", "aviso", "error" o
+ * "pestana". El texto del elemento es solo el mensaje; el ícono lo pone la hoja de estilos.
  * @param {string} texto
  * @param {string=} tipo
  * @returns {void}
  */
-function aviso(texto, tipo){
+function brindis(texto, tipo){
   const d = document.createElement("div");
   d.className = "brindis-msg " + (tipo || "ok");
   d.textContent = texto;
@@ -43,18 +44,18 @@ function aviso(texto, tipo){
  * @param {{nivel: string, texto: string}} a
  * @returns {string}
  */
-function htmlAviso(a){
+function notaDeAviso(a){
   const clase = { aviso: " aviso", error: " error" }[a.nivel] || "";
   return '<div class="nota' + clase + '">' + esc(a.texto) + "</div>";
 }
 
-/* Diálogo genérico. acciones: [{texto, clase, valor}]. Devuelve una promesa.
-   Una pregunta nueva sustituye a la que esté abierta, que se resuelve con null. */
+/* Una pregunta nueva sustituye a la que esté abierta, que se resuelve con null. */
 const dlg = $("#dlg");
 let terminarPregunta = null;
 /**
  * Diálogo genérico. acciones: [{texto, clase, valor}]; se resuelve con el valor de la acción
- * elegida (o null si se cierra). Una pregunta nueva sustituye a la abierta, que se resuelve con null.
+ * elegida (o null si se cierra). Un «valor» que sea función puede leer los campos del
+ * diálogo, porque se resuelve antes de cerrarlo.
  * @param {{titulo: string, cuerpo: string, acciones: Array<{texto: string, clase?: string, valor: *}>}} opciones
  * @returns {Promise<*>}
  */
@@ -84,8 +85,6 @@ function preguntar({ titulo, cuerpo, acciones }){
       b.type = "button";
       b.className = "btn " + (a.clase || "");
       b.textContent = a.texto;
-      /* Se resuelve antes de cerrar: el contenido sigue en el DOM, de modo que
-         un «valor» que sea función pueda leer los campos del formulario. */
       b.onclick = () => { terminar(a.valor); dlg.close(); };
       pie.appendChild(b);
     });
@@ -96,7 +95,24 @@ function preguntar({ titulo, cuerpo, acciones }){
 dlg.addEventListener("cancel", e => { e.preventDefault(); dlg.close(); });
 
 /**
- * Diálogo con el mensaje de un error (y una nota si es INTERNO).
+ * Ventana con un solo botón «Entendido». despues: más contenido bajo la nota (opcional).
+ * @param {string} titulo
+ * @param {string} html
+ * @param {string=} clase
+ * @param {string=} despues
+ * @returns {Promise<*>}
+ */
+function informar(titulo, html, clase, despues){
+  return preguntar({
+    titulo: titulo,
+    cuerpo: '<div class="nota ' + (clase || "aviso") + '">' + html + "</div>" + (despues || ""),
+    acciones: [{ texto:"Entendido", clase:"primario", valor:true }]
+  });
+}
+
+/**
+ * Ventana «No se pudo completar la operación» con el mensaje de un error del servidor (y
+ * una nota si es INTERNO).
  * @param {*} e
  * @returns {Promise<*>}
  */

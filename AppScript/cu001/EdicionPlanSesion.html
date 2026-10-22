@@ -1,39 +1,54 @@
 <script>
 "use strict";
 /* ============================================================
-   Edición del plan de ciclo: sesión con bloqueo, entrar y salir de la edición,
-   guardado y registro
+   Edición del plan de ciclo: sesión con bloqueo, entrar y salir de la edición, guardado,
+   registro y avisos entre pestañas. Llama a cu001/EdicionPlan.js (edicionPlanAbrir,
+   edicionPlanGuardar) y, a través de comun/SesionEdicion.html, a comun/SesionEdicion.js.
    ============================================================ */
-let pedidoEdicion = 0;   // descarta las respuestas de abrirEdicion que llegan tarde
+let pedidoEdicion = 0;   // descarta las respuestas de edicionPlanAbrir que llegan tarde
+const refPlan = sig => Dominio.REF.plan(sig);
 
+/* Pasos 15 y 16: el bloqueo del plan y el contador de la sesión de edición. */
 const sesionPlan = crearSesionEdicion({
   relojes: "#reloj-carga, #reloj-pegado, #reloj-grilla",
-  renovar: () => llamarEnSilencio("sesionEdicionRenovar", app.ciclo, Dominio.REF.plan(app.carrera)),
+  documento: () => edicion.carrera ? { ciclo: app.ciclo, ref: refPlan(edicion.carrera) } : null,
   alRenovar: () => anunciarEdicion(false),
   alPerder: correo => bloqueoPerdido(correo),
-  alExpirar: () => expirar(),
+  alExpirar: () => expirarEdicionPlan(),
   copia: () => {
-    const p = app.plan;
-    return p && p.sucio && p.confirmado && app.carrera ? { contenido: p.asignaturas, versionBase: p.version } : null;
+    const p = edicion.plan;
+    return p && p.sucio && p.confirmado && edicion.carrera ? { contenido: p.asignaturas, versionBase: p.version } : null;
   },
-  guardarCopia: d => llamarEnSilencio("sesionEdicionGuardarCopia", app.ciclo, Dominio.REF.plan(app.carrera), d)
+  alCerrarPagina: () => anunciar("soltado", { ciclo: app.ciclo, sig: edicion.carrera })
 });
 /* La actividad en la carga masiva o en la grilla también renueva el bloqueo. */
-const latido = () => sesionPlan.latido();
+const latidoPlan = () => sesionPlan.latido();
 
+/* Mientras se edita, salir por la cabecera pide confirmarlo (FA-115). */
+const enEdicionPlan = () => !!(edicion.carrera && edicion.plan && ["carga","pegado","grilla"].includes(app.vista));
+registrarGuardaDeSalida(async () => {
+  if (!enEdicionPlan()) return true;
+  if (!(await confirmarSalidaEdicion())) return false;
+  salirDeEdicionPlan();
+  return true;
+});
+registrarCambiosPendientes(() => !!(edicion.plan && edicion.plan.sucio));
+
+/* FA-120: otra cuenta tomó el plan tras vencer el bloqueo. */
 async function bloqueoPerdido(correo){
-  const sig = app.carrera;
-  app.carrera = null; app.plan = null; app.seleccion = null;
-  app.tableroHora = 0;
+  const sig = edicion.carrera;
+  edicion.carrera = null; edicion.plan = null; edicion.seleccion = null;
+  tablero.hora = 0;
   anunciar("soltado", { ciclo: app.ciclo, sig: sig });
   mostrarTablero();
   await informar("Se perdió el bloqueo de edición", "Tu bloqueo caducó y ahora el plan lo está editando <b>" + esc(correo) +
     "</b>. Lo que no habías guardado queda en la copia de recuperación: podrás recuperarlo la próxima vez que lo edites.");
 }
 
-/* Pasó el tiempo sin actividad: se guarda lo pendiente como una versión nueva y se suelta el plan. */
-async function expirar(){
-  const sig = app.carrera, p = app.plan;
+/* FA-117 a FA-119: pasó el tiempo sin actividad; se guarda lo pendiente como una versión
+   nueva y se suelta el plan. */
+async function expirarEdicionPlan(){
+  const sig = edicion.carrera, p = edicion.plan;
   let resultado = "sin cambios";
   if (p && p.sucio && p.asignaturas.length) {
     try {
@@ -50,10 +65,10 @@ async function expirar(){
       resultado = (e && e.message) || String(e);
     }
   }
-  try { await llamarEnSilencio("sesionEdicionLiberar", app.ciclo, Dominio.REF.plan(sig)); } catch (e) { /* caduca solo */ }
+  await liberarEdicion(app.ciclo, refPlan(sig));
   anunciar("soltado", { ciclo: app.ciclo, sig: sig });
-  app.carrera = null; app.plan = null; app.seleccion = null;
-  app.tableroHora = 0;
+  edicion.carrera = null; edicion.plan = null; edicion.seleccion = null;
+  tablero.hora = 0;
   mostrarTablero();
   const texto = resultado === "guardado"
     ? "Los cambios sin guardar se almacenaron como una nueva versión y se liberó el bloqueo del plan."
@@ -63,52 +78,51 @@ async function expirar(){
   await informar("La sesión de edición ha expirado", "Transcurrieron " + CONFIG.minutosBloqueo + " minutos sin actividad. " + esc(texto));
 }
 
-/* Libera el bloqueo y vuelve al tablero, descartando lo no guardado. */
-async function terminarEdicion(){
-  const sig = app.carrera, confirmado = !!(app.plan && app.plan.confirmado);
-  if (sig && app.plan && app.plan.sucio) llamarEnSilencio("sesionEdicionDescartarCopia", app.ciclo, Dominio.REF.plan(sig)).catch(e => console.warn("sesionEdicionDescartarCopia:", e));
+/* FA-029 y FA-115: libera el bloqueo y vuelve al tablero, descartando lo no guardado. */
+async function salirDeEdicionPlan(){
+  const sig = edicion.carrera, confirmado = !!(edicion.plan && edicion.plan.confirmado);
+  if (sig && edicion.plan && edicion.plan.sucio) descartarCopia(app.ciclo, refPlan(sig));
   sesionPlan.detener();
-  app.carrera = null; app.plan = null; app.seleccion = null;
+  edicion.carrera = null; edicion.plan = null; edicion.seleccion = null;
   pintarTablero();
   mostrar("planes");
-  /* Si el bloqueo aún no estaba confirmado, lo devuelve abrirEdicion cuando responda. */
+  /* Si el bloqueo aún no estaba confirmado, lo devuelve entrarAEditarPlan cuando responda. */
   if (sig && confirmado) {
     anunciar("soltado", { ciclo: app.ciclo, sig: sig });
-    try { await llamarEnSilencio("sesionEdicionLiberar", app.ciclo, Dominio.REF.plan(sig)); } catch (e) { /* caduca solo */ }
+    await liberarEdicion(app.ciclo, refPlan(sig));
   }
   cargarTablero();
 }
 
+/* FA-115: la ventana «Salir de la edición». */
 function confirmarSalidaEdicion(){
-  const sucio = !!(app.plan && app.plan.sucio);
+  const sucio = !!(edicion.plan && edicion.plan.sucio);
   return preguntar({
     titulo: "Salir de la edición",
     cuerpo: '<div class="nota aviso">' + (sucio || app.vista === "grilla"
       ? "Se descartarán los cambios que no hayas guardado y se liberará el bloqueo del plan."
       : "Se liberará el bloqueo del plan.") + "</div>",
-    acciones: [{ texto:"Seguir editando", valor:null }, { texto:"Salir", clase:"peligro", valor:true }]
+    acciones: [{ texto:"Seguir editando", valor:null }, { texto:"Salir", clase:"peligro", valor:true }]   // FA-116
   });
 }
 
-window.addEventListener("pagehide", () => {
-  if (sesionPlan.activa && app.carrera) {
-    anunciar("soltado", { ciclo: app.ciclo, sig: app.carrera });
-    google.script.run.sesionEdicionLiberar(app.ciclo, Dominio.REF.plan(app.carrera));   // sin esperar respuesta: la página se cierra
-  }
-});
+/* FA-115: «Salir de la edición» en la grilla. */
+async function salirDeLaEdicion(){
+  if (await confirmarSalidaEdicion()) salirDeEdicionPlan();
+}
 
 /* ============================================================
-   Entrar en la edición
+   Entrar en la edición (pasos 13 a 19, FA-014 a FA-019, FA-104)
    ============================================================ */
 /* Se abre al instante con el contenido que trajo el tablero y el bloqueo se pide de
    fondo; hasta que el servidor lo confirma no se puede guardar. Si según el tablero otra
    cuenta tiene el plan, se espera la respuesta antes de abrir. Si esta misma cuenta ya lo
    edita en otra pestaña del navegador, se advierte antes. */
-async function abrirEdicion(sig, sinAvisoDePestana){
+async function entrarAEditarPlan(sig, sinAvisoDePestana){
   if (!sinAvisoDePestana && otraPestanaEditando(app.ciclo, sig)) return avisarOtraPestana(sig);
   const f = filaTablero(sig);
   const b = f && bloqueoVigente(f.bloqueo);
-  if (!f || !Array.isArray(f.contenido) || (b && b.correo !== app.usuario.correo)) return abrirEdicionEsperando(sig);
+  if (!f || !Array.isArray(f.contenido) || (b && b.correo !== app.usuario.correo)) return entrarAEditarEsperando(sig);
 
   const pedido = ++pedidoEdicion;
   entrarEnEdicion(sig, { estado: f.estado, version: f.version, asignaturas: clonar(f.contenido) });
@@ -116,22 +130,22 @@ async function abrirEdicion(sig, sinAvisoDePestana){
   try {
     r = await llamarDeFondo("edicionPlanAbrir", app.ciclo, sig, f.version);
   } catch (e) {
-    if (pedido !== pedidoEdicion || app.carrera !== sig) return;
-    const habiaCambios = app.plan.sucio;
+    if (pedido !== pedidoEdicion || edicion.carrera !== sig) return;
+    const habiaCambios = edicion.plan.sucio;
     salirSinGuardar();
     if (e.codigo === "BLOQUEADO") return avisarBloqueado(sig, e.detalle, habiaCambios);
     mostrarTablero();
     return informarError(e);
   }
-  if (pedido !== pedidoEdicion || app.carrera !== sig) {
+  if (pedido !== pedidoEdicion || edicion.carrera !== sig) {
     /* Ya se salió de este plan: el bloqueo que se acaba de tomar se devuelve. */
-    if (app.carrera !== sig) llamarEnSilencio("sesionEdicionLiberar", app.ciclo, Dominio.REF.plan(sig)).catch(e => console.warn("sesionEdicionLiberar:", e));
+    if (edicion.carrera !== sig) liberarEdicion(app.ciclo, refPlan(sig));
     return;
   }
   confirmarEdicion(sig, r);
 }
 
-async function abrirEdicionEsperando(sig){
+async function entrarAEditarEsperando(sig){
   let r;
   try {
     r = await llamar("edicionPlanAbrir", app.ciclo, sig);
@@ -143,20 +157,21 @@ async function abrirEdicionEsperando(sig){
   confirmarEdicion(sig, r);
 }
 
+/* Paso 19 (plan sin asignaturas: la carga masiva) o FA-018 y FA-019 (la grilla). */
 function entrarEnEdicion(sig, plan){
-  app.carrera = sig;
-  app.plan = Object.assign({ sucio: false, confirmado: false }, plan);
-  app.seleccion = null;
-  app.colapsados.clear();
-  app.avisoImportacion = "";
+  edicion.carrera = sig;
+  edicion.plan = Object.assign({ sucio: false, confirmado: false }, plan);
+  edicion.seleccion = null;
+  bloques.colapsados.clear();
+  edicion.avisoImportacion = "";
   sesionPlan.detener();
   sesionPlan.mensaje("Tomando el bloqueo de edición…");
-  if (app.plan.asignaturas.length) pintarGrilla();
-  else irACarga();
+  if (edicion.plan.asignaturas.length) pintarGrilla();
+  else mostrarCargaOferta();
 }
 
 function confirmarEdicion(sig, r){
-  const p = app.plan;
+  const p = edicion.plan;
   p.confirmado = true;
   sesionPlan.iniciar(r.expira);
   anunciarEdicion(true);
@@ -167,33 +182,34 @@ function confirmarEdicion(sig, r){
     actualizarFilaTablero(sig, { estado: r.estado, version: r.version, totales: totales(r.asignaturas), contenido: clonar(r.asignaturas) });
     if (!p.sucio) {
       Object.assign(p, { estado: r.estado, version: r.version, asignaturas: r.asignaturas });
-      app.seleccion = null;
+      edicion.seleccion = null;
       if (app.vista === "carga" && p.asignaturas.length) pintarGrilla();
-      aviso("Se cargó la versión más reciente del plan, v" + r.version, "info");
+      brindis("Se cargó la versión más reciente del plan, v" + r.version, "info");
     }
   }
   if (app.vista === "grilla") pintarGrilla();
 }
 
-/* Quedaron cambios sin guardar de una sesión anterior (la página se cerró o se cayó). */
+/* FA-016 y FA-017: quedaron cambios sin guardar de una sesión anterior. */
 async function recuperarPlan(sig, rec){
-  const r = await ofrecerRecuperacion(rec, app.plan ? app.plan.version : 0, "el plan de " + nombreCarrera(sig));
-  if (!app.plan || app.carrera !== sig) return;
+  const r = await ofrecerRecuperacion(rec, edicion.plan ? edicion.plan.version : 0, "el plan de " + nombreCarrera(sig));
+  if (!edicion.plan || edicion.carrera !== sig) return;
   if (r === true) {
-    app.plan.asignaturas = rec.contenido;
-    app.plan.sucio = true;
-    app.seleccion = null;
+    edicion.plan.asignaturas = rec.contenido;
+    edicion.plan.sucio = true;
+    edicion.seleccion = null;
     pintarGrilla();
-    aviso("Cambios recuperados: revísalos y guarda.");
-  } else if (r === false) llamarEnSilencio("sesionEdicionDescartarCopia", app.ciclo, Dominio.REF.plan(sig)).catch(e => console.warn("sesionEdicionDescartarCopia:", e));
+    brindis("Cambios recuperados: revísalos y guarda.");
+  } else if (r === false) descartarCopia(app.ciclo, refPlan(sig));
 }
 
 /* Sale de la edición sin guardar ni liberar nada: el bloqueo no llegó a tomarse. */
 function salirSinGuardar(){
   sesionPlan.detener();
-  app.carrera = null; app.plan = null; app.seleccion = null;
+  edicion.carrera = null; edicion.plan = null; edicion.seleccion = null;
 }
 
+/* FA-015: otra cuenta tiene el bloqueo; se ofrece la consulta en solo lectura. */
 async function avisarBloqueado(sig, bloqueo, habiaCambios){
   actualizarFilaTablero(sig, { bloqueo: bloqueo });
   await preguntar({
@@ -203,32 +219,33 @@ async function avisarBloqueado(sig, bloqueo, habiaCambios){
             (habiaCambios ? " Los cambios que alcanzaste a hacer no se guardaron." : "") + "</div>",
     acciones: [{ texto:"Consultar en solo lectura", clase:"primario", valor:true }]
   });
-  return abrirLectura(sig);
+  return abrirConsulta(sig);
 }
 
 /* ============================================================
-   Guardado y versionado
+   Guardado y registro (pasos 43 a 53, FA-097 a FA-114)
    ============================================================ */
-/* Planes de otras carreras que cambiaron por una fusión: se actualiza su fila del tablero. */
+/* FA-101 pasos 10 y 11: planes de otras carreras que cambiaron por una fusión. */
 function aplicarOtros(otros){
   (otros || []).forEach(o => {
     actualizarFilaTablero(o.sig, { estado: o.estado, version: o.version, totales: o.totales, contenido: o.contenido });
     anunciar("guardado", { ciclo: app.ciclo, sig: o.sig, estado: o.estado, version: o.version, totales: o.totales, contenido: o.contenido });
   });
-  if ((otros || []).length) aviso("La fusión se guardó también en " + otros.map(o => o.sig + " (v" + o.version + ")").join(", ") + ".", "info");
+  if ((otros || []).length) brindis("La fusión se guardó también en " + otros.map(o => o.sig + " (v" + o.version + ")").join(", ") + ".", "info");
 }
 
-/* Si mientras se editaba se guardó otra versión (por ejemplo, una actualización desde
-   el xlsx), se advierte y el usuario decide si guarda igualmente. */
-async function guardar(datos){
-  const p = app.plan, sig = app.carrera;
+/* Pasos 47 a 51 (y FA-105 pasos 5 a 9, FA-110 pasos 6 a 11): si mientras se editaba se
+   guardó otra versión (por ejemplo, una actualización desde el xlsx), se advierte y el
+   usuario decide si guarda igualmente (FA-099, FA-108, FA-113). */
+async function guardarVersionPlan(datos){
+  const p = edicion.plan, sig = edicion.carrera;
   const base = { asignaturas: p.asignaturas, versionBase: p.version, fusionesDisueltas: p.fusionesDisueltas || [] };
   let r;
   try {
     r = await llamar("edicionPlanGuardar", app.ciclo, sig, Object.assign({}, base, datos));
   } catch (e) {
     if (e.codigo !== "CONFLICTO") throw e;
-    if (!await confirmarConflicto(e.detalle, "del plan")) return null;
+    if (!await confirmarConflicto(e.detalle, "del plan")) return null;   // FA-100, FA-109, FA-114
     r = await llamar("edicionPlanGuardar", app.ciclo, sig, Object.assign({}, base, datos, { forzar: true }));
   }
   Object.assign(p, { version: r.version, estado: r.estado, sucio: false, fusionesDisueltas: [] });
@@ -241,26 +258,28 @@ async function guardar(datos){
   return r;
 }
 
-$("#btn-borrador").onclick = async () => {
-  const p = app.plan;
-  if (!p.asignaturas.length) return aviso("El plan no tiene asignaturas que guardar.", "aviso");
+/* FA-105 a FA-109: «Guardar borrador». */
+async function guardarBorrador(){
+  const p = edicion.plan;
+  if (!p.asignaturas.length) return brindis("El plan no tiene asignaturas que guardar.", "aviso");   // FA-106
   const ok = await preguntar({
     titulo: "Guardar borrador",
     cuerpo: '<div class="nota">El plan se guardará como una versión nueva en estado <b>Borrador</b>. ' +
       "Todavía no habilitará la asignación docente.</div>",
-    acciones: [{ texto:"Cancelar", valor:null }, { texto:"Guardar", clase:"primario", valor:true }]
+    acciones: [{ texto:"Cancelar", valor:null }, { texto:"Guardar", clase:"primario", valor:true }]   // FA-107
   });
   if (!ok) return;
   let r;
-  try { r = await guardar({ estado: ESTADOS.BORRADOR, tipo: Dominio.TIPO_VERSION.BORRADOR }); } catch (e) { return informarError(e); }
+  try { r = await guardarVersionPlan({ estado: ESTADOS.BORRADOR, tipo: Dominio.TIPO_VERSION.BORRADOR }); } catch (e) { return informarError(e); }
   if (!r) return;
-  aviso("Borrador guardado como v" + r.version);
+  brindis("Borrador guardado como v" + r.version);
   pintarGrilla();
-};
+}
 
-$("#btn-registrar").onclick = async () => {
-  const p = app.plan;
-  if (!p.asignaturas.length) return aviso("El plan no tiene asignaturas que registrar.", "aviso");
+/* Pasos 43 a 53 («Registrar plan») o, en un plan Registrado, FA-110 a FA-114 («Guardar cambios»). */
+async function registrarPlan(){
+  const p = edicion.plan;
+  if (!p.asignaturas.length) return brindis("El plan no tiene asignaturas que registrar.", "aviso");   // FA-097, FA-111
   const t = totales(p.asignaturas);
 
   if (p.estado === ESTADOS.REGISTRADO) {
@@ -269,21 +288,21 @@ $("#btn-registrar").onclick = async () => {
       cuerpo: '<div class="nota">Se guardará una versión nueva del plan <b>Registrado</b>.</div>' +
         '<div class="campo"><label for="motivo">Motivo del cambio (opcional)</label>' +
         '<input type="text" id="motivo" placeholder="Matrícula extemporánea"></div>',
-      acciones: [{ texto:"Cancelar", valor:null }, { texto:"Confirmar", clase:"primario", valor:() => $("#motivo").value.trim() }]
+      acciones: [{ texto:"Cancelar", valor:null }, { texto:"Confirmar", clase:"primario", valor:() => $("#motivo").value.trim() }]   // FA-112
     });
     if (!r) return;
     let g;
-    try { g = await guardar({ estado: ESTADOS.REGISTRADO, tipo: Dominio.TIPO_VERSION.CAMBIOS, motivo: r() }); } catch (e) { return informarError(e); }
+    try { g = await guardarVersionPlan({ estado: ESTADOS.REGISTRADO, tipo: Dominio.TIPO_VERSION.CAMBIOS, motivo: r() }); } catch (e) { return informarError(e); }
     if (!g) return;
-    aviso("Cambios guardados como v" + g.version);
+    brindis("Cambios guardados como v" + g.version);
     return pintarGrilla();
   }
 
-  const mensaje = "¿Desea registrar el Plan de Ciclo de " + nombreCarrera(app.carrera) + " para el periodo " + app.ciclo +
+  const mensaje = "¿Desea registrar el Plan de Ciclo de " + nombreCarrera(edicion.carrera) + " para el periodo " + app.ciclo +
     "? Al confirmar, el estado cambiará a REGISTRADO y se habilitará la asignación docente para los Departamentos " +
     "Académicos (DIMA, DAHUC, DACJ, DACTE). El plan podrá seguir editándose y cada guardado generará una nueva versión.";
 
-  const ok = await preguntar({
+  const ok = await preguntar({   // paso 45
     titulo: "Registrar el plan de ciclo",
     cuerpo:
       '<div class="tabla-caja"><table><tbody>' +
@@ -293,32 +312,85 @@ $("#btn-registrar").onclick = async () => {
         "<tr><td>Fusiones</td><td class='num'>" + t.fus + "</td><td>Desdobles</td><td class='num'>" + t.des + "</td></tr>" +
       "</tbody></table></div>" +
       '<div class="cita mt-3">' + esc(mensaje) + "</div>",
-    acciones: [{ texto:"Cancelar", valor:null }, { texto:"Confirmar y registrar", clase:"primario", valor:true }]
+    acciones: [{ texto:"Cancelar", valor:null }, { texto:"Confirmar y registrar", clase:"primario", valor:true }]   // FA-098
   });
   if (!ok) return;
 
   let g;
-  try { g = await guardar({ estado: ESTADOS.REGISTRADO, tipo: Dominio.TIPO_VERSION.REGISTRAR }); } catch (e) { return informarError(e); }
+  try { g = await guardarVersionPlan({ estado: ESTADOS.REGISTRADO, tipo: Dominio.TIPO_VERSION.REGISTRAR }); } catch (e) { return informarError(e); }
   if (!g) return;
-  const sig = app.carrera;
+  const sig = edicion.carrera;
   sesionPlan.detener();
-  app.plan = null;
-  mostrar("exito");
+  edicion.plan = null;
+  mostrar("exito");   // paso 52
   $("#exito-nota").innerHTML =
     "<b>Plan registrado.</b> " + esc(nombreCarrera(sig)) + " · " + esc(app.ciclo) + " · versión <b>v" + g.version + "</b>. " +
     "La asignación docente queda habilitada para DIMA, DAHUC, DACJ y DACTE. El plan sigue siendo editable: cada guardado generará una versión nueva.";
   celebrar();
   anunciar("soltado", { ciclo: app.ciclo, sig: sig });
-  try { await llamarEnSilencio("sesionEdicionLiberar", app.ciclo, Dominio.REF.plan(sig)); } catch (e) { /* caduca solo */ }
-};
+  await liberarEdicion(app.ciclo, refPlan(sig));   // paso 53
+}
 
-$("#exito-editar").onclick = () => { if (app.carrera) abrirEdicion(app.carrera); };
+/* ============================================================
+   Pestañas del navegador
+   ============================================================ */
+const editandoEnOtrasPestanas = new Map();   // "ciclo|sig" → {de, correo, expira}
 
-$("#volver-grilla").onclick = async () => {
-  const ok = await confirmarSalidaEdicion();
-  if (!ok) return;
-  terminarEdicion();
-};
+/**
+ * Avisa a las otras pestañas de que esta edita el plan. «nuevo» distingue la toma del
+ * bloqueo de sus renovaciones y de las respuestas a «hola».
+ * @param {boolean=} nuevo
+ * @returns {void}
+ */
+function anunciarEdicion(nuevo){
+  if (!edicion.carrera || !sesionPlan.activa) return;
+  if (nuevo || !sesionPlan.desde) sesionPlan.desde = Dominio.isoPeru();
+  anunciar("editando", {
+    ciclo: app.ciclo, sig: edicion.carrera, desde: sesionPlan.desde,
+    expira: new Date(sesionPlan.expira).toISOString(), nuevo: !!nuevo
+  });
+}
+
+/**
+ * Avisa a las otras pestañas de que se guardó una versión de un plan, con su contenido.
+ * @param {string} sig
+ * @param {string} estado
+ * @param {number} version
+ * @param {Array<Object>} asignaturas
+ * @returns {void}
+ */
+function anunciarGuardado(sig, estado, version, asignaturas){
+  anunciar("guardado", {
+    ciclo: app.ciclo, sig: sig, estado: estado, version: version,
+    totales: totales(asignaturas), contenido: clonar(asignaturas)
+  });
+}
+
+/* ¿Esta misma cuenta edita el plan en otra pestaña? */
+function otraPestanaEditando(ciclo, sig){
+  const e = editandoEnOtrasPestanas.get(ciclo + "|" + sig);
+  return !!(e && app.usuario && e.correo === app.usuario.correo && Date.parse(e.expira) > Date.now());
+}
+
+/* Advertir, no prohibir: se puede editar de todos modos. */
+async function avisarOtraPestana(sig){
+  const r = await preguntar({
+    titulo: "Ya editas este plan en otra pestaña",
+    cuerpo: '<div class="nota aviso">El plan de <b>' + esc(nombreCarrera(sig)) + "</b> está abierto en edición en otra pestaña de este navegador. " +
+      "Si también lo editas aquí, lo que guardes en una pestaña puede pisar lo que guardes en la otra.</div>",
+    acciones: [{ texto:"Editar aquí de todos modos", valor:"editar" }, { texto:"Consultar en solo lectura", clase:"primario", valor:"leer" }]
+  });
+  if (r === "editar") return entrarAEditarPlan(sig, true);
+  if (r === "leer") return abrirConsulta(sig);
+}
+
+alRecibirDePestana("hola", () => anunciarEdicion(false));
+alRecibirDePestana("editando", m => editandoEnOtrasPestanas.set(m.ciclo + "|" + m.sig, { de: m.de, correo: m.correo, expira: m.expira }));
+alRecibirDePestana("soltado", m => editandoEnOtrasPestanas.delete(m.ciclo + "|" + m.sig));
+alRecibirDePestana("guardado", m => {
+  if (edicion.plan && edicion.carrera === m.sig && app.ciclo === m.ciclo && !viendoConsulta(m.sig, m.ciclo))
+    brindis("Otra pestaña guardó la v" + m.version + " de este plan. Si guardas aquí, se te avisará antes.", "aviso");
+});
 
 /* ============================================================
    Celebración al registrar: confeti con los colores de la marca

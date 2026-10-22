@@ -1,0 +1,58 @@
+<script>
+"use strict";
+/* ============================================================
+   Pestañas del navegador
+   Cada pestaña con la aplicación abierta avisa a las demás (BroadcastChannel) cuando
+   toma o suelta el bloqueo de un plan, cuando guarda una versión, cuando relee los Excel
+   y cuando guarda asignaciones. Cada pantalla se suscribe a los mensajes que le importan
+   (alRecibirDePestana) y actualiza lo suyo sin pedirlo al servidor. El servidor sigue
+   siendo la fuente de verdad: si el navegador no admite el canal, todo funciona igual sin
+   estos avisos.
+   Mensajes: «hola», «editando», «soltado», «guardado», «tablero» y «asignaciones».
+   ============================================================ */
+const pestanas = {
+  id: Math.random().toString(36).slice(2, 10) + Date.now().toString(36),
+  canal: null,
+  oyentes: new Map()   // tipo → [función(mensaje, esMiCuenta)]
+};
+
+function iniciarPestanas(){
+  if (!app.usuario || !("BroadcastChannel" in window)) return;
+  try { pestanas.canal = new BroadcastChannel("siscargalectiva"); } catch (e) { return; }   // sin canal, sin avisos entre pestañas
+  pestanas.canal.onmessage = ev => {
+    try { recibirDePestana(ev.data); } catch (e) { console.warn("Mensaje de otra pestaña no reconocido:", e); }
+  };
+  anunciar("hola");
+}
+
+/**
+ * Avisa a las otras pestañas del mismo navegador. Si falla, no pasa nada.
+ * @param {string} tipo
+ * @param {Object=} datos
+ * @returns {void}
+ */
+function anunciar(tipo, datos){
+  if (!pestanas.canal) return;
+  try {
+    pestanas.canal.postMessage(Object.assign({ tipo: tipo, de: pestanas.id, correo: (app.usuario || {}).correo || "" }, datos || {}));
+  } catch (e) { console.warn("No se pudo avisar a las otras pestañas:", e); }   // p. ej., un contenido que no se puede copiar
+}
+
+/**
+ * Suscribe una pantalla a un tipo de mensaje de las otras pestañas. Los oyentes se llaman
+ * en el orden en que se suscribieron (el de los archivos en Index.html).
+ * @param {string} tipo
+ * @param {function(Object, boolean): void} fn Recibe el mensaje y si viene de esta misma cuenta.
+ * @returns {void}
+ */
+function alRecibirDePestana(tipo, fn){
+  if (!pestanas.oyentes.has(tipo)) pestanas.oyentes.set(tipo, []);
+  pestanas.oyentes.get(tipo).push(fn);
+}
+
+function recibirDePestana(m){
+  if (!m || typeof m !== "object" || m.de === pestanas.id || !app.usuario) return;
+  const deMiCuenta = m.correo === app.usuario.correo;
+  (pestanas.oyentes.get(m.tipo) || []).forEach(fn => fn(m, deMiCuenta));
+}
+</script>

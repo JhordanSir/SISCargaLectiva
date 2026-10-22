@@ -1,4 +1,4 @@
-<!-- ===== Inicio, sistema sin instalar y acceso denegado ===== -->
+<!-- ===== Inicio (CU-001 y CU-002, paso 6), sistema sin instalar y acceso denegado (CU-001 FA-001 a FA-003, CU-002 FA-003 a FA-005) ===== -->
 <section class="vista" id="v-instalar" hidden>
   <div class="tarjeta estado-acceso">
     <span class="estado-ico aviso"><?!= icono_("warning") ?></span>
@@ -47,12 +47,12 @@
   </div>
 
   <div class="menu">
-    <button type="button" class="menu-op" id="op-planes">
+    <button type="button" class="menu-op" id="op-planes" data-accion="registrarPlan">
       <span class="menu-ico"><?!= icono_("clipboard-text") ?></span>
       <span><b>Registrar plan de ciclo</b><small>Registra y edita la oferta académica de cada carrera: grupos, desdobles y fusiones.</small></span>
       <span class="menu-pie">Ir al tablero<?!= icono_("arrow-right", "menu-flecha") ?></span>
     </button>
-    <button type="button" class="menu-op" id="op-docentes">
+    <button type="button" class="menu-op" id="op-docentes" data-accion="asignarDocentes">
       <span class="menu-ico"><?!= icono_("chalkboard-teacher") ?></span>
       <span><b>Asignar docentes al plan de ciclo</b><small>Carga docente por carrera y balance horario de cada docente, con sus advertencias.</small></span>
       <span class="menu-pie">Asignar docentes<?!= icono_("arrow-right", "menu-flecha") ?></span>
@@ -68,10 +68,14 @@
 <script>
 "use strict";
 /* ============================================================
-   Inicio: saludo, avance del ciclo y accesos a las dos secciones
+   Inicio: saludo, avance del ciclo y accesos a las dos secciones. No llama al servidor:
+   las cifras salen del tablero que trajo la página (cu001/Tablero.html).
    ============================================================ */
-alPulsar("#op-planes", () => mostrarTablero());
-alPulsar("#op-docentes", () => iniciarCargaDocentes());
+enlazarAcciones($("#v-menu"), () => ({
+  registrarPlan: () => irA("planes"),        // CU-001 paso 7
+  asignarDocentes: () => irA("docentes")     // CU-002 paso 7
+}));
+registrarSeccion("inicio", entrarInicio);
 
 /* Al entrar, el anillo arranca de cero para que se vea llenarse. */
 function entrarInicio(){
@@ -81,7 +85,7 @@ function entrarInicio(){
   anillo.getBoundingClientRect();
   requestAnimationFrame(() => pintarInicio());
   /* Si el ciclo cambió en otra sección, se lee su tablero de fondo. */
-  if (app.tableroCiclo !== app.ciclo) cargarTablero();
+  if (tablero.ciclo !== app.ciclo) cargarTablero();
 }
 
 function saludo(){
@@ -94,7 +98,7 @@ function saludo(){
  * @returns {void}
  */
 function pintarInicio(){
-  const filas = app.tableroCiclo === app.ciclo ? app.tablero : [];
+  const filas = filasDelTablero();
   const cuenta = estado => filas.filter(f => f.estado === estado).length;
   const registrados = cuenta(ESTADOS.REGISTRADO);
   const suma = clave => filas.reduce((n, f) => n + (Number((f.totales || {})[clave]) || 0), 0);

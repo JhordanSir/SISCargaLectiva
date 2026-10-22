@@ -13,23 +13,23 @@
 
 <div class="progreso" id="cargando" hidden></div>
 
-<!-- Cabecera de todas las vistas: logotipo de La Salle, secciones y cuenta -->
+<!-- Cabecera de todas las vistas: logotipo de La Salle, secciones y cuenta (CU-001 y CU-002, paso 6) -->
 <header class="cabecera">
   <div class="cabecera-interior">
-    <button type="button" class="marca" id="ir-inicio" aria-label="SISCargaLectiva, Universidad La Salle: ir al inicio">
+    <button type="button" class="marca" id="ir-inicio" data-accion="irAlInicio" aria-label="SISCargaLectiva, Universidad La Salle: ir al inicio">
       <span class="placa-logo"><span class="logo-lasalle" role="img" aria-label="Universidad La Salle"></span></span>
       <span class="marca-texto"><b>SISCargaLectiva</b><small>Carga lectiva · Universidad La Salle</small></span>
     </button>
 
     <nav class="navegacion" id="navegacion" aria-label="Secciones" hidden>
       <span class="nav-indicador" id="nav-indicador" aria-hidden="true"></span>
-      <button type="button" class="nav-op" data-ir="inicio" aria-label="Inicio">
+      <button type="button" class="nav-op" data-accion="irA" data-seccion="inicio" aria-label="Inicio">
         <?!= icono_("house") ?><span aria-hidden="true">Inicio</span>
       </button>
-      <button type="button" class="nav-op" data-ir="planes" aria-label="Registrar plan de ciclo">
+      <button type="button" class="nav-op" data-accion="irA" data-seccion="planes" aria-label="Registrar plan de ciclo">
         <?!= icono_("clipboard-text") ?><span class="nav-largo" aria-hidden="true">Registrar plan de ciclo</span><span class="nav-corto" aria-hidden="true">Plan de ciclo</span>
       </button>
-      <button type="button" class="nav-op" data-ir="docentes" aria-label="Asignar docentes al plan de ciclo">
+      <button type="button" class="nav-op" data-accion="irA" data-seccion="docentes" aria-label="Asignar docentes al plan de ciclo">
         <?!= icono_("chalkboard-teacher") ?><span class="nav-largo" aria-hidden="true">Asignar docentes</span><span class="nav-corto" aria-hidden="true">Docentes</span>
         <span class="nav-punto" id="nav-sucio" title="Hay asignaciones sin guardar" hidden></span>
       </button>
@@ -42,21 +42,29 @@
   </div>
 </header>
 
-<?!= include_("Nucleo") ?>
-<?!= include_("Ventanas") ?>
-<?!= include_("Edicion") ?>
-<?!= include_("Rejilla") ?>
+<!-- Comunes a CU-001 y CU-002. Se incluyen antes que las pantallas, que usan lo que definen. -->
+<?!= include_("comun/Nucleo") ?>
+<?!= include_("comun/Ventanas") ?>
+<?!= include_("comun/Pestanas") ?>
+<?!= include_("comun/SesionEdicion") ?>
+<?!= include_("comun/Rejilla") ?>
+<?!= include_("comun/DocentesAsignados") ?>
+<?!= include_("comun/Derivacion") ?>
 
 <main class="lienzo" id="lienzo">
-<?!= include_("Inicio") ?>
-<?!= include_("Tablero") ?>
-<?!= include_("ImportarOferta") ?>
-<?!= include_("Grilla") ?>
-<?!= include_("GrillaAcciones") ?>
-<?!= include_("GrillaEdicion") ?>
-<?!= include_("Asignacion") ?>
-<?!= include_("AsignacionEdicion") ?>
-<?!= include_("AsignacionCarga") ?>
+<?!= include_("comun/Inicio") ?>
+<!-- CU-001 Registrar plan de ciclo -->
+<?!= include_("cu001/Tablero") ?>
+<?!= include_("cu001/PlanBloques") ?>
+<?!= include_("cu001/Consulta") ?>
+<?!= include_("cu001/CargaOferta") ?>
+<?!= include_("cu001/EdicionPlan") ?>
+<?!= include_("cu001/EdicionPlanAcciones") ?>
+<?!= include_("cu001/EdicionPlanSesion") ?>
+<!-- CU-002 Asignar docentes a plan de ciclo -->
+<?!= include_("cu002/Asignacion") ?>
+<?!= include_("cu002/AsignacionEdicion") ?>
+<?!= include_("cu002/AsignacionCarga") ?>
 </main>
 
 <footer class="pie-marca">
@@ -66,7 +74,6 @@
   </div>
 </footer>
 
-<?!= include_("Pestanas") ?>
-<?!= include_("Arranque") ?>
+<?!= include_("comun/Arranque") ?>
 </body>
 </html>

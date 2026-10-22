@@ -87,25 +87,25 @@ try {
   p2 = await Pestana.abrir(url(A));
   await p1.esperar(`!document.querySelector("#v-menu").hidden`, "pestaña 1 en el inicio");
   await p2.esperar(`!document.querySelector("#v-menu").hidden`, "pestaña 2 en el inicio");
-  await p2.pulsar('[data-ir="planes"]');
+  await p2.pulsar('[data-accion="irA"][data-seccion="planes"]');
   await p2.esperar(`!document.querySelector("#v-planes").hidden && document.querySelectorAll("#tb-tablero tr").length === 8`, "la navegación de la cabecera abre el tablero");
-  asegurar(await p2.evaluar(`document.querySelector('.nav-op[data-ir="planes"]').classList.contains("activa")`), "la sección activa queda marcada");
+  asegurar(await p2.evaluar(`document.querySelector('.nav-op[data-seccion="planes"]').classList.contains("activa")`), "la sección activa queda marcada");
 
-  await p1.pulsar('[data-ir="planes"]');
-  await p1.esperar(`!!document.querySelector('[data-editar="ING"]')`, "tablero de la pestaña 1");
-  await p1.pulsar('[data-editar="ING"]');
+  await p1.pulsar('[data-accion="irA"][data-seccion="planes"]');
+  await p1.esperar(`!!document.querySelector('[data-accion="editar"][data-sig="ING"]')`, "tablero de la pestaña 1");
+  await p1.pulsar('[data-accion="editar"][data-sig="ING"]');
   await p1.esperar(`/Sesión de edición/.test(document.querySelector("#reloj-grilla").textContent)`, "la pestaña 1 edita ING");
   await p2.esperar(`(() => { const tr = document.querySelector('#tb-tablero tr[data-sig="ING"]'); return tr && tr.cells[7].textContent.includes(${JSON.stringify(A)}); })()`, "la pestaña 2 ve el bloqueo sin preguntar al servidor");
   asegurar((await p2.avisos()).some(t => t.startsWith("En otra pestaña empezaste a editar Ingeniería de Software")), "la pestaña 2 avisa que la otra empezó a editar");
 
-  await p2.pulsar('[data-editar="ING"]');
+  await p2.pulsar('[data-accion="editar"][data-sig="ING"]');
   await p2.esperar(`document.querySelector("#dlg").open && document.querySelector("#dlg-titulo").textContent === "Ya editas este plan en otra pestaña"`, "editar el mismo plan en otra pestaña advierte");
   await p2.dialogo("Consultar en solo lectura");
   await p2.esperar(`!document.querySelector("#v-lectura").hidden`, "y deja consultarlo en solo lectura");
 
-  const version = await p1.evaluar(`app.plan.version`);
+  const version = await p1.evaluar(`edicion.plan.version`);
   await p1.pulsar('#bloques tr[data-ci="0"][data-gi="0"]');
-  await p1.pulsar('[data-acc="agregar-grupo"]');
+  await p1.pulsar('[data-accion="agregarGrupo"]');
   await p1.pulsar("#btn-registrar");
   await p1.esperar(`!!document.querySelector("#motivo")`, "pide el motivo del cambio");
   await p1.dialogo("Confirmar");
@@ -113,11 +113,11 @@ try {
   await p2.esperar(`document.querySelector("#lectura-nota").textContent.includes("v" + ${version + 1})`, "la consulta de la pestaña 2 se actualiza sola a la v" + (version + 1));
 
   console.log("Salir de la edición desde la cabecera");
-  await p1.pulsar('[data-ir="docentes"]');
+  await p1.pulsar('[data-accion="irA"][data-seccion="docentes"]');
   await p1.esperar(`document.querySelector("#dlg").open && document.querySelector("#dlg-titulo").textContent === "Salir de la edición"`, "pide confirmar antes de salir de la edición");
   await p1.dialogo("Seguir editando");
   asegurar(await p1.evaluar(`!document.querySelector("#v-grilla").hidden`), "«Seguir editando» se queda en la grilla");
-  await p1.pulsar('[data-ir="docentes"]');
+  await p1.pulsar('[data-accion="irA"][data-seccion="docentes"]');
   await p1.dialogo("Salir");
   await p1.esperar(`!document.querySelector("#v-docentes").hidden && document.querySelectorAll("#tb-vista-carrera tr").length > 0`, "sale y abre la asignación docente (en solo lectura para el coordinador)");
   await p2.esperar(`(() => { const tr = document.querySelector('#tb-tablero tr[data-sig="ING"]'); return tr && tr.cells[7].textContent.trim() === "—"; })()`, "la pestaña 2 ve el plan libre");
@@ -126,35 +126,35 @@ try {
   console.log("Asignaciones sin guardar al cambiar de sección (director del DIMA)");
   pd = await Pestana.abrir(url(DIRECTOR));
   await pd.esperar(`!document.querySelector("#v-menu").hidden`, "el director en el inicio");
-  await pd.pulsar('[data-ir="docentes"]');
+  await pd.pulsar('[data-accion="irA"][data-seccion="docentes"]');
   await pd.esperar(`!document.querySelector("#btn-doc-editar").hidden`, "puede editar la carga de la primera carrera de su departamento");
   await pd.pulsar("#btn-doc-editar");
-  await pd.esperar(`appCarga.editando && !!document.querySelector('[data-acc-sec="asignar"]')`, "edita con bloqueo");
-  await pd.pulsar('[data-acc-sec="asignar"]');
+  await pd.esperar(`asignacion.editando && !!document.querySelector('[data-accion="asignarSeccion"]')`, "edita con bloqueo");
+  await pd.pulsar('[data-accion="asignarSeccion"]');
   await pd.esperar(`document.querySelector("#dlg").open`, "ventana de asignación");
   await pd.evaluar(`document.querySelectorAll("#dlg-cuerpo [data-doc]").forEach(i => { i.value = "PRUEBA, DOCENTE"; })`);
   await pd.dialogo("Guardar en la carga");
-  const asignadas = await pd.evaluar(`appCarga.trabajo.length`);
+  const asignadas = await pd.evaluar(`asignacion.trabajo.length`);
   asegurar(await pd.evaluar(`!document.querySelector("#nav-sucio").hidden && !document.querySelector("#doc-sin-guardar").hidden`), "la cabecera marca que hay cambios sin guardar");
   const llamadasAntes = await pd.evaluar(`window.__llamadas.length`);
-  await pd.pulsar('[data-ir="planes"]');
+  await pd.pulsar('[data-accion="irA"][data-seccion="planes"]');
   await pd.esperar(`!document.querySelector("#v-planes").hidden`, "va al tablero sin perder la edición");
-  await pd.pulsar('[data-ir="docentes"]');
+  await pd.pulsar('[data-accion="irA"][data-seccion="docentes"]');
   await pd.esperar(`!document.querySelector("#v-docentes").hidden`, "vuelve a la asignación docente");
-  asegurar(await pd.evaluar(`appCarga.trabajo.length`) === asignadas && await pd.evaluar(`appCarga.editando`), "las asignaciones sin guardar siguen ahí (" + asignadas + ")");
+  asegurar(await pd.evaluar(`asignacion.trabajo.length`) === asignadas && await pd.evaluar(`asignacion.editando`), "las asignaciones sin guardar siguen ahí (" + asignadas + ")");
   asegurar(!(await pd.evaluar(`window.__llamadas.slice(${llamadasAntes})`)).includes("asignacionObtener"), "volver no vuelve a pedir los datos al servidor");
 
   await pd.evaluar(`(() => { const s = document.querySelector("#sel-doc-carrera"); s.value = "IND"; s.dispatchEvent(new Event("change")); })()`);
   await pd.esperar(`document.querySelector("#dlg").open && document.querySelector("#dlg-titulo").textContent === "Terminar la edición"`, "cambiar de carrera mientras edita pide terminar la edición");
   await pd.dialogo("Seguir editando");
-  asegurar(await pd.evaluar(`document.querySelector("#sel-doc-carrera").value === "ING" && appCarga.carrera === "ING"`), "«Seguir editando» conserva la carrera");
+  asegurar(await pd.evaluar(`document.querySelector("#sel-doc-carrera").value === "ING" && asignacion.carrera === "ING"`), "«Seguir editando» conserva la carrera");
 
   console.log("Otra cuenta en el mismo navegador");
   pb = await Pestana.abrir(url(B));
   await pb.esperar(`!document.querySelector("#v-menu").hidden`, "segunda cuenta en el inicio");
-  await p1.pulsar('[data-ir="planes"]');
-  await p1.esperar(`!!document.querySelector('[data-editar="DER"]')`, "tablero");
-  await p1.pulsar('[data-editar="DER"]');
+  await p1.pulsar('[data-accion="irA"][data-seccion="planes"]');
+  await p1.esperar(`!!document.querySelector('[data-accion="editar"][data-sig="DER"]')`, "tablero");
+  await p1.pulsar('[data-accion="editar"][data-sig="DER"]');
   await p1.esperar(`/Sesión de edición/.test(document.querySelector("#reloj-grilla").textContent)`, "la cuenta A edita DER");
   await pb.esperar(`[...document.querySelectorAll("#brindis div")].some(d => d.textContent.startsWith(${JSON.stringify(A)} + " empezó a editar Derecho"))`, "la cuenta B ve quién empezó a editar");
 

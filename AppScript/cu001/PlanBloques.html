@@ -1,0 +1,113 @@
+<script>
+"use strict";
+/* ============================================================
+   Cómo se dibuja un plan, igual en la consulta (cu001/Consulta.html) y en la edición
+   (cu001/EdicionPlan.html): el Panel de Resumen Global y la Grilla de Vista Previa en
+   bloques semestrales colapsables (CU-001 paso 41, FA-088 a FA-091). No llama al servidor.
+   ============================================================ */
+/** Semestres plegados; los comparten la consulta y la edición. */
+const bloques = { colapsados: new Set() };
+
+const ICONO_RESUMEN = {
+  "Asignaturas": "books", "Grupos": "stack", "Horas teóricas": "chalkboard-teacher", "Horas prácticas": "pencil-simple",
+  "Total horas": "clock", "Horas de dictado": "hourglass-medium", "Intl. / virtual": "globe", "Fusiones": "git-merge", "Desdobles": "arrows-split"
+};
+/**
+ * Panel de Resumen Global: cifras de un plan (asignaturas, grupos, horas, fusiones…) en el nodo indicado.
+ * @param {Element} nodo
+ * @param {Array<Object>} asignaturas
+ * @returns {void}
+ */
+function pintarResumen(nodo, asignaturas){
+  const t = totales(asignaturas);
+  const celdas = [
+    ["Asignaturas", t.asig], ["Grupos", t.grupos],
+    ["Horas teóricas", t.ht], ["Horas prácticas", t.hp],
+    ["Total horas", t.th], ["Horas de dictado", t.dictado],
+    ["Intl. / virtual", t.intl], ["Fusiones", t.fus],
+    ["Desdobles", t.des]
+  ];
+  /* El texto de cada <dt> es solo la etiqueta: el ícono no añade texto. */
+  nodo.innerHTML = celdas.map(([k, v]) =>
+    "<div" + (k === "Horas de dictado" ? ' class="destacado"' : "") + "><dt>" + icono(ICONO_RESUMEN[k]) + esc(k) + "</dt><dd>" + esc(v) + "</dd></div>").join("");
+}
+
+/**
+ * Bloques semestrales del plan. editable: cada fila es un grupo que se puede seleccionar
+ * (data-accion="seleccionarGrupo"). opciones.docentes: {grupoId: [nombres]} de las
+ * asignaciones vigentes; opciones.derivar: en qué asignaturas se muestra «Derivar»
+ * (data-accion="derivar"); opciones.seleccion: {ci, gi} del grupo seleccionado.
+ * @param {Array<Object>} asignaturas
+ * @param {boolean} editable
+ * @param {{docentes?: Object<string, string[]>|null, derivar?: function(Object): boolean, seleccion?: ({ci: number, gi: number}|null)}=} opciones
+ * @returns {string}
+ */
+function htmlBloques(asignaturas, editable, opciones){
+  const op = opciones || {};
+  const docentes = op.docentes || null;
+  if (!asignaturas.length) return '<div class="nota">El plan no tiene asignaturas.</div>';
+  const sems = [...new Set(asignaturas.map(a => a.sem))]
+    .sort((x, y) => num(x) - num(y) || String(x).localeCompare(String(y)));
+
+  return sems.map(sem => {
+    const asigs = asignaturas.filter(a => a.sem === sem);
+    const nG = asigs.reduce((s, a) => s + a.grupos.length, 0);
+    const nH = asigs.reduce((s, a) => s + a.grupos.reduce((q, g) => q + th(g), 0), 0);
+    const abierto = !bloques.colapsados.has(String(sem));
+
+    const filas = asigs.map(a => {
+      const ci = asignaturas.indexOf(a);
+      return a.grupos.map((g, gi) => {
+        const sel = editable && op.seleccion && op.seleccion.ci === ci && op.seleccion.gi === gi;
+        return "<tr class=\"" + (editable ? "pulsable " : "") + (sel ? "sel" : "") + '"' +
+          (editable ? ' data-accion="seleccionarGrupo"' : "") + ' data-ci="' + ci + '" data-gi="' + gi + '">' +
+          '<td class="cod">' + esc(a.malla) + "</td>" +
+          '<td class="cod">' + esc(a.codigo) + "</td>" +
+          "<td>" + esc(a.nombre) +
+            (Dominio.esInternacional(a) ? '<span class="marca-c intl">INTL</span>' : "") +
+            (g.fusion ? '<span class="marca-c fus" title="' + esc(textoFusion(g)) + '">FUS</span>' : "") +
+            (g.desdoble ? '<span class="marca-c des">' + esc(g.desdoble) + "</span>" : "") + "</td>" +
+          '<td class="num">' + esc(g.n) + '</td><td class="num">' + esc(g.ht) +
+          '</td><td class="num">' + esc(g.hp) + "</td>" +
+          '<td class="num"><b>' + th(g) + "</b></td>" +
+          '<td class="cod">' + esc(a.dpto) + (a.derivado ? '<br><small class="tenue" title="Curso derivado: asigna el docente otro departamento">Asigna ' + esc(a.derivado) + "</small>" : "") + "</td>" +
+          '<td class="obs">' + esc(a.obs || "—") + "</td>" +
+          (docentes ? "<td>" + ((docentes[g.id] || []).map(esc).join("<br>") || '<span class="tenue">—</span>') + "</td>" : "") +
+          (op.derivar ? "<td>" + (gi === 0 && op.derivar(a) ? '<button type="button" class="btn btn-sm" data-accion="derivar" data-indice="' + ci + '">' + icono("swap") + "Derivar</button>" : "") + "</td>" : "") +
+          "</tr>";
+      }).join("");
+    }).join("");
+
+    return '<div class="bloque" data-sem="' + esc(sem) + '" data-abierto="' + (abierto ? "si" : "no") + '">' +
+      '<button type="button" class="bloque-cab" data-accion="alternarBloque" data-sem="' + esc(sem) + '" aria-expanded="' + abierto + '">' +
+        '<span class="sem-num">' + esc(sem) + "</span><b>Semestre " + esc(sem) + "</b>" +
+        '<span class="tot"><span>' + asigs.length + " asignaturas</span><span>" + nG + " grupos</span><span>" + nH + " horas</span></span>" +
+        icono("caret-down", "chev") + "</button>" +
+      '<div class="bloque-contenido"><div><div class="tabla-caja"><table><thead><tr>' +
+        '<th>Malla</th><th>Código</th><th>Asignatura</th><th class="num">Grupo</th>' +
+        '<th class="num">HT</th><th class="num">HP</th><th class="num">Total</th><th>Dpto</th><th>Observaciones</th>' +
+        (docentes ? "<th>Docente</th>" : "") + (op.derivar ? '<th><span class="sr-only">Acciones</span></th>' : "") +
+      "</tr></thead><tbody>" + filas + "</tbody></table></div></div></div></div>";
+  }).join("");
+}
+
+/**
+ * CU-001 FA-088 y FA-089: abre o cierra un semestre sin volver a dibujar la grilla, para que
+ * se vea la transición. boton: la cabecera del bloque.
+ * @param {Element} boton
+ * @returns {void}
+ */
+function alternarBloque(boton){
+  const s = boton.dataset.sem, abrir = bloques.colapsados.has(s);
+  if (abrir) bloques.colapsados.delete(s); else bloques.colapsados.add(s);
+  boton.closest(".bloque").dataset.abierto = abrir ? "si" : "no";
+  boton.setAttribute("aria-expanded", String(abrir));
+}
+
+/* Texto del distintivo FUS: con qué grupos está fusionado. */
+function textoFusion(g){
+  const con = g.fusionCon || [];
+  if (!con.length) return "Fusión con otros grupos de este plan";
+  return "Fusionado con " + con.map(x => x.carrera + " " + x.codigo + " (grupo " + x.n + ")" + (x.principal ? ", principal" : "")).join("; ");
+}
+</script>

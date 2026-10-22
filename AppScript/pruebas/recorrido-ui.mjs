@@ -111,7 +111,7 @@ class Pestana {
     return this.evaluar(`Object.fromEntries([...document.querySelectorAll("${selector} div")].map(d => [d.querySelector("dt").textContent, +d.querySelector("dd").textContent]))`);
   }
   filasTablero() {
-    return this.evaluar(`[...document.querySelectorAll("#tb-tablero tr")].map(tr => ({ sig: tr.dataset.sig, celdas: [...tr.cells].map(td => td.textContent.trim()), editar: !!tr.querySelector("[data-editar]") }))`);
+    return this.evaluar(`[...document.querySelectorAll("#tb-tablero tr")].map(tr => ({ sig: tr.dataset.sig, celdas: [...tr.cells].map(td => td.textContent.trim()), editar: !!tr.querySelector("[data-accion=editar]") }))`);
   }
   async captura(nombre) {
     const r = await this.enviar("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
@@ -149,13 +149,13 @@ async function recorrido(srv) {
   await pa.esperar(`!document.querySelector("#v-lectura").hidden`, "la fila abre la consulta en solo lectura");
   asegurar((await pa.resumen("#lectura-resumen")).Asignaturas === 80, "Derecho tiene 80 asignaturas");
   asegurar(!(await pa.evaluar(`window.__llamadas.slice(${antesConsulta})`)).includes("consultaObtener"), "consultar no llama al servidor");
-  await pa.pulsar("#v-lectura [data-volver]");
+  await pa.pulsar("#v-lectura [data-accion=volverAlTablero]");
   await pa.esperar(`!document.querySelector("#v-planes").hidden`, "vuelve al tablero");
 
   console.log("Director: edición de Ingeniería de Software");
-  await pa.esperar(`!!document.querySelector('[data-editar="ING"]')`, "botón Editar disponible");
+  await pa.esperar(`!!document.querySelector('[data-accion="editar"][data-sig="ING"]')`, "botón Editar disponible");
   const alInstante = await pa.evaluar(`(() => {
-    document.querySelector('[data-editar="ING"]').click();
+    document.querySelector('[data-accion="editar"][data-sig="ING"]').click();
     return { grilla: !document.querySelector("#v-grilla").hidden, reloj: document.querySelector("#reloj-grilla").textContent,
              guardar: document.querySelector("#btn-registrar").disabled };
   })()`);
@@ -173,20 +173,20 @@ async function recorrido(srv) {
   asegurar(y0 > 500 && Math.abs(y1 - y0) < 5, "seleccionar una fila no devuelve la página arriba");
 
   await pa.pulsar('#bloques tr[data-ci="0"][data-gi="0"]');
-  await pa.pulsar('[data-acc="desdoblar"]');
+  await pa.pulsar('[data-accion="desdoblar"]');
   await pa.esperar(`document.querySelector("#dlg").open`, "diálogo de desdoble");
   await pa.evaluar(`document.querySelector("#d-cant").value = "3"`);
   await pa.dialogo("Desdoblar");
   await pa.esperar(`document.querySelector("#bloques").textContent.includes("PRA×3")`, "marca PRA×3");
   asegurar((await pa.resumen()).Desdobles === 1, "el resumen cuenta 1 desdoble");
-  asegurar(!(await pa.evaluar(`document.querySelector('[data-acc="quitar-desdoble"]').disabled`)), "«Quitar desdoble» se habilita");
-  await pa.pulsar('[data-acc="quitar-desdoble"]');
+  asegurar(!(await pa.evaluar(`document.querySelector('[data-accion="quitarDesdoble"]').disabled`)), "«Quitar desdoble» se habilita");
+  await pa.pulsar('[data-accion="quitarDesdoble"]');
   await pa.dialogo("Quitar desdoble");
   await pa.esperar(`!document.querySelector("#bloques").textContent.includes("PRA×3")`, "se quita el desdoble");
 
   const horas = () => pa.evaluar(`[...document.querySelector('#bloques tr[data-ci="1"][data-gi="0"]').cells].slice(4, 6).map(c => c.textContent)`);
   const antes = await horas();
-  await pa.pulsar('[data-acc="fusionar"]');
+  await pa.pulsar('[data-accion="fusionarGrupos"]');
   await pa.esperar(`document.querySelector("#dlg").open`, "diálogo de fusión");
   await pa.evaluar(`(() => { const s = document.querySelector("#f-grupos"); [...s.options].forEach(o => { o.selected = o.value === "0:0" || o.value === "1:0"; }); document.querySelector("#f-principal").value = "0:0"; })()`);
   await pa.dialogo("Fusionar");
@@ -197,14 +197,14 @@ async function recorrido(srv) {
   const fusionado = await horas();
   asegurar(JSON.stringify(fusionado) !== JSON.stringify(antes), "el grupo fusionado toma las horas del principal (" + antes + " → " + fusionado + ")");
   await pa.pulsar('#bloques tr[data-ci="1"][data-gi="0"]');
-  await pa.pulsar('[data-acc="deshacer-fusion"]');
+  await pa.pulsar('[data-accion="deshacerFusion"]');
   await pa.dialogo("Deshacer");
   await pa.esperar(`!document.querySelector("#bloques .marca-c.fus")`, "se deshace la fusión");
   asegurar((await pa.resumen()).Fusiones === 0, "el resumen vuelve a 0 fusiones");
   asegurar(JSON.stringify(await horas()) === JSON.stringify(antes), "el grupo recupera sus horas (" + antes + ")");
 
   const gruposAntes = (await pa.resumen()).Grupos;
-  await pa.pulsar('[data-acc="agregar-grupo"]');
+  await pa.pulsar('[data-accion="agregarGrupo"]');
   asegurar((await pa.resumen()).Grupos === gruposAntes + 1, "agregar grupo suma uno (" + gruposAntes + " → " + (gruposAntes + 1) + ")");
 
   await pa.pulsar("#btn-registrar");
@@ -221,13 +221,13 @@ async function recorrido(srv) {
   filas = await pb.filasTablero();
   const ing = filas.find(f => f.sig === "ING");
   asegurar(ing.celdas[1] === "Bloqueado" && ing.celdas[7] === A && ing.celdas[6] === "v2", "ING aparece bloqueado por " + A + " en v2");
-  await pb.pulsar('[data-editar="ING"]');
+  await pb.pulsar('[data-accion="editar"][data-sig="ING"]');
   await pb.dialogo("Consultar en solo lectura");
   await pb.esperar(`!document.querySelector("#v-lectura").hidden && document.querySelector("#lectura-nota").textContent.includes(${JSON.stringify(A)})`, "abre en solo lectura e indica quién edita");
   await pb.captura("04-bloqueado.png");
 
   console.log("Director: historial, restauración y salida");
-  await pa.pulsar('[data-acc="historial"]');
+  await pa.pulsar('[data-accion="historialDeVersiones"]');
   await pa.esperar(`document.querySelector("#dlg").open && document.querySelectorAll("#dlg-cuerpo tbody tr").length === 2`, "el historial lista v1 y v2");
   await pa.evaluar(`document.querySelector("#v-restaurar").value = "1"`);
   await pa.dialogo("Restaurar");
@@ -240,7 +240,7 @@ async function recorrido(srv) {
   console.log("Director: plan nuevo por pegado en 2026-2");
   await pa.evaluar(`(() => { const s = document.querySelector("#sel-ciclo"); s.value = "2026-2"; s.dispatchEvent(new Event("change")); })()`);
   await pa.esperar(`document.querySelectorAll("#tb-tablero tr").length === 8 && [...document.querySelectorAll("#tb-tablero .pill")].every(p => p.textContent === "Sin Iniciar")`, "2026-2 está Sin Iniciar");
-  await pa.pulsar('[data-editar="ING"]');
+  await pa.pulsar('[data-accion="editar"][data-sig="ING"]');
   await pa.esperar(`!document.querySelector("#v-carga").hidden`, "un plan vacío abre la carga masiva");
   await pa.pulsar("#op-pegar");
   const tsv = [
@@ -262,11 +262,11 @@ async function recorrido(srv) {
   await pa.pulsar("#btn-registrar");
   await pa.dialogo("Confirmar y registrar");
   await pa.esperar(`!document.querySelector("#v-exito").hidden && document.querySelector("#exito-nota").textContent.includes("versión v1")`, "registro completado en v1");
-  await pa.pulsar("#v-exito [data-volver]");
+  await pa.pulsar("#v-exito [data-accion=volverAlTablero]");
   await pa.esperar(`(() => { const tr = document.querySelector('#tb-tablero tr[data-sig="ING"]'); return tr && tr.cells[1].textContent === "Registrado" && tr.cells[7].textContent.trim() === "—"; })()`, "ING 2026-2 queda Registrado y sin bloqueo");
 
   console.log("Director: subir un .xlsx con varias hojas");
-  await pa.pulsar('[data-editar="ADM"]');
+  await pa.pulsar('[data-accion="editar"][data-sig="ADM"]');
   await pa.esperar(`!document.querySelector("#v-carga").hidden`, "carga masiva de ADM");
   const hayXLSX = await pa.esperarQuizas(`typeof XLSX !== "undefined"`, 15000);
   if (!hayXLSX) {
@@ -305,11 +305,11 @@ async function recorrido(srv) {
   srv.entorno.propiedades.SIS_MINUTOS_BLOQUEO = "1";
   const pe = await Pestana.abrir(url(A));
   await pe.pulsar("#op-planes");
-  await pe.esperar(`!!document.querySelector('[data-editar="PSI"]')`, "tablero listo");
-  await pe.pulsar('[data-editar="PSI"]');
+  await pe.esperar(`!!document.querySelector('[data-accion="editar"][data-sig="PSI"]')`, "tablero listo");
+  await pe.pulsar('[data-accion="editar"][data-sig="PSI"]');
   await pe.esperar(`!document.querySelector("#v-grilla").hidden`, "edita PSI");
   await pe.pulsar('#bloques tr[data-ci="0"][data-gi="0"]');
-  await pe.pulsar('[data-acc="agregar-grupo"]');
+  await pe.pulsar('[data-accion="agregarGrupo"]');
   await pe.esperar(`document.querySelector("#dlg").open && document.querySelector("#dlg-titulo").textContent === "La sesión de edición ha expirado"`, "al minuto expira", 90000);
   asegurar((await pe.texto("#dlg-cuerpo")).includes("se almacenaron como una nueva versión"), "autoguardó los cambios");
   await pe.dialogo("Entendido");

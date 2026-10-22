@@ -1,4 +1,4 @@
-<!-- ===== Asignación docente al plan de ciclo y su carga masiva ===== -->
+<!-- ===== Asignación docente: «Carga docente · <sigla> · <carrera> · <ciclo>» (CU-002 pasos 12 a 23) ===== -->
 <section class="vista" id="v-docentes" hidden>
   <header class="vista-cab">
     <div>
@@ -9,34 +9,34 @@
     <div class="vista-acciones">
       <span class="badge-doc pendiente" id="doc-sin-guardar" hidden><?!= icono_("warning") ?>Cambios sin guardar</span>
       <span class="chip-reloj" id="doc-chip-reloj" hidden><?!= icono_("timer") ?><span class="reloj" id="reloj-asignacion"></span></span>
-      <button type="button" class="btn primario" id="btn-doc-editar" hidden><?!= icono_("pencil-simple") ?>Editar asignaciones</button>
-      <button type="button" class="btn" id="btn-doc-historial"><?!= icono_("clock-counter-clockwise") ?>Historial</button>
-      <button type="button" class="btn" id="btn-doc-masiva" hidden><?!= icono_("upload-simple") ?>Carga masiva</button>
-      <button type="button" class="btn" id="btn-doc-terminar" hidden><?!= icono_("sign-out") ?>Terminar edición</button>
-      <button type="button" class="btn primario" id="btn-doc-guardar" hidden><?!= icono_("floppy-disk") ?>Guardar asignaciones</button>
+      <button type="button" class="btn primario" id="btn-doc-editar" data-accion="editarAsignaciones" hidden><?!= icono_("pencil-simple") ?>Editar asignaciones</button>
+      <button type="button" class="btn" id="btn-doc-historial" data-accion="historial"><?!= icono_("clock-counter-clockwise") ?>Historial</button>
+      <button type="button" class="btn" id="btn-doc-masiva" data-accion="cargaMasiva" hidden><?!= icono_("upload-simple") ?>Carga masiva</button>
+      <button type="button" class="btn" id="btn-doc-terminar" data-accion="terminarEdicion" hidden><?!= icono_("sign-out") ?>Terminar edición</button>
+      <button type="button" class="btn primario" id="btn-doc-guardar" data-accion="guardarAsignaciones" hidden><?!= icono_("floppy-disk") ?>Guardar asignaciones</button>
     </div>
   </header>
 
   <div class="tarjeta filtros-docentes">
     <div class="campo">
       <label for="sel-doc-ciclo">Ciclo académico</label>
-      <select id="sel-doc-ciclo" class="control"></select>
+      <select id="sel-doc-ciclo" class="control" data-accion="cambiarCiclo"></select>
     </div>
     <div class="campo campo-dpto">
       <label for="sel-doc-carrera">Carrera</label>
-      <select id="sel-doc-carrera" class="control"></select>
+      <select id="sel-doc-carrera" class="control" data-accion="cambiarCarrera"></select>
     </div>
     <div class="conmutador-vistas" role="group" aria-label="Forma de ver la asignación">
-      <button type="button" class="btn activo" id="btn-vista-carrera" aria-pressed="true"><?!= icono_("graduation-cap") ?>Por sección</button>
-      <button type="button" class="btn" id="btn-vista-dpto" aria-pressed="false"><?!= icono_("buildings") ?>Por docente</button>
+      <button type="button" class="btn activo" id="btn-vista-carrera" data-accion="verPorSeccion" aria-pressed="true"><?!= icono_("graduation-cap") ?>Por sección</button>
+      <button type="button" class="btn" id="btn-vista-dpto" data-accion="verPorDocente" aria-pressed="false"><?!= icono_("buildings") ?>Por docente</button>
     </div>
     <div class="filtros-extra">
       <div id="filtros-vista-carrera" class="flex flex-wrap items-center gap-2">
-        <label class="casilla"><input type="checkbox" id="chk-solo-pendientes">Solo secciones sin docente</label>
+        <label class="casilla"><input type="checkbox" id="chk-solo-pendientes" data-accion="soloSinDocente">Solo secciones sin docente</label>
       </div>
       <div id="filtros-vista-dpto" class="flex flex-wrap items-center gap-2" hidden>
         <label for="sel-filtro-docentes" class="ayuda"><?!= icono_("funnel") ?>Mostrar</label>
-        <select id="sel-filtro-docentes" class="control">
+        <select id="sel-filtro-docentes" class="control" data-accion="filtrarDocentes">
           <option value="con-carga">Docentes con carga en la carrera</option>
           <option value="advertencias">Solo con advertencias</option>
           <option value="plana">Toda la plana del departamento de la carrera</option>
@@ -116,7 +116,9 @@
 <script>
 "use strict";
 /* ============================================================
-   Asignación docente al plan de ciclo
+   Asignación docente al plan de ciclo (CU-002). Llama a cu002/Asignacion.js
+   (asignacionObtener, asignacionHistorial, asignacionVerVersion); lo que se hace en modo
+   de edición está en AsignacionEdicion.html y la carga masiva, en AsignacionCarga.html.
    La carga de cada carrera es su lista de asignaciones: cada una une a un docente con un
    componente (teoría, práctica o un subgrupo) de una sección de su plan. Una sección es un
    grupo o una fusión entera (va en la carga de la carrera del grupo principal). La edita,
@@ -125,16 +127,16 @@
    balance de cada docente suma sus horas en todas las carreras.
    ============================================================ */
 /**
- * Estado de la asignación docente (CU-002).
+ * Estado de la asignación docente.
  * @type {{ciclo: string, carrera: string, vista: string, datos: (Object|null), trabajo: Array<Object>, base: number,
  *         editando: boolean, sucio: boolean, soloPendientes: boolean, filtroDocentes: string,
  *         previa: (Object|null), cargado: ({clave: string, hora: number}|null), pedido: number, balance?: Object}}
  */
-const appCarga = {
+const asignacion = {
   ciclo: CONFIG.ciclo,
   carrera: Dominio.carrerasDeDpto(departamentoDelUsuario())[0] || carrerasDelUsuario()[0] || CARRERAS[0].sig,
-  vista: "carrera",
-  datos: null,                  // respuesta de obtenerCargaDocente
+  vista: "carrera",             // «carrera» (por sección) o «dpto» (por docente)
+  datos: null,                  // respuesta de asignacionObtener
   trabajo: [],                  // asignaciones de la carga de la carrera, con los cambios sin guardar
   base: 0,                      // versión de la carga sobre la que se trabaja
   editando: false,
@@ -145,12 +147,35 @@ const appCarga = {
   pedido: 0
 };
 const VIGENCIA_DOCENTES_MS = 60000;
-const claveDocentes = () => appCarga.ciclo + "|" + appCarga.carrera;
+const claveDocentes = () => asignacion.ciclo + "|" + asignacion.carrera;
 
 $("#sel-doc-ciclo").innerHTML = (CONFIG.ciclos || []).map(c => '<option value="' + esc(c) + '">' + esc(c) + "</option>").join("");
-/* Las carreras, agrupadas por el departamento que las asigna. */
+/* Paso 12: las carreras, agrupadas por el departamento que las asigna. */
 $("#sel-doc-carrera").innerHTML = DPTOS.map(d => '<optgroup label="' + esc(d + " · " + Dominio.nombreDpto(d)) + '">' +
   Dominio.carrerasDeDpto(d).map(s => '<option value="' + s + '">' + esc(s + " · " + nombreCarrera(s)) + "</option>").join("") + "</optgroup>").join("");
+
+enlazarAcciones($("#v-docentes"), () => ({
+  cambiarCiclo: (d, e, el) => cambiarFiltroDocentes("ciclo", el.value, el),       // paso 13, FA-092, FA-093
+  cambiarCarrera: (d, e, el) => cambiarFiltroDocentes("carrera", el.value, el),   // paso 15, FA-090, FA-091
+  verPorSeccion: () => elegirVistaDocentes("carrera"),                            // FA-068 paso 5
+  verPorDocente: () => elegirVistaDocentes("dpto"),                               // FA-068
+  soloSinDocente: (d, e, el) => { asignacion.soloPendientes = el.checked; pintarTablaSecciones(); },   // FA-066, FA-067
+  filtrarDocentes: (d, e, el) => { asignacion.filtroDocentes = el.value; pintarTablaDocentes(); },     // FA-069, FA-070
+  historial: () => verHistorialCarga(),                                           // FA-084
+  editarAsignaciones,                                                             // paso 18
+  cargaMasiva: () => mostrarCargaMasivaDocentes(),                                // paso 24
+  terminarEdicion: () => pulsarTerminarEdicion(),                                 // paso 81, FA-110
+  guardarAsignaciones,                                                            // paso 61
+  asignarSeccion: d => asignarSeccion(seccionPorId(d.u)),                         // FA-001, FA-048 a FA-051
+  reemplazarEnSeccion: d => reemplazarEnSeccion(seccionPorId(d.u)),               // FA-002
+  derivarSeccion: d => derivarSeccion(seccionPorId(d.u)),                         // FA-079
+  asignarADocente: d => asignarADocente(d.docente),                               // FA-071
+  reemplazarDocente: d => reemplazarDocente(d.docente),                           // FA-074
+  reasignarSinSeccion: d => reasignarSinSeccion(asignacionPorId(d.id)),           // FA-075
+  quitarSinSeccion: d => quitarSinSeccion(asignacionPorId(d.id))                  // FA-078
+}));
+registrarSeccion("docentes", entrarEnAsignacion);
+registrarCambiosPendientes(() => asignacion.sucio);
 
 /* ---------- datos derivados ---------- */
 const nuevoId = () => "a" + Math.random().toString(36).slice(2, 10);
@@ -158,37 +183,43 @@ const rolActual = () => (app.usuario || {}).rol || "";
 /** Departamento del director que usa la página ("" si no es director). */
 const miDpto = () => rolActual() === "director" ? departamentoDelUsuario() : "";
 /** Secciones de la carga a la vista: las de la carrera (en una fusión, la del grupo principal). */
-const seccionesCarga = () => ((appCarga.datos || {}).unidades || []).filter(s => s.carrera === appCarga.carrera);
+const seccionesCarga = () => ((asignacion.datos || {}).unidades || []).filter(s => s.carrera === asignacion.carrera);
 /** ¿La asigna quien usa la página? Su departamento es el que asigna la sección. */
 const meToca = seccion => !!miDpto() && seccion.dpto === miDpto();
 /** Secciones de la carga a la vista que asigna quien usa la página. */
 const seccionesMias = () => seccionesCarga().filter(meToca);
 /** ¿La carga a la vista es de una carrera del departamento de quien usa la página? */
-const cargaPropia = () => !!miDpto() && Dominio.dptoDeCarrera(appCarga.carrera) === miDpto();
+const cargaPropia = () => !!miDpto() && Dominio.dptoDeCarrera(asignacion.carrera) === miDpto();
+/** Sección del ciclo por su id, o undefined. */
+const seccionPorId = id => ((asignacion.datos || {}).unidades || []).find(seccion => seccion.id === id);
+/** Asignación de la carga en edición por su id, o undefined. */
+const asignacionPorId = id => asignacion.trabajo.find(x => x.id === id);
 function cargasActuales(){
-  const d = appCarga.datos;
+  const d = asignacion.datos;
   const r = {};
   if (!d) return r;
   Object.keys(d.cargas).forEach(k => { r[k] = d.cargas[k].asignaciones || []; });
-  r[appCarga.carrera] = appCarga.trabajo;
+  r[asignacion.carrera] = asignacion.trabajo;
   return r;
 }
+/* Pasos 11 y 57: balance de horas de cada docente en todas las carreras del ciclo. */
 function calcular(){
-  const d = appCarga.datos;
+  const d = asignacion.datos;
   if (!d) return null;
   return Dominio.calcularBalance(d.catalogo, d.unidades, cargasActuales());
 }
-const catalogoPorNombre = () => new Map(((appCarga.datos || {}).catalogo || []).map(x => [Dominio.claveDocente(x.nombreCompleto), x]));
+const catalogoPorNombre = () => new Map(((asignacion.datos || {}).catalogo || []).map(x => [Dominio.claveDocente(x.nombreCompleto), x]));
 
+/* Paso 55 y paso 78: el distintivo «Cambios sin guardar» (también en la cabecera). */
 function marcarDocentesSucio(sucio){
-  appCarga.sucio = sucio;
+  asignacion.sucio = sucio;
   $("#doc-sin-guardar").hidden = !sucio;
   $("#nav-sucio").hidden = !sucio;
 }
 
-/* En el selector, las carreras de otro departamento con cursos derivados al del director. */
+/* FA-012: en el selector, las carreras de otro departamento con cursos derivados al del director. */
 function marcarCarrerasDerivadas(){
-  const d = miDpto(), unidades = (appCarga.datos || {}).unidades || [];
+  const d = miDpto(), unidades = (asignacion.datos || {}).unidades || [];
   $$("#sel-doc-carrera option").forEach(o => {
     const n = d && Dominio.dptoDeCarrera(o.value) !== d ? unidades.filter(s => s.carrera === o.value && s.dpto === d).length : 0;
     o.textContent = o.value + " · " + nombreCarrera(o.value) + (n ? " · " + n + (n === 1 ? " curso derivado" : " cursos derivados") + " a " + d : "");
@@ -196,50 +227,51 @@ function marcarCarrerasDerivadas(){
 }
 
 /* ---------- carga de datos ---------- */
-async function iniciarCargaDocentes(){
-  if (!appCarga.editando && app.ciclo && appCarga.ciclo !== app.ciclo) appCarga.ciclo = app.ciclo;
-  $("#sel-doc-ciclo").value = appCarga.ciclo;
-  $("#sel-doc-carrera").value = appCarga.carrera;
+/* CU-002 paso 7: entrar en «Asignar docentes al plan de ciclo». */
+async function entrarEnAsignacion(){
+  if (!asignacion.editando && app.ciclo && asignacion.ciclo !== app.ciclo) asignacion.ciclo = app.ciclo;
+  $("#sel-doc-ciclo").value = asignacion.ciclo;
+  $("#sel-doc-carrera").value = asignacion.carrera;
   mostrar("docentes");
-  const c = appCarga.cargado;
-  if (c && c.clave === claveDocentes() && appCarga.datos) {
+  const c = asignacion.cargado;
+  if (c && c.clave === claveDocentes() && asignacion.datos) {
     pintarVistaDocentes();
-    if (!appCarga.editando && Date.now() - c.hora > VIGENCIA_DOCENTES_MS) cargarEstadoDocentes({ fondo: true });
+    if (!asignacion.editando && Date.now() - c.hora > VIGENCIA_DOCENTES_MS) cargarEstadoDocentes({ fondo: true });
     return;
   }
   await cargarEstadoDocentes();
 }
 
 /**
- * Lee la carga docente de la carrera a la vista (obtenerCargaDocente) y la pinta.
- * opciones.fondo: sin la espera que bloquea.
+ * Pasos 8 a 12: lee la carga docente de la carrera a la vista (asignacionObtener) y la
+ * pinta. opciones.fondo: sin la espera que bloquea.
  * @param {{fondo?: boolean}=} opciones
  * @returns {Promise<void>}
  */
 async function cargarEstadoDocentes(opciones){
   const fondo = !!(opciones && opciones.fondo);
-  const ciclo = appCarga.ciclo, carrera = appCarga.carrera, pedido = ++appCarga.pedido;
+  const ciclo = asignacion.ciclo, carrera = asignacion.carrera, pedido = ++asignacion.pedido;
   try {
     const res = await (fondo ? llamarDeFondo : llamar)("asignacionObtener", ciclo, carrera);
-    if (pedido !== appCarga.pedido || appCarga.editando) return;
-    appCarga.datos = res;
-    appCarga.trabajo = clonar(res.cargas[carrera].asignaciones || []);
-    appCarga.base = res.cargas[carrera].version;
-    appCarga.cargado = { clave: ciclo + "|" + carrera, hora: Date.now() };
+    if (pedido !== asignacion.pedido || asignacion.editando) return;
+    asignacion.datos = res;
+    asignacion.trabajo = clonar(res.cargas[carrera].asignaciones || []);
+    asignacion.base = res.cargas[carrera].version;
+    asignacion.cargado = { clave: ciclo + "|" + carrera, hora: Date.now() };
     marcarDocentesSucio(false);
     marcarCarrerasDerivadas();
     pintarVistaDocentes();
   } catch (err) {
-    if (pedido === appCarga.pedido) informarError(err);
+    if (pedido === asignacion.pedido) informarError(err);
   }
 }
 
 /* ---------- pintar ---------- */
 const NIVEL_CLASE = { bloqueo: "alerta", severa: "alerta", alerta: "pendiente", info: "info" };
 
-/** Texto bajo el título: qué puede hacer quien mira esta carga. */
+/** Paso 12, FA-006, FA-012 y FA-013: el texto bajo el título dice qué puede hacer quien mira esta carga. */
 function explicacionCarga(d){
-  const ed = appCarga.editando, md = miDpto();
+  const ed = asignacion.editando, md = miDpto();
   if (d.puedeEditar) {
     const parte = cargaPropia() ? "la carga de " + d.carrera : "los cursos de " + d.carrera + " derivados a " + md;
     return ed ? "Editas " + parte + ". Guarda para crear una versión nueva."
@@ -251,13 +283,14 @@ function explicacionCarga(d){
 }
 
 /**
- * Pinta la asignación de la carrera: métricas, avisos, advertencias y la tabla de la vista elegida.
+ * Pasos 12, 17 y 23: pinta la asignación de la carrera: botones del modo, métricas, avisos,
+ * advertencias (FA-094 a FA-102) y la tabla de la vista elegida.
  * @returns {void}
  */
 function pintarVistaDocentes(){
-  const d = appCarga.datos;
+  const d = asignacion.datos;
   if (!d) return;
-  const ed = appCarga.editando, puede = !!d.puedeEditar;
+  const ed = asignacion.editando, puede = !!d.puedeEditar;
   $("#doc-titulo").textContent = "Carga docente · " + d.carrera + " · " + d.carreraNombre + " · " + d.ciclo;
   $("#doc-subtitulo").textContent = explicacionCarga(d);
   $("#btn-doc-editar").hidden = !puede || ed;
@@ -265,7 +298,7 @@ function pintarVistaDocentes(){
   $("#doc-chip-reloj").hidden = !ed;
 
   const bal = calcular();
-  appCarga.balance = bal;
+  asignacion.balance = bal;
   const vig = bal.vigentes;
 
   /* Métricas: horas pedidas por componente y las que tienen docente (sin pasarse de lo pedido). */
@@ -276,7 +309,7 @@ function pintarVistaDocentes(){
     if (cob.some(c => !c.cubierto)) pend++;
   });
   const cobertura = req ? Math.round(cub / req * 100) : 0;
-  const docentesCarrera = bal.docentes.filter(x => x.cursos.some(c => c.carrera === appCarga.carrera));
+  const docentesCarrera = bal.docentes.filter(x => x.cursos.some(c => c.carrera === asignacion.carrera));
   const alertas = [];
   docentesCarrera.forEach(x => x.advertencias.forEach(a => alertas.push(Object.assign({ docente: x.nombre }, a))));
   contarHasta($("#met-doc-req"), req);
@@ -287,11 +320,11 @@ function pintarVistaDocentes(){
   $("#met-doc-cob-barra").style.setProperty("--cobertura", Math.min(1, cobertura / 100));
   $("#caja-met-adv").classList.toggle("con-alerta", alertas.some(a => a.nivel !== "info"));
 
-  /* Avisos: bloqueo ajeno, catálogo, cambios del plan y asignaciones sin sección. */
+  /* Avisos: bloqueo ajeno (FA-015), catálogo (FA-007 a FA-009), cambios del plan (FA-010) y asignaciones sin sección (FA-011). */
   const avisos = [];
   const b = d.bloqueo && Date.parse(d.bloqueo.expira) > Date.now() && (!app.usuario || d.bloqueo.correo !== app.usuario.correo) ? d.bloqueo : null;
   if (b && !ed) avisos.push('<div class="nota aviso">La carga de ' + esc(d.carrera) + " la está editando <b>" + esc(b.correo) + "</b> desde las " + esc(hora(b.desde)) + ".</div>");
-  (d.avisos || []).forEach(a => avisos.push(htmlAviso(a)));
+  (d.avisos || []).forEach(a => avisos.push(notaDeAviso(a)));
   $("#avisos-docentes").innerHTML = avisos.join("");
   $("#avisos-docentes").hidden = !avisos.length;
 
@@ -302,7 +335,7 @@ function pintarVistaDocentes(){
       "<ul>" + alertas.map(a => '<li><span class="badge-doc ' + NIVEL_CLASE[a.nivel] + '">' + esc(a.codigo) + "</span><span><b>" + esc(a.docente) + ":</b> " + esc(a.mensaje) + "</span></li>").join("") + "</ul>";
   } else { caja.hidden = true; caja.innerHTML = ""; }
 
-  if (appCarga.vista === "carrera") pintarTablaSecciones(); else pintarTablaDocentes();
+  if (asignacion.vista === "carrera") pintarTablaSecciones(); else pintarTablaDocentes();
   pintarSinSeccion();
 }
 
@@ -315,19 +348,20 @@ function htmlCarreras(seccion){
 }
 
 /**
- * Tabla de secciones de la carrera con su cobertura y sus acciones.
+ * Paso 12: tabla de secciones de la carrera con su cobertura (Cubierta, Parcial, Sin
+ * docente) y, en modo de edición (paso 23), sus acciones.
  * @returns {void}
  */
 function pintarTablaSecciones(){
   const tb = $("#tb-vista-carrera");
-  const vig = appCarga.balance.vigentes;
-  const ed = appCarga.editando;
+  const vig = asignacion.balance.vigentes;
+  const ed = asignacion.editando;
   const filas = [];
   seccionesCarga().forEach(seccion => {
     const asigs = vig.porUnidad.get(seccion.id) || [];
     const cob = Dominio.coberturaUnidad(seccion, asigs);
     const cubierta = cob.every(c => c.cubierto), alguna = cob.some(c => c.cubierto);
-    if (appCarga.soloPendientes && cubierta) return;
+    if (asignacion.soloPendientes && cubierta) return;
     const heredada = asigs.some(a => a.heredada);
     const mia = meToca(seccion);
     const comp = cob.map(c => {
@@ -353,28 +387,28 @@ function pintarTablaSecciones(){
       "<td>" + (cubierta ? '<span class="badge-doc ok">' + icono("check") + "Cubierta</span>"
                 : alguna ? '<span class="badge-doc pendiente">Parcial</span>' : '<span class="badge-doc pendiente">Sin docente</span>') + "</td>" +
       '<td><div class="acciones-fila">' +
-        (ed && mia ? '<button type="button" class="btn btn-sm' + (alguna ? "" : " primario") + '" data-acc-sec="asignar" data-u="' + esc(seccion.id) + '">' + icono("user-plus") + (alguna ? "Cambiar" : "Asignar") + "</button>" : "") +
-        (ed && mia && asigs.some(a => String(a.docente || "").trim()) ? '<button type="button" class="btn btn-sm" data-acc-sec="reemplazar" data-u="' + esc(seccion.id) + '">' + icono("user-switch") + "Reemplazar</button>" : "") +
-        (mia ? '<button type="button" class="btn btn-sm" data-acc-sec="derivar" data-u="' + esc(seccion.id) + '" title="Que asigne el docente de esta asignatura otro departamento">' + icono("swap") + "Derivar</button>" : "") +
+        (ed && mia ? '<button type="button" class="btn btn-sm' + (alguna ? "" : " primario") + '" data-accion="asignarSeccion" data-u="' + esc(seccion.id) + '">' + icono("user-plus") + (alguna ? "Cambiar" : "Asignar") + "</button>" : "") +
+        (ed && mia && asigs.some(a => String(a.docente || "").trim()) ? '<button type="button" class="btn btn-sm" data-accion="reemplazarEnSeccion" data-u="' + esc(seccion.id) + '">' + icono("user-switch") + "Reemplazar</button>" : "") +
+        (mia ? '<button type="button" class="btn btn-sm" data-accion="derivarSeccion" data-u="' + esc(seccion.id) + '" title="Que asigne el docente de esta asignatura otro departamento">' + icono("swap") + "Derivar</button>" : "") +
       "</div></td></tr>");
   });
-  tb.innerHTML = filas.length ? filas.join("")
-    : '<tr><td colspan="8" class="vacio-tabla">' + (seccionesCarga().length ? "No hay secciones con este filtro." : "El plan de " + esc(appCarga.carrera) + " no tiene secciones registradas en el ciclo.") + "</td></tr>";
+  tb.innerHTML = filas.length ? filas.join("")   // FA-014
+    : '<tr><td colspan="8" class="vacio-tabla">' + (seccionesCarga().length ? "No hay secciones con este filtro." : "El plan de " + esc(asignacion.carrera) + " no tiene secciones registradas en el ciclo.") + "</td></tr>";
 }
 
 /**
- * Tabla de docentes con su balance de horas y sus advertencias.
+ * FA-068 a FA-070: tabla de docentes con su balance de horas y sus advertencias.
  * @returns {void}
  */
 function pintarTablaDocentes(){
   const tb = $("#tb-vista-dpto");
-  const bal = appCarga.balance, carrera = appCarga.carrera, ed = appCarga.editando;
+  const bal = asignacion.balance, carrera = asignacion.carrera, ed = asignacion.editando;
   const dptoCarrera = Dominio.dptoDeCarrera(carrera);
   let lista = bal.docentes.filter(x => x.cursos.some(c => c.carrera === carrera));
-  if (appCarga.filtroDocentes === "advertencias") lista = lista.filter(x => x.advertencias.length);
-  if (appCarga.filtroDocentes === "plana") {
+  if (asignacion.filtroDocentes === "advertencias") lista = lista.filter(x => x.advertencias.length);
+  if (asignacion.filtroDocentes === "plana") {
     const ya = new Set(lista.map(x => x.clave));
-    (appCarga.datos.catalogo || []).filter(c => c.dpto === dptoCarrera).forEach(c => {
+    (asignacion.datos.catalogo || []).filter(c => c.dpto === dptoCarrera).forEach(c => {
       const k = Dominio.claveDeDocente(c.dni, c.nombreCompleto);
       if (ya.has(k)) return;
       const enOtra = bal.docentes.find(x => x.clave === k);
@@ -403,32 +437,34 @@ function pintarTablaDocentes(){
       "<td>" + (chips || '<span class="tenue">Sin cursos</span>') + "</td>" +
       "<td>" + (adv || '<span class="badge-doc ok">' + icono("check") + "Sin alertas</span>") + "</td>" +
       '<td><div class="acciones-fila">' + (ed && mias.size
-        ? '<button type="button" class="btn btn-sm" data-acc-doc="asignar" data-doc="' + esc(x.nombre) + '">' + icono("user-plus") + "Asignar</button>" +
-          (x.cursos.some(c => mias.has(c.unidad)) ? '<button type="button" class="btn btn-sm" data-acc-doc="reemplazar" data-doc="' + esc(x.nombre) + '">' + icono("user-switch") + "Reemplazar</button>" : "")
+        ? '<button type="button" class="btn btn-sm" data-accion="asignarADocente" data-docente="' + esc(x.nombre) + '">' + icono("user-plus") + "Asignar</button>" +
+          (x.cursos.some(c => mias.has(c.unidad)) ? '<button type="button" class="btn btn-sm" data-accion="reemplazarDocente" data-docente="' + esc(x.nombre) + '">' + icono("user-switch") + "Reemplazar</button>" : "")
         : "") + "</div></td></tr>";
   }).join("");
 }
 
 /**
- * Asignaciones que se quedaron sin sección en el plan, para reasignarlas o quitarlas.
+ * FA-011: asignaciones que se quedaron sin sección en el plan, para reasignarlas (FA-075)
+ * o quitarlas (FA-078).
  * @returns {void}
  */
 function pintarSinSeccion(){
-  const lista = (appCarga.balance.vigentes.sinSeccion[appCarga.carrera] || []);
+  const lista = (asignacion.balance.vigentes.sinSeccion[asignacion.carrera] || []);
   $("#caja-sin-seccion").hidden = !lista.length;
-  const ed = appCarga.editando && cargaPropia();
+  const ed = asignacion.editando && cargaPropia();
   $("#tb-sin-seccion").innerHTML = lista.map(a => "<tr>" +
     "<td><b>" + esc(a.docente || "—") + "</b></td><td>" + esc(a.carrera || "—") + '</td><td class="cod">' + esc(a.codigo || "—") +
     "</td><td>" + esc(a.asignatura || "—") + '</td><td class="num">' + esc(a.n || "—") + "</td><td><small class=\"tenue\">" + esc(a.nota || "El curso ya no está en el plan") + "</small></td>" +
     '<td><div class="acciones-fila">' + (ed
-      ? '<button type="button" class="btn btn-sm" data-acc-huerf="mover" data-id="' + esc(a.id) + '">' + icono("swap") + "Reasignar</button>" +
-        '<button type="button" class="btn btn-sm peligro" data-acc-huerf="quitar" data-id="' + esc(a.id) + '">' + icono("trash") + "Quitar</button>"
+      ? '<button type="button" class="btn btn-sm" data-accion="reasignarSinSeccion" data-id="' + esc(a.id) + '">' + icono("swap") + "Reasignar</button>" +
+        '<button type="button" class="btn btn-sm peligro" data-accion="quitarSinSeccion" data-id="' + esc(a.id) + '">' + icono("trash") + "Quitar</button>"
       : "") + "</div></td></tr>").join("");
 }
 
 /* ---------- vistas y filtros ---------- */
+/* FA-068: «Por sección» o «Por docente». */
 function elegirVistaDocentes(vista){
-  appCarga.vista = vista;
+  asignacion.vista = vista;
   const porCarrera = vista === "carrera";
   $("#btn-vista-carrera").classList.toggle("activo", porCarrera);
   $("#btn-vista-dpto").classList.toggle("activo", !porCarrera);
@@ -438,24 +474,62 @@ function elegirVistaDocentes(vista){
   $("#vista-dpto-contenedor").hidden = porCarrera;
   $("#filtros-vista-carrera").hidden = !porCarrera;
   $("#filtros-vista-dpto").hidden = porCarrera;
-  if (appCarga.datos) pintarVistaDocentes();
+  if (asignacion.datos) pintarVistaDocentes();
 }
-alPulsar("#btn-vista-carrera", () => elegirVistaDocentes("carrera"));
-alPulsar("#btn-vista-dpto", () => elegirVistaDocentes("dpto"));
-alCambiar("#chk-solo-pendientes", e => { appCarga.soloPendientes = e.target.checked; pintarTablaSecciones(); });
-alCambiar("#sel-filtro-docentes", e => { appCarga.filtroDocentes = e.target.value; pintarTablaDocentes(); });
 
-/* Mientras se edita no se cambia de ciclo ni de carrera: primero hay que terminar. */
+/* Pasos 13 y 15. Mientras se edita no se cambia de ciclo ni de carrera: primero hay que
+   terminar (FA-090 a FA-093). */
 async function cambiarFiltroDocentes(campo, valor, select){
-  if (appCarga.editando) {
+  if (asignacion.editando) {
     const ok = await confirmarFinCarga();
-    if (!ok) { select.value = appCarga[campo]; return; }
+    if (!ok) { select.value = asignacion[campo]; return; }
     await terminarEdicionCarga();
   }
-  appCarga[campo] = valor;
+  asignacion[campo] = valor;
   if (campo === "ciclo") app.ciclo = valor;
   cargarEstadoDocentes();
 }
-alCambiar("#sel-doc-ciclo", e => cambiarFiltroDocentes("ciclo", e.target.value, e.target));
-alCambiar("#sel-doc-carrera", e => cambiarFiltroDocentes("carrera", e.target.value, e.target));
+
+/* ---------- historial (FA-084 a FA-089) ---------- */
+async function verHistorialCarga(){
+  let versiones;
+  try { versiones = await llamar("asignacionHistorial", asignacion.ciclo, asignacion.carrera); } catch (e) { return informarError(e); }
+  if (!versiones.length) return brindis("Todavía no hay versiones guardadas de esta carga.", "info");   // FA-085
+  const v = await dialogoHistorial({ titulo: "Historial de la carga de " + asignacion.carrera, versiones: versiones, ver: true, restaurar: asignacion.editando });
+  if (!v) return;
+  if (v.ver) {   // FA-086
+    let lista;
+    try { lista = await llamar("asignacionVerVersion", asignacion.ciclo, asignacion.carrera, v.ver); } catch (e) { return informarError(e); }
+    return preguntar({
+      titulo: "Carga de " + asignacion.carrera + " · v" + v.ver,
+      cuerpo: '<div class="tabla-caja"><table><thead><tr><th>Carrera</th><th>Código</th><th>Asignatura</th><th class="num">Grupo</th><th>Comp.</th><th>Docente</th><th class="num">Horas</th></tr></thead><tbody>' +
+        (lista.length ? lista.map(a => "<tr><td>" + esc(a.carrera) + '</td><td class="cod">' + esc(a.codigo) + "</td><td>" + esc(a.asignatura) + '</td><td class="num">' + esc(a.n) +
+          "</td><td>" + esc(a.componente) + "</td><td><b>" + esc(a.docente || (Dominio.esPendienteInternacional(a) ? "Pendiente internacional" : "—")) + "</b>" +
+          (a.reemplazo ? '<br><small class="tenue">Sustituye a ' + esc(a.reemplazo.de) + "</small>" : "") + '</td><td class="num">' + esc(a.horas == null ? "—" : a.horas) + "</td></tr>").join("")
+          : '<tr><td colspan="7" class="vacio-tabla">Sin asignaciones.</td></tr>') + "</tbody></table></div>",
+      acciones: [{ texto:"Cerrar", clase:"primario", valor:true }]
+    });
+  }
+  restaurarVersionCarga(v.restaurar);   // FA-087, FA-088
+}
+
+/* ---------- lo que cambia desde otras pantallas y otras pestañas ---------- */
+/* Una derivación desde la consulta del plan (CU-001 FA-005) cambia las secciones del ciclo. */
+alDerivarCurso(() => { if (asignacion.cargado) asignacion.cargado.hora = 0; });
+alRecibirDePestana("asignaciones", m => {
+  const c = asignacion.cargado;
+  if (c && c.clave === m.ciclo + "|" + m.carrera) {
+    if (asignacion.editando) {
+      brindis("Otra pestaña guardó la carga de " + m.carrera + ". Si guardas aquí, se te avisará antes.", "aviso");
+    } else {
+      c.hora = 0;
+      if (app.vista === "docentes") {
+        cargarEstadoDocentes({ fondo: true });
+        brindis("Otra pestaña guardó la carga de " + m.carrera + ": se actualizó aquí.", "pestana");
+      }
+    }
+  } else if (c && c.clave.startsWith(m.ciclo + "|")) {
+    c.hora = 0;   // cambia el balance de los docentes compartidos
+  }
+});
 </script>

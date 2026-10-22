@@ -1,39 +1,25 @@
 <script>
 "use strict";
 /* ============================================================
-   Núcleo de la interfaz: configuración, estado, utilidades, llamadas al
-   servidor (con la espera «Wayrasiming») y navegación entre secciones.
-   Cada pantalla vive en su propio módulo (Inicio, Tablero, ImportarOferta,
-   Grilla, Asignacion) y usa lo que se define aquí.
+   Núcleo de la interfaz: configuración, estado común, utilidades, vistas y secciones,
+   enlace de los botones con su código y llamadas al servidor (con la espera
+   «Wayrasiming»). Cada pantalla vive en su archivo de comun/, cu001/ o cu002/, guarda su
+   propio estado y usa lo que se define aquí.
    ============================================================ */
 const CONFIG = SIS.config || {};
 const { CARRERAS, DPTOS, ESTADOS, num, th, totales, matrizDesdeTexto, ubicarCabeceras, interpretar, nombreCarrera } = Dominio;
 
-/* ---------- estado de la página ---------- */
 /**
- * Estado de la página que comparten las pantallas de CU-001 (y el ciclo, con CU-002).
- * @type {{usuario: (Object|null), ciclo: string, tablero: Array<Object>, tableroCiclo: (string|null), tableroHora: number,
- *         tableroPedido: number, carrera: (string|null), plan: (Object|null), seleccion: ({ci: number, gi: number}|null),
- *         colapsados: Set<string>, avisoImportacion: string, lectura: (string|null), vista: (string|null)}}
+ * Estado que comparten todas las pantallas. El de cada pantalla está en su archivo:
+ * tablero (cu001/Tablero.html), consulta (cu001/Consulta.html), edicion
+ * (cu001/EdicionPlan.html) y asignacion (cu002/Asignacion.html).
+ * @type {{usuario: (Object|null), ciclo: string, vista: (string|null)}}
  */
 const app = {
-  usuario: SIS.usuario || null,   // {correo, rol, carreras (las que edita), coordina, departamento}
+  usuario: SIS.usuario || null,   // {correo, rol, carreras (las que coordina), departamento}
   ciclo: CONFIG.ciclo,            // ciclo elegido; lo comparten el tablero y la asignación docente
-  tablero: [],                    // filas del tablero, con el contenido vigente de cada plan
-  tableroCiclo: null,             // ciclo al que pertenecen esas filas
-  tableroHora: 0,                 // cuándo se leyeron; 0 = hay que volver a leerlas
-  tableroPedido: 0,               // descarta las respuestas que llegan tarde
-  carrera: null,                  // sigla del plan en edición
-  plan: null,                     // {estado, version, asignaturas, sucio, confirmado}
-  seleccion: null,                // {ci, gi}
-  colapsados: new Set(),
-  avisoImportacion: "",
-  lectura: null,                  // sigla del plan que se consulta en solo lectura
-  vista: null
+  vista: null                     // vista que se muestra (#v-<nombre>)
 };
-
-/* El tablero se vuelve a pedir si sus datos tienen más de esto. */
-const VIGENCIA_TABLERO_MS = 15000;
 
 /* ---------- utilidades ---------- */
 const $  = s => document.querySelector(s);
@@ -42,8 +28,6 @@ const esc = t => String(t == null ? "" : t).replace(/[&<>"]/g, c => ({ "&":"&amp
 const fecha = iso => { const d = new Date(iso); return isNaN(d) ? String(iso || "") : d.toLocaleString("es-PE", { dateStyle:"short", timeStyle:"short" }); };
 const hora = iso => { const d = new Date(iso); return isNaN(d) ? "" : d.toLocaleTimeString("es-PE", { hour:"2-digit", minute:"2-digit" }); };
 const clonar = x => JSON.parse(JSON.stringify(x));
-const alPulsar = (s, fn) => { const el = $(s); if (el) el.onclick = fn; };
-const alCambiar = (s, fn) => { const el = $(s); if (el) el.onchange = fn; };
 const icono = Dominio.htmlIcono;
 const reducirMovimiento = () => !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
 const carrerasDelUsuario = () => { const u = app.usuario || {}; return Array.isArray(u.carreras) ? u.carreras : []; };
@@ -52,8 +36,9 @@ const departamentoDelUsuario = () => (app.usuario || {}).departamento || "";
 /* «A, B y C» */
 const enumerar = lista => lista.length > 1 ? lista.slice(0, -1).join(", ") + " y " + lista[lista.length - 1] : (lista[0] || "");
 
-/* Rol con su ámbito: de qué departamento es el director y qué carreras coordina el
-   coordinador. «texto» va en la cabecera y en el saludo; «detalle», en el title. */
+/* Rol con su ámbito (CU-001 y CU-002, paso 6; CU-001 FA-004, CU-002 FA-006): de qué
+   departamento es el director y qué carreras coordina el coordinador. «texto» va en la
+   cabecera y en el saludo; «detalle», en el title. */
 function describirRol(u){
   u = u || {};
   if (u.rol === "director") {
@@ -61,7 +46,7 @@ function describirRol(u){
     if (!d) return { texto: "Director de departamento · sin departamento asignado", detalle: "Añade el departamento en la columna «departamento» de la pestaña Usuarios." };
     return { texto: "Director del " + d + " · " + Dominio.nombreDpto(d).replace(/^Departamento (Académico )?de /, ""), detalle: Dominio.nombreDpto(d) };
   }
-  const carreras = Array.isArray(u.coordina) ? u.coordina : (Array.isArray(u.carreras) ? u.carreras : []);
+  const carreras = Array.isArray(u.carreras) ? u.carreras : [];
   if (!carreras.length) return { texto: "Coordinador de carrera · sin carreras asignadas (solo lectura)", detalle: "Añade sus carreras en la columna «carreras» de la pestaña Usuarios." };
   return {
     texto: "Coordinador de " + (carreras.length <= 2 ? enumerar(carreras.map(nombreCarrera)) : enumerar(carreras)),
@@ -95,6 +80,35 @@ function contarHasta(el, valor, sufijo){
 }
 
 /* ============================================================
+   Botones: cada pantalla enlaza los suyos con un mapa de acciones
+   ============================================================ */
+/**
+ * Enlaza los elementos con data-accion="nombre" de un contenedor con la función del mismo
+ * nombre de su mapa. Un botón responde al clic; un select, un input o una casilla, al
+ * cambio. La función recibe el dataset del elemento, el evento y el elemento. armarMapa se
+ * llama al primer uso, cuando ya están cargados todos los scripts de la pantalla: así el
+ * mapa puede nombrar funciones de cualquiera de sus archivos.
+ * @param {Element} contenedor
+ * @param {function(): Object<string, function(DOMStringMap, Event, Element): *>} armarMapa
+ * @returns {void}
+ */
+function enlazarAcciones(contenedor, armarMapa){
+  let mapa = null;
+  const esCampo = el => el.matches("select, input:not([type=button]):not([type=submit])");
+  const ejecutar = (e, cambio) => {
+    const el = e.target.closest("[data-accion]");
+    if (!el || !contenedor.contains(el) || el.disabled || esCampo(el) !== cambio) return;
+    mapa = mapa || armarMapa();
+    const fn = mapa[el.dataset.accion];
+    if (!fn) return console.warn("Acción sin función:", el.dataset.accion);
+    fn(el.dataset, e, el);
+  };
+  contenedor.addEventListener("click", e => ejecutar(e, false));
+  /* En captura: así llega también un «change» que no burbujea (el que se dispara por código). */
+  contenedor.addEventListener("change", e => ejecutar(e, true), true);
+}
+
+/* ============================================================
    Vistas y secciones
    ============================================================ */
 const VISTAS = ["instalar","denegado","menu","planes","carga","pegado","grilla","lectura","exito","docentes","docentes-carga"];
@@ -116,7 +130,6 @@ function mostrar(v){
     if (el) el.hidden = (x !== v);
   });
   app.vista = v;
-  if (v !== "lectura") app.lectura = null;
   document.body.dataset.vista = v;
   marcarSeccion(SECCION_DE[v] || "");
   if (cambia) window.scrollTo({ top:0, behavior:"instant" });
@@ -124,7 +137,7 @@ function mostrar(v){
 
 function marcarSeccion(seccion){
   $$(".nav-op").forEach(b => {
-    const activa = b.dataset.ir === seccion;
+    const activa = b.dataset.seccion === seccion;
     b.classList.toggle("activa", activa);
     if (activa) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
   });
@@ -142,36 +155,42 @@ function moverIndicador(){
 }
 window.addEventListener("resize", moverIndicador);
 
-/* Ir a una sección desde la cabecera, desde el inicio o desde un botón con data-ir.
-   Si hay un plan en edición, se pide confirmar la salida, que libera su bloqueo. */
-const enEdicion = () => !!(app.carrera && app.plan && ["carga","pegado","grilla"].includes(app.vista));
+/* Cada sección de la cabecera registra cómo se entra en ella; la pantalla que no deja
+   salir sin confirmar (la edición del plan) registra su guarda. */
+const SECCIONES = {};
+const guardasDeSalida = [];
+/**
+ * @param {string} nombre «inicio», «planes» o «docentes».
+ * @param {function(): void} entrar
+ * @returns {void}
+ */
+function registrarSeccion(nombre, entrar){ SECCIONES[nombre] = entrar; }
+/**
+ * @param {function(): Promise<boolean>} guarda Se resuelve con false si no se puede salir.
+ * @returns {void}
+ */
+function registrarGuardaDeSalida(guarda){ guardasDeSalida.push(guarda); }
+
+/* Ir a una sección desde la cabecera o desde el inicio (CU-001 paso 7, CU-002 paso 7). */
 async function irA(seccion){
-  if (enEdicion()) {
-    const ok = await confirmarSalidaEdicion();
-    if (!ok) return;
-    terminarEdicion();
-  }
-  if (seccion === "inicio") entrarInicio();
-  else if (seccion === "planes") mostrarTablero();
-  else if (seccion === "docentes") iniciarCargaDocentes();
+  for (const guarda of guardasDeSalida) if (!(await guarda())) return;
+  if (SECCIONES[seccion]) SECCIONES[seccion]();
 }
 
-document.addEventListener("click", e => {
-  const ir = e.target.closest("[data-ir]");
-  if (ir) { irA(ir.dataset.ir); return; }
-  const volver = e.target.closest("[data-volver]");
-  if (volver) {
-    if (volver.dataset.volver === "planes") mostrarTablero();
-    else mostrar(volver.dataset.volver);
-  }
-});
-alPulsar("#ir-inicio", () => { if (app.usuario) irA("inicio"); });
+enlazarAcciones($(".cabecera"), () => ({
+  irA: d => irA(d.seccion),
+  irAlInicio: () => { if (app.usuario) irA("inicio"); }
+}));
 
 /* Antes de cerrar o recargar la página con cambios sin guardar, el navegador pregunta. */
+const cambiosPendientes = [];
+/**
+ * @param {function(): boolean} hay Dice si la pantalla tiene cambios sin guardar.
+ * @returns {void}
+ */
+function registrarCambiosPendientes(hay){ cambiosPendientes.push(hay); }
 window.addEventListener("beforeunload", e => {
-  const plan = !!(app.plan && app.plan.sucio);
-  const carga = typeof appCarga !== "undefined" && appCarga.sucio;
-  if (plan || carga) { e.preventDefault(); e.returnValue = ""; }
+  if (cambiosPendientes.some(hay => hay())) { e.preventDefault(); e.returnValue = ""; }
 });
 
 /* ============================================================
@@ -225,9 +244,9 @@ function ocultarEspera(){
 
 /**
  * El servidor responde {ok: true, datos} o {ok: false, codigo, mensaje, detalle}
- * (Respuesta.js). La promesa se resuelve con los datos o se rechaza con un Error que lleva
- * el código y el detalle, para decidir por el código y no por el texto. Una respuesta sin
- * «ok» (servidor anterior al contrato) se entrega tal cual.
+ * (comun/Respuesta.js). La promesa se resuelve con los datos o se rechaza con un Error que
+ * lleva el código y el detalle, para decidir por el código y no por el texto. Una respuesta
+ * sin «ok» (servidor anterior al contrato) se entrega tal cual.
  * @param {*} r Lo que devolvió el servidor.
  * @param {function(*): void} ok
  * @param {function(Error & {codigo?: string, detalle?: *}): void} mal
@@ -242,8 +261,9 @@ function respuesta(r, ok, mal){
 /**
  * Llama a una función del servidor con google.script.run y devuelve una promesa con sus datos.
  * modo: «bloquea» (espera visible), «fondo» (barra fina) o «silencio» (sin indicador).
- * Se usa a través de llamar, llamarDeFondo y llamarEnSilencio.
- * @param {string} nombre Endpoint (sin «_» final).
+ * Se usa a través de llamar, llamarDeFondo y llamarEnSilencio. El nombre es el de la
+ * función del .js de la vista («vista + acción»: tableroObtener, edicionPlanGuardar…).
+ * @param {string} nombre
  * @param {Array<*>} args
  * @param {"bloquea"|"fondo"|"silencio"} modo
  * @returns {Promise<*>} Se rechaza con un Error que lleva codigo y detalle.

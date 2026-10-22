@@ -1,8 +1,10 @@
 <script>
 "use strict";
 /* ============================================================
-   Rejilla de pegado y lectura de archivos, común a la carga de la oferta (plan de
-   ciclo) y a la carga masiva de asignaciones docentes.
+   Rejilla de pegado y lectura de archivos, común a la carga masiva de la oferta
+   (cu001/CargaOferta.html, CU-001 pasos 21 a 30 y FA-020 a FA-037) y a la de asignaciones
+   docentes (cu002/AsignacionCarga.html, CU-002 pasos 25 a 34 y FA-018 a FA-027). No llama
+   al servidor: el contenido se interpreta en el navegador.
    ============================================================ */
 
 /* SheetJS pesa casi 1 MB: se descarga al entrar en una carga masiva, no al abrir la
@@ -126,23 +128,34 @@ function crearRejillaPegado(op){
     if (!texto || !texto.trim()) return;
     e.preventDefault();
     const m = matrizDesdeTexto(texto);
-    if (!m.length) return aviso("El contenido pegado está vacío.", "aviso");
+    if (!m.length) return brindis("El contenido pegado está vacío.", "aviso");
     pintar(m);
     if (op.alPegar) op.alPegar(m);
-    aviso("Pegadas " + m.length + " filas");
+    brindis("Pegadas " + m.length + " filas");
   });
   op.hoja.addEventListener("click", () => op.hoja.focus());
-  ["dragenter", "dragover"].forEach(ev => op.hoja.addEventListener(ev, e => { e.preventDefault(); op.hoja.classList.add("encima"); }));
-  ["dragleave", "drop"].forEach(ev => op.hoja.addEventListener(ev, e => { e.preventDefault(); op.hoja.classList.remove("encima"); }));
-  op.hoja.addEventListener("drop", e => {
-    const f = e.dataTransfer && e.dataTransfer.files[0];
-    if (f && op.alSoltarArchivo) op.alSoltarArchivo(f);
-  });
+  if (op.alSoltarArchivo) permitirSoltarArchivo(op.hoja, op.alSoltarArchivo);
 
   return {
     pintar: pintar,
     limpiar: () => pintar(null),
     get matriz(){ return matriz; }
   };
+}
+
+/**
+ * Deja soltar un archivo sobre el elemento: lo resalta mientras está encima y, al
+ * soltarlo, llama a alSoltar con el archivo.
+ * @param {Element} el
+ * @param {function(File): void} alSoltar
+ * @returns {void}
+ */
+function permitirSoltarArchivo(el, alSoltar){
+  ["dragenter", "dragover"].forEach(ev => el.addEventListener(ev, e => { e.preventDefault(); el.classList.add("encima"); }));
+  ["dragleave", "drop"].forEach(ev => el.addEventListener(ev, e => { e.preventDefault(); el.classList.remove("encima"); }));
+  el.addEventListener("drop", e => {
+    const f = e.dataTransfer && e.dataTransfer.files[0];
+    if (f) alSoltar(f);
+  });
 }
 </script>

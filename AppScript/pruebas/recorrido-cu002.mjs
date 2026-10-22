@@ -107,7 +107,7 @@ async function main() {
     await c.esperar('!document.getElementById("v-menu").hidden', "Menú principal visible");
     await c.pulsar("#op-docentes", "Entrar en «Asignar docentes al plan de ciclo»");
     await c.esperar('!document.getElementById("v-docentes").hidden && document.querySelectorAll("#tb-vista-carrera tr").length > 0', "Secciones de la carrera listadas");
-    await c.esperar('document.getElementById("btn-doc-editar").hidden && !document.querySelector("[data-acc-sec]")', "Sin botones de edición para el coordinador");
+    await c.esperar('document.getElementById("btn-doc-editar").hidden && !document.querySelector("#tb-vista-carrera [data-accion]")', "Sin botones de edición para el coordinador");
     asegurar(c.errores.length === 0, "Sin errores en la consola del coordinador (" + c.errores.join(", ") + ")");
 
     console.log("Verificación 2: el director entra a la primera carrera de su departamento");
@@ -118,33 +118,33 @@ async function main() {
     asegurar(await p.evaluar('[...document.querySelectorAll("#sel-doc-carrera optgroup")].map(g => g.label.split(" ")[0]).join(",") === "DIMA,DAHUC,DACJ,DACTE"'), "Las carreras se agrupan por el departamento que las asigna");
     await p.esperar('!document.getElementById("btn-doc-editar").hidden', "Puede editar la carga de ING");
     await p.evaluar('(() => { const s = document.getElementById("sel-doc-carrera"); s.value = "ADM"; s.dispatchEvent(new Event("change")); })()');
-    await p.esperar('appCarga.datos && appCarga.datos.carrera === "ADM" && document.getElementById("btn-doc-editar").hidden && /solo lectura/.test(document.getElementById("doc-subtitulo").textContent)', "ADM es de DACTE: la consulta en solo lectura");
+    await p.esperar('asignacion.datos && asignacion.datos.carrera === "ADM" && document.getElementById("btn-doc-editar").hidden && /solo lectura/.test(document.getElementById("doc-subtitulo").textContent)', "ADM es de DACTE: la consulta en solo lectura");
     await p.evaluar('(() => { const s = document.getElementById("sel-doc-carrera"); s.value = "ING"; s.dispatchEvent(new Event("change")); })()');
-    await p.esperar('appCarga.datos && appCarga.datos.carrera === "ING" && !document.getElementById("btn-doc-editar").hidden', "Vuelve a ING");
+    await p.esperar('asignacion.datos && asignacion.datos.carrera === "ING" && !document.getElementById("btn-doc-editar").hidden', "Vuelve a ING");
 
     console.log("Verificación 3: edición con bloqueo y asignación por componente");
     await p.pulsar("#btn-doc-editar", "Pulsar «Editar asignaciones»");
-    await p.esperar('appCarga.editando && /Sesión de edición/.test(document.getElementById("reloj-asignacion").textContent)', "Bloqueo tomado y reloj en marcha");
-    await p.pulsar('#tb-vista-carrera [data-acc-sec="asignar"]', "Abrir la ventana de asignación de una sección");
+    await p.esperar('asignacion.editando && /Sesión de edición/.test(document.getElementById("reloj-asignacion").textContent)', "Bloqueo tomado y reloj en marcha");
+    await p.pulsar('#tb-vista-carrera [data-accion="asignarSeccion"]', "Abrir la ventana de asignación de una sección");
     await p.esperar('document.getElementById("dlg").open && document.querySelectorAll("#dlg-cuerpo [data-comp]").length >= 1', "Ventana con un bloque por componente");
-    await p.evaluar(`(() => { const n = appCarga.datos.catalogo.find(d => d.dpto === "DIMA").nombreCompleto;
+    await p.evaluar(`(() => { const n = asignacion.datos.catalogo.find(d => d.dpto === "DIMA").nombreCompleto;
       document.querySelectorAll("#dlg-cuerpo [data-doc]").forEach(i => { i.value = n; }); })()`);
     await p.evaluar(pie("Guardar en la carga"));
-    await p.esperar('appCarga.sucio && document.querySelector("#tb-vista-carrera .badge-doc.ok")', "La sección queda cubierta y hay cambios sin guardar");
+    await p.esperar('asignacion.sucio && document.querySelector("#tb-vista-carrera .badge-doc.ok")', "La sección queda cubierta y hay cambios sin guardar");
 
     console.log("Verificación 4: guardar crea una versión");
     await p.pulsar("#btn-doc-guardar", "Pulsar «Guardar asignaciones»");
     await p.esperar('document.getElementById("dlg").open && /A13/.test(document.getElementById("dlg-cuerpo").textContent)', "La confirmación avisa de los componentes sin docente (A13)");
     await p.evaluar(pie("Confirmar y guardar"));
-    await p.esperar('!appCarga.sucio && appCarga.base === 1', "Carga guardada como v1");
+    await p.esperar('!asignacion.sucio && asignacion.base === 1', "Carga guardada como v1");
 
     console.log("Verificación 5: reemplazo de docente con fecha de efectividad");
-    await p.pulsar('#tb-vista-carrera [data-acc-sec="reemplazar"]', "Pulsar «Reemplazar» en la sección");
+    await p.pulsar('#tb-vista-carrera [data-accion="reemplazarEnSeccion"]', "Pulsar «Reemplazar» en la sección");
     await p.esperar('document.getElementById("dlg").open && !!document.getElementById("dlg-fecha")', "Ventana de reemplazo con fecha de efectividad");
-    await p.evaluar(`(() => { const t = appCarga.trabajo[0].docente;
-      document.getElementById("dlg-sust").value = appCarga.datos.catalogo.find(d => d.nombreCompleto !== t).nombreCompleto; })()`);
+    await p.evaluar(`(() => { const t = asignacion.trabajo[0].docente;
+      document.getElementById("dlg-sust").value = asignacion.datos.catalogo.find(d => d.nombreCompleto !== t).nombreCompleto; })()`);
     await p.evaluar(pie("Confirmar reemplazo"));
-    await p.esperar('appCarga.trabajo.some(a => a.reemplazo && a.historial && a.historial.length)', "El titular queda en el historial de la asignación");
+    await p.esperar('asignacion.trabajo.some(a => a.reemplazo && a.historial && a.historial.length)', "El titular queda en el historial de la asignación");
 
     console.log("Verificación 6: vista por docente e historial");
     await p.pulsar("#btn-vista-dpto", "Cambiar a la vista por docente");
@@ -165,12 +165,12 @@ async function main() {
     await p.esperar('!document.getElementById("caja-previa-doc").hidden && document.querySelectorAll("#tb-previa-doc tr").length === 1', "Una fila leída; la de TOTAL se ignora");
     await p.evaluar('document.querySelectorAll("#tb-resolver-doc select").forEach(s => { s.value = "tal-cual"; })');
     await p.pulsar("#btn-aplicar-previa-doc", "Aplicar a la asignación");
-    await p.esperar('!document.getElementById("v-docentes").hidden && appCarga.sucio', "Vuelve a la asignación con los cambios aplicados");
+    await p.esperar('!document.getElementById("v-docentes").hidden && asignacion.sucio', "Vuelve a la asignación con los cambios aplicados");
 
     console.log("Verificación 8: terminar la edición libera el bloqueo");
     await p.pulsar("#btn-doc-terminar", "Pulsar «Terminar edición»");
     await p.evaluar(pie("Terminar"));
-    await p.esperar('!appCarga.editando && !document.getElementById("btn-doc-editar").hidden', "Fuera de la edición");
+    await p.esperar('!asignacion.editando && !document.getElementById("btn-doc-editar").hidden', "Fuera de la edición");
 
     console.log("Verificación 9: errores en consola");
     asegurar(p.errores.length === 0, "Cero errores o excepciones de JavaScript en la consola (" + p.errores.join(", ") + ")");
