@@ -321,6 +321,7 @@ Los códigos P## remiten a `preguntas.md` (archivo local). Las decisiones marcad
 | CU-002 Persistencia Asignaciones | Pestaña Asignaciones en SISCargaLectiva-BD para persistencia granular por fila de asignación docente (P93). |
 | CU-002 Conmutador de Vistas | Conmutador interactivo entre Vista por Departamento y Vista por Carrera con filtro de pendientes (P94). |
 | CU-002 Rejilla de Carga | Reutilización de Rejilla de Pegado matricial y subida de CargaXDepartamento .xlsx con previsualización (P95). |
+| CU-002 Búsqueda de docentes | Búsqueda por nombre en el catálogo y entre los docentes asignados fuera de él: todas las palabras, sin distinguir tildes ni mayúsculas, hasta 30 resultados, con las horas de las cargas guardadas del ciclo. No muestra el DNI (CU-002 FA-115 a FA-118) **[2026-11-02]**. |
 
 ---
 
@@ -336,6 +337,7 @@ Los códigos P## remiten a `preguntas.md` (archivo local). Las decisiones marcad
 - Control y alertas de carga horaria (40h máximo, 16h externos TC, >24h alerta alta, <8h alerta baja, cruce semestral). **[D][P83]**
 - Gestión de docentes internacionales pendientes y registro de reemplazos temporales durante el semestre. **[D][P85]**
 - Monitoreo integrado mediante vista por departamento y vista por carrera. **[D][P89]**
+- Búsqueda de docentes por nombre en la pantalla de asignación, con sus horas en las cargas guardadas del ciclo, sus carreras y sus advertencias, sin el DNI (CU-002 FA-115 a FA-118). **[2026-11-02]**
 
 ### 11.3 Generar reporte de carga lectiva
 - **Por carrera:** cursos de la carrera y quién los dicta. **[D]**
