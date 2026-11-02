@@ -192,3 +192,14 @@ test("cada vista llama solo a las entradas del …Servidor.js de su propia carpe
   const sinVista = [...entradas.keys()].filter(n => !usadas.has(n) && !/^(on|menu)[A-Z]/.test(n));
   assert.deepEqual(sinVista, [], "toda entrada la llama alguna vista");
 });
+
+test("base/Alpine.html sobrevive a HtmlService: ningún «//» ni «/*» fuera de sus comentarios", () => {
+  /* HtmlService quita los comentarios de cada <script> y toma por comentario un «//» dentro
+     de una plantilla `…`: cortaba Alpine en su URL https://alpinejs.dev y la página quedaba
+     en blanco. estilos/alpine.mjs lo escribe «:\/\/»; aquí se comprueba el resultado. */
+  const html = fs.readFileSync(path.join(RAIZ, "base/Alpine.html"), "utf8");
+  const codigo = html.replace(/^<script>\n\/\*![\s\S]*?\*\/\n/, "").replace(/\/\*! Bundled license[\s\S]*$/, "");
+  assert.ok(codigo.length > 40000 && codigo.includes("window.Alpine="), "el código de Alpine está entero");
+  assert.equal(codigo.search(/\/\/|\/\*/), -1);
+  assert.doesNotThrow(() => new Function(codigo), "el código compila");
+});
