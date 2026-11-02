@@ -4,7 +4,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { cargar, partesXlsx, plano, ofertaPatron, ARCHIVOS_DOMINIO, XLSX_CARRERA, XLSX_DEPARTAMENTO } from "./soporte.mjs";
 
-const ctx = cargar(ARCHIVOS_DOMINIO.concat(["pruebas/LectorXlsx.js", "comun/FuenteHoja.js", "cu001/OfertaPestanas.js"]));
+const ctx = cargar(ARCHIVOS_DOMINIO.concat(["pruebas/LectorXlsx.js", "base/FuenteHoja.js", "cu001/logica/OfertaPestanas.js"]));
 const libroCarrera = ctx.leerLibroXlsx_(partesXlsx(XLSX_CARRERA));
 const libroDepartamento = ctx.leerLibroXlsx_(partesXlsx(XLSX_DEPARTAMENTO));
 

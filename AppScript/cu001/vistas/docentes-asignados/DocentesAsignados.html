@@ -1,0 +1,72 @@
+<script>
+"use strict";
+/* ============================================================
+   Docentes ya asignados a cada grupo de los planes del ciclo, {ADM: {grupoId: [nombres]}}
+   (DocentesAsignadosServidor.js, docentesAsignadosObtener). No llegan con el tablero,
+   porque calcularlos lee las cargas docentes: se piden aparte y en segundo plano cuando
+   llega el tablero o se guarda una carga. Los usan la consulta del plan (CU-001 FA-013,
+   columna del docente) y la edición (advertencias de FA-057, FA-064 y FA-071).
+   ============================================================ */
+const docentesAsignados = { ciclo: "", mapa: null, pedido: null, cicloPedido: "", oyentes: [] };
+
+/**
+ * Pide en silencio los docentes del ciclo a la vista; al llegar, avisa a quien se suscribió.
+ * @returns {Promise<void>}
+ */
+function actualizarDocentesAsignados(){
+  const ciclo = app.ciclo;
+  const pedido = llamarEnSilencio("docentesAsignadosObtener", ciclo).then(mapa => {
+    if (docentesAsignados.pedido !== pedido) return;
+    const anterior = docentesAsignados.ciclo === ciclo ? docentesAsignados.mapa : null;
+    Object.assign(docentesAsignados, { ciclo: ciclo, mapa: mapa, pedido: null });
+    if (ciclo === app.ciclo) docentesAsignados.oyentes.forEach(fn => fn(anterior));
+  }, e => {
+    console.warn("docentesAsignadosObtener:", e);
+    if (docentesAsignados.pedido === pedido) docentesAsignados.pedido = null;
+  });
+  Object.assign(docentesAsignados, { pedido: pedido, cicloPedido: ciclo });
+  return pedido;
+}
+
+/**
+ * Suscribe una pantalla a la llegada de los docentes; recibe el mapa anterior (o null).
+ * @param {function(Object|null): void} fn
+ * @returns {void}
+ */
+function alCambiarDocentesAsignados(fn){ docentesAsignados.oyentes.push(fn); }
+
+/**
+ * {grupoId: [nombres]} de una carrera en el ciclo a la vista, o null si aún no llegó.
+ * @param {string} sig
+ * @returns {Object<string, string[]>|null}
+ */
+function docentesDelPlan(sig){
+  return docentesAsignados.mapa && docentesAsignados.ciclo === app.ciclo ? docentesAsignados.mapa[sig] || {} : null;
+}
+
+/**
+ * ¿Cambiaron los docentes de esa carrera respecto del mapa anterior?
+ * @param {string} sig
+ * @param {Object|null} anterior
+ * @returns {boolean}
+ */
+function cambiaronDocentesDe(sig, anterior){
+  const antes = anterior ? JSON.stringify(anterior[sig] || {}) : null;
+  return antes !== JSON.stringify((docentesAsignados.mapa || {})[sig] || {});
+}
+
+/**
+ * Antes de advertir al borrar o al cambiar el departamento: si el dato de esa carrera no
+ * ha llegado, lo espera (o lo pide). Si falla, se sigue sin la advertencia.
+ * @param {string} sig
+ * @returns {Promise<void>}
+ */
+async function asegurarDocentesAsignados(sig){
+  if (docentesDelPlan(sig)) return;
+  const enCamino = docentesAsignados.pedido && docentesAsignados.cicloPedido === app.ciclo ? docentesAsignados.pedido : actualizarDocentesAsignados();
+  await conEspera(() => enCamino);
+}
+
+/* Otra pestaña guardó una carga docente: los docentes del ciclo pueden haber cambiado. */
+alRecibirDePestana("asignaciones", m => { if (m.ciclo === app.ciclo) actualizarDocentesAsignados(); });
+</script>

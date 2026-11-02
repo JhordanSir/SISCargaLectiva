@@ -141,8 +141,16 @@ async function recorrido(srv) {
   asegurar(filas.reduce((n, f) => n + Number(f.celdas[4]), 0) === 365, "suman 365 grupos");
   await pa.captura("01-tablero.png");
 
-  await pa.pulsar("#btn-releer");
+  await pa.esperar(`!document.querySelector("#btn-releer").disabled`, "«Releer la hoja» disponible cuando no hay lecturas en curso");
+  const releyendo = await pa.evaluar(`(() => {
+    document.querySelector("#btn-releer").click();
+    return Alpine.nextTick().then(() => { const b = document.querySelector("#btn-releer");
+      return { cargando: b.classList.contains("cargando"), deshabilitado: b.disabled, texto: b.textContent.trim() }; });
+  })()`);
+  asegurar(releyendo.cargando && releyendo.deshabilitado && releyendo.texto === "Leyendo la hoja…", "mientras lee, el botón dice «Leyendo la hoja…» y no se puede pulsar (Alpine)");
   await pa.esperar(`[...document.querySelectorAll("#brindis div")].some(d => d.textContent === "Hoja revisada")`, "«Releer la hoja» lee las pestañas");
+  await pa.esperar(`(() => { const b = document.querySelector("#btn-releer"); return !b.disabled && !b.classList.contains("cargando") && b.textContent.trim() === "Releer la hoja"; })()`,
+    "al llegar la respuesta, el botón vuelve a «Releer la hoja»");
 
   const antesConsulta = await pa.evaluar("window.__llamadas.length");
   await pa.pulsar('#tb-tablero tr[data-sig="DER"]');
@@ -154,10 +162,12 @@ async function recorrido(srv) {
 
   console.log("Director: edición de Ingeniería de Software");
   await pa.esperar(`!!document.querySelector('[data-accion="editar"][data-sig="ING"]')`, "botón Editar disponible");
+  /* «Al instante»: en el mismo cuadro, sin esperar al servidor. Alpine muestra la vista en el
+     microtask siguiente (Alpine.nextTick), antes de que el navegador pinte. */
   const alInstante = await pa.evaluar(`(() => {
     document.querySelector('[data-accion="editar"][data-sig="ING"]').click();
-    return { grilla: !document.querySelector("#v-grilla").hidden, reloj: document.querySelector("#reloj-grilla").textContent,
-             guardar: document.querySelector("#btn-registrar").disabled };
+    return Alpine.nextTick().then(() => ({ grilla: !document.querySelector("#v-grilla").hidden, reloj: document.querySelector("#reloj-grilla").textContent,
+             guardar: document.querySelector("#btn-registrar").disabled }));
   })()`);
   asegurar(alInstante.grilla && alInstante.reloj === "Tomando el bloqueo de edición…" && alInstante.guardar,
     "«Editar» abre la grilla al instante y no deja guardar hasta confirmar el bloqueo");

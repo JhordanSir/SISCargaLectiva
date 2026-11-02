@@ -28,8 +28,8 @@ test("los bloqueos de planes y de cargas se guardan con su referencia", () => {
   ejecutar(e, DIMA, "asignacionEdicionAbrir", CICLO, "ING");
   assert.deepEqual(e.hoja("Bloqueos").filas().map(f => f[1]).sort(), ["carga:ING", "plan:ING"]);
   assert.match(e.hoja("Bloqueos").filas()[0][4], /-05:00$/, "la caducidad va en hora de Perú");
-  ejecutar(e, A, "sesionEdicionLiberar", CICLO, "plan:ING");
-  ejecutar(e, DIMA, "sesionEdicionLiberar", CICLO, "carga:ING");
+  ejecutar(e, A, "edicionPlanLiberar", CICLO, "plan:ING");
+  ejecutar(e, DIMA, "asignacionEdicionLiberar", CICLO, "carga:ING");
   assert.equal(e.hoja("Bloqueos").filas().length, 0);
 });
 
@@ -120,13 +120,13 @@ test("la copia de recuperación se salta sin error si el candado está ocupado",
   const copia = { contenido: ing.asignaturas, versionBase: ing.version };
   e.candadoOcupado = true;
   try {
-    assert.deepEqual(ejecutar(e, A, "sesionEdicionGuardarCopia", CICLO, "plan:ING", copia), { fecha: null, omitida: true });
+    assert.deepEqual(ejecutar(e, A, "edicionPlanGuardarCopia", CICLO, "plan:ING", copia), { fecha: null, omitida: true });
     assert.equal(e.hoja("Recuperacion").filas().length, 0);
-    assert.throws(() => ejecutar(e, A, "sesionEdicionLiberar", CICLO, "plan:ING"), { codigo: "OCUPADO" }, "lo demás sigue esperando su turno");
+    assert.throws(() => ejecutar(e, A, "edicionPlanLiberar", CICLO, "plan:ING"), { codigo: "OCUPADO" }, "lo demás sigue esperando su turno");
   } finally {
     e.candadoOcupado = false;
   }
-  assert.ok(ejecutar(e, A, "sesionEdicionGuardarCopia", CICLO, "plan:ING", copia).fecha, "al minuto siguiente se guarda");
+  assert.ok(ejecutar(e, A, "edicionPlanGuardarCopia", CICLO, "plan:ING", copia).fecha, "al minuto siguiente se guarda");
   assert.equal(e.hoja("Recuperacion").filas().length, 1);
 });
 
@@ -152,7 +152,7 @@ test("los repositorios con versiones usan los nombres de pestaña de TABLA_", ()
 
 test("el servidor funciona aunque Apps Script cargue los archivos en otro orden", () => {
   /* Apps Script ejecuta los archivos en el orden del proyecto; Dominio se crea al usarlo
-     (comun/Dominio.js), así que ninguna fábrica tiene que estar cargada antes. */
+     (base/Dominio.js), así que ninguna fábrica tiene que estar cargada antes. */
   for (const orden of [archivosApp(".js"), archivosApp(".js").reverse()]) {
     const ctx = cargar(orden);
     assert.equal(ctx.Dominio.CARRERAS.length, 8);
@@ -162,9 +162,33 @@ test("el servidor funciona aunque Apps Script cargue los archivos en otro orden"
 });
 
 test("ningún .js se llama igual que un .html de su carpeta: Apps Script exige nombres únicos", () => {
-  /* En Apps Script, cu001/Tablero.gs y cu001/Tablero.html serían los dos «cu001/Tablero» y
+  /* En Apps Script, cu001/vistas/tablero/Tablero.gs y cu001/vistas/tablero/Tablero.html serían los dos «cu001/vistas/tablero/Tablero» y
      clasp push fallaría. Por eso el .js que atiende una vista lleva «Servidor». */
   const sinExtension = f => f.replace(/\.(js|html)$/, "");
   const html = new Set(archivosApp(".html").map(sinExtension));
   assert.deepEqual(archivosApp(".js").map(sinExtension).filter(n => html.has(n)), []);
+});
+
+test("cada vista llama solo a las entradas del …Servidor.js de su propia carpeta", () => {
+  /* La regla del proyecto: para saber qué servidor atiende una pantalla basta abrir su
+     carpeta. base/ no nombra ninguna entrada: sus ayudas reciben el nombre de la pantalla. */
+  const leer = f => fs.readFileSync(path.join(RAIZ, f), "utf8");
+  const carpeta = f => path.posix.dirname(f);
+  const entradas = new Map();
+  for (const f of archivosApp(".js"))
+    for (const m of leer(f).matchAll(/^function\s+([A-Za-z]\w*)\s*\(/gm))
+      if (!m[1].endsWith("_") && !["doGet", "instalar"].includes(m[1])) entradas.set(m[1], f);
+  const fuera = [], usadas = new Set();
+  for (const f of archivosApp(".html")) {
+    const texto = leer(f);
+    for (const [n, js] of entradas) {
+      if (!new RegExp("[\"']" + n + "[\"']|\\.\\s*" + n + "\\s*\\(").test(texto)) continue;
+      usadas.add(n);
+      if (carpeta(js) !== carpeta(f)) fuera.push(f + " llama a " + n + ", que está en " + js);
+    }
+  }
+  assert.deepEqual(fuera, []);
+  /* Las de la hoja del sistema las llama Google Sheets (disparadores y menú), no una vista. */
+  const sinVista = [...entradas.keys()].filter(n => !usadas.has(n) && !/^(on|menu)[A-Z]/.test(n));
+  assert.deepEqual(sinVista, [], "toda entrada la llama alguna vista");
 });

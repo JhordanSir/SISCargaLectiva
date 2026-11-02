@@ -26,30 +26,34 @@ function llamadasValidas(e) {
     [A, "tableroObtener", CICLO],
     [A, "consultaObtener", CICLO, "ING"],
     [A, "edicionPlanAbrir", CICLO, "ING"],
-    [A, "sesionEdicionRenovar", CICLO, "plan:ING"],
-    [A, "sesionEdicionGuardarCopia", CICLO, "plan:ING", { contenido: ing.asignaturas, versionBase: 1 }],
-    [A, "sesionEdicionDescartarCopia", CICLO, "plan:ING"],
+    [A, "edicionPlanRenovar", CICLO, "plan:ING"],
+    [A, "edicionPlanGuardarCopia", CICLO, "plan:ING", { contenido: ing.asignaturas, versionBase: 1 }],
+    [A, "edicionPlanDescartarCopia", CICLO, "plan:ING"],
     [A, "edicionPlanGuardar", CICLO, "ING", { asignaturas: ing.asignaturas, estado: "Registrado", tipo: "guardar cambios", versionBase: 1 }],
     [A, "edicionPlanHistorial", CICLO, "ING"],
     [A, "edicionPlanRestaurar", CICLO, "ING", 1],
-    [A, "sesionEdicionLiberar", CICLO, "plan:ING"],
-    [DIRECTORES.DACTE, "derivacionGuardar", CICLO, "ADM", grupoAdm, "DACTE", "prueba"],
+    [A, "edicionPlanLiberar", CICLO, "plan:ING"],
+    [DIRECTORES.DACTE, "consultaDerivar", CICLO, "ADM", grupoAdm, "DACTE", "prueba"],
+    [DIRECTORES.DACTE, "asignacionEdicionDerivar", CICLO, "ADM", grupoAdm, "DACTE", "prueba"],
     [DIMA, "asignacionObtener", CICLO, "ING"],
+    [A, "asignacionBuscarDocentes", CICLO, "velasquez"],
     [A, "docentesAsignadosObtener", CICLO],
     [DIMA, "asignacionEdicionAbrir", CICLO, "ING"],
-    [DIMA, "sesionEdicionRenovar", CICLO, "carga:ING"],
+    [DIMA, "asignacionEdicionRenovar", CICLO, "carga:ING"],
+    [DIMA, "asignacionEdicionGuardarCopia", CICLO, "carga:ING", { contenido: [], versionBase: 0 }],
+    [DIMA, "asignacionEdicionDescartarCopia", CICLO, "carga:ING"],
     [DIMA, "asignacionEdicionGuardar", CICLO, "ING", { asignaciones: [], versionBase: 0 }],
     [DIMA, "asignacionHistorial", CICLO, "ING"],
     [DIMA, "asignacionVerVersion", CICLO, "ING", 1],
     [DIMA, "asignacionEdicionRestaurar", CICLO, "ING", 1],
-    [DIMA, "sesionEdicionLiberar", CICLO, "carga:ING"]
+    [DIMA, "asignacionEdicionLiberar", CICLO, "carga:ING"]
   ];
 }
 
 test("todos los endpoints responden {ok: true, datos} cuando salen bien", () => {
   const e = sistema();
   const llamadas = llamadasValidas(e);
-  assert.equal(new Set(llamadas.map(l => l[1])).size, 18, "están los 18 endpoints");
+  assert.equal(new Set(llamadas.map(l => l[1])).size, 24, "están los 24 endpoints");
   for (const [correo, funcion, ...args] of llamadas) {
     const r = ejecutarCrudo(e, correo, funcion, ...args);
     assert.equal(r.ok, true, funcion + ": " + JSON.stringify(r).slice(0, 200));
@@ -86,10 +90,10 @@ test("una excepción no prevista llega como INTERNO, sin detalles técnicos", ()
   }
 });
 
-test("derivacionGuardar sin cambios devuelve también el contenido del plan", () => {
+test("consultaDerivar sin cambios devuelve también el contenido del plan", () => {
   const e = sistema();
   const a = ejecutar(e, A, "consultaObtener", CICLO, "ADM").asignaturas[0];
-  const r = ejecutar(e, DIRECTORES.DACTE, "derivacionGuardar", CICLO, "ADM", a.grupos[0].id, e.ctx.Dominio.dptoDeCarrera("ADM"), "");
+  const r = ejecutar(e, DIRECTORES.DACTE, "consultaDerivar", CICLO, "ADM", a.grupos[0].id, e.ctx.Dominio.dptoDeCarrera("ADM"), "");
   assert.equal(r.sinCambios, true);
   assert.ok(Array.isArray(r.contenido) && r.contenido.length > 0 && r.totales);
 });

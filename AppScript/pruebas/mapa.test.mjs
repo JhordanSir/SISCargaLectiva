@@ -11,7 +11,7 @@ const html = fs.readFileSync(path.join(REPO, "docs/arquitectura/mapa-gui.html"),
 const DATOS = JSON.parse(html.match(/<script type="application\/json" id="datos-mapa">([\s\S]*?)<\/script>/)[1]);
 const leer = f => fs.readFileSync(path.join(RAIZ, f), "utf8");
 const define = (texto, nombre) => new RegExp("function\\s+" + nombre.replace(/\$/g, "\\$") + "\\s*\\(").test(texto);
-const GENERADOS = ["comun/Estilos.html", "comun/Iconos.html"];
+const GENERADOS = ["base/Estilos.html", "base/Iconos.html", "base/Alpine.html"];
 const VISTAS = archivosApp(".html").filter(f => !GENERADOS.includes(f));
 /* Las pantallas de la hoja del sistema (menú y diálogos de hoja/) no usan data-accion ni enlazarAcciones. */
 const conBoton = DATOS.pantallas.filter(p => !p.automatica && !p.sinMapa);
@@ -23,15 +23,26 @@ test("cada función del navegador que nombra el mapa existe en su archivo", () =
   assert.deepEqual(faltan, []);
 });
 
+/* Un botón se enlaza de dos maneras: data-accion="x" y el mapa de enlazarAcciones de su
+   pantalla, o un evento de Alpine (@click="x(…)", @submit.prevent="x(…)") que llama a la
+   función x. Las acciones de Alpine llevan "alpine": true en el mapa. */
+const eventoAlpine = accion => new RegExp('@(click|submit)(\\.[a-z]+)*="' + accion + "\\(");
+
 test("cada botón del mapa está en su vista y en el mapa de acciones de su pantalla", () => {
   const faltan = [];
   for (const p of conBoton) {
     const vista = p.vista.map(leer).join("\n");
     const texto = leer(p.mapa);
+    const conMapa = p.acciones.filter(a => !a.alpine);
+    for (const a of p.acciones.filter(a => a.alpine)) {
+      if (!eventoAlpine(a.accion).test(vista)) faltan.push(p.id + ": ningún @click/@submit llama a " + a.accion + " en " + p.vista.join(", "));
+      if (!define(texto, a.accion)) faltan.push(p.id + ": " + a.accion + " no está en " + p.mapa);
+    }
+    if (!conMapa.length) continue;
     const inicio = texto.indexOf('enlazarAcciones($("' + p.contenedor + '")');
     if (inicio < 0) { faltan.push(p.id + ": no hay enlazarAcciones para " + p.contenedor + " en " + p.mapa); continue; }
     const bloque = texto.slice(inicio, texto.indexOf("}));", inicio));
-    for (const a of p.acciones) {
+    for (const a of conMapa) {
       if (!vista.includes('data-accion="' + a.accion + '"')) faltan.push(p.id + ": " + a.accion + " no está en " + p.vista.join(", "));
       if (!new RegExp("\\b" + a.accion + "\\b").test(bloque)) faltan.push(p.id + ": " + a.accion + " no está en el mapa de " + p.mapa);
     }
@@ -43,9 +54,10 @@ test("ningún botón de la aplicación falta en el mapa", () => {
   const faltan = [];
   /* Solo los atributos de los botones: ni los comentarios ni los selectores «[data-accion=…]». */
   const codigo = f => leer(f).split(/\r?\n/).filter(l => !/^\s*(\*|\/\/|\/\*)/.test(l)).join("\n");
-  for (const f of VISTAS) for (const m of codigo(f).matchAll(/(?<!\[)data-accion="([A-Za-z]+)"/g)) {
-    const esta = conBoton.some(p => p.vista.includes(f) && p.acciones.some(a => a.accion === m[1]));
-    if (!esta) faltan.push(f + ": " + m[1]);
+  const enMapa = (f, accion, alpine) => conBoton.some(p => p.vista.includes(f) && p.acciones.some(a => a.accion === accion && !!a.alpine === alpine));
+  for (const f of VISTAS) {
+    for (const m of codigo(f).matchAll(/(?<!\[)data-accion="([A-Za-z]+)"/g)) if (!enMapa(f, m[1], false)) faltan.push(f + ": " + m[1]);
+    for (const m of codigo(f).matchAll(/@(?:click|submit)(?:\.[a-z]+)*="([A-Za-z]+)\(/g)) if (!enMapa(f, m[1], true)) faltan.push(f + ": @" + m[1]);
   }
   assert.deepEqual([...new Set(faltan)], []);
 });

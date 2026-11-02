@@ -21,7 +21,7 @@ const conFormato = objeto => new Proxy(objeto, {
   }
 });
 
-/* Pestañas de datos (comun/FuenteHoja.js): sus lecturas se cuentan aparte. */
+/* Pestañas de datos (base/FuenteHoja.js): sus lecturas se cuentan aparte. */
 const ES_DATOS = /^(Oferta|Carga|Docentes) - /;
 
 class Rango {
@@ -411,7 +411,7 @@ export function cargarPestanasEjemplo(e, { carrera = true, departamento = true, 
   });
 }
 
-/* En orden alfabético por ruta, como los sube clasp: Dominio no depende del orden (comun/Dominio.js). */
+/* En orden alfabético por ruta, como los sube clasp: Dominio no depende del orden (base/Dominio.js). */
 const ARCHIVOS_SERVIDOR = archivosApp(".js");
 
 /* Carga todo el servidor en un contexto con los servicios falsos. */

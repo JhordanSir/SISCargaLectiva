@@ -369,7 +369,7 @@ function revisarCargaHoja_(pestanas, ctx) {
 
 /**
  * Avisos de la pestaña Usuarios, con las reglas con que la app reconoce cada cuenta
- * (comun/Acceso.js).
+ * (base/Acceso.js).
  * @param {PestanaRevisada} pestana
  * @param {string} dominio Dominio de las cuentas (SIS_DOMINIO).
  * @returns {AvisoCelda[]}

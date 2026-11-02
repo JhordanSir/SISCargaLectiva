@@ -5,11 +5,12 @@
 
 @import "tailwindcss" source(none);
 @source "../*.html";
-@source "../comun/*.html";
-@source "../cu001/*.html";
-@source "../cu002/*.html";
-@source not "../comun/Estilos.html";
-@source not "../comun/Iconos.html";
+@source "../base/*.html";
+@source "../inicio/*.html";
+@source "../cu001/**/*.html";
+@source "../cu002/**/*.html";
+@source not "../base/Estilos.html";
+@source not "../base/Iconos.html";
 
 /* ============================================================
    Tokens
@@ -463,6 +464,22 @@
   }
   .btn:active:not(:disabled) { transform: scale(0.97); transition-duration: 80ms; }
   .btn:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
+  /* Botón que espera la respuesta del servidor: Alpine le pone «cargando» mientras
+     $store.servidor.ocupado("<función>") y se la quita al llegar la respuesta. El ícono
+     cede su lugar a un giro; el texto no cambia. */
+  .btn.cargando { pointer-events: none; cursor: progress; }
+  .btn.cargando:disabled { opacity: 0.8; }
+  .btn.cargando > svg { display: none; }
+  .btn.cargando::before {
+    content: "";
+    flex: none;
+    width: 1rem;
+    height: 1rem;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 999px;
+    animation: girar 0.7s linear infinite;
+  }
   .btn.primario {
     border-color: transparent;
     color: #ffffff;
@@ -1186,6 +1203,12 @@
   }
   .conmutador-vistas .btn.activo { background: var(--color-superficie); color: var(--color-acento-texto); box-shadow: var(--shadow-suave); }
 
+  /* Buscar docente por nombre (CU-002): el formulario y su tabla de resultados. */
+  .buscar-docentes { overflow: hidden; }
+  .buscar-docentes form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.75rem 1rem; padding: 1rem 1.15rem; }
+  .buscar-docentes .campo { flex: 1 1 18rem; }
+  .buscar-docentes .resultado { margin: 0; padding: 0 1.15rem 0.75rem; }
+  .buscar-docentes .tabla-caja { border-top: 1px solid var(--color-linea-suave); }
   .resumen-docentes { display: grid; grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr)); gap: 0.75rem; }
   .tarjeta-metrica {
     position: relative;

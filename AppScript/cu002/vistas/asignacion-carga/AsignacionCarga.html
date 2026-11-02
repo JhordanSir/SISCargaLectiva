@@ -1,0 +1,202 @@
+<!-- ===== Carga masiva de asignaciones desde CargaXDepartamento (CU-002 pasos 24 a 59) ===== -->
+<section class="vista" id="v-docentes-carga" hidden :hidden="$store.nav.vista !== 'docentes-carga'">
+  <header class="vista-cab">
+    <div>
+      <button type="button" class="btn fantasma btn-sm volver" id="volver-doc-carga" data-accion="volverALaAsignacion"><?!= icono_("arrow-left") ?>Volver a la asignación docente</button>
+      <p class="sobretitulo"><?!= icono_("upload-simple") ?>Asignar docentes al plan de ciclo</p>
+      <h1 class="titulo" id="doc-carga-titulo">Carga masiva de asignaciones</h1>
+      <p class="subtitulo">Pega o sube la hoja de tu departamento de CargaXDepartamento. Solo se toman las filas de esta carrera y las secciones que asignas; lo demás se conserva.</p>
+    </div>
+    <div class="vista-acciones">
+      <button type="button" class="btn primario" id="btn-doc-pegar-tab" data-accion="pegarDesdeSheets"><?!= icono_("clipboard") ?>Pegar desde Google Sheets</button>
+      <button type="button" class="btn" id="btn-doc-archivo-tab" data-accion="subirCargaXDepartamento"><?!= icono_("file-xls") ?>Subir CargaXDepartamento</button>
+    </div>
+  </header>
+  <input type="file" id="input-doc-archivo" data-accion="leerArchivoElegido" hidden accept=".xlsx,.xls,.ods,.csv,.txt">
+
+  <div id="caja-pegar-doc">
+    <div class="hoja" id="hoja-pegado-doc" tabindex="0" role="group" aria-label="Área de pegado para la asignación docente. Pulsa Ctrl+V para pegar.">
+      <div class="hoja-vacia" id="hoja-vacia-doc">
+        <span class="ico-hoja"><?!= icono_("table") ?></span>
+        <b>Pega aquí el rango de la hoja del departamento</b>
+        <small>Ctrl+V &nbsp;·&nbsp; Cmd+V en Mac · o suelta aquí el archivo</small>
+      </div>
+      <div class="hoja-scroll" id="hoja-scroll-doc" hidden x-ignore></div>
+    </div>
+    <div class="hoja-pie" id="hoja-pie-doc" hidden></div>
+    <div class="barra-acciones mt-4">
+      <button type="button" class="btn primario" id="btn-procesar-pegado-doc" data-accion="previsualizar" disabled><?!= icono_("eye") ?>Previsualizar asignaciones</button>
+      <button type="button" class="btn" id="btn-limpiar-pegado-doc" data-accion="limpiar" disabled><?!= icono_("x") ?>Limpiar</button>
+    </div>
+  </div>
+
+  <div id="caja-previa-doc" hidden>
+    <div class="nota" id="nota-previa-doc"></div>
+    <div class="tarjeta tarjeta-tabla mt-4" id="caja-resolver-doc" hidden>
+      <div class="p-4"><p class="text-sm font-bold">Docentes que no están en el catálogo</p>
+        <p class="ayuda mt-1"><?!= icono_("info") ?>Elige a quién corresponde cada nombre antes de aplicar.</p></div>
+      <div class="tabla-caja"><table><thead><tr><th>Nombre leído</th><th>Filas</th><th>Docente</th></tr></thead><tbody id="tb-resolver-doc" x-ignore></tbody></table></div>
+    </div>
+    <div class="tarjeta tarjeta-tabla mt-4">
+      <div class="tabla-caja">
+        <table>
+          <thead>
+            <tr>
+              <th class="num">Fila</th><th>Docente leído</th><th>Carrera</th><th>Código</th><th>Asignatura</th><th class="num">Grupo</th>
+              <th>Componentes</th><th>Resultado</th>
+            </tr>
+          </thead>
+          <tbody id="tb-previa-doc" x-ignore></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="barra-acciones mt-4">
+      <button type="button" class="btn primario" id="btn-aplicar-previa-doc" data-accion="aplicar"><?!= icono_("check") ?>Aplicar a la asignación</button>
+      <button type="button" class="btn" id="btn-cancelar-previa-doc" data-accion="descartar"><?!= icono_("x") ?>Descartar</button>
+    </div>
+  </div>
+</section>
+
+<script>
+"use strict";
+/* ============================================================
+   Carga masiva desde CargaXDepartamento (pegado o archivo). No llama al servidor: la hoja
+   se interpreta en el navegador (Dominio.interpretarCargaDepartamento) y las asignaciones
+   pasan a la carga en edición, que se guarda con «Guardar asignaciones»
+   (AsignacionEdicion.html).
+   ============================================================ */
+enlazarAcciones($("#v-docentes-carga"), () => ({
+  volverALaAsignacion: () => { mostrar("docentes"); pintarVistaDocentes(); },          // FA-028
+  pegarDesdeSheets: () => { mostrarPegadoDocentes(); $("#hoja-pegado-doc").focus(); },  // paso 26
+  subirCargaXDepartamento: () => $("#input-doc-archivo").click(),                      // FA-018
+  leerArchivoElegido: (d, e, el) => { const f = el.files[0]; if (f) leerArchivoDocentes(f); el.value = ""; },
+  previsualizar: () => previsualizarAsignaciones(),                                    // paso 35
+  limpiar: () => rejillaDocentes.limpiar(),                                            // FA-027
+  aplicar: () => aplicarAsignaciones(),                                                // paso 51
+  descartar: () => mostrarPegadoDocentes()                                             // FA-046
+}));
+
+/* Paso 25: la pantalla «Carga masiva · <sigla> · <ciclo>». */
+function mostrarCargaMasivaDocentes(){
+  cargarSheetJS();
+  $("#doc-carga-titulo").textContent = "Carga masiva · " + asignacion.carrera + " · " + asignacion.ciclo;
+  mostrar("docentes-carga");
+  mostrarPegadoDocentes();
+}
+function mostrarPegadoDocentes(){
+  $("#caja-pegar-doc").hidden = false;
+  $("#caja-previa-doc").hidden = true;
+}
+
+/* Pasos 27 a 33: la rejilla de pegado común (base/Rejilla.html). FA-026: soltar el archivo. */
+const rejillaDocentes = crearRejillaPegado({
+  hoja: $("#hoja-pegado-doc"), scroll: $("#hoja-scroll-doc"), vacia: $("#hoja-vacia-doc"), pie: $("#hoja-pie-doc"),
+  botones: [$("#btn-procesar-pegado-doc"), $("#btn-limpiar-pegado-doc")],
+  activa: () => app.vista === "docentes-carga" && !$("#caja-pegar-doc").hidden,
+  maxFilas: 300,
+  filaCabecera: m => Dominio.interpretarCargaDepartamento(m, [], "", []).cabecera - 1,
+  alSoltarArchivo: f => leerArchivoDocentes(f)
+});
+
+/* FA-018 a FA-025: del libro CargaXDepartamento se toma la hoja del departamento de quien
+   asigna (su nombre lleva la sigla); si no se reconoce, se pregunta cuál. */
+async function leerArchivoDocentes(file){
+  const dpto = miDpto() || Dominio.dptoDeCarrera(asignacion.carrera);
+  const r = await leerArchivoComoMatriz(file, nombres =>
+    Promise.resolve(nombres.find(n => Dominio.normalizar(n).split(/\s+/).includes(dpto)))
+      .then(propia => propia || preguntarHoja(nombres, "Elige la hoja del departamento", "Leer la hoja")));
+  if (!r) return;   // FA-021
+  if (!r.matriz.length) return brindis("No se pudo sacar nada de «" + file.name + "».", "aviso");   // FA-025
+  if (r.hoja) brindis("Hoja «" + r.hoja + "» leída");
+  rejillaDocentes.pintar(r.matriz);
+}
+
+const ESTADO_FILA = {
+  ok: '<span class="badge-doc ok">' + icono("check") + "Se asigna</span>",
+  fuera: '<span class="badge-doc pendiente">No está en el plan: se agrega sin sección</span>',
+  "otro-dpto": '<span class="badge-doc info">La asigna otro departamento: se omite</span>',
+  "otra-carrera": '<span class="badge-doc info">De otra carrera: se omite</span>'
+};
+/* Filas que no se aplican a la carga a la vista (FA-039, FA-040, FA-042). Las que no están
+   en el plan solo las agrega el director de la carrera (FA-041). */
+const filaOmitida = f => f.estado === "otro-dpto" || f.estado === "otra-carrera" || (f.estado === "fuera" && !cargaPropia());
+
+/* Pasos 36 a 49 (FA-029 a FA-042): la previsualización. */
+function previsualizarAsignaciones(){
+  if (!rejillaDocentes.matriz) return;
+  const d = asignacion.datos;
+  const r = Dominio.interpretarCargaDepartamento(rejillaDocentes.matriz, d.unidades, { carrera: asignacion.carrera, dpto: miDpto() }, d.catalogo);
+  if (!cargaPropia()) r.filas.forEach(f => { if (f.estado === "fuera") f.estado = "otro-dpto"; });
+  asignacion.previa = r;
+  const sinCatalogo = new Map();   // FA-036
+  r.filas.filter(f => !f.docente && !filaOmitida(f)).forEach(f => {
+    const k = Dominio.claveDocente(f.docenteTexto);
+    if (!sinCatalogo.has(k)) sinCatalogo.set(k, { texto: f.docenteTexto, filas: [] });
+    sinCatalogo.get(k).filas.push(f.fila);
+  });
+  asignacion.previa.porResolver = [...sinCatalogo.values()];
+  $("#caja-pegar-doc").hidden = true;
+  $("#caja-previa-doc").hidden = false;
+  const cuenta = e => r.filas.filter(f => f.estado === e).length;
+  $("#nota-previa-doc").innerHTML = "Se leyeron <b>" + r.filas.length + "</b> filas (cabecera en la fila " + r.cabecera + "): <b>" + cuenta("ok") + "</b> se asignan, <b>" +
+    cuenta("fuera") + "</b> no están en el plan, <b>" + cuenta("otra-carrera") + "</b> son de otra carrera y <b>" + cuenta("otro-dpto") +
+    "</b> las asigna otro departamento. Solo cambian las secciones y componentes de " + esc(asignacion.carrera) + " que trae la hoja.";
+  $("#caja-resolver-doc").hidden = !sinCatalogo.size;
+  $("#tb-resolver-doc").innerHTML = asignacion.previa.porResolver.map((x, i) => {
+    const sug = Dominio.sugerirDocentes(x.texto, d.catalogo, 5);
+    return "<tr><td><b>" + esc(x.texto) + "</b></td><td>" + x.filas.slice(0, 8).join(", ") + (x.filas.length > 8 ? "…" : "") + "</td>" +
+      '<td><select class="control" data-resolver="' + i + '"><option value="">Elige al docente…</option>' +   // FA-043, FA-044
+      sug.map(s => '<option value="dni:' + esc(s.dni) + "|" + esc(s.nombreCompleto) + '">' + esc(s.nombreCompleto) + " · " + esc(s.dpto || "") + "</option>").join("") +
+      '<option value="tal-cual">Usar «' + esc(x.texto) + '» tal cual (fuera del catálogo)</option></select></td></tr>';
+  }).join("");
+  $("#tb-previa-doc").innerHTML = r.filas.map(f => "<tr>" +
+    '<td class="num">' + f.fila + "</td><td><b>" + esc(f.docenteTexto) + "</b>" + (f.docente ? "" : '<br><small class="tenue">no está en el catálogo</small>') + "</td>" +
+    "<td>" + esc(f.carrera) + '</td><td class="cod">' + esc(f.codigo) + "</td><td>" + esc(f.nombre) + '</td><td class="num">' + esc(f.n) + "</td>" +
+    "<td>" + esc(f.componentes.join(", ") || "—") + "</td><td>" + ESTADO_FILA[f.estado] +
+    (f.estado === "otro-dpto" && f.dptoUnidad ? " <small class=\"tenue\">(" + esc(f.dptoUnidad) + ")</small>" : "") +
+    (f.estado === "otra-carrera" && f.carreraSeccion ? " <small class=\"tenue\">(" + esc(f.carreraSeccion) + ")</small>" : "") + "</td></tr>").join("");
+}
+
+/* Pasos 52 a 59 (FA-045, FA-047): aplicar la previsualización a la carga en edición. */
+function aplicarAsignaciones(){
+  const p = asignacion.previa;
+  if (!p || !p.filas.length) return;
+  const resueltos = new Map();
+  let falta = false;
+  $$("#tb-resolver-doc [data-resolver]").forEach(sel => {
+    const x = p.porResolver[+sel.dataset.resolver];
+    if (!sel.value) { falta = true; return; }
+    if (sel.value === "tal-cual") resueltos.set(Dominio.claveDocente(x.texto), { docente: x.texto, dni: "" });
+    else { const [dni, nombre] = sel.value.slice(4).split("|"); resueltos.set(Dominio.claveDocente(x.texto), { docente: nombre, dni: dni }); }
+  });
+  if (falta) return brindis("Elige a quién corresponde cada nombre que no está en el catálogo.", "aviso");   // FA-045
+
+  const idx = Dominio.indiceUnidades(asignacion.datos.unidades);
+  const tocados = new Set();
+  let aplicadas = 0, sinSeccion = 0;
+  p.filas.forEach(f => {
+    if (filaOmitida(f)) return;
+    const d = f.docente ? { docente: f.docente, dni: f.dni } : resueltos.get(Dominio.claveDocente(f.docenteTexto));
+    if (!d) return;
+    if (f.estado === "fuera") {   // FA-047
+      const ya = asignacion.trabajo.some(a => !Dominio.unidadDe(idx, a) && a.codigo === f.codigo && String(a.n) === String(f.n) && Dominio.claveDocente(a.docente) === Dominio.claveDocente(d.docente));
+      if (!ya) { asignacion.trabajo.push({ id: nuevoId(), unidad: null, fusion: null, componente: "C", docente: d.docente, dni: d.dni, horas: (f.ht + f.hp) || null,
+        condicion: f.condicion, carrera: f.carrera, codigo: f.codigo, asignatura: f.nombre, n: f.n, nota: "Fuera del plan (carga masiva, fila " + f.fila + ")" }); sinSeccion++; }
+      return;
+    }
+    const seccion = idx.porId.get(f.unidad);
+    f.componentes.forEach(c => {
+      const k = seccion.id + "|" + c;
+      if (!tocados.has(k)) {   // paso 53
+        asignacion.trabajo = asignacion.trabajo.filter(a => { const v = Dominio.unidadDe(idx, a); return !(v && v.id === seccion.id && a.componente === c); });
+        tocados.add(k);
+      }
+      if (asignacion.trabajo.some(a => a.unidad === seccion.id && a.componente === c && Dominio.claveDocente(a.docente) === Dominio.claveDocente(d.docente))) return;
+      asignacion.trabajo.push(Object.assign({ id: nuevoId(), componente: c, docente: d.docente, dni: d.dni, horas: null, condicion: f.condicion }, fotoUnidad(seccion)));   // paso 54
+      aplicadas++;
+    });
+  });
+  mostrar("docentes");   // paso 56
+  cambiado("Carga aplicada: " + aplicadas + " asignaciones" + (sinSeccion ? " y " + sinSeccion + " sin sección" : "") + ". Revísalas y guarda.");   // pasos 55, 57 a 59
+}
+</script>

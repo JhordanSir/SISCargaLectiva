@@ -24,10 +24,11 @@ function sistema() {
 const PUBLICAS = [
   "doGet", "instalar",
   "tableroObtener", "consultaObtener", "edicionPlanAbrir", "edicionPlanGuardar", "edicionPlanHistorial", "edicionPlanRestaurar",
-  "asignacionObtener", "asignacionHistorial", "asignacionVerVersion",
+  "asignacionObtener", "asignacionHistorial", "asignacionVerVersion", "asignacionBuscarDocentes",
   "asignacionEdicionAbrir", "asignacionEdicionGuardar", "asignacionEdicionRestaurar",
-  "sesionEdicionRenovar", "sesionEdicionLiberar", "sesionEdicionGuardarCopia", "sesionEdicionDescartarCopia",
-  "derivacionGuardar", "docentesAsignadosObtener",
+  "edicionPlanRenovar", "edicionPlanLiberar", "edicionPlanGuardarCopia", "edicionPlanDescartarCopia",
+  "asignacionEdicionRenovar", "asignacionEdicionLiberar", "asignacionEdicionGuardarCopia", "asignacionEdicionDescartarCopia",
+  "consultaDerivar", "asignacionEdicionDerivar", "docentesAsignadosObtener",
   /* Hoja del sistema: disparadores, menú y diálogos (responden solo desde la hoja). */
   "onOpen", "onEdit", "menuAbrirPanel", "menuActualizarRevision", "menuInstalar", "menuTraerBdAnterior", "menuLimpiarCarpeta",
   "panelObtener", "panelActualizar", "panelIrA", "migracionRevisar", "migracionAplicar", "limpiezaListar", "limpiezaAplicar"
@@ -87,7 +88,7 @@ test("guardarCarga sanea cada asignación: campos, componente y horas", () => {
   assert.equal(e.ctx.Dominio.sanearAsignaciones([{ horas: 500 }])[0].horas, 60, "ni pasan de 60");
   assert.equal(y.dni, "", "un DNI con caracteres no válidos se descarta");
   assert.throws(() => ejecutar(e, DIMA, "asignacionEdicionGuardar", CICLO, "ING", { versionBase: 1, asignaciones: { no: "lista" } }), { codigo: "DATO_INVALIDO", message: /se esperaba una lista/ });
-  assert.throws(() => ejecutar(e, DIMA, "sesionEdicionGuardarCopia", CICLO, "carga:ING", { contenido: "texto" }), { codigo: "DATO_INVALIDO", message: /se esperaba una lista/ });
+  assert.throws(() => ejecutar(e, DIMA, "asignacionEdicionGuardarCopia", CICLO, "carga:ING", { contenido: "texto" }), { codigo: "DATO_INVALIDO", message: /se esperaba una lista/ });
 });
 
 test("el DNI solo llega al director del departamento, y solo el de los suyos", () => {

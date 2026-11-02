@@ -11,18 +11,24 @@ export const XLSX_CARRERA = path.join(REPO, "docs/archivos/SISCargaLectiva-Ejemp
 export const XLSX_DEPARTAMENTO = path.join(REPO, "docs/archivos/SISCargaLectiva-Ejemplo-CargaXDepartamento.xlsx");
 export const XLSX_DOCENTES = path.join(REPO, "docs/archivos/SISCargaLectiva-Ejemplo-CargaDeDocentes.xlsx");
 
-/* Carpetas del proyecto de Apps Script que se suben con clasp (ver .claspignore). */
-export const CARPETAS_APP = ["", "comun", "cu001", "cu002", "hoja"];
+/* Carpetas de AppScript/ que clasp no sube (ver .claspignore). */
+const NO_SE_SUBEN = new Set(["pruebas", "estilos", "node_modules"]);
 
-/* Archivos de la aplicación con esa extensión, como rutas relativas a AppScript/ («cu001/TableroServidor.js»), ordenados. */
+/* Archivos de la aplicación con esa extensión, como rutas relativas a AppScript/
+   («cu001/vistas/tablero/TableroServidor.js»), ordenados. Recorre las subcarpetas. */
 export function archivosApp(extension) {
-  return CARPETAS_APP.flatMap(c => fs.readdirSync(path.join(RAIZ, c))
-    .filter(f => f.endsWith(extension) && fs.statSync(path.join(RAIZ, c, f)).isFile())
-    .map(f => (c ? c + "/" : "") + f)).sort();
+  const res = [];
+  const andar = rel => fs.readdirSync(path.join(RAIZ, rel), { withFileTypes: true }).forEach(e => {
+    const ruta = rel ? rel + "/" + e.name : e.name;
+    if (e.isDirectory()) { if (!NO_SE_SUBEN.has(e.name) && !e.name.startsWith(".")) andar(ruta); }
+    else if (e.name.endsWith(extension)) res.push(ruta);
+  });
+  andar("");
+  return res.sort();
 }
 
-/* Las tres fábricas de Dominio y el archivo que las combina (comun/Dominio.js). */
-export const ARCHIVOS_DOMINIO = ["comun/DominioComun.js", "cu001/DominioPlan.js", "cu002/DominioCarga.js", "comun/Dominio.js"];
+/* Las tres fábricas de Dominio y el archivo que las combina (base/Dominio.js). */
+export const ARCHIVOS_DOMINIO = ["base/DominioComun.js", "cu001/logica/DominioPlan.js", "cu002/logica/DominioCarga.js", "base/Dominio.js"];
 
 /* Lector zip mínimo: directorio central + inflate. Devuelve {ruta: Buffer}. */
 export function descomprimir(buffer) {

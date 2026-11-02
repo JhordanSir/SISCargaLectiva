@@ -1,4 +1,4 @@
-/* Genera ../comun/Estilos.html: Tailwind CSS compilado a partir de entrada.css (que lee las clases de
+/* Genera ../base/Estilos.html: Tailwind CSS compilado a partir de entrada.css (que lee las clases de
    los .html de la interfaz) e incrustado en la página, sin CDN, junto con los logotipos de marca/.
    Ejecútalo con «npm run construir» cada vez que cambie la interfaz. */
 import { execFileSync } from "node:child_process";
@@ -19,7 +19,7 @@ const css = fs.readFileSync(temporal, "utf8").trim();
 const png = nombre => "url(data:image/png;base64," + fs.readFileSync(path.join(AQUI, "marca", nombre)).toString("base64") + ")";
 
 /* Los íconos de las notas y de los avisos van como máscara CSS: así el texto del elemento no cambia. */
-const sprite = fs.readFileSync(path.join(AQUI, "..", "comun", "Iconos.html"), "utf8");
+const sprite = fs.readFileSync(path.join(AQUI, "..", "base", "Iconos.html"), "utf8");
 const mascara = id => {
   const m = sprite.match(new RegExp('<symbol id="i-' + id + '" viewBox="([^"]+)">([\\s\\S]*?)</symbol>'));
   if (!m) throw new Error("Iconos.html no tiene el ícono «" + id + "»: ejecuta «npm run iconos».");
@@ -41,5 +41,5 @@ const html = `<!-- Generado por AppScript/estilos/construir.mjs con Tailwind CSS
   "<style>\n" + css + "\n" + marcas + "\n</style>\n";
 if (html.includes("<?")) throw new Error("El CSS contiene «<?», que HtmlService tomaría por un scriptlet.");
 if ((html.match(/<\/style>/g) || []).length !== 1) throw new Error("El CSS no puede contener «</style>».");
-fs.writeFileSync(path.join(AQUI, "..", "comun", "Estilos.html"), html);
+fs.writeFileSync(path.join(AQUI, "..", "base", "Estilos.html"), html);
 console.log("Estilos.html: " + Math.round(html.length / 1024) + " KB (CSS " + Math.round(css.length / 1024) + " KB)");

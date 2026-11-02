@@ -4,32 +4,38 @@
 <base target="_top">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<?!= include_("comun/Estilos") ?>
+<?!= include_("base/Estilos") ?>
 </head>
-<body>
-<?!= include_("comun/Iconos") ?>
+<!-- x-data en <body>: toda la página es un componente de Alpine y cualquier elemento puede
+     leer $store.nav y $store.servidor (base/Nucleo.html). -->
+<body x-data>
+<?!= include_("base/Iconos") ?>
 <script>var SIS = <?!= inicial ?>;</script>
 <script>var Dominio = <?!= dominio ?>;</script>
+<!-- Alpine.js, incrustado y sin arranque automático: lo arranca base/Arranque.html. -->
+<?!= include_("base/Alpine") ?>
 
-<div class="progreso" id="cargando" hidden></div>
+<!-- Barra de actividad: se ve mientras hay alguna llamada al servidor que no es silenciosa. -->
+<div class="progreso" id="cargando" hidden :hidden="!($store.servidor.bloquea + $store.servidor.fondo)"></div>
 
-<!-- Cabecera de todas las vistas: logotipo de La Salle, secciones y cuenta (CU-001 y CU-002, paso 6) -->
+<!-- Cabecera de todas las vistas: logotipo de La Salle, secciones y cuenta (CU-001 y CU-002, paso 6).
+     Navegación con Alpine: cada botón llama a irA() y se marca activo según $store.nav.seccion. -->
 <header class="cabecera">
   <div class="cabecera-interior">
-    <button type="button" class="marca" id="ir-inicio" data-accion="irAlInicio" aria-label="SISCargaLectiva, Universidad La Salle: ir al inicio">
+    <button type="button" class="marca" id="ir-inicio" @click="irAlInicio()" aria-label="SISCargaLectiva, Universidad La Salle: ir al inicio">
       <span class="placa-logo"><span class="logo-lasalle" role="img" aria-label="Universidad La Salle"></span></span>
       <span class="marca-texto"><b>SISCargaLectiva</b><small>Carga lectiva · Universidad La Salle</small></span>
     </button>
 
     <nav class="navegacion" id="navegacion" aria-label="Secciones" hidden>
       <span class="nav-indicador" id="nav-indicador" aria-hidden="true"></span>
-      <button type="button" class="nav-op" data-accion="irA" data-seccion="inicio" aria-label="Inicio">
+      <button type="button" class="nav-op" data-seccion="inicio" @click="irA('inicio')" :class="{ activa: $store.nav.seccion === 'inicio' }" :aria-current="$store.nav.seccion === 'inicio' ? 'page' : null" aria-label="Inicio">
         <?!= icono_("house") ?><span aria-hidden="true">Inicio</span>
       </button>
-      <button type="button" class="nav-op" data-accion="irA" data-seccion="planes" aria-label="Registrar plan de ciclo">
+      <button type="button" class="nav-op" data-seccion="planes" @click="irA('planes')" :class="{ activa: $store.nav.seccion === 'planes' }" :aria-current="$store.nav.seccion === 'planes' ? 'page' : null" aria-label="Registrar plan de ciclo">
         <?!= icono_("clipboard-text") ?><span class="nav-largo" aria-hidden="true">Registrar plan de ciclo</span><span class="nav-corto" aria-hidden="true">Plan de ciclo</span>
       </button>
-      <button type="button" class="nav-op" data-accion="irA" data-seccion="docentes" aria-label="Asignar docentes al plan de ciclo">
+      <button type="button" class="nav-op" data-seccion="docentes" @click="irA('docentes')" :class="{ activa: $store.nav.seccion === 'docentes' }" :aria-current="$store.nav.seccion === 'docentes' ? 'page' : null" aria-label="Asignar docentes al plan de ciclo">
         <?!= icono_("chalkboard-teacher") ?><span class="nav-largo" aria-hidden="true">Asignar docentes</span><span class="nav-corto" aria-hidden="true">Docentes</span>
         <span class="nav-punto" id="nav-sucio" title="Hay asignaciones sin guardar" hidden></span>
       </button>
@@ -43,28 +49,28 @@
 </header>
 
 <!-- Comunes a CU-001 y CU-002. Se incluyen antes que las pantallas, que usan lo que definen. -->
-<?!= include_("comun/Nucleo") ?>
-<?!= include_("comun/Ventanas") ?>
-<?!= include_("comun/Pestanas") ?>
-<?!= include_("comun/SesionEdicion") ?>
-<?!= include_("comun/Rejilla") ?>
-<?!= include_("comun/DocentesAsignados") ?>
-<?!= include_("comun/Derivacion") ?>
+<?!= include_("base/Nucleo") ?>
+<?!= include_("base/Ventanas") ?>
+<?!= include_("base/Pestanas") ?>
+<?!= include_("base/SesionEdicion") ?>
+<?!= include_("base/Rejilla") ?>
+<?!= include_("cu001/vistas/docentes-asignados/DocentesAsignados") ?>
+<?!= include_("base/Derivacion") ?>
 
 <main class="lienzo" id="lienzo">
-<?!= include_("comun/Inicio") ?>
+<?!= include_("inicio/Inicio") ?>
 <!-- CU-001 Registrar plan de ciclo -->
-<?!= include_("cu001/Tablero") ?>
-<?!= include_("cu001/PlanBloques") ?>
-<?!= include_("cu001/Consulta") ?>
-<?!= include_("cu001/CargaOferta") ?>
-<?!= include_("cu001/EdicionPlan") ?>
-<?!= include_("cu001/EdicionPlanAcciones") ?>
-<?!= include_("cu001/EdicionPlanSesion") ?>
+<?!= include_("cu001/vistas/tablero/Tablero") ?>
+<?!= include_("cu001/vistas/edicion-plan/PlanBloques") ?>
+<?!= include_("cu001/vistas/consulta/Consulta") ?>
+<?!= include_("cu001/vistas/carga-oferta/CargaOferta") ?>
+<?!= include_("cu001/vistas/edicion-plan/EdicionPlan") ?>
+<?!= include_("cu001/vistas/edicion-plan/EdicionPlanAcciones") ?>
+<?!= include_("cu001/vistas/edicion-plan/EdicionPlanSesion") ?>
 <!-- CU-002 Asignar docentes a plan de ciclo -->
-<?!= include_("cu002/Asignacion") ?>
-<?!= include_("cu002/AsignacionEdicion") ?>
-<?!= include_("cu002/AsignacionCarga") ?>
+<?!= include_("cu002/vistas/asignacion/Asignacion") ?>
+<?!= include_("cu002/vistas/asignacion-edicion/AsignacionEdicion") ?>
+<?!= include_("cu002/vistas/asignacion-carga/AsignacionCarga") ?>
 </main>
 
 <footer class="pie-marca">
@@ -74,6 +80,6 @@
   </div>
 </footer>
 
-<?!= include_("comun/Arranque") ?>
+<?!= include_("base/Arranque") ?>
 </body>
 </html>

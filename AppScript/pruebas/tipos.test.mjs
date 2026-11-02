@@ -49,8 +49,8 @@ function parametrosDocumentados(doc) {
   return nombres;
 }
 
-test("comun/Tipos.js solo tiene comentarios: en Apps Script no ejecuta nada", () => {
-  const sinComentarios = fs.readFileSync(path.join(RAIZ, "comun/Tipos.js"), "utf8")
+test("base/Tipos.js solo tiene comentarios: en Apps Script no ejecuta nada", () => {
+  const sinComentarios = fs.readFileSync(path.join(RAIZ, "base/Tipos.js"), "utf8")
     .replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "").trim();
   assert.equal(sinComentarios, "");
 });

@@ -87,11 +87,11 @@ try {
   p2 = await Pestana.abrir(url(A));
   await p1.esperar(`!document.querySelector("#v-menu").hidden`, "pestaña 1 en el inicio");
   await p2.esperar(`!document.querySelector("#v-menu").hidden`, "pestaña 2 en el inicio");
-  await p2.pulsar('[data-accion="irA"][data-seccion="planes"]');
+  await p2.pulsar('.nav-op[data-seccion="planes"]');
   await p2.esperar(`!document.querySelector("#v-planes").hidden && document.querySelectorAll("#tb-tablero tr").length === 8`, "la navegación de la cabecera abre el tablero");
   asegurar(await p2.evaluar(`document.querySelector('.nav-op[data-seccion="planes"]').classList.contains("activa")`), "la sección activa queda marcada");
 
-  await p1.pulsar('[data-accion="irA"][data-seccion="planes"]');
+  await p1.pulsar('.nav-op[data-seccion="planes"]');
   await p1.esperar(`!!document.querySelector('[data-accion="editar"][data-sig="ING"]')`, "tablero de la pestaña 1");
   await p1.pulsar('[data-accion="editar"][data-sig="ING"]');
   await p1.esperar(`/Sesión de edición/.test(document.querySelector("#reloj-grilla").textContent)`, "la pestaña 1 edita ING");
@@ -113,11 +113,11 @@ try {
   await p2.esperar(`document.querySelector("#lectura-nota").textContent.includes("v" + ${version + 1})`, "la consulta de la pestaña 2 se actualiza sola a la v" + (version + 1));
 
   console.log("Salir de la edición desde la cabecera");
-  await p1.pulsar('[data-accion="irA"][data-seccion="docentes"]');
+  await p1.pulsar('.nav-op[data-seccion="docentes"]');
   await p1.esperar(`document.querySelector("#dlg").open && document.querySelector("#dlg-titulo").textContent === "Salir de la edición"`, "pide confirmar antes de salir de la edición");
   await p1.dialogo("Seguir editando");
   asegurar(await p1.evaluar(`!document.querySelector("#v-grilla").hidden`), "«Seguir editando» se queda en la grilla");
-  await p1.pulsar('[data-accion="irA"][data-seccion="docentes"]');
+  await p1.pulsar('.nav-op[data-seccion="docentes"]');
   await p1.dialogo("Salir");
   await p1.esperar(`!document.querySelector("#v-docentes").hidden && document.querySelectorAll("#tb-vista-carrera tr").length > 0`, "sale y abre la asignación docente (en solo lectura para el coordinador)");
   await p2.esperar(`(() => { const tr = document.querySelector('#tb-tablero tr[data-sig="ING"]'); return tr && tr.cells[7].textContent.trim() === "—"; })()`, "la pestaña 2 ve el plan libre");
@@ -126,7 +126,7 @@ try {
   console.log("Asignaciones sin guardar al cambiar de sección (director del DIMA)");
   pd = await Pestana.abrir(url(DIRECTOR));
   await pd.esperar(`!document.querySelector("#v-menu").hidden`, "el director en el inicio");
-  await pd.pulsar('[data-accion="irA"][data-seccion="docentes"]');
+  await pd.pulsar('.nav-op[data-seccion="docentes"]');
   await pd.esperar(`!document.querySelector("#btn-doc-editar").hidden`, "puede editar la carga de la primera carrera de su departamento");
   await pd.pulsar("#btn-doc-editar");
   await pd.esperar(`asignacion.editando && !!document.querySelector('[data-accion="asignarSeccion"]')`, "edita con bloqueo");
@@ -137,9 +137,9 @@ try {
   const asignadas = await pd.evaluar(`asignacion.trabajo.length`);
   asegurar(await pd.evaluar(`!document.querySelector("#nav-sucio").hidden && !document.querySelector("#doc-sin-guardar").hidden`), "la cabecera marca que hay cambios sin guardar");
   const llamadasAntes = await pd.evaluar(`window.__llamadas.length`);
-  await pd.pulsar('[data-accion="irA"][data-seccion="planes"]');
+  await pd.pulsar('.nav-op[data-seccion="planes"]');
   await pd.esperar(`!document.querySelector("#v-planes").hidden`, "va al tablero sin perder la edición");
-  await pd.pulsar('[data-accion="irA"][data-seccion="docentes"]');
+  await pd.pulsar('.nav-op[data-seccion="docentes"]');
   await pd.esperar(`!document.querySelector("#v-docentes").hidden`, "vuelve a la asignación docente");
   asegurar(await pd.evaluar(`asignacion.trabajo.length`) === asignadas && await pd.evaluar(`asignacion.editando`), "las asignaciones sin guardar siguen ahí (" + asignadas + ")");
   asegurar(!(await pd.evaluar(`window.__llamadas.slice(${llamadasAntes})`)).includes("asignacionObtener"), "volver no vuelve a pedir los datos al servidor");
@@ -152,7 +152,7 @@ try {
   console.log("Otra cuenta en el mismo navegador");
   pb = await Pestana.abrir(url(B));
   await pb.esperar(`!document.querySelector("#v-menu").hidden`, "segunda cuenta en el inicio");
-  await p1.pulsar('[data-accion="irA"][data-seccion="planes"]');
+  await p1.pulsar('.nav-op[data-seccion="planes"]');
   await p1.esperar(`!!document.querySelector('[data-accion="editar"][data-sig="DER"]')`, "tablero");
   await p1.pulsar('[data-accion="editar"][data-sig="DER"]');
   await p1.esperar(`/Sesión de edición/.test(document.querySelector("#reloj-grilla").textContent)`, "la cuenta A edita DER");

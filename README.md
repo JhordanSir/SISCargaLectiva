@@ -6,7 +6,7 @@ Hoy este proceso se lleva en varios Google Sheets separados, uno por carrera y o
 
 ## Estado del proyecto
 
-🚧 `AppScript/` es el **proyecto independiente de Google Apps Script** que está en script.google.com: una aplicación web con CU-001 y un prototipo de CU-002. Su interfaz se rediseñó el 2026-10-15 con los colores de La Salle, en módulos por pantalla y con Tailwind compilado (P149–P151). script.google.com tendrá el rediseño después del próximo `clasp push`.
+🚧 `AppScript/` es el **proyecto de Google Apps Script de la hoja del sistema** que está en script.google.com: una aplicación web con CU-001 y un prototipo de CU-002. Su interfaz se rediseñó el 2026-10-15 con los colores de La Salle, en módulos por pantalla y con Tailwind compilado (P149–P151). script.google.com tendrá el rediseño después del próximo `clasp push`.
 
 | Caso de uso | Estado en `AppScript/` |
 |---|---|
@@ -42,7 +42,7 @@ El detalle está en [requirements.md](docs/requerimientos/requirements.md) y en 
 | Capa | Tecnología |
 |---|---|
 | Aplicación | Google Apps Script: servidor en `.js` y página con HtmlService |
-| Interfaz | Un módulo HTML por pantalla, Tailwind CSS 4 compilado con su CLI e incrustado en la página (sin CDN) e íconos Phosphor incrustados |
+| Interfaz | Una carpeta por pantalla con su HTML y su servidor; Alpine.js 3 para la navegación, los botones en espera y las tablas que llenan las respuestas del servidor; Tailwind CSS 4 compilado con su CLI. Alpine, Tailwind y los íconos Phosphor van incrustados en la página (sin CDN) |
 | Datos | Los `.xlsx` de una carpeta de Google Drive (fuente, solo lectura) y una hoja de cálculo de Google, «SISCargaLectiva-BD», con los planes, las versiones, los bloqueos, los usuarios y las asignaciones docentes |
 | Acceso | Cuenta de Google del dominio `@ulasalle.edu.pe` |
 | Despliegue | `clasp`, la herramienta de línea de comandos de Apps Script |
@@ -51,20 +51,25 @@ El detalle está en [requirements.md](docs/requerimientos/requirements.md) y en 
 
 ```
 .
-├── AppScript/                        # Proyecto independiente de Apps Script (se sube con clasp)
-│   ├── Principal.js                  # doGet: arma la página
-│   ├── Planes.js, Bloqueos.js        # Tablero, guardado, versiones y bloqueo de edición
-│   ├── FuenteDrive.js, LectorXlsx.js # Lectura de los .xlsx de Drive
-│   ├── Dominio.js                    # Interpretación, edición y balance docente, compartidos con el navegador
-│   ├── Docentes.js                   # Asignación docente: catálogo, asignaturas por departamento y asignaciones
-│   ├── Acceso.js, Config.js, BaseDatos.js
-│   ├── Index.html                    # Esqueleto de la página: cabecera, pie e include() de cada módulo
-│   ├── Nucleo.html, Ventanas.html    # Estado, servidor, espera «Wayrasiming», navegación, diálogos y avisos
-│   ├── Inicio.html, Tablero.html     # Pantallas: inicio; tablero y consulta
-│   ├── CargaMasiva.html, Grilla.html # Pantallas: carga masiva; grilla, bloqueo, guardado y registro
-│   ├── Asignacion.html               # Pantalla: asignación docente y su carga masiva
-│   ├── Pestanas.html, Arranque.html  # Avisos entre pestañas del navegador y arranque
-│   ├── Estilos.html, Iconos.html     # Generados: Tailwind compilado con los logotipos, e íconos Phosphor
+├── AppScript/                        # Proyecto de Apps Script de la hoja del sistema (se sube con clasp)
+│   ├── Index.html, IndexServidor.js  # La página (cabecera, pie, include() de cada pantalla) y doGet
+│   ├── inicio/Inicio.html            # Pantalla de inicio, acceso denegado y «sin instalar»
+│   ├── cu001/                        # CU-001 Registrar plan de ciclo
+│   │   ├── vistas/                   # Una carpeta por pantalla: su .html y el …Servidor.js que la atiende
+│   │   │   ├── tablero/              # Tablero.html ↔ TableroServidor.js
+│   │   │   ├── consulta/             # Consulta.html ↔ ConsultaServidor.js
+│   │   │   ├── carga-oferta/         # CargaOferta.html (no llama al servidor)
+│   │   │   ├── edicion-plan/         # EdicionPlan*.html, PlanBloques.html ↔ EdicionPlanServidor.js
+│   │   │   └── docentes-asignados/   # DocentesAsignados.html ↔ DocentesAsignadosServidor.js
+│   │   └── logica/                   # Reglas y datos del plan: PlanServicio, PlanRepositorio, Fusiones, DominioPlan…
+│   ├── cu002/                        # CU-002 Asignar docentes a plan de ciclo
+│   │   ├── vistas/                   # asignacion/, asignacion-edicion/, asignacion-carga/
+│   │   └── logica/                   # Reglas y datos de la carga: CargaServicio, CargaReglas, CatalogoDocentes…
+│   ├── base/                         # Infraestructura de todas las pantallas, sin entradas para el navegador:
+│   │                                 #   Nucleo, Ventanas, Pestanas, Arranque, SesionEdicion, Derivacion, Rejilla (navegador);
+│   │                                 #   Acceso, Config, BaseDatos, Bloqueos, Versionado, Sesiones, Dominio… (servidor);
+│   │                                 #   Estilos, Iconos y Alpine (generados por estilos/)
+│   ├── hoja/                         # Menú, panel y diálogos dentro de la hoja del sistema
 │   ├── estilos/                      # Fuente de los estilos, logotipos y generadores (no se sube)
 │   └── pruebas/                      # Pruebas y vista previa local (no se sube)
 ├── docs/
@@ -79,9 +84,20 @@ El detalle está en [requirements.md](docs/requerimientos/requirements.md) y en 
 └── .env.example                      # Variables del prototipo en Python
 ```
 
+### Cómo se conecta una pantalla con su servidor
+
+- **Todo lo que una pantalla pide al servidor está en el `…Servidor.js` de su misma carpeta.** Las entradas se llaman «pantalla + acción»: `Tablero.html` llama a `tableroObtener` de `TableroServidor.js`; `Asignacion.html`, a `asignacionBuscarDocentes` de `AsignacionServidor.js`. La prueba `pruebas/infraestructura.test.mjs` lo comprueba en cada `.html`.
+- **`base/` no tiene entradas para el navegador.** Sus ayudas reciben el nombre de la entrada de quien las usa. Por ejemplo, la sesión de edición (`base/SesionEdicion.html`) recibe `edicionPlanRenovar` o `asignacionEdicionRenovar`, y por debajo ambas usan `base/Sesiones.js`. En Apps Script todos los `.js` comparten un mismo espacio de nombres y todos los `.html` se incluyen en la misma página, así que la infraestructura no se puede copiar en cada caso de uso sin que sus funciones choquen.
+- **Alpine.js.** `<body x-data>` hace de toda la página un componente, y `base/Nucleo.html` define dos stores:
+  - **`$store.nav`**: la vista que se ve. Cada `<section id="v-…">` lleva `:hidden="$store.nav.vista !== '…'"` y los botones de la cabecera usan `@click="irA('planes')"`.
+  - **`$store.servidor`**: las llamadas en curso. Un botón usa `:class="{ cargando: $store.servidor.ocupado('tableroObtener') }"` y vuelve a su estado al llegar la respuesta.
+
+  Las tablas que llena el servidor se pintan con `x-for`: el tablero de planes (`$store.planes`, CU-001) y la búsqueda de docentes (`$store.busqueda`, CU-002). Las tablas grandes que se siguen pintando con `innerHTML`, como la grilla del plan, llevan `x-ignore`. `base/Arranque.html` llama a `Alpine.start()` cuando ya están cargadas todas las pantallas.
+- **[docs/arquitectura/mapa-gui.html](docs/arquitectura/mapa-gui.html)** lista, para cada botón, la función del navegador, la entrada del servidor y el servicio que usa. `pruebas/mapa.test.mjs` comprueba que el mapa coincide con el código.
+
 ## Puesta en marcha
 
-Hace falta Node.js y `clasp` (`npm install -g @google/clasp`), con la sesión iniciada con la cuenta institucional dueña del script (`clasp login`). El `.clasp.json` del repositorio apunta al proyecto independiente que ya está en script.google.com.
+Hace falta Node.js y `clasp` (`npm install -g @google/clasp`), con la sesión iniciada con la cuenta institucional dueña del script (`clasp login`). El `.clasp.json` del repositorio apunta al proyecto de Apps Script de la hoja del sistema.
 
 1. **Subir el código.** Desde `AppScript/`, `clasp status` lista lo que se va a subir y `clasp push` lo sube. Si pregunta si sobrescribe el manifest, responde que sí.
 2. **Instalar.** Abre el editor con `clasp open-script`, elige la función `instalar` y pulsa **Ejecutar**, aceptando los permisos que pide Google. Crea en tu Drive la carpeta **SISCargaLectiva** con la hoja **SISCargaLectiva-BD** y guarda la configuración en las propiedades del script. El registro de ejecución muestra los enlaces. Se puede repetir sin riesgo.
@@ -91,7 +107,7 @@ Hace falta Node.js y `clasp` (`npm install -g @google/clasp`), con la sesión in
 
 ### Crecimiento de las versiones
 
-Cada guardado de un plan o de una carga añade una fila con el contenido completo a `Versiones` o `VersionesCarga`, y ninguna se borra. Mientras no exista el caso de uso *Administrar ciclos*, la política propuesta es: al cerrar un ciclo, archivar en otro libro sus versiones y conservar solo la vigente y la última «registrar» de cada documento. El detalle está en la cabecera de `AppScript/Versionado.js`.
+Cada guardado de un plan o de una carga añade una fila con el contenido completo a `Versiones` o `VersionesCarga`, y ninguna se borra. Mientras no exista el caso de uso *Administrar ciclos*, la política propuesta es: al cerrar un ciclo, archivar en otro libro sus versiones y conservar solo la vigente y la última «registrar» de cada documento. El detalle está en la cabecera de `AppScript/base/Versionado.js`.
 
 ### Configuración
 
@@ -113,14 +129,16 @@ Los usuarios se gestionan en la pestaña **Usuarios** de la hoja del sistema, co
 
 ### Estilos, íconos y logotipos
 
-`Estilos.html` e `Iconos.html` se generan: no se editan a mano. Tailwind toma las clases de los `.html` de `AppScript/`, así que hay que volver a generar los estilos cada vez que cambie el marcado, antes de `clasp push`:
+`base/Estilos.html`, `base/Iconos.html` y `base/Alpine.html` se generan: no se editan a mano. Tailwind toma las clases de los `.html` de `AppScript/`, así que hay que volver a generar los estilos cada vez que cambie el marcado, antes de `clasp push`:
 
 ```bash
 cd AppScript/estilos
-npm install          # instala Tailwind CSS 4.3.3 (la primera vez)
-npm run construir    # compila entrada.css y escribe ../Estilos.html con los logotipos incrustados
-npm run iconos       # vuelve a generar ../Iconos.html si cambia la lista de íconos (necesita internet)
+npm install          # instala Tailwind CSS 4.3.3 y Alpine.js 3.17.5 (la primera vez)
+npm run construir    # compila entrada.css en ../base/Estilos.html (con los logotipos) y escribe ../base/Alpine.html
+npm run iconos       # vuelve a generar ../base/Iconos.html si cambia la lista de íconos (necesita internet)
 ```
+
+`base/Alpine.html` es Alpine.js sin su arranque automático. El generador falla si una versión nueva de Alpine cambia la forma de ese arranque.
 
 Los logotipos de `estilos/marca/` salen de `universidad-la-salle-logo.jpg` y `logoWayrasimi.png` con `estilos/marca/procesar-logos.ps1`, que usa Windows PowerShell.
 

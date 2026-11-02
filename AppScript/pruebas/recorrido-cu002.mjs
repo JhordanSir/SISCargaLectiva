@@ -110,6 +110,30 @@ async function main() {
     await c.esperar('document.getElementById("btn-doc-editar").hidden && !document.querySelector("#tb-vista-carrera [data-accion]")', "Sin botones de edición para el coordinador");
     asegurar(c.errores.length === 0, "Sin errores en la consola del coordinador (" + c.errores.join(", ") + ")");
 
+    console.log("Verificación 1b: buscar docente por nombre (Alpine: x-model, botón en espera y x-for)");
+    const enEspera = await c.evaluar(`(() => {
+      const campo = document.getElementById("txt-buscar-docente");
+      campo.value = "flores parra";
+      campo.dispatchEvent(new Event("input"));
+      return Alpine.nextTick().then(() => {
+        document.getElementById("btn-buscar-docente").click();
+        return Alpine.nextTick().then(() => {
+          const b = document.getElementById("btn-buscar-docente");
+          return { cargando: b.classList.contains("cargando"), deshabilitado: b.disabled, texto: b.textContent.trim() };
+        });
+      });
+    })()`);
+    asegurar(enEspera.cargando && enEspera.deshabilitado && enEspera.texto === "Buscando…", "Mientras espera al servidor, el botón dice «Buscando…» y no se puede pulsar");
+    await c.esperar(`[...document.querySelectorAll("#tb-busqueda-docentes .docente-nombre")].map(x => x.textContent).join("|") === "FLORES PARRA, JOSUE MIGUEL"`, "x-for pinta el docente que devolvió el servidor");
+    await c.esperar(`(() => { const b = document.getElementById("btn-buscar-docente"); return !b.classList.contains("cargando") && !b.disabled && b.textContent.trim() === "Buscar"; })()`, "Al llegar la respuesta, el botón vuelve a «Buscar»");
+    asegurar(/1 docente con «flores parra»/.test(await c.evaluar('document.getElementById("resumen-busqueda").textContent')), "El resumen dice cuántos encontró");
+    await c.evaluar(`(() => { const campo = document.getElementById("txt-buscar-docente"); campo.value = "xyzw"; campo.dispatchEvent(new Event("input"));
+      return Alpine.nextTick().then(() => document.getElementById("btn-buscar-docente").click()); })()`);
+    await c.esperar(`/Ningún docente/.test(document.getElementById("resumen-busqueda").textContent) && !document.querySelector("#tb-busqueda-docentes .docente-nombre")`, "Sin coincidencias, la tabla lo dice");
+    await c.pulsar("#btn-limpiar-busqueda", "Pulsar «Limpiar»");
+    await c.esperar(`!document.getElementById("tb-busqueda-docentes") && document.getElementById("txt-buscar-docente").value === "" && document.getElementById("btn-buscar-docente").disabled`, "Limpiar quita los resultados y vacía el campo");
+    asegurar(c.errores.length === 0, "Sin errores en la consola al buscar (" + c.errores.join(", ") + ")");
+
     console.log("Verificación 2: el director entra a la primera carrera de su departamento");
     const p = await Pestana.abrir(url(USUARIO));
     await p.esperar('document.getElementById("u-rol").textContent === "Director del DIMA · Ingeniería y Matemáticas"', "La cabecera dice de qué departamento es el director");

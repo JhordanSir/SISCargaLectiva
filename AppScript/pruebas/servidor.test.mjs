@@ -113,14 +113,14 @@ test("el bloqueo caduca por inactividad y el latido lo renueva", () => {
   ejecutar(e, A, "tableroObtener", CICLO);
   ejecutar(e, A, "edicionPlanAbrir", CICLO, "ING");
   e.desfase = 20 * 60000;
-  assert.ok(ejecutar(e, A, "sesionEdicionRenovar", CICLO, "plan:ING").expira);
+  assert.ok(ejecutar(e, A, "edicionPlanRenovar", CICLO, "plan:ING").expira);
   e.desfase = 45 * 60000;
   assert.equal(ejecutarFallo(e, B, "edicionPlanAbrir", CICLO, "ING").detalle.correo, A, "a los 25 min del latido sigue vigente");
   e.desfase = 51 * 60000;
   assert.ok(ejecutar(e, B, "edicionPlanAbrir", CICLO, "ING").expira, "caducado, lo toma otra cuenta");
-  const perdido = ejecutarFallo(e, A, "sesionEdicionRenovar", CICLO, "plan:ING");
+  const perdido = ejecutarFallo(e, A, "edicionPlanRenovar", CICLO, "plan:ING");
   assert.deepEqual([perdido.codigo, perdido.detalle.correo], ["BLOQUEO_PERDIDO", B]);
-  ejecutar(e, B, "sesionEdicionLiberar", CICLO, "plan:ING");
+  ejecutar(e, B, "edicionPlanLiberar", CICLO, "plan:ING");
   assert.equal(e.hoja("Bloqueos").filas().length, 0);
 });
 
@@ -334,7 +334,7 @@ test("cambiar una celda que no es de la oferta no crea versiones; cambiar la ofe
 
   /* Sin las pestañas de carga desaparecen las marcas de CONDICIÓN: cambian las carreras
      que tenían alguna y solo esas reciben «actualización desde la hoja». */
-  const ctx = cargar(ARCHIVOS_DOMINIO.concat(["comun/FuenteHoja.js", "cu001/OfertaPestanas.js"]));
+  const ctx = cargar(ARCHIVOS_DOMINIO.concat(["base/FuenteHoja.js", "cu001/logica/OfertaPestanas.js"]));
   const lc = librosEjemplo("carrera");
   const con = plano(ctx.ofertaDesdePestanas_(lc, librosEjemplo("departamento"))).oferta;
   const sin = plano(ctx.ofertaDesdePestanas_(lc, null)).oferta;

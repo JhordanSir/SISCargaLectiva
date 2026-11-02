@@ -1,6 +1,6 @@
 // @ts-check
 /* Punto de entrada de la aplicación web: arma Index.html con los datos iniciales y el texto
-   de Dominio. Las vistas viven en comun/, cu001/ y cu002/; las funciones del servidor que
+   de Dominio. Cada pantalla vive en su carpeta de cu001/vistas/ o cu002/vistas/; las funciones del servidor que
    llama cada vista están en el .js de su nombre con «Servidor» (Tablero.html ↔
    TableroServidor.js: Apps Script no deja que un .gs y un .html se llamen igual) y se llaman
    «vista + acción» (tableroObtener, edicionPlanGuardar, asignacionEdicionGuardar…). */
@@ -19,12 +19,12 @@ function doGet() {
     .addMetaTag("viewport", "width=device-width, initial-scale=1");
 }
 
-/* Archivos generados que no tienen scriptlets: se incluyen tal cual, sin evaluarlos. */
-var SIN_PLANTILLA_ = ["comun/Estilos", "comun/Iconos"];
+/* Archivos generados (estilos/) que no tienen scriptlets: se incluyen tal cual, sin evaluarlos. */
+var SIN_PLANTILLA_ = ["base/Estilos", "base/Iconos", "base/Alpine"];
 
 /**
- * Contenido de un archivo HTML del proyecto («cu001/Tablero»), para incluirlo en
- * Index.html. Las vistas son plantillas (usan icono_); Estilos e Iconos se copian tal cual.
+ * Contenido de un archivo HTML del proyecto («cu001/vistas/tablero/Tablero»), para incluirlo en
+ * Index.html. Las vistas son plantillas (usan icono_); Estilos, Iconos y Alpine se copian tal cual.
  * @param {string} nombre
  * @returns {string}
  */

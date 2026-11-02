@@ -1,4 +1,4 @@
-/* Genera ../comun/Iconos.html: un sprite <symbol> con los íconos Phosphor (2.1.1, MIT, peso regular)
+/* Genera ../base/Iconos.html: un sprite <symbol> con los íconos Phosphor (2.1.1, MIT, peso regular)
    que usa la interfaz. Se usan con <svg class="ico"><use href="#i-nombre"></use></svg>.
    Para añadir un ícono, súmalo a ICONOS y ejecuta «npm run iconos» (necesita internet). */
 import fs from "node:fs";
@@ -17,7 +17,7 @@ const ICONOS = [
   "arrows-out-line-vertical", "caret-down", "swap", "user-switch", "users-three", "buildings",
   "graduation-cap", "books", "stack", "clock", "chart-pie-slice", "globe", "sign-out", "x",
   "funnel", "calendar-blank", "confetti", "sparkle", "user-plus", "browsers", "list-checks",
-  "table", "hourglass-medium", "file-xls", "user-circle", "shield-warning"
+  "table", "hourglass-medium", "file-xls", "user-circle", "shield-warning", "magnifying-glass"
 ];
 
 const simbolos = [];
@@ -39,5 +39,5 @@ for (const nombre of ICONOS) {
 const html = `<!-- Generado por AppScript/estilos/iconos.mjs: íconos Phosphor ${VERSION} (MIT), peso regular. No lo edites a mano. -->\n` +
   '<svg class="sprite" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">' + simbolos.join("") + "</svg>\n";
 if (html.includes("<?")) throw new Error("El sprite contiene «<?», que HtmlService tomaría por un scriptlet.");
-fs.writeFileSync(path.join(AQUI, "..", "comun", "Iconos.html"), html);
+fs.writeFileSync(path.join(AQUI, "..", "base", "Iconos.html"), html);
 console.log(ICONOS.length + " íconos → Iconos.html (" + html.length + " caracteres)");

@@ -95,7 +95,7 @@ test("la carga de cada carrera se versiona, se bloquea por separado y avisa del 
   assert.equal(ejecutarFallo(e, OTRO, "asignacionEdicionAbrir", CICLO, "ING").detalle.correo, DIMA);
   assert.ok(ejecutar(e, OTRO, "asignacionEdicionAbrir", CICLO, "IND").expira);
   assert.throws(() => ejecutar(e, OTRO, "asignacionEdicionGuardar", CICLO, "ING", { asignaciones: [], versionBase: 1 }), { codigo: "BLOQUEADO", message: /la está editando/ });
-  ejecutar(e, DIMA, "sesionEdicionLiberar", CICLO, "carga:ING");
+  ejecutar(e, DIMA, "asignacionEdicionLiberar", CICLO, "carga:ING");
   assert.ok(ejecutar(e, OTRO, "asignacionEdicionAbrir", CICLO, "ING").expira);
 
   const h = ejecutar(e, DIMA, "asignacionHistorial", CICLO, "ING");
@@ -222,10 +222,10 @@ test("derivar un curso es una excepción: lo asigna otro departamento, en la car
   let st = ejecutar(e, DACTE, "asignacionObtener", CICLO, "ADM");
   const mate = unidad(st, "ADM", "1.1.4.24");                       // Matemática Básica: la asigna DACTE
   const otra = st.unidades.find(u => u.carrera === "ADM" && u.id !== mate.id);
-  assert.throws(() => ejecutar(e, DIMA, "derivacionGuardar", CICLO, "ADM", mate.id, "DIMA", ""), { codigo: "SIN_PERMISO", message: /Solo puedes derivar/ });
+  assert.throws(() => ejecutar(e, DIMA, "asignacionEdicionDerivar", CICLO, "ADM", mate.id, "DIMA", ""), { codigo: "SIN_PERMISO", message: /Solo puedes derivar/ });
   /* CU-001 FA-005: deriva el director del departamento que asigna; el coordinador no. */
-  assert.throws(() => ejecutar(e, A, "derivacionGuardar", CICLO, "ADM", mate.id, "DIMA", ""), { codigo: "SIN_PERMISO", message: /coordinador de carrera no deriva/ });
-  const r = ejecutar(e, DACTE, "derivacionGuardar", CICLO, "ADM", mate.id, "DIMA", "lo dicta Matemáticas");
+  assert.throws(() => ejecutar(e, A, "asignacionEdicionDerivar", CICLO, "ADM", mate.id, "DIMA", ""), { codigo: "SIN_PERMISO", message: /coordinador de carrera no deriva/ });
+  const r = ejecutar(e, DACTE, "asignacionEdicionDerivar", CICLO, "ADM", mate.id, "DIMA", "lo dicta Matemáticas");
   assert.equal(r.version, 2);
   assert.match(ejecutar(e, B, "edicionPlanHistorial", CICLO, "ADM")[1].motivo, /DACTE → DIMA\. lo dicta Matemáticas/);
   const a = ejecutar(e, B, "consultaObtener", CICLO, "ADM").asignaturas.find(x => x.codigo === "1.1.4.24");
@@ -240,17 +240,17 @@ test("derivar un curso es una excepción: lo asigna otro departamento, en la car
   ejecutar(e, DACTE, "asignacionEdicionGuardar", CICLO, "ADM", { versionBase: 0, asignaciones: [
     { unidad: otra.id, componente: "T", docente: "DOCENTE, DE DACTE" },
     { unidad: mate.id, componente: "T", docente: "INTRUSO, DACTE" }] });
-  ejecutar(e, DACTE, "sesionEdicionLiberar", CICLO, "carga:ADM");
+  ejecutar(e, DACTE, "asignacionEdicionLiberar", CICLO, "carga:ADM");
   ejecutar(e, DIMA, "asignacionEdicionAbrir", CICLO, "ADM");
   const g = ejecutar(e, DIMA, "asignacionEdicionGuardar", CICLO, "ADM", { versionBase: 1, asignaciones: [
     { unidad: mate.id, componente: "T", docente: "DOCENTE, DE DIMA" },
     { unidad: otra.id, componente: "T", docente: "INTRUSO, DIMA" }] });
   assert.deepEqual(g.asignaciones.map(x => x.docente).sort(), ["DOCENTE, DE DACTE", "DOCENTE, DE DIMA"]);
-  ejecutar(e, DIMA, "sesionEdicionLiberar", CICLO, "carga:ADM");
+  ejecutar(e, DIMA, "asignacionEdicionLiberar", CICLO, "carga:ADM");
 
   /* Derivarlo de vuelta al departamento de la carrera quita la derivación; el docente lo sigue. */
-  assert.equal(ejecutar(e, DIMA, "derivacionGuardar", CICLO, "ADM", mate.id, "DIMA", "").sinCambios, true);
-  ejecutar(e, DIMA, "derivacionGuardar", CICLO, "ADM", mate.id, "DACTE", "");
+  assert.equal(ejecutar(e, DIMA, "asignacionEdicionDerivar", CICLO, "ADM", mate.id, "DIMA", "").sinCambios, true);
+  ejecutar(e, DIMA, "asignacionEdicionDerivar", CICLO, "ADM", mate.id, "DACTE", "");
   assert.equal(ejecutar(e, B, "consultaObtener", CICLO, "ADM").asignaturas.find(x => x.codigo === "1.1.4.24").derivado, undefined);
   assert.match(ejecutar(e, B, "edicionPlanHistorial", CICLO, "ADM")[2].motivo, /vuelve al departamento de la carrera/);
   st = ejecutar(e, DIMA, "asignacionObtener", CICLO, "ADM");
@@ -262,7 +262,7 @@ test("derivar un curso es una excepción: lo asigna otro departamento, en la car
 test("la derivación se conserva cuando el Excel de la carrera cambia", () => {
   const e = sistema();
   const mate = unidad(ejecutar(e, A, "asignacionObtener", CICLO, "ADM"), "ADM", "1.1.4.24");
-  ejecutar(e, DIRECTORES.DACTE, "derivacionGuardar", CICLO, "ADM", mate.id, "DIMA", "");
+  ejecutar(e, DIRECTORES.DACTE, "asignacionEdicionDerivar", CICLO, "ADM", mate.id, "DIMA", "");
   const antes = ejecutar(e, A, "consultaObtener", CICLO, "ADM").asignaturas;
   const nuevas = plano(antes).map(a => Object.assign(a, { derivado: undefined }));
   e.ctx.Dominio.conservarIds(nuevas, antes);
@@ -327,9 +327,9 @@ test("el tablero dice qué grupos tienen docente y la recuperación se guarda y 
   const st = ejecutar(e, DIMA, "asignacionObtener", CICLO, "ING");
   const u = unidad(st, "ING", "3.4.4.24");
   ejecutar(e, DIMA, "asignacionEdicionAbrir", CICLO, "ING");
-  ejecutar(e, DIMA, "sesionEdicionGuardarCopia", CICLO, "carga:ING", { contenido: [{ unidad: u.id, componente: "T", docente: "X" }], versionBase: 0 });
+  ejecutar(e, DIMA, "asignacionEdicionGuardarCopia", CICLO, "carga:ING", { contenido: [{ unidad: u.id, componente: "T", docente: "X" }], versionBase: 0 });
   assert.equal(ejecutar(e, DIMA, "asignacionEdicionAbrir", CICLO, "ING").recuperacion.contenido[0].docente, "X");
-  assert.throws(() => ejecutar(e, A, "sesionEdicionGuardarCopia", CICLO, "carga:ING", { contenido: [] }), { codigo: "SIN_PERMISO", message: /consulta la asignación/ });
+  assert.throws(() => ejecutar(e, A, "asignacionEdicionGuardarCopia", CICLO, "carga:ING", { contenido: [] }), { codigo: "SIN_PERMISO", message: /consulta la asignación/ });
   ejecutar(e, DIMA, "asignacionEdicionGuardar", CICLO, "ING", { asignaciones: [{ unidad: u.id, componente: "T", docente: "VELASQUEZ DOIG, MIGUEL EDUARDO" }], versionBase: 0 });
   assert.equal(ejecutar(e, DIMA, "asignacionEdicionAbrir", CICLO, "ING").recuperacion, null, "al guardar se borra");
   const t = ejecutar(e, A, "tableroObtener", CICLO);
@@ -387,4 +387,30 @@ test("instalar() pasa las cargas por departamento de antes a cargas por carrera"
 
   ejecutar(e, A, "instalar");
   assert.equal(e.hoja("VersionesCarga").filas().length, tipos.length, "repetir instalar() no vuelve a migrar");
+});
+
+test("buscar docente por nombre: sin tildes ni mayúsculas, con sus horas guardadas y sin DNI", () => {
+  const e = sistema();
+  const st = ejecutar(e, DIMA, "asignacionObtener", CICLO, "ING");
+  const u = unidad(st, "ING", "3.4.4.24");
+  const chavez = ejecutar(e, A, "asignacionBuscarDocentes", CICLO, "  angel   chavez ");
+  assert.equal(chavez.texto, "angel chavez");
+  assert.deepEqual(chavez.docentes.map(d => d.nombre), ["CHÁVEZ CONTRERAS, ÁNGEL EVARISTO"], "todas las palabras, en cualquier orden, sin tildes");
+  assert.deepEqual([chavez.docentes[0].horas, chavez.docentes[0].carreras, chavez.docentes[0].enCatalogo], [0, [], true], "sin carga guardada, 0 h");
+  assert.ok(ejecutar(e, A, "asignacionBuscarDocentes", CICLO, "ar").docentes.every(d => !("dni" in d)), "la búsqueda no devuelve el DNI");
+
+  ejecutar(e, DIMA, "asignacionEdicionAbrir", CICLO, "ING");
+  ejecutar(e, DIMA, "asignacionEdicionGuardar", CICLO, "ING", { asignaciones: [
+    { unidad: u.id, componente: "T", docente: "ALFARO BEJARANO, JULIO CARLO" },
+    { unidad: u.id, componente: "P", docente: "VELASQUEZ DOIG, MIGUEL EDUARDO" }
+  ], versionBase: 0 });
+  const alfaro = ejecutar(e, A, "asignacionBuscarDocentes", CICLO, "Alfaro").docentes[0];
+  assert.ok(alfaro.horas > 0 && alfaro.carreras.length === 1 && alfaro.carreras[0].carrera === "ING" && alfaro.carreras[0].horas === alfaro.horas,
+    "suma las horas de la carga guardada, por carrera");
+  assert.deepEqual(ejecutar(e, A, "asignacionBuscarDocentes", CICLO, "velásquez").docentes.map(d => [d.nombre, d.enCatalogo]),
+    [["VELASQUEZ DOIG, MIGUEL EDUARDO", false]], "también los asignados que no están en el catálogo");
+  assert.equal(ejecutar(e, A, "asignacionBuscarDocentes", "2026-2", "Alfaro").docentes[0].horas, 0, "las horas son las del ciclo pedido");
+
+  assert.throws(() => ejecutar(e, A, "asignacionBuscarDocentes", CICLO, " a "), { codigo: "DATO_INVALIDO", message: /dos letras/ });
+  assert.deepEqual(ejecutar(e, A, "asignacionBuscarDocentes", CICLO, "xyzw"), { texto: "xyzw", total: 0, docentes: [] });
 });
