@@ -1,4 +1,6 @@
-<!-- ===== Carga masiva de la oferta: opciones (CU-001 paso 19) y pegado (pasos 21 a 30) ===== -->
+<!-- ===== Carga masiva de la oferta: opciones (CU-001 paso 19) y pegado (pasos 21 a 30)
+     Vistas #v-carga y #v-pegado, pasos de la edición del plan. Su JavaScript: el <script> de abajo;
+     el bloqueo y el reloj, EdicionPlanSesion.html. No llama al servidor: lo leído pasa a la grilla (EdicionPlan.html). ===== -->
 <section class="vista" id="v-carga" hidden :hidden="$store.nav.vista !== 'carga'">
   <header class="vista-cab">
     <div>
@@ -12,6 +14,7 @@
     </div>
   </header>
 
+  <!-- El título y esta nota los escribe mostrarCargaOferta(). -->
   <div class="nota ok" id="nota-bloqueo"></div>
 
   <div class="opciones-carga">
@@ -25,7 +28,7 @@
       <b>Subir archivo</b>
       <small>.xlsx, .csv o texto; también puedes soltarlo aquí. Si el libro tiene varias hojas, eliges una.</small>
     </button>
-    <button type="button" class="opcion" id="op-plantilla" data-accion="descargarPlantilla">
+    <button type="button" class="opcion" data-accion="descargarPlantilla">
       <span class="opcion-ico"><?!= icono_("download-simple") ?></span>
       <b>Descargar plantilla oficial</b>
       <small>Un .csv con las columnas de la plantilla y una fila de ejemplo.</small>
@@ -54,6 +57,7 @@
     </div>
   </header>
 
+  <!-- Rejilla de pegado: la dibuja rejillaOferta (crearRejillaPegado, base/Rejilla.html). -->
   <div>
     <div class="hoja" id="hoja-pegado" tabindex="0" role="group"
          aria-label="Área de pegado. Pulsa Ctrl+V para pegar el rango copiado.">
@@ -79,7 +83,14 @@
    Carga masiva de la oferta: opciones, pegado, archivo y plantilla. Es parte de la
    edición del plan (el bloqueo ya está tomado) y no llama al servidor: el contenido se
    interpreta en el navegador (Dominio.interpretar) y pasa a la Grilla de Vista Previa
-   (cu001/vistas/edicion-plan/EdicionPlan.html), que se guarda con edicionPlanGuardar.
+   (EdicionPlan.html), que se guarda con edicionPlanGuardar.
+   ------------------------------------------------------------
+   Vista: #v-carga y #v-pegado, arriba en este archivo.
+   Botones: el mapa de enlazarAcciones de abajo.
+   Servidor: ninguno (lo guarda EdicionPlanSesion.html).
+   Usa de esta carpeta: edicion y pintarGrilla (EdicionPlan.html), latidoPlan y
+   salirDeEdicionPlan (EdicionPlanSesion.html).
+   Otras pantallas usan de aquí: mostrarCargaOferta (EdicionPlanSesion.html, EdicionPlanAcciones.html).
    ============================================================ */
 enlazarAcciones($("#v-carga"), () => ({
   volverAlTablero: () => salirDeEdicionPlan(),                         // FA-029

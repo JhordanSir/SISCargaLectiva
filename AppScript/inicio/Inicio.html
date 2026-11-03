@@ -1,4 +1,6 @@
-<!-- ===== Inicio (CU-001 y CU-002, paso 6), sistema sin instalar y acceso denegado (CU-001 FA-001 a FA-003, CU-002 FA-003 a FA-005) ===== -->
+<!-- ===== Inicio (CU-001 y CU-002, paso 6), sistema sin instalar y acceso denegado (CU-001 FA-001 a FA-003, CU-002 FA-003 a FA-005)
+     Vistas #v-instalar, #v-denegado y #v-menu. Su JavaScript: el <script> de abajo. No llama al servidor.
+     base/Arranque.html elige cuál se muestra al cargar la página. ===== -->
 <section class="vista" id="v-instalar" hidden :hidden="$store.nav.vista !== 'instalar'">
   <div class="tarjeta estado-acceso">
     <span class="estado-ico aviso"><?!= icono_("warning") ?></span>
@@ -16,6 +18,7 @@
 <section class="vista" id="v-denegado" hidden :hidden="$store.nav.vista !== 'denegado'">
   <div class="tarjeta estado-acceso">
     <span class="estado-ico error"><?!= icono_("shield-warning") ?></span>
+    <!-- El título y el motivo los escribe arrancar() (base/Arranque.html). -->
     <h1 class="titulo" id="denegado-titulo">Acceso denegado</h1>
     <div class="nota error mt-4" id="denegado-msg"></div>
     <p class="ayuda mt-4"><?!= icono_("info") ?>Si tienes varias cuentas de Google abiertas, cambia a tu cuenta institucional y recarga la página.</p>
@@ -23,6 +26,7 @@
 </section>
 
 <section class="vista" id="v-menu" hidden :hidden="$store.nav.vista !== 'menu'">
+  <!-- Saludo, ciclo, anillo y cifras: los pinta pintarInicio() con el tablero del ciclo. -->
   <div class="hero">
     <div class="hero-facetas" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
     <div>
@@ -70,6 +74,12 @@
 /* ============================================================
    Inicio: saludo, avance del ciclo y accesos a las dos secciones. No llama al servidor:
    las cifras salen del tablero que trajo la página (cu001/vistas/tablero/Tablero.html).
+   ------------------------------------------------------------
+   Vista: #v-menu (y #v-instalar, #v-denegado), arriba en este archivo.
+   Botones: el mapa de enlazarAcciones de abajo.
+   Servidor: ninguno.
+   Usa de otras pantallas: tablero, filasDelTablero y cargarTablero (cu001/vistas/tablero).
+   Otras pantallas usan de aquí: pintarInicio (el tablero, al llegar sus filas).
    ============================================================ */
 enlazarAcciones($("#v-menu"), () => ({
   registrarPlan: () => irA("planes"),        // CU-001 paso 7

@@ -55,15 +55,16 @@ El detalle está en [requirements.md](docs/requerimientos/requirements.md) y en 
 │   ├── Index.html, IndexServidor.js  # La página (cabecera, pie, include() de cada pantalla) y doGet
 │   ├── inicio/Inicio.html            # Pantalla de inicio, acceso denegado y «sin instalar»
 │   ├── cu001/                        # CU-001 Registrar plan de ciclo
-│   │   ├── vistas/                   # Una carpeta por pantalla: su .html y el …Servidor.js que la atiende
+│   │   ├── vistas/                   # Una carpeta por pantalla: sus .html y los …Servidor.js que la atienden
 │   │   │   ├── tablero/              # Tablero.html ↔ TableroServidor.js
 │   │   │   ├── consulta/             # Consulta.html ↔ ConsultaServidor.js
-│   │   │   ├── carga-oferta/         # CargaOferta.html (no llama al servidor)
-│   │   │   ├── edicion-plan/         # EdicionPlan*.html, PlanBloques.html ↔ EdicionPlanServidor.js
+│   │   │   ├── edicion-plan/         # CargaOferta, EdicionPlan, EdicionPlanAcciones, EdicionPlanSesion y
+│   │   │   │                         #   PlanBloques (.html) ↔ EdicionPlanServidor.js
 │   │   │   └── docentes-asignados/   # DocentesAsignados.html ↔ DocentesAsignadosServidor.js
 │   │   └── logica/                   # Reglas y datos del plan: PlanServicio, PlanRepositorio, Fusiones, DominioPlan…
 │   ├── cu002/                        # CU-002 Asignar docentes a plan de ciclo
-│   │   ├── vistas/                   # asignacion/, asignacion-edicion/, asignacion-carga/
+│   │   ├── vistas/asignacion/        # Asignacion, AsignacionEdicion y AsignacionCarga (.html)
+│   │   │                             #   ↔ AsignacionServidor.js, AsignacionEdicionServidor.js
 │   │   └── logica/                   # Reglas y datos de la carga: CargaServicio, CargaReglas, CatalogoDocentes…
 │   ├── base/                         # Infraestructura de todas las pantallas, sin entradas para el navegador:
 │   │                                 #   Nucleo, Ventanas, Pestanas, Arranque, SesionEdicion, Derivacion, Rejilla (navegador);
@@ -87,6 +88,8 @@ El detalle está en [requirements.md](docs/requerimientos/requirements.md) y en 
 ### Cómo se conecta una pantalla con su servidor
 
 - **Todo lo que una pantalla pide al servidor está en el `…Servidor.js` de su misma carpeta.** Las entradas se llaman «pantalla + acción»: `Tablero.html` llama a `tableroObtener` de `TableroServidor.js`; `Asignacion.html`, a `asignacionBuscarDocentes` de `AsignacionServidor.js`. La prueba `pruebas/infraestructura.test.mjs` lo comprueba en cada `.html`.
+- **Una pantalla con varios modos o pasos va entera en su carpeta.** La edición del plan incluye su carga masiva (`CargaOferta.html`); la asignación docente, su modo de edición y su carga masiva. Así, el botón y la función que lo atiende están siempre en la misma carpeta.
+- **Cada `<script>` empieza con una ficha:** `Vista`, `Botones`, `Servidor`, `Alpine`, lo que usa de otras pantallas y lo que les ofrece. En el marcado, un comentario junto a cada elemento que se llena desde JavaScript dice qué función lo pinta. `pruebas/infraestructura.test.mjs` comprueba que la línea `Servidor:` de cada ficha nombre todas las entradas que llama su archivo.
 - **`base/` no tiene entradas para el navegador.** Sus ayudas reciben el nombre de la entrada de quien las usa. Por ejemplo, la sesión de edición (`base/SesionEdicion.html`) recibe `edicionPlanRenovar` o `asignacionEdicionRenovar`, y por debajo ambas usan `base/Sesiones.js`. En Apps Script todos los `.js` comparten un mismo espacio de nombres y todos los `.html` se incluyen en la misma página, así que la infraestructura no se puede copiar en cada caso de uso sin que sus funciones choquen.
 - **Alpine.js.** `<body x-data>` hace de toda la página un componente, y `base/Nucleo.html` define dos stores:
   - **`$store.nav`**: la vista que se ve. Cada `<section id="v-…">` lleva `:hidden="$store.nav.vista !== '…'"` y los botones de la cabecera usan `@click="irA('planes')"`.

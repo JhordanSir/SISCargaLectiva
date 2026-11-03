@@ -1,19 +1,22 @@
-<!-- ===== Carga masiva de asignaciones desde CargaXDepartamento (CU-002 pasos 24 a 59) ===== -->
+<!-- ===== Carga masiva de asignaciones desde CargaXDepartamento (CU-002 pasos 24 a 59)
+     Vista #v-docentes-carga, un paso del modo de edición de #v-docentes. Su JavaScript: el <script> de abajo.
+     No llama al servidor: lo aplicado se guarda con «Guardar asignaciones» (AsignacionEdicion.html). ===== -->
 <section class="vista" id="v-docentes-carga" hidden :hidden="$store.nav.vista !== 'docentes-carga'">
   <header class="vista-cab">
     <div>
-      <button type="button" class="btn fantasma btn-sm volver" id="volver-doc-carga" data-accion="volverALaAsignacion"><?!= icono_("arrow-left") ?>Volver a la asignación docente</button>
+      <button type="button" class="btn fantasma btn-sm volver" data-accion="volverALaAsignacion"><?!= icono_("arrow-left") ?>Volver a la asignación docente</button>
       <p class="sobretitulo"><?!= icono_("upload-simple") ?>Asignar docentes al plan de ciclo</p>
       <h1 class="titulo" id="doc-carga-titulo">Carga masiva de asignaciones</h1>
       <p class="subtitulo">Pega o sube la hoja de tu departamento de CargaXDepartamento. Solo se toman las filas de esta carrera y las secciones que asignas; lo demás se conserva.</p>
     </div>
     <div class="vista-acciones">
-      <button type="button" class="btn primario" id="btn-doc-pegar-tab" data-accion="pegarDesdeSheets"><?!= icono_("clipboard") ?>Pegar desde Google Sheets</button>
-      <button type="button" class="btn" id="btn-doc-archivo-tab" data-accion="subirCargaXDepartamento"><?!= icono_("file-xls") ?>Subir CargaXDepartamento</button>
+      <button type="button" class="btn primario" data-accion="pegarDesdeSheets"><?!= icono_("clipboard") ?>Pegar desde Google Sheets</button>
+      <button type="button" class="btn" data-accion="subirCargaXDepartamento"><?!= icono_("file-xls") ?>Subir CargaXDepartamento</button>
     </div>
   </header>
   <input type="file" id="input-doc-archivo" data-accion="leerArchivoElegido" hidden accept=".xlsx,.xls,.ods,.csv,.txt">
 
+  <!-- Rejilla de pegado: la dibuja rejillaDocentes (crearRejillaPegado, base/Rejilla.html). -->
   <div id="caja-pegar-doc">
     <div class="hoja" id="hoja-pegado-doc" tabindex="0" role="group" aria-label="Área de pegado para la asignación docente. Pulsa Ctrl+V para pegar.">
       <div class="hoja-vacia" id="hoja-vacia-doc">
@@ -31,6 +34,7 @@
   </div>
 
   <div id="caja-previa-doc" hidden>
+    <!-- Nota y tablas de la previsualización: las pinta previsualizarAsignaciones(). -->
     <div class="nota" id="nota-previa-doc"></div>
     <div class="tarjeta tarjeta-tabla mt-4" id="caja-resolver-doc" hidden>
       <div class="p-4"><p class="text-sm font-bold">Docentes que no están en el catálogo</p>
@@ -52,7 +56,7 @@
     </div>
     <div class="barra-acciones mt-4">
       <button type="button" class="btn primario" id="btn-aplicar-previa-doc" data-accion="aplicar"><?!= icono_("check") ?>Aplicar a la asignación</button>
-      <button type="button" class="btn" id="btn-cancelar-previa-doc" data-accion="descartar"><?!= icono_("x") ?>Descartar</button>
+      <button type="button" class="btn" data-accion="descartar"><?!= icono_("x") ?>Descartar</button>
     </div>
   </div>
 </section>
@@ -64,6 +68,12 @@
    se interpreta en el navegador (Dominio.interpretarCargaDepartamento) y las asignaciones
    pasan a la carga en edición, que se guarda con «Guardar asignaciones»
    (AsignacionEdicion.html).
+   ------------------------------------------------------------
+   Vista: #v-docentes-carga, arriba en este archivo.
+   Botones: el mapa de enlazarAcciones de abajo.
+   Servidor: ninguno.
+   Usa de esta carpeta: asignacion, pintarVistaDocentes (Asignacion.html) y lo que marca
+   los cambios de la edición (AsignacionEdicion.html).
    ============================================================ */
 enlazarAcciones($("#v-docentes-carga"), () => ({
   volverALaAsignacion: () => { mostrar("docentes"); pintarVistaDocentes(); },          // FA-028

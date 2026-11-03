@@ -1,4 +1,6 @@
-<!-- ===== Consulta de un plan en solo lectura (CU-001 FA-013, FA-014; derivación FA-005 a FA-008) ===== -->
+<!-- ===== Consulta de un plan en solo lectura (CU-001 FA-013, FA-014; derivación FA-005 a FA-008)
+     Vista #v-lectura. Su JavaScript: el <script> de abajo; los bloques por semestre los dibuja
+     cu001/vistas/edicion-plan/PlanBloques.html, igual que en la edición. Su servidor: ConsultaServidor.js. ===== -->
 <section class="vista" id="v-lectura" hidden :hidden="$store.nav.vista !== 'lectura'">
   <header class="vista-cab">
     <div>
@@ -10,6 +12,7 @@
       <button type="button" class="btn primario" id="lectura-editar" data-accion="editarEstePlan" hidden><?!= icono_("pencil-simple") ?>Editar este plan</button>
     </div>
   </header>
+  <!-- Título, nota, resumen y bloques: los pinta abrirConsulta() (con pintarResumen y htmlBloques de PlanBloques.html). -->
   <div class="nota" id="lectura-nota"></div>
   <dl class="resumen" id="lectura-resumen"></dl>
   <div id="lectura-bloques" class="bloques" x-ignore></div>
@@ -21,6 +24,15 @@
    Consulta de un plan en solo lectura. Llama a ConsultaServidor.js: consultaObtener, solo
    si el tablero no trajo el contenido, y consultaDerivar, con la ventana de
    base/Derivacion.html.
+   ------------------------------------------------------------
+   Vista: #v-lectura, arriba en este archivo.
+   Botones: el mapa de enlazarAcciones de abajo.
+   Servidor: ConsultaServidor.js (consultaObtener, consultaDerivar).
+   Usa de otras pantallas: filaTablero, bloqueoVigente, mostrarTablero (tablero);
+   pintarResumen, htmlBloques, alternarBloque (edicion-plan/PlanBloques.html);
+   entrarAEditarPlan (edicion-plan); docentesDelPlan, alCambiarDocentesAsignados,
+   cambiaronDocentesDe (docentes-asignados).
+   Otras pantallas usan de aquí: abrirConsulta, viendoConsulta.
    ============================================================ */
 /**
  * Estado de la consulta.

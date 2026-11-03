@@ -1,4 +1,6 @@
-<!-- ===== Planes de ciclo: tablero del ciclo (CU-001 pasos 8 a 12, FA-009 a FA-012) ===== -->
+<!-- ===== Planes de ciclo: tablero del ciclo (CU-001 pasos 8 a 12, FA-009 a FA-012)
+     Vista #v-planes. Su JavaScript: el <script> de abajo. Su servidor: TableroServidor.js.
+     Alpine: la tabla y el avance se pintan desde $store.planes; «Releer la hoja» espera con $store.servidor. ===== -->
 <section class="vista" id="v-planes" hidden :hidden="$store.nav.vista !== 'planes'">
   <header class="vista-cab">
     <div>
@@ -9,7 +11,7 @@
     <div class="vista-acciones">
       <div class="campo campo-ciclo">
         <label for="sel-ciclo">Ciclo académico</label>
-        <select id="sel-ciclo" class="control" data-accion="cambiarCiclo"></select>
+        <select id="sel-ciclo" class="control" data-accion="cambiarCiclo"></select>   <!-- sus opciones: CONFIG.ciclos, al cargar el script -->
       </div>
       <!-- Mientras tableroObtener está en curso, el botón muestra que espera y no se puede pulsar. -->
       <button type="button" class="btn" id="btn-releer" data-accion="releerHoja" title="Vuelve a leer ahora las pestañas de oferta, carga y docentes de la hoja del sistema"
@@ -18,13 +20,14 @@
     </div>
   </header>
 
+  <!-- Lo pinta fijarTablero(). -->
   <div id="avisos-tablero" class="avisos" hidden></div>
 
   <!-- Avance del ciclo: lo pinta Alpine con $store.planes (pintarAvance). -->
   <div class="tarjeta avance">
-    <div class="avance-cab"><b id="avance-titulo" x-text="$store.planes.titulo">Avance del ciclo</b><span id="avance-detalle" x-text="$store.planes.detalle"></span></div>
+    <div class="avance-cab"><b x-text="$store.planes.titulo">Avance del ciclo</b><span x-text="$store.planes.detalle"></span></div>
     <div class="avance-barra" aria-hidden="true">
-      <span class="registrado" id="avance-registrado" :style="{ width: $store.planes.registrado + '%' }" style="width:0"></span><span class="borrador" id="avance-borrador" :style="{ width: $store.planes.borrador + '%' }" style="width:0"></span>
+      <span class="registrado" :style="{ width: $store.planes.registrado + '%' }" style="width:0"></span><span class="borrador" :style="{ width: $store.planes.borrador + '%' }" style="width:0"></span>
     </div>
     <ul class="avance-leyenda" id="avance-leyenda">
       <template x-for="l in $store.planes.leyenda" :key="l.clase">
@@ -75,6 +78,17 @@
    Las filas traen el contenido vigente de cada plan, así que consultar un plan o empezar
    a editarlo no espera al servidor. Se muestra lo que haya y, si ya tiene unos segundos,
    se vuelve a leer de fondo.
+   ------------------------------------------------------------
+   Vista: #v-planes, arriba en este archivo.
+   Botones: el mapa de enlazarAcciones de abajo.
+   Servidor: TableroServidor.js (tableroObtener).
+   Alpine: $store.planes (x-for de las filas, avance y leyenda); «Releer la hoja» con
+   $store.servidor.ocupado("tableroObtener").
+   Usa de otras pantallas: abrirConsulta (consulta), entrarAEditarPlan (edicion-plan),
+   actualizarDocentesAsignados (docentes-asignados), pintarInicio (inicio).
+   Otras pantallas usan de aquí: tablero, filasDelTablero, filaTablero, bloqueoVigente,
+   mostrarTablero, cargarTablero, pintarTablero, actualizarFilaTablero. Es la copia del
+   ciclo que comparten el inicio, la consulta y la edición.
    ============================================================ */
 /**
  * Estado del tablero.

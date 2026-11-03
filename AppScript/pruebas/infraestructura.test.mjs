@@ -203,3 +203,28 @@ test("base/Alpine.html sobrevive a HtmlService: ningún «//» ni «/*» fuera d
   assert.equal(codigo.search(/\/\/|\/\*/), -1);
   assert.doesNotThrow(() => new Function(codigo), "el código compila");
 });
+
+test("cada vista tiene su ficha, y su línea «Servidor:» nombra cada entrada que llama", () => {
+  /* La ficha de la cabecera del <script> (Vista, Botones, Servidor, Alpine, lo que usa de
+     otras pantallas) es lo que dice qué JavaScript y qué servidor van con cada parte de la
+     vista. Esta prueba impide que se desactualice en lo principal: las llamadas al servidor. */
+  const leer = f => fs.readFileSync(path.join(RAIZ, f), "utf8");
+  const entradas = new Set(archivosApp(".js").flatMap(f => [...leer(f).matchAll(/^function\s+([a-z]\w*[^_\s(])\s*\(/gm)].map(m => m[1])));
+  const vistas = archivosApp(".html").filter(f => /^(inicio|cu00[12]\/vistas)\//.test(f));
+  const faltan = [];
+  for (const f of vistas) {
+    const t = leer(f);
+    const s = t.indexOf("<script>\n");
+    const ficha = t.slice(t.indexOf("/* ====", s), t.indexOf("=== */", s));
+    if (!/\n   Vista: /.test(ficha) || !/\n   Servidor: /.test(ficha)) { faltan.push(f + ": sin ficha (Vista:, Servidor:)"); continue; }
+    /* La línea «Servidor:» sigue hasta el campo siguiente de la ficha (Alpine:, Usa…, Otras…). */
+    const desde = ficha.indexOf("\n   Servidor: ");
+    const resto = ficha.slice(desde + 1);
+    const siguiente = resto.search(/\n   (Alpine|Usa de|Otras pantallas)[^\n]*:/);
+    const servidor = siguiente < 0 ? resto : resto.slice(0, siguiente);
+    const codigo = t.slice(t.indexOf("=== */", s));
+    for (const m of codigo.matchAll(/["']([a-z][A-Za-z]+)["']/g))
+      if (entradas.has(m[1]) && !servidor.includes(m[1])) faltan.push(f + ": llama a " + m[1] + " y su ficha no lo nombra en «Servidor:»");
+  }
+  assert.deepEqual([...new Set(faltan)], []);
+});

@@ -4,6 +4,16 @@
    Edición del plan de ciclo: sesión con bloqueo, entrar y salir de la edición, guardado,
    registro y avisos entre pestañas. Llama a EdicionPlanServidor.js (edicionPlanAbrir,
    edicionPlanGuardar) y, a través de base/SesionEdicion.html, a base/Sesiones.js.
+   ------------------------------------------------------------
+   Vista: el reloj y los botones de guardar y registrar de #v-carga, #v-pegado y #v-grilla.
+   Botones: los enlaza el mapa de EdicionPlan.html; aquí está lo que hacen.
+   Servidor: EdicionPlanServidor.js (edicionPlanAbrir, edicionPlanGuardar; y edicionPlanRenovar,
+   edicionPlanLiberar, edicionPlanGuardarCopia, edicionPlanDescartarCopia, que la sesión de
+   base/SesionEdicion.html llama con estos nombres).
+   Usa de otras pantallas: tablero, filaTablero, bloqueoVigente, mostrarTablero,
+   cargarTablero, pintarTablero, actualizarFilaTablero (tablero); abrirConsulta,
+   viendoConsulta (consulta).
+   Otras pantallas usan de aquí: entrarAEditarPlan (tablero, consulta).
    ============================================================ */
 let pedidoEdicion = 0;   // descarta las respuestas de edicionPlanAbrir que llegan tarde
 const refPlan = sig => Dominio.REF.plan(sig);

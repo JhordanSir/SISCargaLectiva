@@ -6,6 +6,12 @@
    porque calcularlos lee las cargas docentes: se piden aparte y en segundo plano cuando
    llega el tablero o se guarda una carga. Los usan la consulta del plan (CU-001 FA-013,
    columna del docente) y la edición (advertencias de FA-057, FA-064 y FA-071).
+   ------------------------------------------------------------
+   Vista: ninguna; da datos a la consulta y a la edición del plan.
+   Servidor: DocentesAsignadosServidor.js (docentesAsignadosObtener).
+   Otras pantallas usan de aquí: actualizarDocentesAsignados (tablero, asignación docente),
+   asegurarDocentesAsignados, docentesDelPlan, alCambiarDocentesAsignados,
+   cambiaronDocentesDe (consulta, edición).
    ============================================================ */
 const docentesAsignados = { ciclo: "", mapa: null, pedido: null, cicloPedido: "", oyentes: [] };
 

@@ -1,4 +1,8 @@
-<!-- ===== Asignación docente: «Carga docente · <sigla> · <carrera> · <ciclo>» (CU-002 pasos 12 a 23) ===== -->
+<!-- ===== Asignación docente: «Carga docente · <sigla> · <carrera> · <ciclo>» (CU-002 pasos 12 a 23)
+     Vista #v-docentes, en consulta y en modo de edición. Su JavaScript está en esta carpeta: el <script> de abajo
+     pinta la pantalla y enlaza todos sus botones; AsignacionEdicion.html cumple los del modo de edición.
+     Su servidor: AsignacionServidor.js (consulta, búsqueda) y AsignacionEdicionServidor.js (edición).
+     Alpine: la búsqueda de docentes ($store.busqueda, x-for) y su botón en espera ($store.servidor). ===== -->
 <section class="vista" id="v-docentes" hidden :hidden="$store.nav.vista !== 'docentes'">
   <header class="vista-cab">
     <div>
@@ -6,6 +10,7 @@
       <h1 class="titulo" id="doc-titulo">Carga docente por carrera</h1>
       <p class="subtitulo" id="doc-subtitulo">Asigna docentes a las secciones del plan registrado de cada carrera de tu departamento.</p>
     </div>
+    <!-- Qué botones se ven lo decide pintarVistaDocentes(); los del modo de edición los cumple AsignacionEdicion.html. -->
     <div class="vista-acciones">
       <span class="badge-doc pendiente" id="doc-sin-guardar" hidden><?!= icono_("warning") ?>Cambios sin guardar</span>
       <span class="chip-reloj" id="doc-chip-reloj" hidden><?!= icono_("timer") ?><span class="reloj" id="reloj-asignacion"></span></span>
@@ -32,7 +37,7 @@
     </div>
     <div class="filtros-extra">
       <div id="filtros-vista-carrera" class="flex flex-wrap items-center gap-2">
-        <label class="casilla"><input type="checkbox" id="chk-solo-pendientes" data-accion="soloSinDocente">Solo secciones sin docente</label>
+        <label class="casilla"><input type="checkbox" data-accion="soloSinDocente">Solo secciones sin docente</label>
       </div>
       <div id="filtros-vista-dpto" class="flex flex-wrap items-center gap-2" hidden>
         <label for="sel-filtro-docentes" class="ayuda"><?!= icono_("funnel") ?>Mostrar</label>
@@ -45,6 +50,7 @@
     </div>
   </div>
 
+  <!-- Avisos, métricas y advertencias: los pinta pintarVistaDocentes(). -->
   <div id="avisos-docentes" class="avisos" hidden></div>
 
   <div class="resumen-docentes">
@@ -137,7 +143,7 @@
             <th>Docentes por componente</th><th>Estado</th><th><span class="sr-only">Acciones</span></th>
           </tr>
         </thead>
-        <tbody id="tb-vista-carrera" x-ignore></tbody>
+        <tbody id="tb-vista-carrera" x-ignore></tbody>   <!-- la pinta pintarTablaSecciones() -->
       </table>
     </div>
   </div>
@@ -151,7 +157,7 @@
             <th>Cursos (carrera · código · grupo · componente)</th><th>Advertencias</th><th><span class="sr-only">Acciones</span></th>
           </tr>
         </thead>
-        <tbody id="tb-vista-dpto" x-ignore></tbody>
+        <tbody id="tb-vista-dpto" x-ignore></tbody>   <!-- la pinta pintarTablaDocentes() -->
       </table>
     </div>
   </div>
@@ -162,7 +168,7 @@
     <div class="tabla-caja">
       <table>
         <thead><tr><th>Docente</th><th>Carrera</th><th>Código</th><th>Asignatura</th><th class="num">Grupo</th><th>Nota</th><th><span class="sr-only">Acciones</span></th></tr></thead>
-        <tbody id="tb-sin-seccion" x-ignore></tbody>
+        <tbody id="tb-sin-seccion" x-ignore></tbody>   <!-- la pinta pintarSinSeccion() -->
       </table>
     </div>
   </div>
@@ -181,6 +187,15 @@
    con bloqueo, el director del departamento de la carrera; un curso derivado a otro
    departamento lo asigna el director de ese departamento. Los demás la consultan. El
    balance de cada docente suma sus horas en todas las carreras.
+   ------------------------------------------------------------
+   Vista: #v-docentes, arriba en este archivo.
+   Botones: todos en el mapa de enlazarAcciones de abajo; los del modo de edición los
+   cumple AsignacionEdicion.html, y «Carga masiva», AsignacionCarga.html.
+   Servidor: AsignacionServidor.js (asignacionObtener, asignacionHistorial,
+   asignacionVerVersion, asignacionBuscarDocentes).
+   Alpine: $store.busqueda (x-model del campo, x-for de los resultados) y el botón
+   «Buscar» con $store.servidor.ocupado("asignacionBuscarDocentes").
+   Otras pantallas usan de aquí: nada fuera de esta carpeta.
    ============================================================ */
 /**
  * Estado de la asignación docente.

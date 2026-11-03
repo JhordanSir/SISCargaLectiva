@@ -2,7 +2,7 @@
 /* Entradas de la pantalla de asignación docente (Asignacion.html) en modo de consulta y de
    su búsqueda de docentes. Validan, comprueban la cuenta y delegan en CargaServicio.js. La
    derivación de una sección (FA-079) se hace en modo de edición:
-   cu002/vistas/asignacion-edicion/AsignacionEdicionServidor.js. */
+   AsignacionEdicionServidor.js. */
 
 /**
  * CU-002 pasos 7 a 17 y FA-006 a FA-014: secciones del ciclo, cargas de todas las carreras

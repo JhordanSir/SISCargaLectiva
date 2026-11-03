@@ -2,7 +2,7 @@
 /* Derivación de una asignatura a otro departamento: la excepción a que el docente lo asigne
    el departamento de la carrera. Las entradas son de cada pantalla: consultaDerivar
    (cu001/vistas/consulta, CU-001 FA-005 a FA-008) y asignacionEdicionDerivar
-   (cu002/vistas/asignacion-edicion, CU-002 FA-079 a FA-083). Se anota en
+   (cu002/vistas/asignacion, CU-002 FA-079 a FA-083). Se anota en
    asignatura.derivado (la columna DPTO no cambia); derivarla al departamento de la carrera
    quita la derivación (CU-001 FA-006, CU-002 FA-080). Crea una versión nueva del plan con
    el mismo estado, de tipo «cambio de departamento». Las asignaciones de docentes la siguen. */

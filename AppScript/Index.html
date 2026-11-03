@@ -22,7 +22,7 @@
      Navegación con Alpine: cada botón llama a irA() y se marca activo según $store.nav.seccion. -->
 <header class="cabecera">
   <div class="cabecera-interior">
-    <button type="button" class="marca" id="ir-inicio" @click="irAlInicio()" aria-label="SISCargaLectiva, Universidad La Salle: ir al inicio">
+    <button type="button" class="marca" @click="irAlInicio()" aria-label="SISCargaLectiva, Universidad La Salle: ir al inicio">
       <span class="placa-logo"><span class="logo-lasalle" role="img" aria-label="Universidad La Salle"></span></span>
       <span class="marca-texto"><b>SISCargaLectiva</b><small>Carga lectiva · Universidad La Salle</small></span>
     </button>
@@ -37,10 +37,12 @@
       </button>
       <button type="button" class="nav-op" data-seccion="docentes" @click="irA('docentes')" :class="{ activa: $store.nav.seccion === 'docentes' }" :aria-current="$store.nav.seccion === 'docentes' ? 'page' : null" aria-label="Asignar docentes al plan de ciclo">
         <?!= icono_("chalkboard-teacher") ?><span class="nav-largo" aria-hidden="true">Asignar docentes</span><span class="nav-corto" aria-hidden="true">Docentes</span>
+        <!-- Lo muestra marcarDocentesSucio() (cu002/vistas/asignacion/Asignacion.html). -->
         <span class="nav-punto" id="nav-sucio" title="Hay asignaciones sin guardar" hidden></span>
       </button>
     </nav>
 
+    <!-- Cuenta y rol: los escribe arrancar() (base/Arranque.html). -->
     <div class="usuario" id="usuario" hidden>
       <span class="avatar" id="u-avatar" aria-hidden="true"></span>
       <div class="datos"><b id="u-correo"></b><span id="u-rol"></span></div>
@@ -63,14 +65,14 @@
 <?!= include_("cu001/vistas/tablero/Tablero") ?>
 <?!= include_("cu001/vistas/edicion-plan/PlanBloques") ?>
 <?!= include_("cu001/vistas/consulta/Consulta") ?>
-<?!= include_("cu001/vistas/carga-oferta/CargaOferta") ?>
+<?!= include_("cu001/vistas/edicion-plan/CargaOferta") ?>
 <?!= include_("cu001/vistas/edicion-plan/EdicionPlan") ?>
 <?!= include_("cu001/vistas/edicion-plan/EdicionPlanAcciones") ?>
 <?!= include_("cu001/vistas/edicion-plan/EdicionPlanSesion") ?>
 <!-- CU-002 Asignar docentes a plan de ciclo -->
 <?!= include_("cu002/vistas/asignacion/Asignacion") ?>
-<?!= include_("cu002/vistas/asignacion-edicion/AsignacionEdicion") ?>
-<?!= include_("cu002/vistas/asignacion-carga/AsignacionCarga") ?>
+<?!= include_("cu002/vistas/asignacion/AsignacionEdicion") ?>
+<?!= include_("cu002/vistas/asignacion/AsignacionCarga") ?>
 </main>
 
 <footer class="pie-marca">

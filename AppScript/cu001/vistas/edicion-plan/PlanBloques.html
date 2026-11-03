@@ -4,6 +4,10 @@
    Cómo se dibuja un plan, igual en la consulta (cu001/vistas/consulta/Consulta.html) y en la edición
    (EdicionPlan.html): el Panel de Resumen Global y la Grilla de Vista Previa en
    bloques semestrales colapsables (CU-001 paso 41, FA-088 a FA-091). No llama al servidor.
+   ------------------------------------------------------------
+   Vista: el resumen y los bloques de #v-grilla y de #v-lectura.
+   Servidor: ninguno.
+   Otras pantallas usan de aquí: pintarResumen, htmlBloques, alternarBloque (consulta).
    ============================================================ */
 /** Semestres plegados; los comparten la consulta y la edición. */
 const bloques = { colapsados: new Set() };

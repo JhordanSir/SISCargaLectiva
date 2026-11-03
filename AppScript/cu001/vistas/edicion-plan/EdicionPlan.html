@@ -1,4 +1,7 @@
-<!-- ===== Edición del plan: Grilla de Vista Previa (CU-001 paso 41) y «¡Plan registrado!» (paso 52) ===== -->
+<!-- ===== Edición del plan: Grilla de Vista Previa (CU-001 paso 41) y «¡Plan registrado!» (paso 52)
+     Vistas #v-grilla y #v-exito. Su JavaScript está en esta carpeta: el <script> de abajo pinta la grilla y
+     enlaza los botones; EdicionPlanAcciones.html cumple las acciones de la barra y del dock; EdicionPlanSesion.html,
+     el bloqueo, el guardado y el registro. Su servidor: EdicionPlanServidor.js. ===== -->
 <section class="vista" id="v-grilla" hidden :hidden="$store.nav.vista !== 'grilla'">
   <header class="vista-cab">
     <div>
@@ -11,10 +14,12 @@
     </div>
   </header>
 
+  <!-- Título, notas, resumen, bloques, selección y el botón de registrar: los pinta pintarGrilla(). -->
   <div class="nota aviso" id="nota-estado" hidden></div>
   <div class="nota aviso" id="nota-importacion" hidden></div>
   <dl class="resumen" id="resumen"></dl>
 
+  <!-- Las funciones de estos botones están en EdicionPlanAcciones.html. -->
   <div class="barra-herramientas" role="toolbar" aria-label="Acciones del plan">
     <button type="button" class="btn btn-sm" id="btn-colapsar" data-accion="colapsarTodo"></button>
     <span class="separador" aria-hidden="true"></span>
@@ -27,7 +32,8 @@
   <!-- La grilla se pinta con innerHTML (PlanBloques.html); x-ignore: Alpine no la recorre. -->
   <div id="bloques" class="bloques" x-ignore></div>
 
-  <div class="dock" id="dock-grilla">
+  <!-- Guardar y registrar: EdicionPlanSesion.html. Acciones sobre el grupo seleccionado: EdicionPlanAcciones.html. -->
+  <div class="dock">
     <div class="dock-fila">
       <div class="dock-seleccion" id="dock-seleccion"></div>
       <div class="dock-guardar">
@@ -54,10 +60,11 @@
     <div class="exito-sello"><?!= icono_("seal-check") ?></div>
     <p class="sobretitulo">Registrar plan de ciclo</p>
     <h1 class="titulo">¡Plan registrado!</h1>
+    <!-- La escribe registrarPlan() (EdicionPlanSesion.html). -->
     <div class="nota ok" id="exito-nota"></div>
     <div class="exito-acciones">
       <button type="button" class="btn" data-accion="volverAlTablero"><?!= icono_("arrow-left") ?>Volver al tablero</button>
-      <button type="button" class="btn" id="exito-editar" data-accion="seguirEditando"><?!= icono_("pencil-simple") ?>Seguir editando el plan</button>
+      <button type="button" class="btn" data-accion="seguirEditando"><?!= icono_("pencil-simple") ?>Seguir editando el plan</button>
       <button type="button" class="btn primario" data-accion="asignarDocentes"><?!= icono_("chalkboard-teacher") ?>Asignar docentes</button>
     </div>
   </div>
@@ -71,6 +78,12 @@
    guardado y el registro, en EdicionPlanSesion.html. Todas sus llamadas al servidor van a
    EdicionPlanServidor.js (edicionPlanAbrir, edicionPlanGuardar, edicionPlanHistorial,
    edicionPlanRestaurar) y a base/Sesiones.js.
+   ------------------------------------------------------------
+   Vista: #v-grilla y #v-exito, arriba en este archivo.
+   Botones: el mapa de enlazarAcciones de abajo, también para los dos archivos que siguen.
+   Servidor: EdicionPlanServidor.js, a través de EdicionPlanAcciones.html y EdicionPlanSesion.html.
+   Usa de otras pantallas: mostrarTablero (tablero); docentesDelPlan,
+   alCambiarDocentesAsignados, cambiaronDocentesDe (docentes-asignados).
    ============================================================ */
 /**
  * Estado de la edición del plan.

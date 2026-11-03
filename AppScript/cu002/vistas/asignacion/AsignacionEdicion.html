@@ -2,10 +2,19 @@
 "use strict";
 /* ============================================================
    Asignación docente en modo de edición (CU-002 pasos 18 a 87). Cada botón de la pantalla
-   llama a una de estas funciones desde el mapa de cu002/vistas/asignacion/Asignacion.html. Llama a
+   llama a una de estas funciones desde el mapa de Asignacion.html. Llama a
    AsignacionEdicionServidor.js (asignacionEdicionAbrir, asignacionEdicionGuardar,
    asignacionEdicionRestaurar) y, a través de base/SesionEdicion.html, a
    base/Sesiones.js.
+   ------------------------------------------------------------
+   Vista: el modo de edición de #v-docentes (Asignacion.html).
+   Botones: los enlaza el mapa de Asignacion.html; aquí está lo que hacen.
+   Servidor: AsignacionEdicionServidor.js (asignacionEdicionAbrir, asignacionEdicionGuardar,
+   asignacionEdicionRestaurar, asignacionEdicionDerivar; y asignacionEdicionRenovar,
+   asignacionEdicionLiberar, asignacionEdicionGuardarCopia, asignacionEdicionDescartarCopia,
+   que la sesión de base/SesionEdicion.html llama con estos nombres).
+   Usa de otras pantallas: actualizarDocentesAsignados (cu001/vistas/docentes-asignados),
+   para que CU-001 vea los docentes recién guardados.
    ============================================================ */
 const refCarga = carrera => Dominio.REF.carga(carrera);
 
@@ -212,7 +221,7 @@ function fichaUnidad(seccion){
 
 /* FA-002 y FA-061 a FA-065: reemplazo. El sustituto toma el componente entero desde la
    fecha de efectividad; el titular queda en el historial de la asignación. */
-async function reemplazar(asigs, titulo){
+async function reemplazarAsignaciones(asigs, titulo){
   if (!asigs.length) return brindis("No hay asignaciones que reemplazar.", "aviso");
   const hoy = Dominio.isoPeru().slice(0, 10);   // fecha de hoy en Perú
   const r = await preguntar({
@@ -259,7 +268,7 @@ const conDocente = l => l.filter(a => String(a.docente || "").trim());
 /* FA-002: «Reemplazar» en una sección con docente. */
 function reemplazarEnSeccion(seccion){
   if (!seccion) return;
-  return reemplazar(conDocente(asignacion.balance.vigentes.porUnidad.get(seccion.id) || []), "Reemplazar docente en " + seccion.codigo);
+  return reemplazarAsignaciones(conDocente(asignacion.balance.vigentes.porUnidad.get(seccion.id) || []), "Reemplazar docente en " + seccion.codigo);
 }
 
 /* FA-074: «Reemplazar» en un docente de la vista por docente. */
@@ -270,7 +279,7 @@ function reemplazarDocente(nombre){
     if (!s || s.carrera !== asignacion.carrera || !meToca(s)) return;
     l.forEach(a => { if (Dominio.claveDocente(a.docente) === Dominio.claveDocente(nombre)) suyas.push(a); });
   });
-  return reemplazar(suyas, "Reemplazar a " + nombre);
+  return reemplazarAsignaciones(suyas, "Reemplazar a " + nombre);
 }
 
 /* FA-071 a FA-073: asigna a un docente un componente de una sección que aún no tiene docente. */
