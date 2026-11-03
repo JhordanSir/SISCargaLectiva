@@ -93,3 +93,16 @@ test("los pares vista ↔ servidor del mapa existen", () => {
     for (const f of par.vista.concat(par.servidor)) if (!fs.existsSync(path.join(RAIZ, f))) faltan.push(f);
   assert.deepEqual(faltan, []);
 });
+
+test("las líneas del mapa coinciden con el código (node AppScript/pruebas/actualizar-mapa.mjs las recalcula)", async () => {
+  /* Cada botón, función, entrada y servicio del mapa lleva su archivo y su línea. Si el
+     código cambió y el mapa no, esta prueba dice cuál quedó desfasado. */
+  const { leerMapa, conLineas } = await import("./actualizar-mapa.mjs");
+  const actual = leerMapa(), esperado = conLineas(actual);
+  const plano = (D, ruta = "") => typeof D !== "object" || D === null ? [[ruta, D]]
+    : Object.entries(D).flatMap(([k, v]) => plano(v, ruta ? ruta + "." + k : k));
+  const a = new Map(plano(actual)), e = new Map(plano(esperado));
+  const distintos = [...new Set([...a.keys(), ...e.keys()])].filter(k => /linea|marcado|enlace|desde|espera/.test(k) && a.get(k) !== e.get(k))
+    .map(k => k + ": el mapa dice " + JSON.stringify(a.get(k)) + ", el código " + JSON.stringify(e.get(k)));
+  assert.deepEqual(distintos.slice(0, 10), [], "Ejecuta: node AppScript/pruebas/actualizar-mapa.mjs");
+});

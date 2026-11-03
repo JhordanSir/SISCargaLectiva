@@ -96,7 +96,7 @@ El detalle está en [requirements.md](docs/requerimientos/requirements.md) y en 
   - **`$store.servidor`**: las llamadas en curso. Un botón usa `:class="{ cargando: $store.servidor.ocupado('tableroObtener') }"` y vuelve a su estado al llegar la respuesta.
 
   Las tablas que llena el servidor se pintan con `x-for`: el tablero de planes (`$store.planes`, CU-001) y la búsqueda de docentes (`$store.busqueda`, CU-002). Las tablas grandes que se siguen pintando con `innerHTML`, como la grilla del plan, llevan `x-ignore`. `base/Arranque.html` llama a `Alpine.start()` cuando ya están cargadas todas las pantallas.
-- **[docs/arquitectura/mapa-gui.html](docs/arquitectura/mapa-gui.html)** lista, para cada botón, la función del navegador, la entrada del servidor y el servicio que usa. `pruebas/mapa.test.mjs` comprueba que el mapa coincide con el código.
+- **[docs/arquitectura/mapa-gui.html](docs/arquitectura/mapa-gui.html)** lista, para cada botón, la función del navegador, la entrada del servidor y el servicio que usa, cada una con su archivo y su línea y un enlace a esa línea en GitHub. Para cada entrada del servidor indica también desde qué líneas se la llama y qué marcado muestra, con Alpine, que se espera su respuesta. Las líneas se calculan a partir del código con `node AppScript/pruebas/actualizar-mapa.mjs`, que hay que volver a ejecutar tras cambiar el código. `pruebas/mapa.test.mjs` comprueba que el mapa coincide con el código, líneas incluidas.
 
 ## Puesta en marcha
 
