@@ -1,0 +1,415 @@
+<!-- Vista CU-002 «Carga docente» (backend: CargaDocente.js).
+     Botones: Editar / Ver por carrera; en la carga: Interpretar y archivo .csv (carga masiva), Aplicar a la
+     tabla, Descartar, Buscar, Usar, Guardar, Salir, Historial, Ver y Restaurar por versión, y Volver.
+     Servidor: cargaInicio, cargaAbrir, cargaInterpretar, cargaBuscarDocentes, cargaGuardar, cargaMantener,
+     cargaSalir, cargaHistorial, cargaVersion y cargaRestaurar (cada método del componente lleva el verbo).
+     Alpine: componente «cargaDocente», visible con $store.nav.vista === 'carga'; x-for sobre la tabla de
+     carreras, las secciones, la carga masiva, la búsqueda, las advertencias y el historial. -->
+<section x-show="$store.nav.vista === 'carga'" x-data="cargaDocente" x-cloak>
+  <h2>Carga docente</h2>
+  <div class="fila">
+    <label>Ciclo
+      <select x-model="ciclo" @change="inicio()" :disabled="!!(ocupado || doc)">
+        <template x-for="c in ciclos" :key="c"><option :value="c" :selected="c === ciclo" x-text="c"></option></template>
+      </select>
+    </label>
+    <span class="suave" x-show="ocupado === 'inicio'">Cargando…</span>
+  </div>
+  <p class="error" x-show="error" x-text="error"></p>
+  <p class="exito" x-show="exito" x-text="exito"></p>
+
+  <div class="panel" x-show="advertencias.length">
+    <h3>Advertencias</h3>
+    <template x-for="(a, i) in advertencias" :key="i">
+      <p :class="a.nivel === 'bloqueo' ? 'error' : (a.nivel === 'info' ? 'suave' : 'aviso')">
+        <span class="marca" x-show="a.codigo" x-text="a.codigo"></span>
+        <strong x-show="a.docente" x-text="a.docente + ':'"></strong>
+        <span x-text="a.texto"></span>
+      </p>
+    </template>
+  </div>
+
+  <!-- Tabla de carreras (cargaInicio) -->
+  <div class="tabla" x-show="!doc">
+    <table>
+      <thead><tr><th>Carrera</th><th>Departamento</th><th>Plan</th><th>Carga</th><th class="num">Con docente</th><th></th></tr></thead>
+      <tbody>
+        <template x-for="c in carreras" :key="c.sigla">
+          <tr>
+            <td><strong x-text="c.sigla"></strong> <span x-text="c.nombre"></span></td>
+            <td x-text="c.departamento"></td>
+            <td x-text="c.versionPlan ? 'v' + c.versionPlan : 'Sin plan'"></td>
+            <td>
+              <span x-text="c.version ? 'v' + c.version + ' · ' + c.usuario + ' · ' + fechaCorta(c.fecha) : 'Sin carga'"></span>
+              <span class="marca lectura" x-show="c.editor" x-text="'En edición por ' + c.editor"></span>
+            </td>
+            <td class="num" x-text="c.versionPlan ? c.asignados + '/' + c.componentes + ' con docente' : ''"></td>
+            <td>
+              <button class="chico" :class="{ primario: c.puedeEditar }" x-show="c.versionPlan" :disabled="!!ocupado" @click="abrir(c.sigla)"
+                      x-text="ocupado === 'abrir' && pedida === c.sigla ? 'Abriendo…' : (c.puedeEditar ? 'Editar' : 'Ver')"></button>
+            </td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pantalla de la carga (cargaAbrir o cargaVersion) -->
+  <template x-if="doc">
+    <div>
+      <h3 x-text="doc.carrera + ' · ' + doc.nombre + ' · ' + doc.ciclo"></h3>
+      <div class="fila">
+        <span x-text="(doc.version ? 'Carga v' + doc.version : 'Carga sin versiones') + ' · plan v' + doc.versionPlan + ' · ' + doc.departamento"></span>
+        <span class="marca lectura" x-show="doc.modo === 'lectura'" x-text="vistaVersion ? 'Versión ' + vistaVersion + ' · solo lectura' : doc.motivo"></span>
+        <span class="marca des" x-show="doc.modo === 'edicion'" x-text="'Bloqueo hasta ' + doc.vence.slice(11, 16)"></span>
+      </div>
+      <div class="fila">
+        <button x-show="vistaVersion" @click="volver()">Volver</button>
+        <button class="primario" x-show="editable()" :disabled="!!ocupado" @click="guardar()"
+                x-text="ocupado === 'guardar' ? 'Guardando…' : 'Guardar'"></button>
+        <button x-show="!vistaVersion" :disabled="!!ocupado" @click="salir()" x-text="ocupado === 'salir' ? 'Saliendo…' : 'Salir'"></button>
+        <button x-show="!vistaVersion" :disabled="!!ocupado" @click="historial()"
+                x-text="ocupado === 'historial' ? 'Buscando versiones…' : 'Historial'"></button>
+      </div>
+      <div x-show="editable() && (requiereMotivo || motivo)">
+        <label>Motivo (A12)</label>
+        <textarea x-model="motivo" @input="tocar()" style="min-height: 60px" placeholder="Por qué un docente con cargo pasa de 24 h"></textarea>
+      </div>
+
+      <div class="panel" x-show="versiones.length && !vistaVersion">
+        <h3>Historial</h3>
+        <table>
+          <thead><tr><th>Versión</th><th>Usuario</th><th>Fecha</th><th>Resumen</th><th></th></tr></thead>
+          <tbody>
+            <template x-for="v in versiones" :key="v.version">
+              <tr>
+                <td x-text="'v' + v.version"></td><td x-text="v.usuario"></td><td x-text="fechaCorta(v.fecha)"></td><td x-text="v.resumen"></td>
+                <td>
+                  <button class="chico" :disabled="!!ocupado" @click="version(v.version)"
+                          x-text="ocupado === 'version' && pedida === v.version ? 'Abriendo…' : 'Ver'"></button>
+                  <button class="chico peligro" x-show="puede()" :disabled="!!ocupado" @click="restaurar(v.version)"
+                          x-text="ocupado === 'restaurar' && pedida === v.version ? 'Restaurando…' : 'Restaurar'"></button>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="panel" x-show="editable()">
+        <h3>Carga masiva</h3>
+        <textarea x-model="masivo.texto" placeholder="Pega aquí el rango copiado de la hoja CargaXDepartamento (con la fila de cabeceras DOCENTE, CARRERA, SEMESTRE, CODIGO…)"></textarea>
+        <div class="fila">
+          <button :disabled="!!ocupado" @click="interpretar()" x-text="ocupado === 'interpretar' ? 'Interpretando…' : 'Interpretar'"></button>
+          <label>o sube un CSV <input type="file" accept=".csv" :disabled="!!ocupado" @change="leerArchivo($event)"></label>
+        </div>
+        <template x-if="masivo.resultado">
+          <div>
+            <p class="suave" x-text="masivo.resultado.asignaciones.length + ' asignaciones encontradas · ' + masivo.resultado.descartadas + ' filas de otra carrera'"></p>
+            <template x-for="(a, i) in masivo.resultado.avisos" :key="i"><p class="aviso" x-text="a"></p></template>
+            <p class="aviso" x-show="masivo.resultado.noEnCatalogo.length" x-text="'Fuera del catálogo: ' + masivo.resultado.noEnCatalogo.join('; ')"></p>
+            <div class="fila">
+              <button class="primario" @click="aplicar()">Aplicar a la tabla</button>
+              <button @click="descartar()">Descartar</button>
+            </div>
+            <div class="tabla">
+              <table>
+                <thead><tr><th>Fila</th><th>Código</th><th>Grupo</th><th>Componente</th><th>Docente</th></tr></thead>
+                <tbody>
+                  <template x-for="a in masivo.resultado.asignaciones" :key="a.clave + a.comp">
+                    <tr><td x-text="a.fila"></td><td x-text="a.codigo"></td><td x-text="a.grupo"></td><td x-text="a.comp"></td><td x-text="a.docente"></td></tr>
+                  </template>
+                </tbody>
+              </table>
+              <table x-show="masivo.resultado.sinSeccion.length">
+                <thead><tr><th>Fila</th><th>Código</th><th>Grupo</th><th>Asignatura</th><th>Docente</th><th>Sin sección porque…</th></tr></thead>
+                <tbody>
+                  <template x-for="(s, i) in masivo.resultado.sinSeccion" :key="i">
+                    <tr class="suave"><td x-text="s.fila"></td><td x-text="s.codigo"></td><td x-text="s.grupo"></td><td x-text="s.asignatura"></td>
+                      <td x-text="s.docente"></td><td x-text="s.motivo"></td></tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <p class="aviso" x-show="doc.huerfanas.length"
+         x-text="'Asignaciones que ya no están en el plan (se pierden al guardar): ' + doc.huerfanas.map(h => h.codigo + ' ' + h.comp + ' · ' + h.docente).join('; ')"></p>
+
+      <div class="tabla">
+        <table>
+          <thead><tr><th>Sem.</th><th>Código</th><th>Asignatura</th><th>Grupo</th><th>DPTO</th><th>Marcas</th><th>Docente por componente</th></tr></thead>
+          <tbody>
+            <template x-for="s in doc.secciones" :key="s.clave">
+              <tr>
+                <td x-text="s.semestre === null ? '—' : s.semestre"></td>
+                <td x-text="s.codigo"></td>
+                <td x-text="s.asignatura"></td>
+                <td x-text="s.grupo"></td>
+                <td x-text="s.dpto"></td>
+                <td>
+                  <span class="marca fus" x-show="s.fusion" x-text="'FUS ' + s.fusion"></span>
+                  <span class="marca" x-show="s.intl">Internacional</span>
+                  <template x-for="(t, i) in s.avisos" :key="i"><span class="aviso" x-text="t"></span></template>
+                </td>
+                <td>
+                  <template x-for="c in s.componentes" :key="c.comp">
+                    <div class="fila" style="margin: 2px 0">
+                      <span class="marca des" x-text="c.comp + ' · ' + c.horas + ' h'"></span>
+                      <input x-show="editable()" list="cargaCatalogo" size="36" x-model="c.docente" @input="tocar()" @focus="enfocado = c">
+                      <span x-show="!editable()" x-text="c.docente || '—'"></span>
+                    </div>
+                  </template>
+                </td>
+              </tr>
+            </template>
+            <template x-for="(f, i) in doc.noAsignables" :key="'n' + i">
+              <tr class="suave">
+                <td x-text="f.semestre === null ? '—' : f.semestre"></td><td x-text="f.codigo"></td><td x-text="f.asignatura"></td>
+                <td x-text="f.grupo"></td><td x-text="f.dpto"></td><td><span class="marca fus">FUS</span></td><td x-text="f.texto"></td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+      <datalist id="cargaCatalogo">
+        <template x-for="(d, i) in doc.catalogo" :key="i"><option :value="d.docente" x-text="d.departamento"></option></template>
+      </datalist>
+    </div>
+  </template>
+
+  <!-- Buscar docente (cargaBuscarDocentes), siempre visible -->
+  <div class="panel">
+    <h3>Buscar docente</h3>
+    <div class="fila">
+      <input x-model="busqueda" size="40" placeholder="Apellidos o nombres" @keydown.enter="ocupado || buscarDocentes()">
+      <button :disabled="!!ocupado" @click="buscarDocentes()" x-text="ocupado === 'buscar' ? 'Buscando…' : 'Buscar'"></button>
+      <span x-show="editable() && elegido">Docente elegido: <strong x-text="elegido"></strong></span>
+    </div>
+    <p class="suave" x-show="total > resultados.length" x-text="'Se muestran ' + resultados.length + ' de ' + total + '; escribe más palabras para acotar.'"></p>
+    <table x-show="resultados.length">
+      <thead><tr><th>Docente</th><th>Departamento</th><th class="num">Horas del ciclo</th><th>Carreras</th><th x-show="editable()"></th></tr></thead>
+      <tbody>
+        <template x-for="r in resultados" :key="r.docente">
+          <tr>
+            <td x-text="r.docente"></td><td x-text="r.departamento || '—'"></td><td class="num" x-text="r.horas"></td>
+            <td x-text="r.carreras.join(', ') || '—'"></td>
+            <td x-show="editable()"><button class="chico" @click="usar(r)" title="Lo pone en el último campo de docente que tocaste">Usar</button></td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<script>
+  /* Componente «cargaDocente». Cada método que llama al servidor pasa por pedir(): si ya hay una llamada en
+     curso no hace nada; si no, pone ocupado con la acción, limpia el error y, al terminar (bien o mal), vuelve
+     ocupado a "". Devuelve los datos, o null si falló (el mensaje queda en error). En el marcado, los atributos
+     booleanos llevan !!ocupado: Alpine solo quita disabled con false, null o undefined, no con "". */
+  document.addEventListener("alpine:init", () => {
+    Alpine.data("cargaDocente", () => ({
+      ocupado: "", error: "", exito: "", listo: false, pedida: "",
+      ciclos: [], ciclo: "", carreras: [],
+      doc: null, anterior: null, vistaVersion: 0, versiones: [],
+      masivo: { texto: "", resultado: null },
+      busqueda: "", resultados: [], total: 0, elegido: "", enfocado: null,
+      advertencias: [], requiereMotivo: false, motivo: "",
+      cambios: false, actividad: false, reloj: null,
+
+      init() {
+        this.$watch("$store.nav.vista", v => { if (v === "carga" && !this.listo) this.inicio(); });
+        if (Alpine.store("nav").vista === "carga") this.inicio();
+        window.addEventListener("pagehide", () => {
+          const d = this.edicion();
+          if (d) cargaLlamar("cargaSalir", d.ciclo, d.carrera).catch(() => {});
+        });
+      },
+
+      async pedir(accion, nombre, ...args) {
+        if (this.ocupado) return null;
+        this.ocupado = accion;
+        this.error = "";
+        this.actividad = true;
+        try {
+          return await cargaLlamar(nombre, ...args);
+        } catch (e) {
+          this.error = e.message;
+          return null;
+        } finally {
+          this.ocupado = "";
+        }
+      },
+
+      fechaCorta(f) { return f ? f.slice(0, 10) + " " + f.slice(11, 16) : ""; },
+      edicion() { const d = this.anterior || this.doc; return d && d.modo === "edicion" ? d : null; },
+      editable() { return !!this.doc && this.doc.modo === "edicion" && !this.vistaVersion; },
+      puede() { const d = this.anterior || this.doc, c = d && this.carreras.find(x => x.sigla === d.carrera); return !!(c && c.puedeEditar); },
+      tocar() { this.cambios = true; this.actividad = true; },
+
+      async inicio() {
+        const r = await this.pedir("inicio", "cargaInicio", this.ciclo);
+        if (!r) return;
+        Object.assign(this, { listo: true, ciclos: r.ciclos, ciclo: r.ciclo, carreras: r.carreras });
+      },
+
+      async abrir(sigla) {
+        this.pedida = sigla;
+        const r = await this.pedir("abrir", "cargaAbrir", this.ciclo, sigla);
+        if (!r) return;
+        this.cerrar();
+        Object.assign(this, { doc: r, exito: "", advertencias: [] });
+        if (r.modo === "edicion") this.reloj = setInterval(() => { if (this.actividad && !this.ocupado) this.mantener(); }, 5 * 60000);
+      },
+
+      cerrar() {
+        if (this.reloj) clearInterval(this.reloj);
+        Object.assign(this, { reloj: null, doc: null, anterior: null, vistaVersion: 0, versiones: [], masivo: { texto: "", resultado: null },
+          motivo: "", requiereMotivo: false, cambios: false, actividad: false, enfocado: null, elegido: "" });
+      },
+
+      async perderBloqueo() {
+        const mensaje = this.error;
+        this.cerrar();
+        await this.inicio();
+        this.error = mensaje;
+      },
+
+      async mantener() {
+        const d = this.edicion();
+        if (!d) return;
+        const r = await this.pedir("mantener", "cargaMantener", d.ciclo, d.carrera);
+        this.actividad = false;
+        if (r) d.vence = r.vence;
+        else if (this.error.indexOf("Tu bloqueo") === 0) await this.perderBloqueo();
+      },
+
+      async salir() {
+        if (this.cambios && !confirm("Hay cambios sin guardar. ¿Salir sin guardar?")) return;
+        const d = this.edicion();
+        if (d && !(await this.pedir("salir", "cargaSalir", d.ciclo, d.carrera))) return;
+        this.cerrar();
+        this.advertencias = [];
+        await this.inicio();
+      },
+
+      asignaciones() {
+        const lista = [];
+        this.doc.secciones.forEach(s => s.componentes.forEach(c => {
+          const docente = String(c.docente || "").trim();
+          if (docente) lista.push({ clave: s.clave, comp: c.comp, docente });
+        }));
+        return lista;
+      },
+
+      async guardar() {
+        const d = this.doc;
+        const r = await this.pedir("guardar", "cargaGuardar", d.ciclo, d.carrera, this.asignaciones(), d.version, this.motivo);
+        if (!r) {
+          if (this.error.indexOf("Tu bloqueo") === 0) await this.perderBloqueo();
+          return;
+        }
+        this.advertencias = r.advertencias;
+        this.requiereMotivo = r.requiereMotivo;
+        if (!r.guardado) {
+          this.error = r.requiereMotivo && !r.advertencias.some(a => a.nivel === "bloqueo")
+            ? "Falta el motivo (A12): escríbelo y vuelve a guardar." : "No se guardó: revisa las advertencias.";
+          return;
+        }
+        this.cerrar();
+        await this.inicio();
+        Object.assign(this, { exito: "Guardado como v" + r.version, advertencias: r.advertencias });
+      },
+
+      async interpretar() {
+        const d = this.doc;
+        const r = await this.pedir("interpretar", "cargaInterpretar", this.masivo.texto, d.ciclo, d.carrera);
+        this.masivo.resultado = r;
+      },
+
+      async leerArchivo(evento) {
+        const archivo = evento.target.files[0];
+        if (!archivo) return;
+        if (!/\.csv$/i.test(archivo.name)) {
+          this.error = "Solo se aceptan archivos .csv; para .xlsx copia el rango y pégalo";
+          evento.target.value = "";
+          return;
+        }
+        const bytes = await archivo.arrayBuffer();
+        let texto;
+        try { texto = new TextDecoder("utf-8", { fatal: true }).decode(bytes); }
+        catch (e) { texto = new TextDecoder("windows-1252").decode(bytes); }
+        evento.target.value = "";
+        this.masivo.texto = texto.replace(/^\uFEFF/, "");
+        await this.interpretar();
+      },
+
+      aplicar() {
+        const r = this.masivo.resultado, porClave = {};
+        if (!r || !this.doc) return 0;
+        this.doc.secciones.forEach(s => { porClave[s.clave] = s; });
+        let n = 0;
+        r.asignaciones.forEach(a => {
+          const c = porClave[a.clave] && porClave[a.clave].componentes.find(x => x.comp === a.comp);
+          if (c) { c.docente = a.docente; n++; }
+        });
+        this.masivo = { texto: "", resultado: null };
+        this.tocar();
+        this.exito = "Se aplicaron " + n + " asignaciones a la tabla. Aún no se guardó.";
+        return n;
+      },
+
+      descartar() { this.masivo = { texto: "", resultado: null }; },
+
+      async buscarDocentes() {
+        const r = await this.pedir("buscar", "cargaBuscarDocentes", this.ciclo, this.busqueda);
+        this.resultados = r ? r.resultados : [];
+        this.total = r ? r.total : 0;
+      },
+
+      usar(r) {
+        this.elegido = r.docente;
+        if (this.enfocado) { this.enfocado.docente = r.docente; this.tocar(); }
+      },
+
+      async historial() {
+        const d = this.doc;
+        const r = await this.pedir("historial", "cargaHistorial", d.ciclo, d.carrera);
+        if (r) this.versiones = r.versiones;
+      },
+
+      async version(n) {
+        const d = this.anterior || this.doc;
+        this.pedida = n;
+        const r = await this.pedir("version", "cargaVersion", d.ciclo, d.carrera, n);
+        if (!r) return;
+        if (!this.anterior) this.anterior = this.doc;
+        Object.assign(this, { doc: r, vistaVersion: n });
+      },
+
+      volver() { Object.assign(this, { doc: this.anterior, anterior: null, vistaVersion: 0 }); },
+
+      async restaurar(n) {
+        const aviso = this.cambios ? " Perderás los cambios sin guardar." : "";
+        if (!confirm("Se creará una versión nueva con el contenido de la v" + n + "." + aviso + " ¿Continuar?")) return;
+        const d = this.anterior || this.doc;
+        this.pedida = n;
+        const r = await this.pedir("restaurar", "cargaRestaurar", d.ciclo, d.carrera, n);
+        if (!r) return;
+        await this.abrir(d.carrera);
+        Object.assign(this, { exito: "Se restauró la v" + n + " como v" + r.version + ".", advertencias: r.advertencias });
+      }
+    }));
+  });
+
+  /* google.script.run con promesa: resuelve con datos si ok; si no, rechaza con el mensaje del servidor. */
+  function cargaLlamar(nombre, ...args) {
+    return new Promise((resolver, rechazar) => {
+      google.script.run
+        .withSuccessHandler(r => (r && r.ok ? resolver(r.datos) : rechazar(new Error((r && r.error) || "Respuesta vacía del servidor."))))
+        .withFailureHandler(e => rechazar(new Error((e && e.message) || String(e))))[nombre](...args);
+    });
+  }
+</script>
