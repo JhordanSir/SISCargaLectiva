@@ -4,7 +4,10 @@
     {
       "name": "sis-local",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["AppScript/pruebas/servidor-local.mjs", "8765"],
+      "runtimeArgs": [
+        "AppScript/pruebas/recorrido.mjs",
+        "--servidor"
+      ],
       "port": 8765
     }
   ]
