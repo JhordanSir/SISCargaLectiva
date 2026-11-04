@@ -4,12 +4,13 @@
 
 | Campo | Valor |
 |---|---|
-| Versión del documento | 1.1 |
-| Fecha | 2026-09-29 |
-| Fase actual | **Fase 1: CU-001 Registrar Plan de Ciclo** |
-| Fuentes | `docs/feedback/transcripcion.md` (clase del docente), `docs/feedback/flujobasico.md` (1.ª revisión), `docs/feedback/flujosalternativos.md` (2.ª revisión), `docs/CU/CUs-Carga lectiva.png` (diagrama de CU), `docs/QA/Checklist.md`, `docs/archivos/*.xlsx` (datos reales) |
-| Decisiones del equipo | Resumidas en la sección 10. El detalle P01–P45 está en `preguntas.md` (archivo local, excluido del repositorio por `.gitignore`). Las decisiones del 2026-09-29, que llevan la etiqueta **[2026-09-29]**, solo constan en la sección 10. |
+| Versión del documento | 2.0 |
+| Fecha | 2026-11-04 |
+| Fase actual | **Versión simplificada: CU-001 Registrar plan de ciclo y CU-002 Carga docente** |
+| Fuentes | `docs/feedback/transcripcion.md` (clase del docente), `docs/feedback/flujobasico.md` (1.ª revisión), `docs/feedback/flujosalternativos.md` (2.ª revisión), `docs/CU/CUs-Carga lectiva.png` (diagrama de CU), `docs/QA/Checklist.md`, `docs/archivos/*.xlsx` (datos reales), `instrucciones.md` (simplificación) |
+| Decisiones del equipo | Resumidas en la sección 10. El detalle P01–P45 está en `preguntas.md` (archivo local, excluido del repositorio por `.gitignore`). Las decisiones del 2026-09-29, que llevan la etiqueta **[2026-09-29]**, solo constan en la sección 10. Las de la simplificación llevan **[2026-11-03]** y están en la sección 10.1. |
 | Cambios de la v1.1 | Stack en Google Apps Script con los `.xlsx` de Drive como fuente de datos (sección 9 y 10); sección 8 alineada con CU-001 v4.0, que interpreta el contenido en vez de validarlo; nuevas preguntas abiertas Q15 y Q16. |
+| Cambios de la v2.0 | Simplificación de la aplicación al mínimo de los CU (`instrucciones.md`): lo eliminado queda marcado **Fuera de alcance [2026-11-03]**, sin borrar su texto; los requisitos que cambiaron se reescriben; nueva sección 10.1 con las decisiones; CU-002 pasa a estar implementado, por carrera. |
 
 > **Regla de lectura.** Cada requisito indica su fuente: **[D]** docente (transcripción o revisiones), **[P##]** decisión del equipo registrada en `preguntas.md`, **[X]** hallazgo en los archivos `.xlsx`. Lo que no tiene fuente confirmada figura en la sección 15, *Preguntas abiertas*, y no se implementa hasta resolverse.
 
@@ -45,11 +46,13 @@ El sistema debe centralizar la información en **un solo registro**. Los listado
 
 ## 3. Actores y roles
 
-| Rol | Descripción | Fase 1 |
+| Rol | Descripción | Versión simplificada **[2026-11-03]** |
 |---|---|---|
-| **Coordinador de carrera** | Define qué cursos y cuántos grupos se abren en su carrera. Especializa a *Responsable del plan de ciclo*. **[D]** | Registra y edita el plan **solo de sus carreras asignadas**. Consulta el de las demás en solo lectura. **[P17][P43]** |
-| **Director de departamento** | Asigna docentes al plan registrado. También especializa a *Responsable del plan de ciclo*. **[D][diagrama]** | Registra y edita el plan de **cualquier carrera**. **[P17]** |
-| **Administrador** | Administra los ciclos. **[diagrama]** | Sin pantallas propias en fase 1: los datos maestros se cargan por migraciones (seed). **[P29]** |
+| **Coordinador de carrera** | Define qué cursos y cuántos grupos se abren en su carrera. Especializa a *Responsable del plan de ciclo*. **[D]** | Registra y edita el plan (CU-001) **solo de sus carreras** (columna `carreras` de Usuarios). Consulta todo lo demás en solo lectura. **[P17][P43]** |
+| **Director de departamento** | Asigna docentes al plan registrado. También especializa a *Responsable del plan de ciclo*. **[D][diagrama]** | Asigna docentes (CU-002) en las carreras de **su departamento** (pestaña Carreras). **Ya no edita planes**: los consulta en solo lectura. Antes editaba el plan de cualquier carrera (P17). |
+| **Administrador** | Administra los ciclos. **[diagrama]** | Sin pantallas propias: los ciclos, las carreras, los docentes y los usuarios se mantienen directamente en las pestañas del Sheet. **[P29]** |
+
+Solo hay dos tipos de usuario, leídos de la pestaña Usuarios: `coordinador` y `director`. **[2026-11-03]**
 
 *Responsable del plan de ciclo* es un **rol abstracto** (generalización del diagrama): no se asigna directamente a los usuarios.
 
@@ -59,9 +62,9 @@ El sistema debe centralizar la información en **un solo registro**. Los listado
 
 | Fase | Caso de uso | Actor | Estado |
 |---|---|---|---|
-| **1** | **CU-001 Registrar plan de ciclo** (extensiones: agregar grupo, quitar grupo, dividir grupos, fusionar grupos) | Responsable del plan de ciclo | **En curso** |
+| **1** | **CU-001 Registrar plan de ciclo** (extensiones: agregar grupo, quitar grupo, dividir grupos, fusionar grupos) | Coordinador de carrera | **Implementado** (versión simplificada) |
 | 2 | Administrar ciclos | Administrador | Futuro |
-| 3 | Asignar docentes a plan de ciclo | Director de departamento | Futuro |
+| **3** | **CU-002 Carga docente** (Asignar docentes a plan de ciclo), **por carrera** | Director de departamento | **Implementado** (versión simplificada) **[2026-11-03]** |
 | 4 | Generar reporte de carga lectiva (extensiones: por carrera, por departamento, por docente) | Director de departamento | Futuro |
 | 5 | Asignar docentes a cursos por jurado | Por definir | Futuro (el docente anunció que lo agregará) |
 
@@ -69,35 +72,38 @@ El sistema debe centralizar la información en **un solo registro**. Los listado
 
 ---
 
-## 5. Requisitos funcionales: fase 1 (CU-001)
+## 5. Requisitos funcionales: CU-001
+
+> **[2026-11-03]** La simplificación conserva lo esencial de los CU. Cada requisito eliminado lleva la marca **Fuera de alcance [2026-11-03]** y conserva su texto; los que cambiaron indican cómo quedan.
 
 ### 5.1 Acceso
 
 | ID | Requisito | Fuente |
 |---|---|---|
-| RF-001 | El usuario se autentica con **Google OAuth 2.0** usando una cuenta del dominio `@ulasalle.edu.pe`. | CU-001 |
-| RF-002 | El sistema autoriza según el rol (Coordinador de carrera o Director de departamento) y, para el Coordinador, según sus carreras asignadas. Si el usuario no tiene rol, se deniega el acceso y se destruye la sesión. | CU-001, [P17] |
+| RF-001 | El usuario entra con su **cuenta de Google** del dominio `@ulasalle.edu.pe`: la aplicación web de Apps Script se publica para el dominio y el servidor lee el correo de la sesión. *Antes: Google OAuth 2.0 propio.* | CU-001, [2026-11-03] |
+| RF-002 | El sistema autoriza según el rol (Coordinador de carrera o Director de departamento) leído de la pestaña Usuarios y, para el Coordinador, según sus carreras. Si la cuenta no está identificada, es de otro dominio o no tiene rol, se muestra **«Acceso denegado»** con ese motivo. | CU-001, [P17], [2026-11-03] |
+| RF-003 | La página de **Inicio** tiene dos botones: «Registrar plan de ciclo» (CU-001) y «Carga docente» (CU-002). El del rol del usuario se resalta; el otro abre su vista en solo lectura. | [2026-11-03] |
 
 ### 5.2 Tablero de monitoreo general
 
 | ID | Requisito | Fuente |
 |---|---|---|
-| RF-010 | El usuario elige un **ciclo** (actual, futuro o anterior) en un selector. Los ciclos anteriores se ven con la misma pantalla y el mismo detalle, no mediante la bitácora. | [D] 1.ª revisión |
-| RF-011 | Para el ciclo elegido se muestra el **tablero de todas las carreras** con estado del plan (*Sin Iniciar*, *Borrador*, *Registrado*), número de semestres cargados, número de asignaturas, número de grupos, total de horas semanales, versión vigente, última modificación (usuario y fecha) y quién lo está editando. | [D] 1.ª revisión, [P18] |
-| RF-012 | El tablero destaca qué carreras **faltan** subir su plan (*Sin Iniciar*). | [D] transcripción |
+| RF-010 | El usuario elige un **ciclo** de la pestaña Ciclos en un selector «Ciclo» (por defecto, el último). Los ciclos anteriores se ven con la misma pantalla y el mismo detalle. | [D] 1.ª revisión, [2026-11-03] |
+| RF-011 | Para el ciclo elegido se muestra una **tabla de todas las carreras** con la versión vigente del plan («Sin plan» si no tiene), quién la guardó y cuándo, el número de asignaturas y de grupos, y quién la está editando. *Sin estados Borrador ni Sin Iniciar, sin semestres cargados ni horas totales.* | [D] 1.ª revisión, [P18], [2026-11-03] |
+| RF-012 | ~~El tablero destaca qué carreras **faltan** subir su plan.~~ **Fuera de alcance [2026-11-03]**: no hay tablero de avance; la tabla muestra «Sin plan». | [D] transcripción |
 | RF-013 | El número de semestres es informativo ("la carrera tiene N semestres"). Nunca es un error. | [D] 1.ª revisión |
-| RF-014 | Desde el tablero, cualquier responsable abre el detalle de cualquier carrera en **solo lectura**. Solo puede editar las carreras que tiene autorizadas. | [P43] |
+| RF-014 | Desde la tabla, cualquier responsable abre el plan de cualquier carrera en **solo lectura** («Ver»). Solo puede editar («Editar») las carreras que tiene autorizadas. | [P43] |
 
 ### 5.3 Carga masiva
 
 | ID | Requisito | Fuente |
 |---|---|---|
-| RF-020 | Hay tres formas de carga: **pegar desde Google Sheets** (texto tabulado del portapapeles), **subir `.xlsx`** y **subir `.csv`**. | [P28] |
-| RF-021 | El usuario puede **descargar la plantilla oficial** (sección 7). | CU-001 |
-| RF-022 | Si el `.xlsx` tiene varias hojas, el sistema las lista y **el usuario elige** cuál importar. | [P27] |
-| RF-023 | El sistema **detecta automáticamente** la fila de cabeceras (la primera que contiene todas las obligatorias) e ignora lo que esté encima, como los títulos. | [P34] |
-| RF-024 | Cabeceras y valores se **normalizan**: sin distinción de mayúsculas ni tildes, y sin espacios al inicio y al final. Se aceptan sinónimos fijos (sección 7.2). | [P33] |
-| RF-025 | Las columnas que no forman parte de la plantilla (DOCENTE, TURNO u otras) **se ignoran** y se informa cuáles se ignoraron. | [P08][P11] |
+| RF-020 | Hay dos formas de carga: **pegar** en un `<textarea>` el rango copiado de Excel o Google Sheets (texto separado por tabulaciones) y **subir un `.csv`** separado por `;` o `,` (UTF-8 o Windows-1252). **No se aceptan `.xlsx`** [2026-11-03]. | [P28], [2026-11-03] |
+| RF-021 | ~~El usuario puede **descargar la plantilla oficial** (sección 7).~~ **Fuera de alcance [2026-11-03].** | CU-001 |
+| RF-022 | ~~Si el `.xlsx` tiene varias hojas, el sistema las lista y **el usuario elige** cuál importar.~~ **Fuera de alcance [2026-11-03]**: no se leen `.xlsx`. | [P27] |
+| RF-023 | El sistema **detecta automáticamente** la fila de cabeceras (la primera que contiene CODIGO y ASIGNATURA) e ignora lo que esté encima, como los títulos. | [P34], [2026-11-03] |
+| RF-024 | Cabeceras y valores se **normalizan**: sin distinción de mayúsculas ni tildes, y sin espacios sobrantes. Se aceptan los sinónimos de la sección 8.1. | [P33] |
+| RF-025 | Las columnas que no se usan (DOCENTE, TURNO u otras) **se ignoran**. *Ya no se informa cuáles.* | [P08][P11], [2026-11-03] |
 | RF-026 | Si hay **al menos un error** (sección 8.1), se **rechaza todo el archivo** y se muestra la **lista completa** de errores (fila, columna, valor y motivo). | [P04][P06] |
 | RF-027 | Las **advertencias** (sección 8.2) no rechazan el archivo. | [P09][P36][P37] |
 | RF-028 | La carga **no crea fusiones ni desdobles parciales**: esos se configuran en el sistema. El texto de OBSERVACIONES se conserva tal cual. | [P10] |
@@ -107,75 +113,78 @@ El sistema debe centralizar la información en **un solo registro**. Los listado
 
 | ID | Requisito | Fuente |
 |---|---|---|
-| RF-030 | La grilla se organiza en **bloques por semestre**, colapsables, con número de asignaturas, grupos y horas por bloque, y con distinción visual por malla. El objetivo es parecerse a la organización actual en Sheets: por carrera, qué semestres hay y cuántos cursos tiene cada uno. | [D] 2.ª revisión |
-| RF-031 | Las asignaturas **internacionales o virtuales** llevan un marcador distintivo (sección 8.3). | CU-001, [D] |
-| RF-032 | Las **advertencias** se muestran **siempre**, de forma **altamente visible** y **localizada**: en la fila y la celda donde ocurren, más un contador y una lista navegable en el panel de resumen. | [P37] |
-| RF-033 | El **panel de resumen** muestra el número de asignaturas y de grupos, el total de HT, HP y TH semanales, las horas de dictado (las horas de un grupo fusionado cuentan una sola vez; los subgrupos de desdoble se suman), el número de asignaturas internacionales o virtuales, de fusiones, de desdobles y de advertencias. | CU-001, [P38] |
-| RF-034 | **Edición directa de celdas** con la misma validación que la importación. Un valor inválido se rechaza en el momento. **TH se recalcula** al editar HT o HP. | CU-001, [D] |
-| RF-035 | **Agregar asignatura** manualmente, con los campos de la plantilla y sus validaciones. | [D][P32] |
-| RF-036 | **Eliminar asignatura** con confirmación, advirtiendo si tiene fusiones, varios grupos o docente asignado (este último dato llega en la fase 3). | [D][P32] |
+| RF-030 | La previsualización se organiza **por semestre**, con el número de asignaturas y grupos de cada semestre. *Los bloques ya no son colapsables ni se distinguen por malla* [2026-11-03]. | [D] 2.ª revisión, [2026-11-03] |
+| RF-031 | ~~Las asignaturas **internacionales o virtuales** llevan un marcador distintivo en el plan.~~ **Fuera de alcance [2026-11-03]** en CU-001: la condición internacional o virtual (sección 8.3) solo se usa en la regla A10 de CU-002. | CU-001, [D] |
+| RF-032 | Las **advertencias** de la interpretación se muestran en la fila del grupo donde ocurren, más un resumen al interpretar (filas leídas y descartadas). *Sin contador ni lista navegable* [2026-11-03]. | [P37], [2026-11-03] |
+| RF-033 | ~~El **panel de resumen** con horas de dictado, internacionales, fusiones, desdobles y advertencias.~~ **Fuera de alcance [2026-11-03]**: solo se muestran los totales de asignaturas y grupos. | CU-001, [P38] |
+| RF-034 | ~~**Edición directa de celdas**.~~ **Fuera de alcance [2026-11-03]**: para corregir datos se vuelve a pegar el Excel corregido. | CU-001, [D] |
+| RF-035 | ~~**Agregar asignatura** manualmente.~~ **Fuera de alcance [2026-11-03].** | [D][P32] |
+| RF-036 | ~~**Eliminar asignatura** con confirmación.~~ **Fuera de alcance [2026-11-03].** | [D][P32] |
 
 ### 5.5 Gestión de grupos
+
+Las operaciones se hacen en memoria en el navegador y se guardan con «Guardar». **[2026-11-03]**
 
 | ID | Requisito | Fuente |
 |---|---|---|
 | RF-040 | **Agregar grupo a una asignatura.** Crea un grupo paralelo con número correlativo y las mismas HT y HP. Sustituye al antiguo "desdoble total". | [D][P15][P16] |
-| RF-041 | **Agregar grupo a un semestre.** Crea en un solo paso un grupo nuevo para **todas** las asignaturas del semestre (p. ej. 1-1 y 1-2 a inicio de año). | [D][P16] |
-| RF-042 | **Eliminar grupo** es una acción **genérica** (sin motivo obligatorio) y lleva confirmación. Advierte si es el **único grupo** de la asignatura, si está **fusionado** o si tiene **docente asignado**. Nunca bloquea. | [D] 2.ª revisión, [P03] |
-| RF-043 | **Desdoble parcial de práctica.** La teoría se mantiene común y las HP se dividen en N subgrupos. Requiere HP > 0. | [D][P16] |
-| RF-044 | **Desdoble parcial de teoría.** La práctica se mantiene común y las HT se dividen en N subgrupos. Requiere HT > 0. | [D][P16] |
-| RF-045 | **Fusionar grupos** de la misma carrera (entre mallas) o de **otras carreras**. Se seleccionan 2 o más grupos. El sistema **sugiere** candidatos (mismo nombre normalizado o mismas horas), pero el usuario puede elegir cualquier grupo. | [D][P13] |
+| RF-041 | ~~**Agregar grupo a un semestre.**~~ **Fuera de alcance [2026-11-03].** | [D][P16] |
+| RF-042 | **Quitar grupo** es una acción **genérica** (sin motivo obligatorio) y lleva confirmación. Si el grupo está fusionado, la fusión se deshace antes. **No se puede quitar el último grupo** de una asignatura (sería eliminar la asignatura, RF-036) [2026-11-03]. | [D] 2.ª revisión, [P03], [2026-11-03] |
+| RF-043 | **Desdoble parcial de práctica.** La teoría se mantiene común y las HP se dividen en N subgrupos (de 2 a 9). Requiere HP > 0. El desdoble se puede **quitar**. | [D][P16], [2026-11-03] |
+| RF-044 | **Desdoble parcial de teoría.** La práctica se mantiene común y las HT se dividen en N subgrupos (de 2 a 9). Requiere HT > 0. El desdoble se puede **quitar**. | [D][P16], [2026-11-03] |
+| RF-045 | **Fusionar grupos** de la misma carrera (entre mallas) o de **otras carreras** del mismo ciclo. Se seleccionan 2 o más grupos en el diálogo de fusión, que lista los grupos de la carrera y, con «Buscar en otras carreras», los de los planes vigentes de las demás (con un filtro). *Ya no sugiere candidatos* [2026-11-03]. Un grupo que ya está en una fusión no se puede elegir. | [D][P13], [2026-11-03] |
 | RF-046 | Si los grupos seleccionados difieren en **nombre, código, HT, HP o TH**, el sistema **advierte y nunca bloquea**. El usuario confirma bajo su responsabilidad. | [D][P14] |
-| RF-047 | Al fusionar, el usuario elige el **grupo principal**. Sus HT y HP son las de la sección fusionada y, en los totales consolidados, las horas cuentan **una sola vez**. | [P38][X] |
-| RF-048 | Cualquier responsable que pueda editar una de las carreras involucradas puede crear una fusión **sin aprobación** de la otra carrera. Al guardar, la fusión aparece en **ambos planes**, se muestra un **aviso** en el plan de la otra carrera y queda en el historial de ambos. **No requiere** el bloqueo de la otra carrera. | [P13][P39] |
-| RF-049 | **Deshacer fusión.** Restituye los grupos originales con sus horas. Lo puede hacer cualquier responsable de una de las carreras involucradas (simetría con RF-048). | CU-001, [P13] |
+| RF-047 | Al fusionar, el usuario elige el **grupo principal**. Sus HT y HP son las de la sección fusionada y, en la carga docente, las horas cuentan **una sola vez**. | [P38][X] |
+| RF-048 | El Coordinador puede crear una fusión con grupos de otras carreras **sin aprobación** de la otra carrera ni su bloqueo. La fusión se guarda **solo en el plan que la crea**; la otra carrera la ve como una marca «FUS – fusionado con <carrera>», que se calcula al leer los planes. No se crea una versión en el otro plan [2026-11-03]. | [P13][P39], [2026-11-03] |
+| RF-049 | **Deshacer fusión.** Restituye los grupos originales con sus horas. Se hace desde el plan que creó la fusión [2026-11-03]. | CU-001, [P13], [2026-11-03] |
 
 ### 5.6 Estados, guardado y versionado
 
 | ID | Requisito | Fuente |
 |---|---|---|
-| RF-050 | El plan de cada carrera en cada ciclo tiene los estados **Sin Iniciar → Borrador → Registrado**. También se puede pasar de Sin Iniciar directamente a Registrado. | CU-001 |
-| RF-051 | **Guardar borrador** está disponible mientras el plan no está registrado. | CU-001 |
-| RF-052 | **Registrar plan** pide confirmación con el resumen consolidado y las advertencias vigentes. Al registrar se habilita la asignación docente (fase 3). | CU-001 |
-| RF-053 | Un plan **Registrado sigue siendo editable** con advertencias. Se guarda con **Guardar cambios** (con motivo opcional) y el estado sigue siendo Registrado. | [D] 2.ª revisión, [P01] |
+| RF-050 | El plan de una carrera en un ciclo tiene versiones o **no tiene ninguna** («Sin plan»). ~~Estados Sin Iniciar → Borrador → Registrado.~~ **No existe el estado Borrador** [2026-11-03]: todo plan guardado es *Registrado*, y el CU-002 trabaja con la versión más reciente. | CU-001, [2026-11-03] |
+| RF-051 | ~~**Guardar borrador**.~~ **Fuera de alcance [2026-11-03]**: hay un solo botón «Guardar». | CU-001 |
+| RF-052 | ~~**Registrar plan** con confirmación del resumen.~~ **Fuera de alcance [2026-11-03]**: «Guardar» crea la versión directamente. | CU-001 |
+| RF-053 | Un plan guardado **sigue siendo editable**: cada «Guardar» crea una versión nueva. *Sin motivo.* | [D] 2.ª revisión, [P01], [2026-11-03] |
 | RF-054 | El estado del ciclo **no** restringe la edición: se pueden editar planes de ciclos futuros, actuales o **anteriores**. | [P02][P41] |
-| RF-055 | **Todo guardado genera una versión**: guardar borrador, registrar, guardar cambios, autoguardado y restauración. Cada versión registra número, estado resultante, tipo de guardado, usuario, fecha y hora, motivo y el contenido completo del plan. | [P05][P25][P44] |
-| RF-056 | El usuario consulta el **historial de versiones**, ve cualquier versión en solo lectura y la **compara** con la anterior (asignaturas, grupos y fusiones agregados, eliminados o modificados). | [P05] |
+| RF-055 | **Cada guardado y cada restauración generan una versión** con número, usuario, fecha y hora de Perú y el contenido completo del plan (JSON en una celda de la pestaña Planes, como mucho 50 000 caracteres). Al guardar se envía la versión con la que se abrió la edición; si ya hay una más nueva, el guardado se **rechaza** con un aviso [2026-11-03]. | [P05][P25][P44], [2026-11-03] |
+| RF-056 | El usuario consulta el **historial de versiones** y ve cualquier versión en solo lectura. ~~Comparar con la anterior.~~ **La comparación queda fuera de alcance [2026-11-03].** | [P05], [2026-11-03] |
 | RF-057 | **Restaurar versión.** Copia una versión anterior como **nueva versión**, sin borrar el historial. | [P45] |
 
 ### 5.7 Concurrencia
 
 | ID | Requisito | Fuente |
 |---|---|---|
-| RF-060 | **Bloqueo por carrera.** Solo un usuario edita el plan de una carrera a la vez. Los demás lo ven en solo lectura y con aviso de quién lo está editando. | [P18] |
-| RF-061 | El bloqueo se libera al guardar y cerrar, al cancelar o al cerrar sesión, o por **inactividad de 30 minutos** (valor configurable). | [P40] |
-| RF-062 | Si el bloqueo expira con cambios sin guardar, se hace un **autoguardado**: como Borrador si el plan no está registrado, o como nueva versión si está Registrado. | [P42] |
+| RF-060 | **Bloqueo por carrera, ciclo y CU.** Al pulsar «Editar», el usuario toma el bloqueo. Los demás ven «En edición por <correo>» y solo pueden leer. | [P18], [2026-11-03] |
+| RF-061 | El bloqueo se libera al guardar o al salir, o **vence tras 30 minutos sin actividad**. Si hubo actividad, la vista lo renueva cada 5 minutos. *El plazo ya no es configurable* [2026-11-03]. | [P40], [2026-11-03] |
+| RF-062 | ~~**Autoguardado** al expirar el bloqueo.~~ **Fuera de alcance [2026-11-03]**: sin autoguardado ni copia de recuperación; si el bloqueo vence, lo que no se guardó se pierde. | [P42] |
 
 ### 5.8 Auditoría
 
 | ID | Requisito | Fuente |
 |---|---|---|
-| RF-070 | Se registra en una bitácora inmutable cada importación, guardado, registro, restauración, fusión y bloqueo, con usuario, fecha y hora, ciclo, carrera, acción y detalle. | [D] 1.ª revisión, [P01] |
+| RF-070 | ~~Bitácora inmutable de cada acción.~~ **Fuera de alcance [2026-11-03]**: el historial de versiones (usuario, fecha y hora de cada guardado) cumple ese papel. | [D] 1.ª revisión, [P01] |
 
 ---
 
 ## 6. Estados del plan de carrera
 
+Desde la simplificación **[2026-11-03]** no hay Borrador ni autoguardado:
+
 ```mermaid
 stateDiagram-v2
-    [*] --> Sin_Iniciar
-    Sin_Iniciar --> Borrador: Guardar borrador / autoguardado (v1)
-    Borrador --> Borrador: Guardar borrador / autoguardado (v+1)
-    Sin_Iniciar --> Registrado: Registrar (v1)
-    Borrador --> Registrado: Registrar (v+1)
-    Registrado --> Registrado: Guardar cambios / autoguardado / restaurar / re-importar (v+1)
+    [*] --> Sin_plan
+    Sin_plan --> Registrado: Guardar (v1)
+    Registrado --> Registrado: Guardar / restaurar (v+1)
 ```
 
-Un plan **no** vuelve de Registrado a Borrador.
+El diagrama anterior (Sin Iniciar → Borrador → Registrado, con autoguardado) queda fuera de alcance.
 
 ---
 
 ## 7. Plantilla oficial de importación
+
+> **Fuera de alcance [2026-11-03].** No hay plantilla que descargar: se pega o se sube el rango tal como lo tiene la carrera, y las columnas que se leen están en la sección 8.1. Se conserva el texto como referencia.
 
 ### 7.1 Columnas
 
@@ -219,13 +228,18 @@ Una cabecera **repetida** es error. Es el caso del Excel actual, que tiene "HT" 
 
 | Regla | Comportamiento |
 |---|---|
-| Nada se rechaza | Ninguna celda, fila ni archivo impide completar una carga. Cualquier archivo se lee como libro de cálculo y, si no se puede, como texto. **[CU RN-16, RN-21]** |
-| Cabeceras | Se localiza la fila de cabeceras aunque haya títulos encima. Se normalizan (mayúsculas, tildes y espacios) y se aceptan los sinónimos de la sección 7.2. Una columna sin cabecera reconocible se deduce por su contenido: el código por su forma `3.1.1.24`, la malla por el año, la carrera por su sigla o alias y el departamento por su código. |
-| Texto conservado | Una celda que no se entiende como número se guarda y se muestra tal cual. Para los totales se toma el número que contenga; si no tiene ninguno, cuenta como cero. **[CU RN-17]** |
-| SEMESTRE | `5` es el semestre 5, grupo 1; `1-2` es el semestre 1, grupo 2. Otro texto da nombre a su propio bloque. **[CU RN-18]** |
-| GRUPO | Si está vacío se toma del sufijo de SEMESTRE; si SEMESTRE tampoco lo indica, vale 1. **[CU RN-19]** |
-| CARRERA | Admite la sigla, el nombre completo o un alias (`Ing. Software`, `Adm. Neg. Int.`…). **[CU RN-20]** Al importar en el plan de una carrera, las filas que indican **otra** carrera se ignoran y el sistema avisa cuántas fueron; una fila sin CARRERA sí se importa. **[2026-09-29]** |
-| Columnas sin uso | TOTAL HORAS no se lee: el total se calcula como HT + HP. DOCENTE, TURNO y cualquier otra columna se ignoran. **[CU RN-09]** |
+Reglas vigentes desde la simplificación **[2026-11-03]** (`planInterpretar`, en el servidor):
+
+| Regla | Comportamiento |
+|---|---|
+| Nada se rechaza | Ninguna celda ni fila impide completar una carga: lo que no se entiende se conserva con un aviso en la fila. Solo se rechaza un texto vacío o sin fila de cabeceras. **[CU RN-16, RN-21]** |
+| Separador | Texto pegado: tabulaciones. CSV: `;` o `,`, el que más aparezca. Se aceptan campos entre comillas con saltos de línea, como los copia Excel. **[2026-11-03]** |
+| Cabeceras | La fila de cabeceras es la primera que contiene CODIGO y ASIGNATURA, aunque haya títulos encima. Se comparan sin mayúsculas, tildes ni espacios sobrantes. Columnas: CARRERA, MALLA, SEMESTRE, CODIGO, ASIGNATURA, HT, HP, TOTAL HORAS (o `TH` o `TOTAL DE HORAS`), DPTO y OBSERVACIONES (o OBSERVACION). **La segunda columna «HT» es TOTAL HORAS**, como en el Excel real. *Ya no se deducen columnas por su contenido.* **[2026-11-03]** |
+| Texto conservado | Una celda de horas que no se entiende como número se guarda tal cual, con aviso. Si TOTAL no es HT + HP, se avisa. **[CU RN-17]** |
+| SEMESTRE y grupo | `5` es el semestre 5, grupo 1; `1-2` o `3 - 1` es el semestre 1 o 3, grupo 2 o 1. Otro texto queda sin semestre, con aviso. Las filas con el mismo CODIGO forman **una asignatura** con varios grupos; un grupo repetido recibe el siguiente número libre, con aviso. Las asignaturas se ordenan por semestre y luego por código. **[CU RN-18, RN-19][2026-11-03]** |
+| CARRERA | Las filas de **otra** carrera (por sigla o por el nombre de la pestaña Carreras) se descartan y se informa cuántas fueron; una fila sin CARRERA sí se importa. **[2026-09-29]** |
+| Columnas sin uso | DOCENTE, TURNO y cualquier otra columna se ignoran. **[CU RN-09]** |
+| Reemplazo | Pegar o subir sobre un plan que ya tiene asignaturas pide confirmación y reemplaza todo, fusiones incluidas. **[P12]** |
 
 ### 8.2 Advertencias vigentes
 
@@ -242,6 +256,8 @@ Las advertencias no bloquean: el sistema avisa y el Responsable confirma.
 - **Malla:** se toma de la columna MALLA. **[CU RN-11]**
 
 ### 8.4 Lectura de los `.xlsx` de Drive (versión Apps Script) **[2026-09-29]**
+
+> **Fuera de alcance [2026-11-03].** La aplicación ya no lee Drive ni `.xlsx` ni tiene «Releer Excel». Se conserva el texto como referencia.
 
 El servidor lee los `.xlsx` de la carpeta de Drive sin convertirlos a Hoja de cálculo de Google y aplica las mismas reglas de la sección 8.1.
 
@@ -261,20 +277,24 @@ El servidor lee los `.xlsx` de la carpeta de Drive sin convertirlos a Hoja de c�
 |---|---|---|
 | RNF-01 | Acceso con cuenta de Google restringido al dominio `@ulasalle.edu.pe`. La aplicación web se publica solo para el dominio y el servidor vuelve a comprobar el dominio de la cuenta. | CU-001, [2026-09-29] |
 | RNF-02 | La autorización por rol y por carrera se valida en el **servidor** (Apps Script), no solo en la interfaz. | Seguridad |
-| RNF-03 | Las reglas de interpretación (sección 8) son un único código que usan el servidor y el navegador (`AppScript/Dominio.js`). | Consistencia |
-| RNF-04 | Cada guardado (versión, bitácora y liberación del bloqueo) es una **transacción atómica**. | [D] 1.ª revisión |
-| RNF-05 | Las advertencias son altamente visibles y están localizadas en fila y celda. | [P37] |
+| RNF-03 | La interpretación vive en el servidor de cada CU (`planInterpretar`, `cargaInterpretar`). **Nada se comparte entre los dos CU**: la lógica que se repite (bloqueo, versionado, lectura de CSV, normalización) se copia en cada uno con su prefijo. *Antes: un `Dominio.js` común.* | [2026-11-03] |
+| RNF-04 | Cada escritura en el Sheet (versión y liberación del bloqueo) se hace dentro de `LockService.getScriptLock()`, para que dos guardados simultáneos no se pisen. | [D] 1.ª revisión, [2026-11-03] |
+| RNF-05 | Las advertencias son visibles y están en la fila del grupo donde ocurren. | [P37] |
 | RNF-06 | La carga masiva minimiza el uso de formularios uno por uno. La preocupación del docente era la cantidad de clics. | [D] |
-| RNF-07 | Interfaz en español. Fechas en zona `America/Lima`. | Contexto |
-| RNF-08 | El tiempo de expiración del bloqueo es configurable (30 min por defecto). | [P40] |
-| RNF-09 | Stack: **Google Apps Script** (servidor y página con HtmlService). Los `.xlsx` de una carpeta de **Google Drive** son la fuente de la oferta y nunca se modifican. Una **hoja de cálculo de Google** guarda los planes, las versiones, los bloqueos y los usuarios. Reemplaza al stack Spring Boot + PostgreSQL + Flyway de P22–P24. | [2026-09-29] |
-| RNF-10 | Los usuarios y roles viven en la pestaña Usuarios de la hoja del sistema. Las carreras y los departamentos son constantes del código. Los ciclos y los parámetros son propiedades del script. La función `instalar()` crea la estructura y siembra los usuarios iniciales. | [P29], [2026-09-29] |
+| RNF-07 | Interfaz, código y comentarios en español. Fechas en hora de Perú (`2026-11-04T02:29:49-05:00`). | Contexto |
+| RNF-08 | ~~El tiempo de expiración del bloqueo es configurable.~~ **Fuera de alcance [2026-11-03]**: son 30 minutos fijos. | [P40] |
+| RNF-09 | Stack: **Google Apps Script** (servidor en `.js` y página con HtmlService) y **Alpine.js 3.17.5 desde el CDN**, con unas 100 líneas de CSS escrito a mano. Un **Google Sheet vinculado** («SISCargaLectiva - Centro de datos») guarda usuarios, ciclos, carreras, docentes, planes, cargas y bloqueos. *Ya no se leen `.xlsx` de Drive ni hay Tailwind ni íconos.* | [2026-09-29], [2026-11-03] |
+| RNF-10 | Los usuarios y roles viven en la pestaña Usuarios; los ciclos, en Ciclos; las carreras y su departamento, en Carreras; el catálogo de docentes, en Docentes. *Sin propiedades del script ni `instalar()`.* | [P29], [2026-11-03] |
+| RNF-11 | El código tiene **8 archivos** (unas 2 200 líneas): cada vista en un `<Nombre>Vista.html` con su marcado y su JavaScript, y su backend en `<Nombre>.js`. Apps Script no admite un `.js` y un `.html` con el mismo nombre, por eso el sufijo `Vista`. | [2026-11-03] |
+| RNF-12 | **Alpine.js** se usa para la navegación entre vistas (`$store.nav`), el estado de carga de los botones que llaman al servidor (`ocupado`, que vuelve a su estado al terminar, también si hay error) y para poblar con `x-for` las tablas que devuelve el servidor, en al menos una funcionalidad de cada CU (requisito del docente). | [D], [2026-11-03] |
 
 ---
 
 ## 10. Resumen de decisiones del equipo
 
 Los códigos P## remiten a `preguntas.md` (archivo local). Las decisiones marcadas **[2026-09-29]** se tomaron al pasar el prototipo a Google Apps Script y no tienen código P##.
+
+> **[2026-11-03]** La simplificación (sección 10.1) deja sin efecto las filas de esta tabla sobre el Borrador, la plantilla, la selección de hoja, el `.xlsx`, Drive y «Releer Excel», el autoguardado, la caché, la configuración en propiedades del script, la derivación, los reemplazos, el pendiente internacional, las vistas por departamento y la rejilla de pegado. Se conservan como historial.
 
 | Tema | Decisión |
 |---|---|
@@ -323,6 +343,29 @@ Los códigos P## remiten a `preguntas.md` (archivo local). Las decisiones marcad
 | CU-002 Rejilla de Carga | Reutilización de Rejilla de Pegado matricial y subida de CargaXDepartamento .xlsx con previsualización (P95). |
 | CU-002 Búsqueda de docentes | Búsqueda por nombre en el catálogo y entre los docentes asignados fuera de él: todas las palabras, sin distinguir tildes ni mayúsculas, hasta 30 resultados, con las horas de las cargas guardadas del ciclo. No muestra el DNI (CU-002 FA-115 a FA-118) **[2026-11-02]**. |
 
+### 10.1 Decisiones de la simplificación [2026-11-03]
+
+Fuente: `instrucciones.md` y las confirmaciones del equipo durante la ejecución.
+
+| Tema | Decisión |
+|---|---|
+| Objetivo | Rehacer la aplicación al mínimo de los CU: 8 archivos y unas 2 000 líneas, en lugar de unas 11 500 en 60 archivos. |
+| Página principal | Inicio con dos botones: «Registrar plan de ciclo» (CU-001) y «Carga docente» (CU-002). |
+| Usuarios | Solo `coordinador` y `director`, leídos de la pestaña Usuarios. La cuenta tiene que ser de `@ulasalle.edu.pe` **y** estar en Usuarios; si no, «Acceso denegado» con el motivo (cuenta no identificada, fuera del dominio o sin rol). La pestaña Usuarios se migró sin cambios. |
+| Permisos | El Coordinador edita el CU-001 de sus carreras; el Director edita el CU-002 de las carreras de su departamento (pestaña Carreras). Todo lo demás, en solo lectura. |
+| Departamento de cada carrera | DIMA → ING, IND, ARQ, ICO; DACTE → ADM; DACJ → DER; DAHUC → COM, PSI (confirmado). |
+| Ciclo | Selector «Ciclo» en cada CU con los valores de la pestaña Ciclos. |
+| Formatos | Pegar texto (tabulaciones, como lo copia Excel o Sheets) o subir `.csv` (`;` o `,`). No se aceptan `.xlsx`. |
+| Versionado | Cada guardado crea una versión con número, usuario, fecha y hora de Perú y el contenido completo. Historial, ver en solo lectura y restaurar como versión nueva. |
+| Conflicto | Al guardar se envía la versión con la que se abrió la edición; si hay una más nueva, se rechaza con un aviso. |
+| Bloqueo | Por carrera, ciclo y CU al pulsar «Editar». Se libera al guardar o al salir, o vence tras 30 min sin actividad; con actividad se renueva cada 5 min. Sin autoguardado ni copia de recuperación. |
+| CU-001 | Sin Borrador (un solo «Guardar»); agregar y quitar grupo, desdoble parcial (y quitarlo), fusión de la misma carrera o de otras (y deshacerla). La fusión con otra carrera se guarda solo en el plan que la crea. Sin edición de celdas ni agregar o eliminar asignaturas. |
+| CU-002 | Carga **por carrera**. Teoría y práctica con su docente (T1…Tn / P1…Pn con desdoble); una fusión se asigna en la carrera del principal. Carga masiva CargaXDepartamento, búsqueda por nombre y reglas A07–A15 (A07 impide guardar; A12 > 24 h exige motivo). Sin derivación, reemplazo, pendiente internacional, vista de horas por docente ni plana del departamento. |
+| Interfaz | Alpine.js desde el CDN para navegación, botones en espera y tablas con `x-for`; unas 100 líneas de CSS escrito a mano; sin Tailwind, íconos ni tableros. |
+| Archivos | Cada vista en `<Nombre>Vista.html` (marcado y JavaScript) y su backend en `<Nombre>.js`, con prefijo `plan` o `carga`; nada compartido entre los CU. El sufijo `Vista` se decidió porque Apps Script no admite un `.js` y un `.html` con el mismo nombre. |
+| Sheet | Pestañas Usuarios, Ciclos, Carreras, Docentes (migrada de «Docentes - General»: nombre completo y sigla del departamento), Planes, Cargas y Bloqueos. Las pestañas anteriores se borraron después de una copia de respaldo del libro en Drive. Los planes y las cargas se vuelven a ingresar desde la aplicación. |
+| Eliminado | Relectura de Excel desde Drive, tablero de avance, plantilla, `.xlsx` y selección de hoja, arrastrar y soltar, rejilla de pegado, copias de recuperación y autoguardado, Borrador, comparación de versiones, derivación, reemplazo de docente, pendiente internacional, menú y paneles del Sheet, mapa de la GUI y documento de arquitectura. |
+
 ---
 
 ## 11. Requisitos de fases futuras (referencia)
@@ -331,6 +374,9 @@ Los códigos P## remiten a `preguntas.md` (archivo local). Las decisiones marcad
 - Crear ciclos (p. ej. `2027-1`) y actualizar sus datos. **[D]**
 
 ### 11.2 CU-002: Carga de Docentes (Director de departamento) [P82–P90]
+
+> **Implementado en la versión simplificada [2026-11-03]**, con estos cambios respecto de lo que sigue: la carga es **por carrera** (el Director edita las carreras de su departamento, no los grupos cuyo DPTO es el suyo; un DPTO distinto del departamento del docente es la advertencia informativa A14); la carga masiva es pegar o `.csv` con el formato CargaXDepartamento, sin `.xlsx`; no hay pendiente internacional, reemplazos, vista por departamento ni vista de horas por docente. Reglas al guardar: A07 (> 40 h, impide guardar), A08, A09, A10, A11, A12 (> 20 h avisa, > 24 h exige motivo), A13, A14, A15 y «no está en Docentes».
+
 - Asignar docentes a los grupos cuyo DPTO sea el del director en todas las carreras. **[D][P86]**
 - Carga masiva desde Google Sheets o archivo `.xlsx` (CargaXDepartamento) y edición directa en pantalla. **[D][P82][P88]**
 - Asignación por componente: docente de teoría y docente o jefe de práctica por cada subgrupo de laboratorio. **[D][P84]**
@@ -371,7 +417,7 @@ Los códigos P## remiten a `preguntas.md` (archivo local). Las decisiones marcad
 | Sigla | Nombre |
 |---|---|
 | DIMA | Departamento Académico de Ingeniería y Matemáticas |
-| DAHU | Departamento Académico de Humanidades (en el Excel: "Humanidades y Com.", sigla DAHUC) |
+| DAHU | Departamento Académico de Humanidades (en el Excel: "Humanidades y Com.", sigla DAHUC). Desde **[2026-11-03]** la pestaña Carreras y la pestaña Docentes usan **DAHUC**, como los Excel. |
 | DACJ | Departamento Académico de Ciencias Jurídicas |
 | DACTE | Departamento Académico de Ciencias y Tecnologías Empresariales |
 
@@ -436,16 +482,16 @@ Mallas vistas: 2016, 2021, 2022 y 2024. Turnos vistos: Mañana, Tarde y Noche (n
 | Q1 | ¿Cuál es la fórmula oficial de **créditos** a partir de HT y HP? | Docente |
 | Q2 | Los Excel usan **DAHUC** ("Humanidades y Com."). ¿La sigla y el nombre oficiales son DAHU? El equipo eligió DAHU (P19). | Docente |
 | Q3 | ¿Las horas pueden tener **decimales**? | Docente |
-| Q4 | ¿Cuál es el **máximo de subgrupos** en un desdoble parcial? Por ahora es un parámetro configurable. | Docente |
+| Q4 | ¿Cuál es el **máximo de subgrupos** en un desdoble parcial? **[2026-11-03]** Por ahora, de 2 a 9. | Docente |
 | Q5 | ¿El **Administrador** también puede registrar o editar planes? | Docente |
 | Q6 | ¿El plan de ciclo de la **universidad** tiene un estado propio (p. ej. "consolidado") o solo es la suma de las carreras? | Docente |
 | Q7 | ¿Un ciclo podrá **cerrarse** en el futuro CU *Administrar ciclos*? Hoy todo es siempre editable (P02). | Docente |
-| Q8 | Si se elimina el **grupo principal** de una fusión de tres o más grupos, ¿se disuelve la fusión o se elige otro principal? | Equipo |
+| Q8 | ~~Si se elimina el **grupo principal** de una fusión de tres o más grupos, ¿se disuelve la fusión o se elige otro principal?~~ **Resuelta [2026-11-03]:** quitar un grupo fusionado deshace la fusión antes. | Equipo |
 | Q9 | ¿Se usará en **celular**? El docente valoró que el Sheet se puede editar desde el móvil. | Docente |
 | Q10 | ¿Hay **metas de rendimiento** (tiempo máximo de importación o de respuesta)? | Equipo |
-| Q11 | `.csv`: ¿qué delimitador (`,` o `;`) y qué codificación (UTF-8, Windows-1252)? | Equipo |
+| Q11 | ~~`.csv`: ¿qué delimitador (`,` o `;`) y qué codificación (UTF-8, Windows-1252)?~~ **Resuelta [2026-11-03]:** los dos delimitadores (el que más aparezca) y las dos codificaciones (UTF-8 y, si no lo es, Windows-1252, como guarda Excel en ANSI). | Equipo |
 | Q12 | ¿Se valida que el segmento de semestre del código coincida con SEMESTRE? | Equipo |
 | Q13 | **Prueba técnica:** verificar que pegar desde Google Sheets entrega texto tabulado (TSV) en el navegador objetivo. | Equipo |
 | Q14 | ~~¿Qué **frontend** se usará? ¿La lectura del archivo se hace en el frontend o en el backend?~~ **Resuelta [2026-09-29]:** Google Apps Script. Los `.xlsx` de Drive los lee el servidor sin convertirlos a Hoja de cálculo de Google; el archivo que sube el usuario se lee en el navegador con SheetJS. | Equipo |
-| Q15 | **Fusión entre carreras.** RF-048 y las reglas RN-12 y RN-13 de CU-001 v4.0 piden fusionar con grupos de otras carreras, y el docente lo planteó así. La versión en Apps Script solo fusiona grupos del plan en edición, como el prototipo. ¿Se mantiene así o se implementa la fusión entre carreras? | Docente |
-| Q16 | En el Excel de Psicología, «Procesos básicos I» repite el código `9.2.5.24` de «Psicología del desarrollo I». ¿Cuál es su código correcto? Mientras no se corrija, esa fila no se lee y el tablero lo avisa. | Equipo |
+| Q15 | ~~**Fusión entre carreras.**~~ **Resuelta [2026-11-03]:** se fusiona con grupos de otras carreras; la fusión se guarda solo en el plan que la crea y la otra carrera la ve como «FUS – fusionado con <carrera>» (RF-048). | Docente |
+| Q16 | En el Excel de Psicología, «Procesos básicos I» repite el código `9.2.5.24` de «Psicología del desarrollo I». ¿Cuál es su código correcto? **[2026-11-03]** Mientras no se corrija, la segunda fila se lee como otro grupo de la misma asignatura, con un aviso en la fila (por eso el Excel da 345 asignaturas y 366 grupos). | Equipo |
