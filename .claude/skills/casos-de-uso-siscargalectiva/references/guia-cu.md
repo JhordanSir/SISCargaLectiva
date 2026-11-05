@@ -57,7 +57,12 @@ Lista numerada. Cada precondición debe ser algo de lo que el flujo básico **de
 Tabla `Término | Descripción`, en orden alfabético. Incluye toda sigla (DAHU, HT, HP, TH...), todo término de dominio que no sea de conocimiento común, y toda acción con nombre propio que uses en los pasos ("Agregar grupo", "Grupo principal"). Si usas un término tres o más veces en los flujos y no está aquí, falta en el glosario — esto es exactamente lo que revisa `scripts/lint_cu.py`.
 
 ### 2.1 Flujo básico
-Tabla `Paso | Responsable | Acción`, numerada desde 1. Reglas no negociables (vienen directo del checklist "Forma"):
+En los documentos Word de `docs/CU/` es una tabla con el número y la acción del **ACTOR** y el número y la acción del **SISTEMA**, numerada desde 1 en orden de lectura (fila por fila, primero el actor). Dos reglas de formato que pidió el equipo el 2026-11-05 (`requirements.md`, sección 10, «Tablas de flujo de los CU»):
+
+- La respuesta del sistema va **en la misma fila** que la acción del actor que la provoca, nunca en una fila nueva con la celda del actor vacía. Los pasos del sistema que siguen van en filas propias.
+- El último paso, numerado dentro de la tabla, es «Fin del caso de uso.».
+
+Antes era una tabla `Paso | Responsable | Acción` en Markdown; los ejemplos de abajo conservan ese formato, pero las reglas de redacción son las mismas. Reglas no negociables (vienen directo del checklist "Forma"):
 
 - **Un paso = una acción.** "El sistema valida y muestra el resultado" son dos pasos, no uno.
 - **Voz activa, tiempo presente.** "El sistema muestra...", "El actor selecciona...". Nunca "se mostrará", "fue mostrado", "debería mostrar".
@@ -93,7 +98,7 @@ No toda aparición de "y"/"o" en un paso es una violación. Estas son excepcione
 `scripts/lint_cu.py` señala cada "y"/"o" suelto dentro de un paso como **candidato a revisar**, no como fallo — no distingue automáticamente una excepción válida de una violación real. Revisa cada uno con esta lista en la mano.
 
 ### 2.2 Flujos alternativos
-Cada uno es `### FA-0XX: <Nombre descriptivo>` seguido de una lista numerada de pasos, no una tabla. El primer paso siempre ancla el punto de desvío: "En el paso N del flujo básico/FA-0YY, el sistema/actor...". El último paso dice a dónde continúa: "El flujo regresa al paso N..." o "Fin del caso de uso.".
+Cada uno es un encabezado `FA-0XX: <Nombre descriptivo>` seguido de su propia tabla ACTOR | SISTEMA, con las mismas reglas que el flujo básico (la respuesta del sistema en la misma fila que la acción del actor). El primer paso siempre ancla el punto de desvío: "En el paso N del flujo básico/FA-0YY, el sistema/actor...". El último paso, numerado **dentro de la tabla**, dice a dónde continúa: "El flujo regresa al paso N del flujo básico.", "El flujo continúa en el paso N del flujo alternativo FA-0YY." o "Fin del caso de uso.". Si la última fila tiene solo la acción del actor, ese paso va en la columna SISTEMA de esa misma fila. No se escribe un párrafo "Continuidad: …" debajo de la tabla.
 
 Antes de escribir un FA nuevo, pregúntate: **¿esta lógica ya existe en otro FA?** Si dos flujos alternativos hacen lo mismo (p. ej. dos formas distintas de llegar al mismo mensaje de error), factoriza uno y haz que el otro lo referencie ("El flujo continúa en el paso 2 del FA-0YY"), como CU-001 hace entre FA-008 y FA-009. Duplicar la lógica es justo el criterio "No duplicidad de lógica" del checklist, y además es lo primero que se desincroniza cuando el docente cambia de opinión.
 
