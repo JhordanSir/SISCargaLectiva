@@ -8,7 +8,7 @@
           PlanDeCicloVista.html y CargaDocenteVista.html: el navegador recibe UNA sola página.
        3. Se carga Alpine.js (la etiqueta del CDN, aquí abajo) y corre el bloque de JavaScript del
           final de este archivo: crea la memoria compartida ($store.nav y $store.usuario) y pregunta
-          «¿quién soy?» al servidor (Index.js → indexUsuario).
+          "¿quién soy?" al servidor (Index.js → indexUsuario).
      QUÉ DISPARA CADA BOTÓN DE LA BARRA
        Inicio / Registrar plan de ciclo / Carga docente → solo cambian $store.nav.vista (no llaman al
        servidor). Cada sección se muestra u oculta con su x-show. La primera vez que se ve una
@@ -18,7 +18,7 @@
 <head>
   <base target="_top">
   <meta charset="utf-8">
-  <!-- Alpine.js desde el CDN. «defer»: corre cuando el HTML ya está leído. Lo que tenga x-cloak queda oculto hasta entonces. -->
+  <!-- Alpine.js desde el CDN. "defer": corre cuando el HTML ya está leído. Lo que tenga x-cloak queda oculto hasta entonces. -->
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.17.5/dist/cdn.min.js"></script>
   <style>
     :root { --texto: #1f2933; --suave: #5f6b7a; --borde: #d5dbe3; --fondo: #f5f7fa; --primario: #1d4ed8;
@@ -81,13 +81,13 @@
         <button :class="{ activo: $store.nav.vista === 'carga' }" @click="$store.nav.vista = 'carga'">Carga docente</button>
       </span>
     </template>
-    <!-- «correo · rol» arriba a la derecha: sale de $store.usuario, que llena cargar() (abajo) con la respuesta de indexUsuario. -->
+    <!-- "correo · rol" arriba a la derecha: sale de $store.usuario, que llena cargar() (abajo) con la respuesta de indexUsuario. -->
     <span class="usuario" x-show="$store.usuario.correo" x-cloak
           x-text="$store.usuario.correo + ($store.usuario.rol ? ' · ' + $store.usuario.rol : '')"></span>
   </header>
 
   <main>
-    <!-- «Acceso denegado»: se ve cuando cargar() (abajo) recibe acceso = false y pone $store.nav.vista = 'denegado'. -->
+    <!-- "Acceso denegado": se ve cuando cargar() (abajo) recibe acceso = false y pone $store.nav.vista = 'denegado'. -->
     <section x-show="$store.nav.vista === 'denegado'" x-cloak>
       <h2>Acceso denegado</h2>
       <p class="error" x-text="$store.usuario.motivo"></p>
@@ -102,11 +102,11 @@
 
   <script>
     /* =================================================================
-       Memoria compartida de toda la página (stores de Alpine) y la pregunta «¿quién soy?».
+       Memoria compartida de toda la página (stores de Alpine) y la pregunta "¿quién soy?".
        Corre una sola vez, cuando Alpine arranca (evento alpine:init).
        ================================================================= */
     document.addEventListener("alpine:init", () => {
-      /* $store.nav.vista = qué sección se ve: «inicio», «plan», «carga» o «denegado».
+      /* $store.nav.vista = qué sección se ve: "inicio", "plan", "carga" o "denegado".
          La cambian los botones de la barra y de Inicio; cada <section> la mira con x-show. */
       Alpine.store("nav", { vista: "inicio" });
 
@@ -116,11 +116,11 @@
 
         /* ACCIÓN: preguntar al servidor quién soy (se llama sola, justo abajo, al arrancar). */
         cargar() {
-          /* PASO 1 · Mientras espera, Inicio muestra «Comprobando tu cuenta…» (InicioVista.html). */
+          /* PASO 1 · Mientras espera, Inicio muestra "Comprobando tu cuenta…" (InicioVista.html). */
           this.cargando = true;
           this.error = "";
 
-          /* PASO 2 · 📡 → SERVIDOR: Index.js → indexUsuario(). Allí se lee la pestaña «Usuarios» del Sheet.
+          /* PASO 2 · 📡 → SERVIDOR: Index.js → indexUsuario(). Allí se lee la pestaña "Usuarios" del Sheet.
              withSuccessHandler recibe lo que devolvió la función; withFailureHandler, un fallo de red o de Apps Script. */
           new Promise((listo, mal) => google.script.run
             .withSuccessHandler(listo)
@@ -132,7 +132,7 @@
               if (!r || !r.ok) throw new Error((r && r.error) || "Respuesta vacía del servidor.");
               /* Copia correo, rol, carreras… en $store.usuario: la barra y los botones de Inicio se repintan solos. */
               Object.assign(this, r.datos);
-              /* Sin acceso: se muestra la sección «Acceso denegado» (arriba, en el <main>). */
+              /* Sin acceso: se muestra la sección "Acceso denegado" (arriba, en el <main>). */
               if (!r.datos.acceso) Alpine.store("nav").vista = "denegado";
             })
             /* Si algo falló, el mensaje se ve en rojo en Inicio. */

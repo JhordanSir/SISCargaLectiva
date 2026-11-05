@@ -1,14 +1,14 @@
 # SISCargaLectiva
 
-Aplicación web en Google Apps Script para planificar la **carga lectiva** de la Universidad La Salle (Arequipa): qué cursos y grupos abre cada carrera en un ciclo (**CU-001 Registrar plan de ciclo**) y qué docentes los dictan (**CU-002 Carga docente**). Los datos viven en el Google Sheet vinculado «SISCargaLectiva - Centro de datos».
+Aplicación web en Google Apps Script para planificar la **carga lectiva** de la Universidad La Salle (Arequipa): qué cursos y grupos abre cada carrera en un ciclo (**CU-001 Registrar plan de ciclo**) y qué docentes los dictan (**CU-002 Carga docente**). Los datos viven en el Google Sheet vinculado "SISCargaLectiva - Centro de datos".
 
 Esta es la versión **simplificada** (noviembre de 2026): 8 archivos y unas 4 000 líneas de aplicación (casi un tercio, comentarios), sin compilación ni dependencias. El estado anterior está en la etiqueta `antes-de-simplificar`.
 
 ## Qué hace
 
-- **Inicio** con dos botones: «Registrar plan de ciclo» y «Carga docente». El del rol del usuario se resalta; el otro abre su vista en solo lectura.
-- **Acceso:** la cuenta tiene que ser de `@ulasalle.edu.pe` y figurar en la pestaña Usuarios como `coordinador` o `director`. Si no, se muestra «Acceso denegado» con el motivo.
-- **CU-001 (Coordinador de carrera).** Elige el ciclo, ve la tabla de carreras y pulsa «Editar» en una de sus carreras. Pega el rango copiado de Excel o Google Sheets, o sube un `.csv` (con `;` o `,`), y el servidor lo interpreta: encuentra las cabeceras aunque haya títulos encima, toma la segunda «HT» como total y lee `1-2` como semestre 1, grupo 2. Las filas de otra carrera se descartan con aviso, y lo que no entiende lo conserva con un aviso en la fila. Después puede agregar o quitar grupos, hacer desdobles parciales y fusionar grupos de su carrera o de otras. Una fusión con otra carrera se guarda solo en el plan que la crea, y la otra carrera la ve como «FUS – fusionado con …». El plan se guarda con un solo botón «Guardar».
+- **Inicio** con dos botones: "Registrar plan de ciclo" y "Carga docente". El del rol del usuario se resalta; el otro abre su vista en solo lectura.
+- **Acceso:** la cuenta tiene que ser de `@ulasalle.edu.pe` y figurar en la pestaña Usuarios como `coordinador` o `director`. Si no, se muestra "Acceso denegado" con el motivo.
+- **CU-001 (Coordinador de carrera).** Elige el ciclo, ve la tabla de carreras y pulsa "Editar" en una de sus carreras. Pega el rango copiado de Excel o Google Sheets, o sube un `.csv` (con `;` o `,`), y el servidor lo interpreta: encuentra las cabeceras aunque haya títulos encima, toma la segunda "HT" como total y lee `1-2` como semestre 1, grupo 2. Las filas de otra carrera se descartan con aviso, y lo que no entiende lo conserva con un aviso en la fila. Después puede agregar o quitar grupos, hacer desdobles parciales y fusionar grupos de su carrera o de otras. Una fusión con otra carrera se guarda solo en el plan que la crea, y la otra carrera la ve como "FUS – fusionado con …". El plan se guarda con un solo botón "Guardar".
 - **CU-002 (Director de departamento).** La carga es **por carrera**: el Director edita las carreras de su departamento y ve las demás en solo lectura. Cada grupo tiene docente de teoría (T) y de práctica (P), o T1…Tn / P1…Pn si hay desdoble. Una fusión se asigna en la carrera de su grupo principal. Hay carga masiva con el formato CargaXDepartamento (pegado o `.csv`), búsqueda de docentes por nombre y reglas A07 a A15 al guardar: A07 (más de 40 h) impide guardar y A12 (cargo con más de 24 h) pide un motivo.
 - **En los dos CU:** cada guardado crea una versión, y el historial permite verla y restaurarla como versión nueva. Al guardar se rechaza el cambio si hay una versión más nueva. El bloqueo de edición es por carrera, ciclo y CU, y vence tras 30 minutos sin actividad: mientras hay actividad, la vista lo renueva cada 5 minutos. No hay autoguardado.
 
@@ -19,7 +19,7 @@ Apps Script no admite un `.js` y un `.html` con el mismo nombre (`clasp push` fa
 | Archivo | Qué es | Líneas |
 |---|---|---:|
 | [AppScript/Index.js](AppScript/Index.js) | `doGet` (sirve la página), `include` (pega las vistas) e `indexUsuario` (dominio y pestaña Usuarios). | 98 |
-| [AppScript/IndexVista.html](AppScript/IndexVista.html) | Carcasa: Alpine desde el CDN, el CSS escrito a mano, la barra con las vistas, el correo y el rol, «Acceso denegado» y los `include` de las tres vistas. | 150 |
+| [AppScript/IndexVista.html](AppScript/IndexVista.html) | Carcasa: Alpine desde el CDN, el CSS escrito a mano, la barra con las vistas, el correo y el rol, "Acceso denegado" y los `include` de las tres vistas. | 150 |
 | [AppScript/InicioVista.html](AppScript/InicioVista.html) | Inicio: los dos botones. No tiene backend. | 36 |
 | [AppScript/PlanDeCicloVista.html](AppScript/PlanDeCicloVista.html) | Vista del CU-001: marcado y `Alpine.data("planDeCiclo")`. | 778 |
 | [AppScript/PlanDeCiclo.js](AppScript/PlanDeCiclo.js) | Backend del CU-001: todo empieza por `plan`. | 944 |
@@ -52,7 +52,7 @@ Alpine 3.17.5 se carga desde el CDN en [IndexVista.html:22](AppScript/IndexVista
 | Uso | Dónde |
 |---|---|
 | **Navegación.** `Alpine.store("nav", { vista: "inicio" })` y cada vista en `<section x-show="$store.nav.vista === '…'">` | Store en [IndexVista.html:111](AppScript/IndexVista.html:111); barra con `@click` y `:class` activo en [IndexVista.html:79-81](AppScript/IndexVista.html:79); botones de Inicio en [InicioVista.html:22](AppScript/InicioVista.html:22) y [:29](AppScript/InicioVista.html:29); secciones en [PlanDeCicloVista.html:19](AppScript/PlanDeCicloVista.html:19) y [CargaDocenteVista.html:20](AppScript/CargaDocenteVista.html:20) |
-| **Usuario.** `Alpine.store("usuario")` con el correo, el rol y el motivo de «Acceso denegado» | [IndexVista.html:114](AppScript/IndexVista.html:114) |
+| **Usuario.** `Alpine.store("usuario")` con el correo, el rol y el motivo de "Acceso denegado" | [IndexVista.html:114](AppScript/IndexVista.html:114) |
 | **Botones en espera.** `ocupado` vale la acción en curso (`"guardar"`, `"interpretar"`, `"buscar"`…) y vuelve a `""` en el éxito y en el error; los botones usan `:disabled="!!ocupado"` y `x-text="ocupado === 'guardar' ? 'Guardando…' : 'Guardar'"` | En cada método que llama al servidor; el patrón está explicado en [PlanDeCicloVista.html:213](AppScript/PlanDeCicloVista.html:213) y [CargaDocenteVista.html:245](AppScript/CargaDocenteVista.html:245) |
 | **`x-for` con datos del servidor (CU-001)** | Tabla de carreras (`planInicio`) [PlanDeCicloVista.html:42](AppScript/PlanDeCicloVista.html:42); previsualización por semestre (`planInterpretar` / `planAbrir`) [:121](AppScript/PlanDeCicloVista.html:121); historial (`planHistorial`) [:83](AppScript/PlanDeCicloVista.html:83); candidatos de fusión (`planCandidatosFusion`) [:184](AppScript/PlanDeCicloVista.html:184) |
 | **`x-for` con datos del servidor (CU-002)** | Resultados de la búsqueda (`cargaBuscarDocentes`) [CargaDocenteVista.html:222](AppScript/CargaDocenteVista.html:222); tabla de secciones (`cargaAbrir`) [:171](AppScript/CargaDocenteVista.html:171); advertencias (`cargaGuardar`) [:39](AppScript/CargaDocenteVista.html:39); previsualización de la carga masiva (`cargaInterpretar`) [:142](AppScript/CargaDocenteVista.html:142) |
@@ -76,9 +76,9 @@ El Google Sheet [SISCargaLectiva - Centro de datos](https://docs.google.com/spre
 | Cargas | `ciclo`, `carrera`, `version`, `usuario`, `fecha`, `motivo`, `contenido` (JSON) |
 | Bloqueos | `cu` (plan / carga), `ciclo`, `carrera`, `correo`, `vence` |
 
-Cada guardado añade una fila con el contenido completo, y la versión vigente es la de número más alto. Las fechas están en hora de Perú («2026-11-04T02:29:49-05:00»). El JSON de una versión tiene que caber en una celda de 50 000 caracteres; el plan más grande (Derecho) ocupa unos 12 000.
+Cada guardado añade una fila con el contenido completo, y la versión vigente es la de número más alto. Las fechas están en hora de Perú ("2026-11-04T02:29:49-05:00"). El JSON de una versión tiene que caber en una celda de 50 000 caracteres; el plan más grande (Derecho) ocupa unos 12 000.
 
-Antes de la simplificación se hizo una copia del libro en Drive: «SISCargaLectiva - Centro de datos (respaldo antes de simplificar 2026-11-03)». Los Excel de ejemplo siguen en `docs/archivos/`, y los planes y las cargas se vuelven a ingresar desde la aplicación.
+Antes de la simplificación se hizo una copia del libro en Drive: "SISCargaLectiva - Centro de datos (respaldo antes de simplificar 2026-11-03)". Los Excel de ejemplo siguen en `docs/archivos/`, y los planes y las cargas se vuelven a ingresar desde la aplicación.
 
 ## Pruebas
 
@@ -94,7 +94,7 @@ Son 61 pruebas: la carcasa, CU-001 y CU-002, con Apps Script simulado en `vm` y 
 node AppScript/pruebas/recorrido.mjs
 ```
 
-El recorrido local abre la página en Chrome sin ventana, con el Apps Script falso, y recorre «Acceso denegado», Inicio → Registrar plan de ciclo → pegar, fusionar con otra carrera y guardar → historial, y después Carga docente → pegar y guardar → buscar un docente. En cada llamada comprueba que el botón muestra su estado de carga y luego vuelve, y al final que no hubo errores en la consola. En Windows encuentra Chrome solo; si no, usa la variable `CHROME`.
+El recorrido local abre la página en Chrome sin ventana, con el Apps Script falso, y recorre "Acceso denegado", Inicio → Registrar plan de ciclo → pegar, fusionar con otra carrera y guardar → historial, y después Carga docente → pegar y guardar → buscar un docente. En cada llamada comprueba que el botón muestra su estado de carga y luego vuelve, y al final que no hubo errores en la consola. En Windows encuentra Chrome solo; si no, usa la variable `CHROME`.
 
 ```bash
 node AppScript/pruebas/recorrido.mjs --dev https://script.google.com/a/macros/ulasalle.edu.pe/s/<ID-de-@HEAD>/dev

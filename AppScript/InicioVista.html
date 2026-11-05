@@ -4,9 +4,9 @@
      Se pega dentro de IndexVista.html al armar la página. Solo lee $store.usuario (quién eres, lo
      llena IndexVista.html al arrancar) y cambia $store.nav.vista al pulsar un botón.
      QUÉ DISPARA CADA BOTÓN
-       «Registrar plan de ciclo» → $store.nav.vista = 'plan'
+       "Registrar plan de ciclo" → $store.nav.vista = 'plan'
          ➡ SIGUE EN PlanDeCicloVista.html: su init() ve el cambio y pide la tabla (planInicio).
-       «Carga docente» → $store.nav.vista = 'carga'
+       "Carga docente" → $store.nav.vista = 'carga'
          ➡ SIGUE EN CargaDocenteVista.html: su init() ve el cambio y pide la tabla (cargaInicio).
      El botón de tu rol sale en azul (clase .primario del CSS de IndexVista.html); el otro abre su
      vista en solo lectura.
@@ -18,7 +18,7 @@
   <p class="error" x-show="$store.usuario.error" x-text="$store.usuario.error"></p>
   <!-- Los dos botones aparecen solo cuando el servidor confirmó que tienes acceso. -->
   <div class="inicio" x-show="$store.usuario.acceso">
-    <!-- Azul si eres coordinador. El subtítulo une tus carreras: «Edita el plan de ING, ICO». -->
+    <!-- Azul si eres coordinador. El subtítulo une tus carreras: "Edita el plan de ING, ICO". -->
     <button :class="{ primario: $store.usuario.rol === 'coordinador' }" @click="$store.nav.vista = 'plan'">
       Registrar plan de ciclo
       <small x-text="$store.usuario.rol === 'coordinador'

@@ -1,13 +1,13 @@
 /* =====================================================================
-   PlanDeCiclo.js · servidor del CU-001 «Registrar plan de ciclo»
+   PlanDeCiclo.js · servidor del CU-001 "Registrar plan de ciclo"
    ---------------------------------------------------------------------
    CÓMO LEER ESTE ARCHIVO
    • Hay UNA función por acción de la vista (PlanDeCicloVista.html). Cada una se lee de arriba
      abajo, como un texto: PASO 1, PASO 2… Todo lo que hace está escrito dentro de ella, aunque
      se repita en otras funciones, para no tener que saltar de un lado a otro.
-   • Al principio de cada función hay unas «herramientas» de una línea que solo usa esa función:
+   • Al principio de cada función hay unas "herramientas" de una línea que solo usa esa función:
        fallo("mensaje")  corta la acción y el mensaje llega al navegador tal cual.
-       pestana("X")      la pestaña X del Sheet (si no existe: «Falta la pestaña «X» en la hoja»).
+       pestana("X")      la pestaña X del Sheet (si no existe: "Falta la pestaña 'X' en la hoja").
        leer("X")         📥 todas las filas de la pestaña X como texto, sin la fila de cabeceras.
    • Marcas en los comentarios:
        📥 SHEET · LEE       aquí se traen datos del Google Sheet
@@ -18,12 +18,12 @@
        ⬅ VIENE DE / ➡ SIGUE EN   de dónde llega la llamada y dónde continúa la historia
    • Todas devuelven { ok: true, datos } o { ok: false, error } y nunca lanzan: cada una termina
      con un catch. Un error previsto (fallo) llega con su mensaje; uno inesperado llega como
-     «Error interno: …» y queda en el registro de Apps Script («Ejecuciones»).
+     "Error interno: …" y queda en el registro de Apps Script ("Ejecuciones").
    • Las operaciones sobre grupos (+ Grupo, Quitar, Desdoblar, Fusionar) NO están aquí: se hacen
-     en el navegador sobre this.plan y solo llegan al Sheet al pulsar «Guardar» (planGuardar).
+     en el navegador sobre this.plan y solo llegan al Sheet al pulsar "Guardar" (planGuardar).
 
    QUÉ BOTÓN LLAMA A QUÉ FUNCIÓN   (botón → método de PlanDeCicloVista.html → función de aquí)
-     Abrir la vista / selector «Ciclo» ... inicio()            → planInicio
+     Abrir la vista / selector "Ciclo" ... inicio()            → planInicio
      Editar / Ver ........................ abrir(sigla)        → planAbrir
      Interpretar / subir CSV ............. interpretar()       → planInterpretar
      Buscar en otras carreras ............ candidatosFusion()  → planCandidatosFusion
@@ -38,9 +38,9 @@
      Usuarios (correo, rol, carreras, departamento) · Ciclos (ciclo) · Carreras (sigla, nombre,
      departamento) · Planes (ciclo, carrera, version, usuario, fecha, contenido) ·
      Bloqueos (cu, ciclo, carrera, correo, vence)
-   Planes es «de solo agregar»: cada Guardar o Restaurar añade una fila (una versión) y ninguna
+   Planes es "de solo agregar": cada Guardar o Restaurar añade una fila (una versión) y ninguna
    se modifica ni se borra. La versión vigente de un plan es la de número más alto.
-   No usa nada de los otros archivos: todo lo de aquí empieza por «plan».
+   No usa nada de los otros archivos: todo lo de aquí empieza por "plan".
    ===================================================================== */
 
 /** Dominio de las cuentas que pueden entrar. */
@@ -49,9 +49,9 @@ const PLAN_DOMINIO_ = "@ulasalle.edu.pe";
 const PLAN_MAX_CELDA_ = 50000;
 /** Topes al guardar un plan (planGuardar, PASO 3): asignaturas, grupos por asignatura y largo de los textos. */
 const PLAN_LIMITES_ = { asignaturas: 400, grupos: 30, nombre: 200, obs: 300, codigo: 40, texto: 20, avisos: 10 };
-/** Mensaje cuando tu bloqueo ya no es tuyo (planGuardar y planMantener). La vista lo reconoce por «Tu bloqueo». */
+/** Mensaje cuando tu bloqueo ya no es tuyo (planGuardar y planMantener). La vista lo reconoce por "Tu bloqueo". */
 const PLAN_SIN_BLOQUEO_ = "Tu bloqueo venció o lo tomó otra cuenta: lo que no guardaste se perdió.";
-/* Cabecera del Excel (sin tildes, en mayúsculas) → campo del plan. La segunda «HT» se trata aparte: es el total
+/* Cabecera del Excel (sin tildes, en mayúsculas) → campo del plan. La segunda "HT" se trata aparte: es el total
    (planInterpretar, PASO 4). */
 const PLAN_COLUMNAS_ = {
   CARRERA: "carrera", MALLA: "malla", SEMESTRE: "semestre", CODIGO: "codigo", ASIGNATURA: "asignatura", HT: "ht", HP: "hp",
@@ -59,7 +59,7 @@ const PLAN_COLUMNAS_ = {
 };
 
 /* =====================================================================
-   ACCIÓN · Abrir «Registrar plan de ciclo» o cambiar el selector «Ciclo»
+   ACCIÓN · Abrir "Registrar plan de ciclo" o cambiar el selector "Ciclo"
    ===================================================================== */
 
 /**
@@ -73,29 +73,29 @@ const PLAN_COLUMNAS_ = {
  */
 function planInicio(ciclo) {
   const fallo = mensaje => { throw Object.assign(new Error(mensaje), { planPrevisto: true }); };
-  const pestana = nombre => SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombre) || fallo("Falta la pestaña «" + nombre + "» en la hoja.");
+  const pestana = nombre => SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombre) || fallo("Falta la pestaña \"" + nombre + "\" en la hoja.");
   const leer = nombre => pestana(nombre).getDataRange().getDisplayValues().slice(1).map(f => f.map(c => String(c).trim()));
   try {
     /* PASO 1 · ¿Quién eres? Google da el correo de la sesión; tiene que ser de la universidad. */
     const correo = String(Session.getActiveUser().getEmail() || "").trim().toLowerCase();
     if (!correo) fallo("Acceso denegado: cuenta no identificada; entra con tu cuenta " + PLAN_DOMINIO_ + ".");
     if (correo.slice(-PLAN_DOMINIO_.length) !== PLAN_DOMINIO_) fallo("Acceso denegado: cuenta fuera del dominio " + PLAN_DOMINIO_ + ".");
-    /* 📥 SHEET · LEE «Usuarios»: tu fila dice tu rol (columna B) y tus carreras (columna C, separadas por coma). */
+    /* 📥 SHEET · LEE "Usuarios": tu fila dice tu rol (columna B) y tus carreras (columna C, separadas por coma). */
     const filaUsuario = leer("Usuarios").filter(u => u[0].toLowerCase() === correo)[0];
     const rol = filaUsuario ? filaUsuario[1].toLowerCase() : "";
     if (rol !== "coordinador" && rol !== "director")
       fallo("Acceso denegado: cuenta sin rol; " + correo + " no figura como coordinador ni director en la pestaña Usuarios.");
     const misCarreras = String(filaUsuario[2] || "").split(",").map(s => s.trim().toUpperCase()).filter(String);
 
-    /* PASO 2 · 📥 SHEET · LEE «Planes» y «Bloqueos» enteras, una sola vez. Lo demás se cruza en memoria. */
+    /* PASO 2 · 📥 SHEET · LEE "Planes" y "Bloqueos" enteras, una sola vez. Lo demás se cruza en memoria. */
     const planes = leer("Planes"), bloqueos = leer("Bloqueos");
 
-    /* PASO 3 · 📥 SHEET · LEE «Ciclos». Sin ciclo elegido (la primera vez) se usa el último de la lista. */
+    /* PASO 3 · 📥 SHEET · LEE "Ciclos". Sin ciclo elegido (la primera vez) se usa el último de la lista. */
     const ciclos = leer("Ciclos").map(f => f[0]).filter(String), pedido = String(ciclo == null ? "" : ciclo).trim();
     if (!pedido) ciclo = ciclos[ciclos.length - 1] || fallo("La pestaña Ciclos está vacía.");
-    else ciclo = ciclos.indexOf(pedido) >= 0 ? pedido : fallo("Ciclo desconocido: «" + pedido + "».");
+    else ciclo = ciclos.indexOf(pedido) >= 0 ? pedido : fallo("Ciclo desconocido: \"" + pedido + "\".");
 
-    /* PASO 4 · 📥 SHEET · LEE «Carreras» y arma una fila de la tabla por carrera. */
+    /* PASO 4 · 📥 SHEET · LEE "Carreras" y arma una fila de la tabla por carrera. */
     const carreras = leer("Carreras").filter(f => f[0]).map(f => {
       const sigla = f[0].toUpperCase();
       /* 4a · Versión vigente = la de número más alto de esa carrera en ese ciclo (Planes es de solo agregar). */
@@ -103,14 +103,14 @@ function planInicio(ciclo) {
         .map(p => ({ version: Number(p[2]), usuario: p[3], fecha: p[4], contenido: p[5] })).sort((a, b) => b.version - a.version)[0];
       /* 4b · El contenido (columna F) es el JSON del plan: aquí solo se usa para contar asignaturas y grupos. */
       const plan = v ? JSON.parse(v.contenido) : { asignaturas: [] };
-      /* 4c · ¿Alguien la edita? Su fila de «Bloqueos» cuenta solo si la hora «vence» todavía no pasó. */
+      /* 4c · ¿Alguien la edita? Su fila de "Bloqueos" cuenta solo si la hora "vence" todavía no pasó. */
       const b = bloqueos.find(x => x[0] === "plan" && x[1] === ciclo && x[2] === sigla);
       return {
         sigla, nombre: f[1], departamento: f[2].toUpperCase(),
         version: v ? v.version : 0, usuario: v ? v.usuario : "", fecha: v ? v.fecha : "",
         asignaturas: plan.asignaturas.length, grupos: plan.asignaturas.reduce((n, a) => n + a.grupos.length, 0),
         editor: b && Date.parse(b[4]) > Date.now() ? b[3].toLowerCase() : "",
-        /* 4d · Solo el coordinador edita, y solo sus carreras: en la tabla el botón dirá «Editar» (azul) o «Ver». */
+        /* 4d · Solo el coordinador edita, y solo sus carreras: en la tabla el botón dirá "Editar" (azul) o "Ver". */
         puedeEditar: rol === "coordinador" && misCarreras.indexOf(sigla) >= 0
       };
     });
@@ -125,12 +125,12 @@ function planInicio(ciclo) {
 }
 
 /* =====================================================================
-   ACCIÓN · Botón «Editar» o «Ver» de una carrera
+   ACCIÓN · Botón "Editar" o "Ver" de una carrera
    ===================================================================== */
 
 /**
- * Abre el plan de una carrera. Si es tuya y nadie más la edita, en «edicion» y toma el bloqueo (fila en Bloqueos);
- * si no, en «lectura» con el motivo. Los grupos que otra carrera fusionó llevan fusionExterna (solo para mostrar).
+ * Abre el plan de una carrera. Si es tuya y nadie más la edita, en "edicion" y toma el bloqueo (fila en Bloqueos);
+ * si no, en "lectura" con el motivo. Los grupos que otra carrera fusionó llevan fusionExterna (solo para mostrar).
  * ⬅ VIENE DE: PlanDeCicloVista.html → abrir(sigla). También restaurar(n), que vuelve a abrir al terminar.
  * ↩ RESPUESTA: { ciclo, carrera, nombre, modo, motivo, editor, vence, version, usuario, fecha, plan }.
  * @param {string} ciclo
@@ -139,14 +139,14 @@ function planInicio(ciclo) {
  */
 function planAbrir(ciclo, carrera) {
   const fallo = mensaje => { throw Object.assign(new Error(mensaje), { planPrevisto: true }); };
-  const pestana = nombre => SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombre) || fallo("Falta la pestaña «" + nombre + "» en la hoja.");
+  const pestana = nombre => SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombre) || fallo("Falta la pestaña \"" + nombre + "\" en la hoja.");
   const leer = nombre => pestana(nombre).getDataRange().getDisplayValues().slice(1).map(f => f.map(c => String(c).trim()));
   /* Al escribir, lo que empieza por = + - @ lleva apóstrofo para que el Sheet no lo tome como fórmula. */
   const comoTexto = v => { const s = v == null ? "" : String(v); return /^[=+\-@]/.test(s) ? "'" + s : s; };
-  /* Fecha y hora de Perú en ISO 8601: «2026-10-15T11:01:11-05:00». */
+  /* Fecha y hora de Perú en ISO 8601: "2026-10-15T11:01:11-05:00". */
   const fechaPeru = ms => new Date(ms - 5 * 3600000).toISOString().slice(0, 19) + "-05:00";
   try {
-    /* PASO 1 · ¿Quién eres? (correo, dominio y tu fila de 📥 «Usuarios»). */
+    /* PASO 1 · ¿Quién eres? (correo, dominio y tu fila de 📥 "Usuarios"). */
     const correo = String(Session.getActiveUser().getEmail() || "").trim().toLowerCase();
     if (!correo) fallo("Acceso denegado: cuenta no identificada; entra con tu cuenta " + PLAN_DOMINIO_ + ".");
     if (correo.slice(-PLAN_DOMINIO_.length) !== PLAN_DOMINIO_) fallo("Acceso denegado: cuenta fuera del dominio " + PLAN_DOMINIO_ + ".");
@@ -156,15 +156,15 @@ function planAbrir(ciclo, carrera) {
       fallo("Acceso denegado: cuenta sin rol; " + correo + " no figura como coordinador ni director en la pestaña Usuarios.");
     const misCarreras = String(filaUsuario[2] || "").split(",").map(s => s.trim().toUpperCase()).filter(String);
 
-    /* PASO 2 · ¿Qué carrera? 📥 SHEET · LEE «Carreras» y busca la sigla. */
+    /* PASO 2 · ¿Qué carrera? 📥 SHEET · LEE "Carreras" y busca la sigla. */
     const carrerasLibro = leer("Carreras").filter(f => f[0]).map(f => ({ sigla: f[0].toUpperCase(), nombre: f[1], departamento: f[2].toUpperCase() }));
     const sigla = String(carrera == null ? "" : carrera).trim().toUpperCase();
-    const c = carrerasLibro.filter(x => x.sigla === sigla)[0] || fallo("Carrera desconocida: «" + sigla + "».");
+    const c = carrerasLibro.filter(x => x.sigla === sigla)[0] || fallo("Carrera desconocida: \"" + sigla + "\".");
 
-    /* PASO 3 · ¿Qué ciclo? 📥 SHEET · LEE «Ciclos» (vacío = el último). */
+    /* PASO 3 · ¿Qué ciclo? 📥 SHEET · LEE "Ciclos" (vacío = el último). */
     const ciclos = leer("Ciclos").map(f => f[0]).filter(String), pedido = String(ciclo == null ? "" : ciclo).trim();
     if (!pedido) ciclo = ciclos[ciclos.length - 1] || fallo("La pestaña Ciclos está vacía.");
-    else ciclo = ciclos.indexOf(pedido) >= 0 ? pedido : fallo("Ciclo desconocido: «" + pedido + "».");
+    else ciclo = ciclos.indexOf(pedido) >= 0 ? pedido : fallo("Ciclo desconocido: \"" + pedido + "\".");
 
     /* PASO 4 · ¿Puedes editarla? Solo el coordinador, y solo sus carreras. */
     const puede = rol === "coordinador" && misCarreras.indexOf(sigla) >= 0;
@@ -174,14 +174,14 @@ function planAbrir(ciclo, carrera) {
     try { candado.waitLock(10000); } catch (e) { fallo("La hoja está ocupada con otro guardado; vuelve a intentarlo en unos segundos."); }
     let acceso;
     try {
-      /* 5a · 📥 SHEET · LEE «Bloqueos»: la fila de este plan (cu = plan, ciclo, carrera), si existe. fila = número real
+      /* 5a · 📥 SHEET · LEE "Bloqueos": la fila de este plan (cu = plan, ciclo, carrera), si existe. fila = número real
          en el Sheet (+1 por la cabecera, +1 porque las filas empiezan en 1). */
       const filasBloqueo = leer("Bloqueos");
       const i = filasBloqueo.findIndex(f => f[0] === "plan" && f[1] === ciclo && f[2] === sigla);
       const b = i < 0 ? null : { fila: i + 2, correo: filasBloqueo[i][3].toLowerCase(), vence: filasBloqueo[i][4], vigente: Date.parse(filasBloqueo[i][4]) > Date.now() };
       const vigente = b && b.vigente ? b : null;
       if (puede && (!vigente || vigente.correo === correo)) {
-        /* 5b · EDICIÓN. 📤 SHEET · ESCRIBE en «Bloqueos» [plan, ciclo, carrera, tu correo, ahora + 30 min]. Si ya
+        /* 5b · EDICIÓN. 📤 SHEET · ESCRIBE en "Bloqueos" [plan, ciclo, carrera, tu correo, ahora + 30 min]. Si ya
            había una fila de este plan (aunque fuera de otra persona y estuviera vencida) se reescribe esa; si no, se agrega. */
         const vence = fechaPeru(Date.now() + 30 * 60000);
         const celdas = ["plan", ciclo, sigla, correo, vence].map(comoTexto);
@@ -197,7 +197,7 @@ function planAbrir(ciclo, carrera) {
       }
     } finally { candado.releaseLock(); }
 
-    /* PASO 6 · 📥 SHEET · LEE «Planes»: la versión vigente de esta carrera (la de número más alto) y su JSON. */
+    /* PASO 6 · 📥 SHEET · LEE "Planes": la versión vigente de esta carrera (la de número más alto) y su JSON. */
     const planes = leer("Planes");
     const versiones = sig => planes.filter(f => f[0] === ciclo && f[1] === sig)
       .map(f => ({ version: Number(f[2]), usuario: f[3], fecha: f[4], contenido: f[5] })).sort((a, b) => b.version - a.version);
@@ -206,7 +206,7 @@ function planAbrir(ciclo, carrera) {
 
     /* PASO 7 · Fusiones que OTRAS carreras hicieron con grupos de esta. Una fusión se guarda solo en el plan que la
        creó, así que se recorren los planes vigentes de las demás carreras. Si un grupo aparece en dos, gana la de su
-       propia carrera. El grupo recibe fusionExterna, que la vista muestra como «FUS – fusionado con …». */
+       propia carrera. El grupo recibe fusionExterna, que la vista muestra como "FUS – fusionado con …". */
     const fusionDe = {};
     carrerasLibro.filter(x => x.sigla !== sigla).forEach(otra => {
       const vo = versiones(otra.sigla)[0], planOtra = vo ? JSON.parse(vo.contenido) : { asignaturas: [] }, vistas = Object.create(null);
@@ -230,12 +230,12 @@ function planAbrir(ciclo, carrera) {
 }
 
 /* =====================================================================
-   ACCIÓN · Botón «Interpretar» (o elegir un .csv, que termina en lo mismo)
+   ACCIÓN · Botón "Interpretar" (o elegir un .csv, que termina en lo mismo)
    ===================================================================== */
 
 /**
- * Convierte el rango pegado de Excel o Sheets (o un CSV con «;» o «,») en asignaturas y grupos. NO toca el Sheet:
- * el resultado vuelve al navegador y reemplaza this.plan; se guarda recién con «Guardar».
+ * Convierte el rango pegado de Excel o Sheets (o un CSV con ";" o ",") en asignaturas y grupos. NO toca el Sheet:
+ * el resultado vuelve al navegador y reemplaza this.plan; se guarda recién con "Guardar".
  * ⬅ VIENE DE: PlanDeCicloVista.html → interpretar() (y leerArchivo, que lee el .csv y llama a interpretar()).
  * ↩ RESPUESTA: { asignaturas, filas, descartadas, avisos }.
  * @param {string} texto Lo pegado o el contenido del CSV.
@@ -244,12 +244,12 @@ function planAbrir(ciclo, carrera) {
  */
 function planInterpretar(texto, carrera) {
   const fallo = mensaje => { throw Object.assign(new Error(mensaje), { planPrevisto: true }); };
-  const pestana = nombre => SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombre) || fallo("Falta la pestaña «" + nombre + "» en la hoja.");
+  const pestana = nombre => SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombre) || fallo("Falta la pestaña \"" + nombre + "\" en la hoja.");
   const leer = nombre => pestana(nombre).getDataRange().getDisplayValues().slice(1).map(f => f.map(c => String(c).trim()));
   /* Texto para comparar: mayúsculas, sin tildes ni diéresis, espacios y saltos de línea reducidos a uno. */
   const N = s => String(s == null ? "" : s).normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase().replace(/\s+/g, " ").trim();
   try {
-    /* PASO 1 · ¿Quién eres? (correo, dominio y tu fila de 📥 «Usuarios»). Basta con tener rol. */
+    /* PASO 1 · ¿Quién eres? (correo, dominio y tu fila de 📥 "Usuarios"). Basta con tener rol. */
     const correo = String(Session.getActiveUser().getEmail() || "").trim().toLowerCase();
     if (!correo) fallo("Acceso denegado: cuenta no identificada; entra con tu cuenta " + PLAN_DOMINIO_ + ".");
     if (correo.slice(-PLAN_DOMINIO_.length) !== PLAN_DOMINIO_) fallo("Acceso denegado: cuenta fuera del dominio " + PLAN_DOMINIO_ + ".");
@@ -258,16 +258,16 @@ function planInterpretar(texto, carrera) {
     if (rol !== "coordinador" && rol !== "director")
       fallo("Acceso denegado: cuenta sin rol; " + correo + " no figura como coordinador ni director en la pestaña Usuarios.");
 
-    /* PASO 2 · ¿Qué carrera? 📥 SHEET · LEE «Carreras». Se usan su sigla y su nombre para reconocer sus filas. */
+    /* PASO 2 · ¿Qué carrera? 📥 SHEET · LEE "Carreras". Se usan su sigla y su nombre para reconocer sus filas. */
     const sigla = String(carrera == null ? "" : carrera).trim().toUpperCase();
     const c = leer("Carreras").filter(f => f[0]).map(f => ({ sigla: f[0].toUpperCase(), nombre: f[1], departamento: f[2].toUpperCase() }))
-      .filter(x => x.sigla === sigla)[0] || fallo("Carrera desconocida: «" + sigla + "».");
+      .filter(x => x.sigla === sigla)[0] || fallo("Carrera desconocida: \"" + sigla + "\".");
     if (!String(texto == null ? "" : texto).trim()) fallo("Pega el rango o sube un CSV.");
 
     /* PASO 3 · Partir el texto en filas y celdas. Separador: tabulación si la primera línea la tiene (así copian Excel y
-       Sheets); si no, «,» o «;», el que más aparezca en las 5 primeras líneas. Comillas al estilo Excel: un campo entre
+       Sheets); si no, "," o ";", el que más aparezca en las 5 primeras líneas. Comillas al estilo Excel: un campo entre
        comillas puede tener separadores y saltos de línea, y "" es una comilla. Una comilla que abre y nunca cierra se
-       vuelve a leer como un carácter más (por eso el bucle «for (;;)» puede repetir la lectura). */
+       vuelve a leer como un carácter más (por eso el bucle "for (;;)" puede repetir la lectura). */
     texto = String(texto).replace(/^﻿/, "").replace(/\r\n?/g, "\n");
     const lineas = texto.split("\n").filter(l => l.trim() !== ""), muestra = lineas.slice(0, 5).join("\n");
     const sep = lineas.length && lineas[0].indexOf("\t") >= 0 ? "\t" : muestra.split(",").length > muestra.split(";").length ? "," : ";";
@@ -292,7 +292,7 @@ function planInterpretar(texto, carrera) {
     }
 
     /* PASO 4 · Buscar la fila de cabeceras (la primera con CODIGO y ASIGNATURA, aunque haya títulos encima) y decidir
-       qué columna es cada campo. La primera «HT» es teoría; la segunda, si no hay TOTAL HORAS, es el total. */
+       qué columna es cada campo. La primera "HT" es teoría; la segunda, si no hay TOTAL HORAS, es el total. */
     const col = {};
     const iCab = filas.findIndex(f => { const n = f.map(N); return n.indexOf("CODIGO") >= 0 && n.indexOf("ASIGNATURA") >= 0; });
     if (iCab < 0) fallo("No encontré la fila de cabeceras (CODIGO, ASIGNATURA…).");
@@ -311,7 +311,7 @@ function planInterpretar(texto, carrera) {
     const hora = (t, nombre, avisos) => {
       if (t === "") return 0;
       if (/^\d+([.,]\d+)?$/.test(t)) return Number(t.replace(",", "."));
-      avisos.push(nombre + " no reconocido: «" + t + "»");
+      avisos.push(nombre + " no reconocido: \"" + t + "\"");
       return t;
     };
 
@@ -324,9 +324,9 @@ function planInterpretar(texto, carrera) {
       if (!codigo && !nombre) return;
       leidas++;
       if (otra && otra !== c.sigla && otra !== N(c.nombre)) { descartadas++; return; }
-      /* SEMESTRE «4» = semestre 4, grupo 1; «1-2» = semestre 1, grupo 2. */
+      /* SEMESTRE "4" = semestre 4, grupo 1; "1-2" = semestre 1, grupo 2. */
       const avisos = [], textoSem = celda(f, "semestre"), sem = /^(\d{1,2})(?:\s*-\s*(\d{1,2}))?$/.exec(textoSem);
-      if (!sem) avisos.push(textoSem ? "Semestre no reconocido: «" + textoSem + "»" : "Sin semestre");
+      if (!sem) avisos.push(textoSem ? "Semestre no reconocido: \"" + textoSem + "\"" : "Sin semestre");
       const ht = hora(celda(f, "ht"), "HT", avisos), hp = hora(celda(f, "hp"), "HP", avisos);
       const numeros = typeof ht === "number" && typeof hp === "number";
       const th = celda(f, "th") ? hora(celda(f, "th"), "TOTAL", avisos) : numeros ? ht + hp : "";
@@ -335,7 +335,7 @@ function planInterpretar(texto, carrera) {
       const clave = codigo || "NOMBRE " + N(nombre);
       let a = porClave[clave];
       if (!a) asignaturas.push(a = porClave[clave] = { codigo, nombre, malla: celda(f, "malla"), semestre: sem ? Number(sem[1]) : null, dpto: celda(f, "dpto"), grupos: [] });
-      else if (N(nombre) !== N(a.nombre)) avisos.push("Nombre distinto al de la primera fila: «" + nombre + "»");
+      else if (N(nombre) !== N(a.nombre)) avisos.push("Nombre distinto al de la primera fila: \"" + nombre + "\"");
       /* Grupo repetido (o 0): se le da el siguiente libre, con aviso. */
       const libre = Math.max(0, ...a.grupos.map(g => g.n)) + 1;
       let n = sem ? Number(sem[2] || 1) : libre;
@@ -368,7 +368,7 @@ function planInterpretar(texto, carrera) {
 }
 
 /* =====================================================================
-   ACCIÓN · Botón «Buscar en otras carreras» del diálogo de fusión
+   ACCIÓN · Botón "Buscar en otras carreras" del diálogo de fusión
    ===================================================================== */
 
 /**
@@ -382,10 +382,10 @@ function planInterpretar(texto, carrera) {
  */
 function planCandidatosFusion(ciclo, carrera) {
   const fallo = mensaje => { throw Object.assign(new Error(mensaje), { planPrevisto: true }); };
-  const pestana = nombre => SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombre) || fallo("Falta la pestaña «" + nombre + "» en la hoja.");
+  const pestana = nombre => SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombre) || fallo("Falta la pestaña \"" + nombre + "\" en la hoja.");
   const leer = nombre => pestana(nombre).getDataRange().getDisplayValues().slice(1).map(f => f.map(c => String(c).trim()));
   try {
-    /* PASO 1 · ¿Quién eres? (correo, dominio y tu fila de 📥 «Usuarios»). */
+    /* PASO 1 · ¿Quién eres? (correo, dominio y tu fila de 📥 "Usuarios"). */
     const correo = String(Session.getActiveUser().getEmail() || "").trim().toLowerCase();
     if (!correo) fallo("Acceso denegado: cuenta no identificada; entra con tu cuenta " + PLAN_DOMINIO_ + ".");
     if (correo.slice(-PLAN_DOMINIO_.length) !== PLAN_DOMINIO_) fallo("Acceso denegado: cuenta fuera del dominio " + PLAN_DOMINIO_ + ".");
@@ -394,17 +394,17 @@ function planCandidatosFusion(ciclo, carrera) {
     if (rol !== "coordinador" && rol !== "director")
       fallo("Acceso denegado: cuenta sin rol; " + correo + " no figura como coordinador ni director en la pestaña Usuarios.");
 
-    /* PASO 2 · ¿Qué carrera? 📥 SHEET · LEE «Carreras». */
+    /* PASO 2 · ¿Qué carrera? 📥 SHEET · LEE "Carreras". */
     const carrerasLibro = leer("Carreras").filter(f => f[0]).map(f => ({ sigla: f[0].toUpperCase(), nombre: f[1], departamento: f[2].toUpperCase() }));
     const sigla = String(carrera == null ? "" : carrera).trim().toUpperCase();
-    carrerasLibro.filter(x => x.sigla === sigla)[0] || fallo("Carrera desconocida: «" + sigla + "».");
+    carrerasLibro.filter(x => x.sigla === sigla)[0] || fallo("Carrera desconocida: \"" + sigla + "\".");
 
-    /* PASO 3 · ¿Qué ciclo? 📥 SHEET · LEE «Ciclos» (vacío = el último). */
+    /* PASO 3 · ¿Qué ciclo? 📥 SHEET · LEE "Ciclos" (vacío = el último). */
     const ciclos = leer("Ciclos").map(f => f[0]).filter(String), pedido = String(ciclo == null ? "" : ciclo).trim();
     if (!pedido) ciclo = ciclos[ciclos.length - 1] || fallo("La pestaña Ciclos está vacía.");
-    else ciclo = ciclos.indexOf(pedido) >= 0 ? pedido : fallo("Ciclo desconocido: «" + pedido + "».");
+    else ciclo = ciclos.indexOf(pedido) >= 0 ? pedido : fallo("Ciclo desconocido: \"" + pedido + "\".");
 
-    /* PASO 4 · 📥 SHEET · LEE «Planes»: el plan vigente de cada una de las otras carreras (la versión más alta). */
+    /* PASO 4 · 📥 SHEET · LEE "Planes": el plan vigente de cada una de las otras carreras (la versión más alta). */
     const planes = leer("Planes"), otros = {};
     carrerasLibro.forEach(c => {
       if (c.sigla === sigla) return;
@@ -445,7 +445,7 @@ function planCandidatosFusion(ciclo, carrera) {
 }
 
 /* =====================================================================
-   ACCIÓN · Botón «Guardar»
+   ACCIÓN · Botón "Guardar"
    ===================================================================== */
 
 /**
@@ -462,7 +462,7 @@ function planCandidatosFusion(ciclo, carrera) {
  */
 function planGuardar(ciclo, carrera, contenido, versionBase) {
   const fallo = mensaje => { throw Object.assign(new Error(mensaje), { planPrevisto: true }); };
-  const pestana = nombre => SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombre) || fallo("Falta la pestaña «" + nombre + "» en la hoja.");
+  const pestana = nombre => SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombre) || fallo("Falta la pestaña \"" + nombre + "\" en la hoja.");
   const leer = nombre => pestana(nombre).getDataRange().getDisplayValues().slice(1).map(f => f.map(c => String(c).trim()));
   const comoTexto = v => { const s = v == null ? "" : String(v); return /^[=+\-@]/.test(s) ? "'" + s : s; };
   const fechaPeru = ms => new Date(ms - 5 * 3600000).toISOString().slice(0, 19) + "-05:00";
@@ -478,7 +478,7 @@ function planGuardar(ciclo, carrera, contenido, versionBase) {
   const entero = (v, min, max) => (Number.isInteger(v) && v >= min && v <= max ? v : null);
   const hora = v => (typeof v === "number" && isFinite(v) && v >= 0 ? v : texto(v, L.texto));
   try {
-    /* PASO 1 · ¿Quién eres? (correo, dominio y tu fila de 📥 «Usuarios»). */
+    /* PASO 1 · ¿Quién eres? (correo, dominio y tu fila de 📥 "Usuarios"). */
     const correo = String(Session.getActiveUser().getEmail() || "").trim().toLowerCase();
     if (!correo) fallo("Acceso denegado: cuenta no identificada; entra con tu cuenta " + PLAN_DOMINIO_ + ".");
     if (correo.slice(-PLAN_DOMINIO_.length) !== PLAN_DOMINIO_) fallo("Acceso denegado: cuenta fuera del dominio " + PLAN_DOMINIO_ + ".");
@@ -488,16 +488,16 @@ function planGuardar(ciclo, carrera, contenido, versionBase) {
       fallo("Acceso denegado: cuenta sin rol; " + correo + " no figura como coordinador ni director en la pestaña Usuarios.");
     const misCarreras = String(filaUsuario[2] || "").split(",").map(s => s.trim().toUpperCase()).filter(String);
 
-    /* PASO 2 · ¿Qué carrera? 📥 SHEET · LEE «Carreras». */
+    /* PASO 2 · ¿Qué carrera? 📥 SHEET · LEE "Carreras". */
     const carrerasLibro = leer("Carreras").filter(f => f[0]).map(f => ({ sigla: f[0].toUpperCase(), nombre: f[1], departamento: f[2].toUpperCase() }));
     const siglas = carrerasLibro.map(x => x.sigla);
     const sigla = String(carrera == null ? "" : carrera).trim().toUpperCase();
-    carrerasLibro.filter(x => x.sigla === sigla)[0] || fallo("Carrera desconocida: «" + sigla + "».");
+    carrerasLibro.filter(x => x.sigla === sigla)[0] || fallo("Carrera desconocida: \"" + sigla + "\".");
 
-    /* PASO 3 · ¿Qué ciclo? 📥 SHEET · LEE «Ciclos» (vacío = el último). */
+    /* PASO 3 · ¿Qué ciclo? 📥 SHEET · LEE "Ciclos" (vacío = el último). */
     const ciclos = leer("Ciclos").map(f => f[0]).filter(String), pedido = String(ciclo == null ? "" : ciclo).trim();
     if (!pedido) ciclo = ciclos[ciclos.length - 1] || fallo("La pestaña Ciclos está vacía.");
-    else ciclo = ciclos.indexOf(pedido) >= 0 ? pedido : fallo("Ciclo desconocido: «" + pedido + "».");
+    else ciclo = ciclos.indexOf(pedido) >= 0 ? pedido : fallo("Ciclo desconocido: \"" + pedido + "\".");
 
     /* PASO 4 · Solo el coordinador de esta carrera puede guardar (aunque el navegador lo haya permitido). */
     if (!(rol === "coordinador" && misCarreras.indexOf(sigla) >= 0)) fallo("No puedes editar el plan de " + sigla + ": no es una de tus carreras.");
@@ -512,7 +512,7 @@ function planGuardar(ciclo, carrera, contenido, versionBase) {
       const codigo = codigoDe(a.codigo), nombre = texto(a.nombre, L.nombre), grupos = Array.isArray(a.grupos) ? a.grupos : [], vistos = {};
       if (codigo && codigos[codigo]) fallo("Código repetido en el plan: " + codigo + ".");
       codigos[codigo] = true;
-      if (!grupos.length || grupos.length > L.grupos) fallo("«" + (codigo || nombre) + "» debe tener entre 1 y " + L.grupos + " grupos.");
+      if (!grupos.length || grupos.length > L.grupos) fallo("\"" + (codigo || nombre) + "\" debe tener entre 1 y " + L.grupos + " grupos.");
       return {
         codigo, nombre, malla: texto(a.malla, L.texto), semestre: entero(a.semestre, 0, 99), dpto: texto(a.dpto, L.texto),
         grupos: grupos.map(objeto).map(g => {
@@ -531,7 +531,7 @@ function planGuardar(ciclo, carrera, contenido, versionBase) {
               fallo("Desdoble no válido en " + codigo + " grupo " + n + ": P exige HP > 0, T exige HT > 0 y van de 2 a 9 subgrupos.");
             r.desdoble = { componente: d.componente, n: k };
           }
-          /* 5d · Fusión { id, principal, miembros }: id «F<n>», al menos 2 miembros distintos de carreras que existen, y el
+          /* 5d · Fusión { id, principal, miembros }: id "F<n>", al menos 2 miembros distintos de carreras que existen, y el
              principal entre ellos. */
           if (g.fusion) {
             const f = objeto(g.fusion), id = String(f.id || ""), miembrosEnviados = Array.isArray(f.miembros) ? f.miembros : [], claves = {};
@@ -590,13 +590,13 @@ function planGuardar(ciclo, carrera, contenido, versionBase) {
     const candado = LockService.getScriptLock();
     try { candado.waitLock(10000); } catch (e) { fallo("La hoja está ocupada con otro guardado; vuelve a intentarlo en unos segundos."); }
     try {
-      /* 8a · 📥 SHEET · LEE «Bloqueos»: tu bloqueo tiene que existir, ser tuyo y no haber vencido. */
+      /* 8a · 📥 SHEET · LEE "Bloqueos": tu bloqueo tiene que existir, ser tuyo y no haber vencido. */
       const filasBloqueo = leer("Bloqueos");
       const i = filasBloqueo.findIndex(f => f[0] === "plan" && f[1] === ciclo && f[2] === sigla);
       const b = i < 0 ? null : { fila: i + 2, correo: filasBloqueo[i][3].toLowerCase(), vigente: Date.parse(filasBloqueo[i][4]) > Date.now() };
       if (!(b && b.vigente && b.correo === correo)) fallo(PLAN_SIN_BLOQUEO_);
 
-      /* 8b · 📥 SHEET · LEE «Planes»: ¿la versión con la que abriste (versionBase) sigue siendo la vigente? Si alguien
+      /* 8b · 📥 SHEET · LEE "Planes": ¿la versión con la que abriste (versionBase) sigue siendo la vigente? Si alguien
          guardó entre medio (otra persona, o tú en otra pestaña), se rechaza sin escribir. */
       const planes = leer("Planes");
       const versiones = sig => planes.filter(f => f[0] === ciclo && f[1] === sig)
@@ -623,18 +623,18 @@ function planGuardar(ciclo, carrera, contenido, versionBase) {
         else if (en) avisos.push(nombre + " ya está en una fusión de " + en.carrera + ".");
       }));
 
-      /* 8d · 📤 SHEET · ESCRIBE una fila NUEVA al final de «Planes»: [ciclo, carrera, versión + 1, tu correo, fecha de
+      /* 8d · 📤 SHEET · ESCRIBE una fila NUEVA al final de "Planes": [ciclo, carrera, versión + 1, tu correo, fecha de
          Perú, JSON del plan]. Las versiones anteriores no se tocan nunca. */
       const fecha = fechaPeru(Date.now());
       pestana("Planes").appendRow([ciclo, sigla, actual + 1, correo, fecha, json].map(comoTexto));
 
-      /* 8e · 🗑 SHEET · BORRA tu fila de «Bloqueos»: guardar termina la edición. Si es la última fila de la pestaña, el
+      /* 8e · 🗑 SHEET · BORRA tu fila de "Bloqueos": guardar termina la edición. Si es la última fila de la pestaña, el
          Sheet no deja borrarla y se vacía en su lugar. */
       try { pestana("Bloqueos").deleteRow(b.fila); }
       catch (e) { const vacias = ["", "", "", "", ""].map(comoTexto); pestana("Bloqueos").getRange(b.fila, 1, 1, vacias.length).setNumberFormat("@").setValues([vacias]); }
 
       /* PASO 9 · ↩ RESPUESTA. ➡ SIGUE EN PlanDeCicloVista.html → guardar(): cierra el plan, vuelve a pedir la tabla
-         (inicio → planInicio) y muestra «Guardado como vN.». */
+         (inicio → planInicio) y muestra "Guardado como vN.". */
       return { ok: true, datos: { version: actual + 1, fecha, avisos } };
     } finally { candado.releaseLock(); }
   } catch (e) {
@@ -659,12 +659,12 @@ function planGuardar(ciclo, carrera, contenido, versionBase) {
  */
 function planMantener(ciclo, carrera) {
   const fallo = mensaje => { throw Object.assign(new Error(mensaje), { planPrevisto: true }); };
-  const pestana = nombre => SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombre) || fallo("Falta la pestaña «" + nombre + "» en la hoja.");
+  const pestana = nombre => SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombre) || fallo("Falta la pestaña \"" + nombre + "\" en la hoja.");
   const leer = nombre => pestana(nombre).getDataRange().getDisplayValues().slice(1).map(f => f.map(c => String(c).trim()));
   const comoTexto = v => { const s = v == null ? "" : String(v); return /^[=+\-@]/.test(s) ? "'" + s : s; };
   const fechaPeru = ms => new Date(ms - 5 * 3600000).toISOString().slice(0, 19) + "-05:00";
   try {
-    /* PASO 1 · ¿Quién eres? (correo, dominio y tu fila de 📥 «Usuarios»). */
+    /* PASO 1 · ¿Quién eres? (correo, dominio y tu fila de 📥 "Usuarios"). */
     const correo = String(Session.getActiveUser().getEmail() || "").trim().toLowerCase();
     if (!correo) fallo("Acceso denegado: cuenta no identificada; entra con tu cuenta " + PLAN_DOMINIO_ + ".");
     if (correo.slice(-PLAN_DOMINIO_.length) !== PLAN_DOMINIO_) fallo("Acceso denegado: cuenta fuera del dominio " + PLAN_DOMINIO_ + ".");
@@ -673,29 +673,29 @@ function planMantener(ciclo, carrera) {
     if (rol !== "coordinador" && rol !== "director")
       fallo("Acceso denegado: cuenta sin rol; " + correo + " no figura como coordinador ni director en la pestaña Usuarios.");
 
-    /* PASO 2 · ¿Qué carrera y qué ciclo? 📥 SHEET · LEE «Carreras» y «Ciclos». */
+    /* PASO 2 · ¿Qué carrera y qué ciclo? 📥 SHEET · LEE "Carreras" y "Ciclos". */
     const sigla = String(carrera == null ? "" : carrera).trim().toUpperCase();
-    leer("Carreras").filter(f => f[0]).map(f => f[0].toUpperCase()).filter(s => s === sigla)[0] || fallo("Carrera desconocida: «" + sigla + "».");
+    leer("Carreras").filter(f => f[0]).map(f => f[0].toUpperCase()).filter(s => s === sigla)[0] || fallo("Carrera desconocida: \"" + sigla + "\".");
     const ciclos = leer("Ciclos").map(f => f[0]).filter(String), pedido = String(ciclo == null ? "" : ciclo).trim();
     if (!pedido) ciclo = ciclos[ciclos.length - 1] || fallo("La pestaña Ciclos está vacía.");
-    else ciclo = ciclos.indexOf(pedido) >= 0 ? pedido : fallo("Ciclo desconocido: «" + pedido + "».");
+    else ciclo = ciclos.indexOf(pedido) >= 0 ? pedido : fallo("Ciclo desconocido: \"" + pedido + "\".");
 
     /* PASO 3 · 🔒 CANDADO para leer y reescribir el bloqueo sin que otro se cruce. */
     const candado = LockService.getScriptLock();
     try { candado.waitLock(10000); } catch (e) { fallo("La hoja está ocupada con otro guardado; vuelve a intentarlo en unos segundos."); }
     try {
-      /* 3a · 📥 SHEET · LEE «Bloqueos»: tu bloqueo tiene que existir, ser tuyo y no haber vencido. */
+      /* 3a · 📥 SHEET · LEE "Bloqueos": tu bloqueo tiene que existir, ser tuyo y no haber vencido. */
       const filasBloqueo = leer("Bloqueos");
       const i = filasBloqueo.findIndex(f => f[0] === "plan" && f[1] === ciclo && f[2] === sigla);
       const b = i < 0 ? null : { fila: i + 2, correo: filasBloqueo[i][3].toLowerCase(), vigente: Date.parse(filasBloqueo[i][4]) > Date.now() };
       if (!(b && b.vigente && b.correo === correo)) fallo(PLAN_SIN_BLOQUEO_);
 
-      /* 3b · 📤 SHEET · ESCRIBE (reescribe la MISMA fila de «Bloqueos») con vence = ahora + 30 minutos. */
+      /* 3b · 📤 SHEET · ESCRIBE (reescribe la MISMA fila de "Bloqueos") con vence = ahora + 30 minutos. */
       const vence = fechaPeru(Date.now() + 30 * 60000);
       const celdas = ["plan", ciclo, sigla, correo, vence].map(comoTexto);
       pestana("Bloqueos").getRange(b.fila, 1, 1, celdas.length).setNumberFormat("@").setValues([celdas]);
 
-      /* PASO 4 · ↩ RESPUESTA. ➡ SIGUE EN PlanDeCicloVista.html → mantener(): actualiza «Bloqueo hasta HH:MM». */
+      /* PASO 4 · ↩ RESPUESTA. ➡ SIGUE EN PlanDeCicloVista.html → mantener(): actualiza "Bloqueo hasta HH:MM". */
       return { ok: true, datos: { vence } };
     } finally { candado.releaseLock(); }
   } catch (e) {
@@ -706,12 +706,12 @@ function planMantener(ciclo, carrera) {
 }
 
 /* =====================================================================
-   ACCIÓN · Botón «Salir» (y cerrar la pestaña con un plan abierto)
+   ACCIÓN · Botón "Salir" (y cerrar la pestaña con un plan abierto)
    ===================================================================== */
 
 /**
  * Suelta tu bloqueo del plan: borra su fila de Bloqueos si es tuya (si es de otra cuenta, no hace nada).
- * ⬅ VIENE DE: PlanDeCicloVista.html → salir(), y el evento «pagehide» de su init() al cerrar la pestaña.
+ * ⬅ VIENE DE: PlanDeCicloVista.html → salir(), y el evento "pagehide" de su init() al cerrar la pestaña.
  * ↩ RESPUESTA: {}.
  * @param {string} ciclo
  * @param {string} carrera
@@ -719,11 +719,11 @@ function planMantener(ciclo, carrera) {
  */
 function planSalir(ciclo, carrera) {
   const fallo = mensaje => { throw Object.assign(new Error(mensaje), { planPrevisto: true }); };
-  const pestana = nombre => SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombre) || fallo("Falta la pestaña «" + nombre + "» en la hoja.");
+  const pestana = nombre => SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombre) || fallo("Falta la pestaña \"" + nombre + "\" en la hoja.");
   const leer = nombre => pestana(nombre).getDataRange().getDisplayValues().slice(1).map(f => f.map(c => String(c).trim()));
   const comoTexto = v => { const s = v == null ? "" : String(v); return /^[=+\-@]/.test(s) ? "'" + s : s; };
   try {
-    /* PASO 1 · ¿Quién eres? (correo, dominio y tu fila de 📥 «Usuarios»). */
+    /* PASO 1 · ¿Quién eres? (correo, dominio y tu fila de 📥 "Usuarios"). */
     const correo = String(Session.getActiveUser().getEmail() || "").trim().toLowerCase();
     if (!correo) fallo("Acceso denegado: cuenta no identificada; entra con tu cuenta " + PLAN_DOMINIO_ + ".");
     if (correo.slice(-PLAN_DOMINIO_.length) !== PLAN_DOMINIO_) fallo("Acceso denegado: cuenta fuera del dominio " + PLAN_DOMINIO_ + ".");
@@ -732,18 +732,18 @@ function planSalir(ciclo, carrera) {
     if (rol !== "coordinador" && rol !== "director")
       fallo("Acceso denegado: cuenta sin rol; " + correo + " no figura como coordinador ni director en la pestaña Usuarios.");
 
-    /* PASO 2 · ¿Qué carrera y qué ciclo? 📥 SHEET · LEE «Carreras» y «Ciclos». */
+    /* PASO 2 · ¿Qué carrera y qué ciclo? 📥 SHEET · LEE "Carreras" y "Ciclos". */
     const sigla = String(carrera == null ? "" : carrera).trim().toUpperCase();
-    leer("Carreras").filter(f => f[0]).map(f => f[0].toUpperCase()).filter(s => s === sigla)[0] || fallo("Carrera desconocida: «" + sigla + "».");
+    leer("Carreras").filter(f => f[0]).map(f => f[0].toUpperCase()).filter(s => s === sigla)[0] || fallo("Carrera desconocida: \"" + sigla + "\".");
     const ciclos = leer("Ciclos").map(f => f[0]).filter(String), pedido = String(ciclo == null ? "" : ciclo).trim();
     if (!pedido) ciclo = ciclos[ciclos.length - 1] || fallo("La pestaña Ciclos está vacía.");
-    else ciclo = ciclos.indexOf(pedido) >= 0 ? pedido : fallo("Ciclo desconocido: «" + pedido + "».");
+    else ciclo = ciclos.indexOf(pedido) >= 0 ? pedido : fallo("Ciclo desconocido: \"" + pedido + "\".");
 
     /* PASO 3 · 🔒 CANDADO. */
     const candado = LockService.getScriptLock();
     try { candado.waitLock(10000); } catch (e) { fallo("La hoja está ocupada con otro guardado; vuelve a intentarlo en unos segundos."); }
     try {
-      /* 3a · 📥 SHEET · LEE «Bloqueos»: la fila de este plan. */
+      /* 3a · 📥 SHEET · LEE "Bloqueos": la fila de este plan. */
       const filasBloqueo = leer("Bloqueos");
       const i = filasBloqueo.findIndex(f => f[0] === "plan" && f[1] === ciclo && f[2] === sigla);
       /* 3b · 🗑 SHEET · BORRA esa fila, solo si es tuya (vencida o no). Si es la última de la pestaña, se vacía. */
@@ -763,7 +763,7 @@ function planSalir(ciclo, carrera) {
 }
 
 /* =====================================================================
-   ACCIÓN · Botón «Historial»
+   ACCIÓN · Botón "Historial"
    ===================================================================== */
 
 /**
@@ -776,10 +776,10 @@ function planSalir(ciclo, carrera) {
  */
 function planHistorial(ciclo, carrera) {
   const fallo = mensaje => { throw Object.assign(new Error(mensaje), { planPrevisto: true }); };
-  const pestana = nombre => SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombre) || fallo("Falta la pestaña «" + nombre + "» en la hoja.");
+  const pestana = nombre => SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombre) || fallo("Falta la pestaña \"" + nombre + "\" en la hoja.");
   const leer = nombre => pestana(nombre).getDataRange().getDisplayValues().slice(1).map(f => f.map(c => String(c).trim()));
   try {
-    /* PASO 1 · ¿Quién eres? (correo, dominio y tu fila de 📥 «Usuarios»). */
+    /* PASO 1 · ¿Quién eres? (correo, dominio y tu fila de 📥 "Usuarios"). */
     const correo = String(Session.getActiveUser().getEmail() || "").trim().toLowerCase();
     if (!correo) fallo("Acceso denegado: cuenta no identificada; entra con tu cuenta " + PLAN_DOMINIO_ + ".");
     if (correo.slice(-PLAN_DOMINIO_.length) !== PLAN_DOMINIO_) fallo("Acceso denegado: cuenta fuera del dominio " + PLAN_DOMINIO_ + ".");
@@ -788,15 +788,15 @@ function planHistorial(ciclo, carrera) {
     if (rol !== "coordinador" && rol !== "director")
       fallo("Acceso denegado: cuenta sin rol; " + correo + " no figura como coordinador ni director en la pestaña Usuarios.");
 
-    /* PASO 2 · ¿Qué carrera y qué ciclo? 📥 SHEET · LEE «Carreras» y «Ciclos». */
+    /* PASO 2 · ¿Qué carrera y qué ciclo? 📥 SHEET · LEE "Carreras" y "Ciclos". */
     const sigla = String(carrera == null ? "" : carrera).trim().toUpperCase();
-    leer("Carreras").filter(f => f[0]).map(f => f[0].toUpperCase()).filter(s => s === sigla)[0] || fallo("Carrera desconocida: «" + sigla + "».");
+    leer("Carreras").filter(f => f[0]).map(f => f[0].toUpperCase()).filter(s => s === sigla)[0] || fallo("Carrera desconocida: \"" + sigla + "\".");
     const ciclos = leer("Ciclos").map(f => f[0]).filter(String), pedido = String(ciclo == null ? "" : ciclo).trim();
     if (!pedido) ciclo = ciclos[ciclos.length - 1] || fallo("La pestaña Ciclos está vacía.");
-    else ciclo = ciclos.indexOf(pedido) >= 0 ? pedido : fallo("Ciclo desconocido: «" + pedido + "».");
+    else ciclo = ciclos.indexOf(pedido) >= 0 ? pedido : fallo("Ciclo desconocido: \"" + pedido + "\".");
 
-    /* PASO 3 · 📥 SHEET · LEE «Planes»: todas las filas de esta carrera y ciclo, de mayor a menor versión. Se abre el
-       JSON de cada una solo para el resumen («80 asignaturas, 87 grupos · restaura v1»). */
+    /* PASO 3 · 📥 SHEET · LEE "Planes": todas las filas de esta carrera y ciclo, de mayor a menor versión. Se abre el
+       JSON de cada una solo para el resumen ("80 asignaturas, 87 grupos · restaura v1"). */
     const versiones = leer("Planes").filter(f => f[0] === ciclo && f[1] === sigla)
       .map(f => ({ version: Number(f[2]), usuario: f[3], fecha: f[4], contenido: f[5] })).sort((a, b) => b.version - a.version)
       .map(v => {
@@ -815,7 +815,7 @@ function planHistorial(ciclo, carrera) {
 }
 
 /* =====================================================================
-   ACCIÓN · Botón «Ver» de una versión del historial
+   ACCIÓN · Botón "Ver" de una versión del historial
    ===================================================================== */
 
 /**
@@ -829,10 +829,10 @@ function planHistorial(ciclo, carrera) {
  */
 function planVersion(ciclo, carrera, n) {
   const fallo = mensaje => { throw Object.assign(new Error(mensaje), { planPrevisto: true }); };
-  const pestana = nombre => SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombre) || fallo("Falta la pestaña «" + nombre + "» en la hoja.");
+  const pestana = nombre => SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombre) || fallo("Falta la pestaña \"" + nombre + "\" en la hoja.");
   const leer = nombre => pestana(nombre).getDataRange().getDisplayValues().slice(1).map(f => f.map(c => String(c).trim()));
   try {
-    /* PASO 1 · ¿Quién eres? (correo, dominio y tu fila de 📥 «Usuarios»). */
+    /* PASO 1 · ¿Quién eres? (correo, dominio y tu fila de 📥 "Usuarios"). */
     const correo = String(Session.getActiveUser().getEmail() || "").trim().toLowerCase();
     if (!correo) fallo("Acceso denegado: cuenta no identificada; entra con tu cuenta " + PLAN_DOMINIO_ + ".");
     if (correo.slice(-PLAN_DOMINIO_.length) !== PLAN_DOMINIO_) fallo("Acceso denegado: cuenta fuera del dominio " + PLAN_DOMINIO_ + ".");
@@ -841,21 +841,21 @@ function planVersion(ciclo, carrera, n) {
     if (rol !== "coordinador" && rol !== "director")
       fallo("Acceso denegado: cuenta sin rol; " + correo + " no figura como coordinador ni director en la pestaña Usuarios.");
 
-    /* PASO 2 · ¿Qué carrera y qué ciclo? 📥 SHEET · LEE «Carreras» y «Ciclos». */
+    /* PASO 2 · ¿Qué carrera y qué ciclo? 📥 SHEET · LEE "Carreras" y "Ciclos". */
     const sigla = String(carrera == null ? "" : carrera).trim().toUpperCase();
     const c = leer("Carreras").filter(f => f[0]).map(f => ({ sigla: f[0].toUpperCase(), nombre: f[1], departamento: f[2].toUpperCase() }))
-      .filter(x => x.sigla === sigla)[0] || fallo("Carrera desconocida: «" + sigla + "».");
+      .filter(x => x.sigla === sigla)[0] || fallo("Carrera desconocida: \"" + sigla + "\".");
     const ciclos = leer("Ciclos").map(f => f[0]).filter(String), pedido = String(ciclo == null ? "" : ciclo).trim();
     if (!pedido) ciclo = ciclos[ciclos.length - 1] || fallo("La pestaña Ciclos está vacía.");
-    else ciclo = ciclos.indexOf(pedido) >= 0 ? pedido : fallo("Ciclo desconocido: «" + pedido + "».");
+    else ciclo = ciclos.indexOf(pedido) >= 0 ? pedido : fallo("Ciclo desconocido: \"" + pedido + "\".");
 
-    /* PASO 3 · 📥 SHEET · LEE «Planes» y busca la fila de la versión n. */
+    /* PASO 3 · 📥 SHEET · LEE "Planes" y busca la fila de la versión n. */
     const v = leer("Planes").filter(f => f[0] === ciclo && f[1] === sigla)
       .map(f => ({ version: Number(f[2]), usuario: f[3], fecha: f[4], contenido: f[5] })).sort((a, b) => b.version - a.version)
       .filter(x => x.version === Number(n))[0] || fallo("No existe la versión " + n + " del plan de " + sigla + " en " + ciclo + ".");
 
     /* PASO 4 · ↩ RESPUESTA en modo lectura. ➡ SIGUE EN PlanDeCicloVista.html → version(n): la guarda en vistaVersion
-       (aparte de tu edición, que no se toca) y la muestra con el aviso «Versión n · solo lectura». */
+       (aparte de tu edición, que no se toca) y la muestra con el aviso "Versión n · solo lectura". */
     return { ok: true, datos: Object.assign({ ciclo, carrera: sigla, nombre: c.nombre, modo: "lectura", motivo: "Versión " + v.version + " · solo lectura",
       editor: "", vence: "" }, { version: v.version, usuario: v.usuario, fecha: v.fecha }, { plan: JSON.parse(v.contenido) }) };
   } catch (e) {
@@ -866,7 +866,7 @@ function planVersion(ciclo, carrera, n) {
 }
 
 /* =====================================================================
-   ACCIÓN · Botón «Restaurar» de una versión del historial
+   ACCIÓN · Botón "Restaurar" de una versión del historial
    ===================================================================== */
 
 /**
@@ -881,12 +881,12 @@ function planVersion(ciclo, carrera, n) {
  */
 function planRestaurar(ciclo, carrera, n) {
   const fallo = mensaje => { throw Object.assign(new Error(mensaje), { planPrevisto: true }); };
-  const pestana = nombre => SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombre) || fallo("Falta la pestaña «" + nombre + "» en la hoja.");
+  const pestana = nombre => SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombre) || fallo("Falta la pestaña \"" + nombre + "\" en la hoja.");
   const leer = nombre => pestana(nombre).getDataRange().getDisplayValues().slice(1).map(f => f.map(c => String(c).trim()));
   const comoTexto = v => { const s = v == null ? "" : String(v); return /^[=+\-@]/.test(s) ? "'" + s : s; };
   const fechaPeru = ms => new Date(ms - 5 * 3600000).toISOString().slice(0, 19) + "-05:00";
   try {
-    /* PASO 1 · ¿Quién eres? (correo, dominio y tu fila de 📥 «Usuarios»). */
+    /* PASO 1 · ¿Quién eres? (correo, dominio y tu fila de 📥 "Usuarios"). */
     const correo = String(Session.getActiveUser().getEmail() || "").trim().toLowerCase();
     if (!correo) fallo("Acceso denegado: cuenta no identificada; entra con tu cuenta " + PLAN_DOMINIO_ + ".");
     if (correo.slice(-PLAN_DOMINIO_.length) !== PLAN_DOMINIO_) fallo("Acceso denegado: cuenta fuera del dominio " + PLAN_DOMINIO_ + ".");
@@ -896,12 +896,12 @@ function planRestaurar(ciclo, carrera, n) {
       fallo("Acceso denegado: cuenta sin rol; " + correo + " no figura como coordinador ni director en la pestaña Usuarios.");
     const misCarreras = String(filaUsuario[2] || "").split(",").map(s => s.trim().toUpperCase()).filter(String);
 
-    /* PASO 2 · ¿Qué carrera y qué ciclo? 📥 SHEET · LEE «Carreras» y «Ciclos». */
+    /* PASO 2 · ¿Qué carrera y qué ciclo? 📥 SHEET · LEE "Carreras" y "Ciclos". */
     const sigla = String(carrera == null ? "" : carrera).trim().toUpperCase();
-    leer("Carreras").filter(f => f[0]).map(f => f[0].toUpperCase()).filter(s => s === sigla)[0] || fallo("Carrera desconocida: «" + sigla + "».");
+    leer("Carreras").filter(f => f[0]).map(f => f[0].toUpperCase()).filter(s => s === sigla)[0] || fallo("Carrera desconocida: \"" + sigla + "\".");
     const ciclos = leer("Ciclos").map(f => f[0]).filter(String), pedido = String(ciclo == null ? "" : ciclo).trim();
     if (!pedido) ciclo = ciclos[ciclos.length - 1] || fallo("La pestaña Ciclos está vacía.");
-    else ciclo = ciclos.indexOf(pedido) >= 0 ? pedido : fallo("Ciclo desconocido: «" + pedido + "».");
+    else ciclo = ciclos.indexOf(pedido) >= 0 ? pedido : fallo("Ciclo desconocido: \"" + pedido + "\".");
 
     /* PASO 3 · Solo el coordinador de esta carrera puede restaurar. */
     if (!(rol === "coordinador" && misCarreras.indexOf(sigla) >= 0)) fallo("No puedes restaurar el plan de " + sigla + ": no es una de tus carreras.");
@@ -910,13 +910,13 @@ function planRestaurar(ciclo, carrera, n) {
     const candado = LockService.getScriptLock();
     try { candado.waitLock(10000); } catch (e) { fallo("La hoja está ocupada con otro guardado; vuelve a intentarlo en unos segundos."); }
     try {
-      /* 4a · 📥 SHEET · LEE «Bloqueos»: si otra cuenta está editando este plan (bloqueo vigente), no se restaura. */
+      /* 4a · 📥 SHEET · LEE "Bloqueos": si otra cuenta está editando este plan (bloqueo vigente), no se restaura. */
       const filasBloqueo = leer("Bloqueos");
       const i = filasBloqueo.findIndex(f => f[0] === "plan" && f[1] === ciclo && f[2] === sigla);
       if (i >= 0 && Date.parse(filasBloqueo[i][4]) > Date.now() && filasBloqueo[i][3].toLowerCase() !== correo)
         fallo("No se puede restaurar: " + filasBloqueo[i][3].toLowerCase() + " está editando este plan.");
 
-      /* 4b · 📥 SHEET · LEE «Planes»: la versión n (su JSON) y la vigente (para el número de la nueva). */
+      /* 4b · 📥 SHEET · LEE "Planes": la versión n (su JSON) y la vigente (para el número de la nueva). */
       const versiones = leer("Planes").filter(f => f[0] === ciclo && f[1] === sigla)
         .map(f => ({ version: Number(f[2]), usuario: f[3], fecha: f[4], contenido: f[5] })).sort((a, b) => b.version - a.version);
       const v = versiones.filter(x => x.version === Number(n))[0] || fallo("No existe la versión " + n + " del plan de " + sigla + " en " + ciclo + ".");
@@ -929,11 +929,11 @@ function planRestaurar(ciclo, carrera, n) {
       if (json.length > PLAN_MAX_CELDA_)
         fallo("El plan ocupa " + json.length + " caracteres y una celda admite " + PLAN_MAX_CELDA_ + ": quita grupos o acorta las observaciones.");
 
-      /* 4d · 📤 SHEET · ESCRIBE una fila NUEVA al final de «Planes» con el contenido de la versión n. Las demás se quedan. */
+      /* 4d · 📤 SHEET · ESCRIBE una fila NUEVA al final de "Planes" con el contenido de la versión n. Las demás se quedan. */
       pestana("Planes").appendRow([ciclo, sigla, version, correo, fechaPeru(Date.now()), json].map(comoTexto));
 
       /* PASO 5 · ↩ RESPUESTA. ➡ SIGUE EN PlanDeCicloVista.html → restaurar(n): vuelve a abrir el plan (abrir → planAbrir)
-         y muestra «Restaurada la vn como vM.». */
+         y muestra "Restaurada la vn como vM.". */
       return { ok: true, datos: { version } };
     } finally { candado.releaseLock(); }
   } catch (e) {

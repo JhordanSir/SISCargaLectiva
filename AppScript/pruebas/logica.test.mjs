@@ -34,13 +34,13 @@ describe("Carcasa · Index.js, IndexVista.html e InicioVista.html", () => {
     const p = { js: leer("PlanDeCiclo.js"), html: leer("PlanDeCicloVista.html") };
     const c = { js: leer("CargaDocente.js"), html: leer("CargaDocenteVista.html") };
     const usa = (texto, n) => new RegExp("(^|[^\\w$.])" + n.replace(/\$/g, "\\$") + "\\b").test(texto);
-    for (const n of nombres(p.js, p.html)) assert.ok(!usa(c.js + c.html, n), "CargaDocente usa «" + n + "» de PlanDeCiclo");
-    for (const n of nombres(c.js, c.html)) assert.ok(!usa(p.js + p.html, n), "PlanDeCiclo usa «" + n + "» de CargaDocente");
+    for (const n of nombres(p.js, p.html)) assert.ok(!usa(c.js + c.html, n), "CargaDocente usa \"" + n + "\" de PlanDeCiclo");
+    for (const n of nombres(c.js, c.html)) assert.ok(!usa(p.js + p.html, n), "PlanDeCiclo usa \"" + n + "\" de CargaDocente");
     for (const n of nombres(leer("Index.js"), leer("IndexVista.html")))
-      assert.ok(!usa(p.js + p.html + c.js + c.html, n), "una vista usa «" + n + "» de la carcasa");
+      assert.ok(!usa(p.js + p.html + c.js + c.html, n), "una vista usa \"" + n + "\" de la carcasa");
   });
 
-  test("indexUsuario: rol y carreras, o «Acceso denegado» con el motivo", () => {
+  test("indexUsuario: rol y carreras, o \"Acceso denegado\" con el motivo", () => {
     const e = crearEntorno({ usuario: "MFloresL@ulasalle.edu.pe", archivos: ["Index.js"] });
     assert.deepEqual(e.llamar("indexUsuario").datos,
       { acceso: true, correo: "mfloresl@ulasalle.edu.pe", rol: "coordinador", carreras: ["ING"], departamento: "" });
@@ -62,12 +62,12 @@ describe("Carcasa · Index.js, IndexVista.html e InicioVista.html", () => {
     assert.ok(!html.includes("<?"), "queda un scriptlet sin evaluar");
   });
 
-  test("ninguna vista tiene «//» en su JavaScript ni «<?», y los <script> compilan", () => {
+  test("ninguna vista tiene \"//\" en su JavaScript ni \"<?\", y los <script> compilan", () => {
     for (const v of VISTAS) {
       const html = leer(v);
-      if (v !== "IndexVista.html") assert.ok(!html.includes("<?"), v + " tiene «<?»");
+      if (v !== "IndexVista.html") assert.ok(!html.includes("<?"), v + " tiene \"<?\"");
       for (const s of scripts(html)) {
-        assert.ok(!s.includes("//"), v + " tiene «//» en un <script>");
+        assert.ok(!s.includes("//"), v + " tiene \"//\" en un <script>");
         assert.doesNotThrow(() => new vm.Script(s), v + ": el <script> no compila");
       }
     }
@@ -90,7 +90,7 @@ describe("Carcasa · Index.js, IndexVista.html e InicioVista.html", () => {
 });
 
 describe("CU-001 · PlanDeCiclo.js y PlanDeCicloVista.html", () => {
-  /* Pruebas de CU-001 «Registrar plan de ciclo»: PlanDeCiclo.js (servidor, en el Apps Script
+  /* Pruebas de CU-001 "Registrar plan de ciclo": PlanDeCiclo.js (servidor, en el Apps Script
      falso de recorrido.mjs) y los métodos de PlanDeCicloVista.html (su <script> en vm, con un
      Alpine falso y google.script.run atendido por el mismo entorno). Se unirán en logica.test.mjs.
        node --test AppScript/pruebas/plan.test.mjs */
@@ -189,14 +189,14 @@ describe("CU-001 · PlanDeCiclo.js y PlanDeCicloVista.html", () => {
     const ajenas = ["console", "Date", "Session", "SpreadsheetApp", "LockService", "HtmlService", "Utilities"];
     assert.deepEqual(Object.keys(e.ctx).filter(k => !ajenas.includes(k) && !/^plan/.test(k)), []);
     for (const n of PUBLICAS) assert.equal(typeof e.ctx[n], "function", n);
-    /* Llamadas a funciones de Index.js o CargaDocente.js; un método como «.indexOf(» no cuenta. */
+    /* Llamadas a funciones de Index.js o CargaDocente.js; un método como ".indexOf(" no cuenta. */
     assert.doesNotMatch(fuente, /(?<![.\w$])(index|carga)[A-Z]\w*\(/, "no usa funciones de otros archivos");
   });
 
-  test("la vista: <script> sin «//» y válido, sin «<?», sin nombres del otro CU, con sus x-for y pares de nombres", () => {
+  test("la vista: <script> sin \"//\" y válido, sin \"<?\", sin nombres del otro CU, con sus x-for y pares de nombres", () => {
     assert.ok(SCRIPTS.length >= 1);
     for (const s of SCRIPTS) {
-      assert.ok(!s.includes("//"), "un <script> contiene «//»");
+      assert.ok(!s.includes("//"), "un <script> contiene \"//\"");
       assert.doesNotThrow(() => new vm.Script(s));
     }
     assert.ok(!HTML.includes("<?"));
@@ -227,7 +227,7 @@ describe("CU-001 · PlanDeCiclo.js y PlanDeCicloVista.html", () => {
       const p = { withSuccessHandler: f => { exito = f; return p; }, withFailureHandler: f => { falla = f; return p; } };
       p.planInicio = () => setTimeout(() => {
         if (modo === "bien") exito({ ok: true, datos: { ciclos: ["2026-1"], ciclo: "2026-1", carreras: [{ sigla: "ING" }] } });
-        else if (modo === "mal") exito({ ok: false, error: "Ciclo desconocido: «x»." });
+        else if (modo === "mal") exito({ ok: false, error: "Ciclo desconocido: \"x\"." });
         else falla(new Error("Script function not found: planInicio"));
       });
       return p;
@@ -241,7 +241,7 @@ describe("CU-001 · PlanDeCiclo.js y PlanDeCicloVista.html", () => {
     assert.equal(c.ocupado, "");
     modo = "mal";
     await c.inicio();
-    assert.equal(c.error, "Ciclo desconocido: «x».");
+    assert.equal(c.error, "Ciclo desconocido: \"x\".");
     assert.equal(c.ocupado, "");
     modo = "roto";
     await c.inicio();
@@ -275,7 +275,7 @@ describe("CU-001 · PlanDeCiclo.js y PlanDeCicloVista.html", () => {
     assert.equal(asignatura(r, "3.2.1.24").grupos[0].obs, "");
   });
 
-  test("el mismo rango como CSV con «;» y con «,» (comillas, separadores y salto de línea en una celda, BOM) da lo mismo", () => {
+  test("el mismo rango como CSV con \";\" y con \",\" (comillas, separadores y salto de línea en una celda, BOM) da lo mismo", () => {
     const e = entorno();
     const filas = filasHoja("ING").map(f => f.slice());
     filas[3][11] = 'Primera línea\n"Segunda"; con, separadores';
@@ -299,13 +299,13 @@ describe("CU-001 · PlanDeCiclo.js y PlanDeCicloVista.html", () => {
       grupos += contar(r.asignaturas);
       mayor = Math.max(mayor, JSON.stringify({ asignaturas: r.asignaturas }).length);
     }
-    /* 366 y no 365: PSI trae dos filas con el código 9.2.5.24 y semestre «2» (dos cursos distintos);
+    /* 366 y no 365: PSI trae dos filas con el código 9.2.5.24 y semestre "2" (dos cursos distintos);
        la especificación pide darle a la repetida el siguiente grupo libre con aviso, no descartarla. */
     assert.deepEqual([asignaturas, grupos], [345, 366]);
     assert.ok(mayor < 25000, "el plan más grande ocupa " + mayor);
     const psi = asignatura(interpretar(e, aTsv(filasHoja("PSI")), "PSI"), "9.2.5.24");
     assert.deepEqual(psi.grupos.map(g => g.n), [1, 2]);
-    assert.deepEqual(psi.grupos[1].avisos, ["Nombre distinto al de la primera fila: «Procesos básicos I»", "Grupo 1 repetido: se numeró como 2"]);
+    assert.deepEqual(psi.grupos[1].avisos, ["Nombre distinto al de la primera fila: \"Procesos básicos I\"", "Grupo 1 repetido: se numeró como 2"]);
   });
 
   test("las filas de otra carrera se descartan y se cuentan; CARRERA vacía o con el nombre cuenta como la elegida", () => {
@@ -347,9 +347,9 @@ describe("CU-001 · PlanDeCiclo.js y PlanDeCicloVista.html", () => {
     const [sinCodigo, repetido, dos, diez, electivo] = r.asignaturas;
     assert.deepEqual(sinCodigo.grupos[0].avisos, ["Sin código"]);
     assert.deepEqual(repetido.grupos.map(g => [g.n, g.avisos]), [[2, []], [3, ["Grupo 2 repetido: se numeró como 3"]]]);
-    assert.deepEqual([dos.grupos[0].ht, dos.grupos[0].hp, dos.grupos[0].th, dos.grupos[0].avisos], [1.5, "dos", "", ["HP no reconocido: «dos»"]]);
+    assert.deepEqual([dos.grupos[0].ht, dos.grupos[0].hp, dos.grupos[0].th, dos.grupos[0].avisos], [1.5, "dos", "", ["HP no reconocido: \"dos\""]]);
     assert.deepEqual([diez.grupos[0].n, diez.grupos[0].th, diez.grupos[0].obs, diez.grupos[0].avisos], [1, 5, "con espacios", ["TOTAL (5) no es HT + HP (4)"]]);
-    assert.deepEqual([electivo.grupos[0].n, electivo.grupos[0].hp, electivo.grupos[0].th, electivo.grupos[0].avisos], [1, 0, 2, ["Semestre no reconocido: «Optativo»"]]);
+    assert.deepEqual([electivo.grupos[0].n, electivo.grupos[0].hp, electivo.grupos[0].th, electivo.grupos[0].avisos], [1, 0, 2, ["Semestre no reconocido: \"Optativo\""]]);
     assert.ok(r.avisos.includes("5 filas tienen avisos: revísalas en la previsualización."));
   });
 
@@ -396,12 +396,12 @@ describe("CU-001 · PlanDeCiclo.js y PlanDeCicloVista.html", () => {
     assert.deepEqual(d.carreras.find(c => c.sigla === "DER"), {
       sigla: "DER", nombre: "Derecho", departamento: "DACJ", version: 0, usuario: "", fecha: "", asignaturas: 0, grupos: 0, editor: "", puedeEditar: false
     });
-    assert.equal(fallo(e, "planInicio", "2030-1"), "Ciclo desconocido: «2030-1».");
+    assert.equal(fallo(e, "planInicio", "2030-1"), "Ciclo desconocido: \"2030-1\".");
     e.como(DIRECTOR);
     assert.deepEqual(datos(e, "planInicio", CICLO).carreras.filter(c => c.puedeEditar), []);
   });
 
-  test("acceso: sin cuenta, fuera del dominio o sin rol ven «Acceso denegado»", () => {
+  test("acceso: sin cuenta, fuera del dominio o sin rol ven \"Acceso denegado\"", () => {
     const e = entorno("");
     assert.match(fallo(e, "planInicio", CICLO), /^Acceso denegado: cuenta no identificada/);
     e.como("alguien@gmail.com");
@@ -472,7 +472,7 @@ describe("CU-001 · PlanDeCiclo.js y PlanDeCicloVista.html", () => {
     assert.equal(datos(e, "planGuardar", CICLO, "ING", plan, 2).version, 3);
   });
 
-  test("bloqueo de otra cuenta: la ve «En edición por …», en lectura, y no puede guardar, mantener, soltar ni restaurar", () => {
+  test("bloqueo de otra cuenta: la ve \"En edición por …\", en lectura, y no puede guardar, mantener, soltar ni restaurar", () => {
     const e = entorno();
     guardarReal(e, "ING", COORD);
     e.como(COORD);
@@ -942,7 +942,7 @@ describe("CU-001 · PlanDeCiclo.js y PlanDeCicloVista.html", () => {
 });
 
 describe("CU-002 · CargaDocente.js y CargaDocenteVista.html", () => {
-  /* Pruebas del CU-002 «Carga docente»: CargaDocente.js en el Apps Script falso de recorrido.mjs
+  /* Pruebas del CU-002 "Carga docente": CargaDocente.js en el Apps Script falso de recorrido.mjs
      (solo este archivo cargado) y los métodos del componente Alpine de CargaDocenteVista.html.
      Los planes se escriben a mano en la pestaña Planes (con el JSON del CU-001): pequeños para las
      reglas, o armados desde el Excel real CargaXCarrera con un intérprete mínimo de esta prueba.
@@ -1070,7 +1070,7 @@ describe("CU-002 · CargaDocente.js y CargaDocenteVista.html", () => {
     const declaradas = [...FUENTE_JS.matchAll(/^(?:function\s+|var\s+|let\s+|const\s+)([\w$]+)/gm)].map(m => m[1]);
     /* Una función por acción, escrita de arriba abajo: 10 públicas y unas pocas constantes. */
     assert.ok(declaradas.length >= 10);
-    assert.deepEqual(declaradas.filter(n => !/^carga/i.test(n)), [], "identificadores sin prefijo «carga»");
+    assert.deepEqual(declaradas.filter(n => !/^carga/i.test(n)), [], "identificadores sin prefijo \"carga\"");
     const funciones = [...FUENTE_JS.matchAll(/^function\s+([\w$]+)/gm)].map(m => m[1]);
     assert.deepEqual(funciones.filter(n => !/_$/.test(n)).sort(), [...PUBLICAS].sort());
     for (const m of FUENTE_JS.matchAll(/\/\*\*((?:(?!\*\/)[\s\S])*)\*\/\s*\nfunction\s+(\w+)\(([^)]*)\)/g)) {
@@ -1082,16 +1082,16 @@ describe("CU-002 · CargaDocente.js y CargaDocenteVista.html", () => {
     PUBLICAS.forEach(n => assert.equal(typeof e.ctx[n], "function", n));
   });
 
-  test("CargaDocenteVista.html: scripts válidos, sin «//» ni «<?», sin nombrar el otro CU", () => {
+  test("CargaDocenteVista.html: scripts válidos, sin \"//\" ni \"<?\", sin nombrar el otro CU", () => {
     assert.ok(SCRIPTS.length >= 1);
-    SCRIPTS.forEach(s => { new vm.Script(s); assert.ok(!s.includes("//"), "«//» en el JavaScript del navegador"); });
-    assert.ok(!FUENTE_HTML.includes("<?"), "«<?» en la vista");
+    SCRIPTS.forEach(s => { new vm.Script(s); assert.ok(!s.includes("//"), "\"//\" en el JavaScript del navegador"); });
+    assert.ok(!FUENTE_HTML.includes("<?"), "\"<?\" en la vista");
     assert.doesNotMatch(FUENTE_HTML, /\bplan[A-Z]\w*|planDeCiclo/);
     assert.match(FUENTE_HTML, /x-show="\$store\.nav\.vista === 'carga'" x-data="cargaDocente"/);
     /* Alpine 3 deja puesto un atributo booleano ligado a "": todo :disabled (y similares) debe dar true o false. */
     const booleanos = [...FUENTE_HTML.matchAll(/(?:x-bind)?:(disabled|checked|selected|readonly|required|hidden)="([^"]*)"/g)];
     assert.ok(booleanos.length >= 10);
-    booleanos.forEach(m => assert.match(m[2], /^!!|===|!==/, "«:" + m[1] + "» ligado a un valor que puede ser \"\": " + m[2]));
+    booleanos.forEach(m => assert.match(m[2], /^!!|===|!==/, "\":" + m[1] + "\" ligado a un valor que puede ser \"\": " + m[2]));
     for (const n of ["ocupado === 'guardar' ? 'Guardando…'", "ocupado === 'buscar' ? 'Buscando…'", "ocupado === 'interpretar' ? 'Interpretando…'",
       'x-for="s in doc.secciones"', 'x-for="r in resultados"', 'x-for="(a, i) in advertencias"', 'list="cargaCatalogo"', 'accept=".csv"'])
       assert.ok(FUENTE_HTML.includes(n), "falta " + n);
@@ -1167,7 +1167,7 @@ describe("CU-002 · CargaDocente.js y CargaDocenteVista.html", () => {
     assert.deepEqual(a.catalogo[0], { docente: "ALATRISTA CORRALES ARTURO", departamento: "DACTE" });
   });
 
-  test("fusiones entre carreras: se asigna en la del principal; en las demás, «fusionado con …»", () => {
+  test("fusiones entre carreras: se asigna en la del principal; en las demás, \"fusionado con …\"", () => {
     const ing = { asignaturas: [asig("3.1.3.24", 1, 3, 2), asig("3.1.1.24", 1, 2, 4, { grupos: [1, 2] }), asig("3.1.2.24", 1, 2, 2, { grupos: [1, 2] })] };
     const adm = { asignaturas: [asig("1.1.4.24", 1, 3, 2), asig("1.1.5.24", 1, 2, 2)] };
     const ref = (carrera, codigo, grupo) => ({ carrera, codigo, grupo, nombre: "x", ht: 2, hp: 2, th: 4 });
@@ -1210,7 +1210,7 @@ describe("CU-002 · CargaDocente.js y CargaDocenteVista.html", () => {
     assert.deepEqual(r.sinSeccion, []);
     assert.deepEqual(de("ING|3.5.5.24|1"), ["T VELASQUEZ DOIG MIGUEL EDUARDO", "P VELASQUEZ DOIG MIGUEL EDUARDO"], "hereda el docente de arriba");
     assert.deepEqual(de("ING|3.3.1.24|1"), ["T PATIÑO HERRERA LUIS ENRIQUE", "P PATIÑO HERRERA LUIS ENRIQUE"]);
-    assert.deepEqual(de("ING|3.3.1.24|2"), ["P PATIÑO HERRERA LUIS ENRIQUE"], "«3 - 2» es el grupo 2 y solo trae HP");
+    assert.deepEqual(de("ING|3.3.1.24|2"), ["P PATIÑO HERRERA LUIS ENRIQUE"], "\"3 - 2\" es el grupo 2 y solo trae HP");
     assert.deepEqual(de("ING|3.2.2.24|1"), ["T QUIROZ PILCO MARIBEL ROSARIO"], "solo HT");
     assert.deepEqual(de("ING|3.2.3.24|1"), ["T APAZA VALDIVIA ADELUZ", "P1 APAZA VALDIVIA ADELUZ"], "desdoble: primer subcomponente libre");
     assert.ok(r.asignaciones.every(a => !/TOTAL/.test(a.docente)));
@@ -1236,7 +1236,7 @@ describe("CU-002 · CargaDocente.js y CargaDocenteVista.html", () => {
     assert.equal(guardadas.find(a => a.clave === "ING|3.6.6.21|1").docente, "FLORES PARRA JOSUE MIGUEL");
   });
 
-  test("carga masiva: CSV con «;» y «,», comillas y saltos de línea, nombres con coma, TOTAL termina el bloque", () => {
+  test("carga masiva: CSV con \";\" y \",\", comillas y saltos de línea, nombres con coma, TOTAL termina el bloque", () => {
     const plan = { asignaturas: [asig("C.1", 1, 2, 2), asig("C.2", 2, 2, 4, { desdoble: { componente: "P", n: 2 } })] };
     const docentes = [["ALONSO GUTIERREZ ANDREA JUDITH", "DIMA", "Contratado", "TC"]];
     const e = entorno({ planes: { ING: plan }, docentes });
@@ -1264,7 +1264,7 @@ describe("CU-002 · CargaDocente.js y CargaDocenteVista.html", () => {
     assert.deepEqual(nuevo.noEnCatalogo, ["Nuevo Docente"]);
   });
 
-  test("CARGA DACJ real sobre el plan de DER: «TOTAL PROFESORES»… en la columna CÓDIGO terminan el bloque", () => {
+  test("CARGA DACJ real sobre el plan de DER: \"TOTAL PROFESORES\"… en la columna CÓDIGO terminan el bloque", () => {
     const e = entorno({ planes: { DER: planDesdeExcel("Derecho", "DER") } });
     const dacj = hojaEjemplo("CargaXDepartamento", "CARGA  DACJ 2026-I");
     assert.equal(norm(dacj[139][4]), "TOTAL PROFESORES", "la hoja real pone el resumen en la columna CÓDIGO");
@@ -1291,7 +1291,7 @@ describe("CU-002 · CargaDocente.js y CargaDocenteVista.html", () => {
     assert.equal(e.hojas.Bloqueos.datos.length, 1, "guardar suelta el bloqueo");
   });
 
-  test("A08, A09, A10, A15 y «no está en Docentes»: casos que disparan y que no", () => {
+  test("A08, A09, A10, A15 y \"no está en Docentes\": casos que disparan y que no", () => {
     const caso = (asignaciones, docente) => reglas(asignaciones).codigos(docente);
     const h18 = d => [asg("ING|R.1|1", "T", d), ...tp("R.5", d), asg("ING|R.4|1", "T", d)];
     const h16 = d => [asg("ING|R.1|1", "T", d), ...tp("R.5", d)];
@@ -1389,7 +1389,7 @@ describe("CU-002 · CargaDocente.js y CargaDocenteVista.html", () => {
     assert.deepEqual(contenido.asignaciones.map(a => [a.docente.length > 100 ? a.docente.length : a.docente, a.horas]),
       [["ZEGARRA MEJIA MILAGROS ROCIO DEL CARMEN", 10], [120, 1]]);
     assert.equal(fila[5].length, 500);
-    assert.equal(fila[5][0], "=", "el motivo con «=» se escribió con apóstrofo (el falso falla con fórmulas)");
+    assert.equal(fila[5][0], "=", "el motivo con \"=\" se escribió con apóstrofo (el falso falla con fórmulas)");
     ok(e.llamar("cargaAbrir", CICLO, "ING"));
     assert.equal(ok(e.llamar("cargaGuardar", CICLO, "ING", [], 1, { m: 1 })).version, 2);
     assert.equal(e.hojas.Cargas.datos[2][5], "", "un motivo que no es texto se guarda vacío");
@@ -1411,7 +1411,7 @@ describe("CU-002 · CargaDocente.js y CargaDocenteVista.html", () => {
     assert.deepEqual([i.version, i.usuario, i.asignados, i.editor], [3, "otra@ulasalle.edu.pe", 0, DIRECTOR]);
   });
 
-  test("bloqueo: otra cuenta ve «En edición por», vence a los 31 min, mantener renueva, salir suelta", () => {
+  test("bloqueo: otra cuenta ve \"En edición por\", vence a los 31 min, mantener renueva, salir suelta", () => {
     const e = entorno({ planes: { ING: PLAN_REGLAS } });
     const a = ok(e.llamar("cargaAbrir", CICLO, "ING"));
     assert.equal(a.modo, "edicion");
@@ -1525,7 +1525,7 @@ describe("CU-002 · CargaDocente.js y CargaDocenteVista.html", () => {
 
   /* ---------- componente Alpine de la vista ---------- */
 
-  test("vista: ocupado vuelve a «» tras éxito y error; x-for con datos del servidor", async () => {
+  test("vista: ocupado vuelve a \"\" tras éxito y error; x-for con datos del servidor", async () => {
     const e = entorno({ planes: { ING: planDesdeExcel("Ing. Software", "ING") } });
     const c = componente(e);
     c.ciclo = "1999-1";
