@@ -7,7 +7,8 @@
      funciones (por ejemplo, armar las secciones desde el plan), para no tener que saltar de un lado a otro.
    • Al principio de cada función hay unas "herramientas" de una línea que solo usa esa función:
        fallo("mensaje")  corta la acción y el mensaje llega al navegador tal cual.
-       leer("X")         📥 todas las filas de la pestaña X, sin la fila de cabeceras.
+       leer("X")         📥 todas las filas de la pestaña X, sin la fila de cabeceras (si no existe: "Falta la
+                         pestaña 'X' en la hoja").
        texto(v)          v como texto ("" si es null o undefined).
        N(v)              texto para comparar: mayúsculas, sin tildes, espacios reducidos.
        json(t)           el objeto de un texto JSON, o {} si está vacío o dañado.
@@ -66,7 +67,7 @@ var CARGA_SIN_BLOQUEO_ = "Tu bloqueo venció o lo tomó otra cuenta: lo que no g
  */
 function cargaInicio(ciclo) {
   const fallo = mensaje => { throw Object.assign(new Error(mensaje), { cargaPrevisto: true }); };
-  const leer = nombre => { const h = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombre); if (!h) fallo("Falta la pestaña " + nombre + " en la hoja."); return h.getDataRange().getDisplayValues().slice(1); };
+  const leer = nombre => { const h = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombre); if (!h) fallo("Falta la pestaña \"" + nombre + "\" en la hoja."); return h.getDataRange().getDisplayValues().slice(1); };
   const texto = v => (v === null || v === undefined ? "" : String(v));
   const N = s => texto(s).normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase().replace(/\s+/g, " ").trim();
   const json = t => { try { const o = JSON.parse(t); return o && typeof o === "object" ? o : {}; } catch (e) { return {}; } };
@@ -187,7 +188,7 @@ function cargaInicio(ciclo) {
  */
 function cargaAbrir(ciclo, carrera) {
   const fallo = mensaje => { throw Object.assign(new Error(mensaje), { cargaPrevisto: true }); };
-  const leer = nombre => { const h = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombre); if (!h) fallo("Falta la pestaña " + nombre + " en la hoja."); return h.getDataRange().getDisplayValues().slice(1); };
+  const leer = nombre => { const h = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombre); if (!h) fallo("Falta la pestaña \"" + nombre + "\" en la hoja."); return h.getDataRange().getDisplayValues().slice(1); };
   const texto = v => (v === null || v === undefined ? "" : String(v));
   const N = s => texto(s).normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase().replace(/\s+/g, " ").trim();
   const json = t => { try { const o = JSON.parse(t); return o && typeof o === "object" ? o : {}; } catch (e) { return {}; } };
@@ -279,9 +280,10 @@ function cargaAbrir(ciclo, carrera) {
     /* PASO 6 · ¿Puedes editarla? El director del departamento de la carrera. */
     const puede = rol === "director" && !!departamento && departamento === car.departamento;
 
-    /* PASO 7 · 🔒 CANDADO: decide edición o lectura y, si es edición, escribe el bloqueo sin que otro se cruce. */
+    /* PASO 7 · 🔒 CANDADO: decide edición o lectura y, si es edición, escribe el bloqueo sin que otro se cruce. Si otro
+       está guardando, se espera hasta 10 segundos; si no se libera, responde "La hoja está ocupada…". */
     const candado = LockService.getScriptLock();
-    candado.waitLock(10000);
+    try { candado.waitLock(10000); } catch (e) { fallo("La hoja está ocupada con otro guardado; vuelve a intentarlo en unos segundos."); }
     let modo;
     try {
       /* 7a · 📥 SHEET · LEE "Bloqueos": las filas de carga de esta carrera y ciclo. ¿Otra cuenta la edita ahora? */
@@ -351,7 +353,7 @@ function cargaAbrir(ciclo, carrera) {
  */
 function cargaInterpretar(texto, ciclo, carrera) {
   const fallo = mensaje => { throw Object.assign(new Error(mensaje), { cargaPrevisto: true }); };
-  const leer = nombre => { const h = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombre); if (!h) fallo("Falta la pestaña " + nombre + " en la hoja."); return h.getDataRange().getDisplayValues().slice(1); };
+  const leer = nombre => { const h = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombre); if (!h) fallo("Falta la pestaña \"" + nombre + "\" en la hoja."); return h.getDataRange().getDisplayValues().slice(1); };
   /* (aquí la herramienta se llama aTexto porque "texto" es lo pegado) */
   const aTexto = v => (v === null || v === undefined ? "" : String(v));
   const N = s => aTexto(s).normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase().replace(/\s+/g, " ").trim();
@@ -529,7 +531,7 @@ function cargaInterpretar(texto, ciclo, carrera) {
  */
 function cargaBuscarDocentes(ciclo, texto) {
   const fallo = mensaje => { throw Object.assign(new Error(mensaje), { cargaPrevisto: true }); };
-  const leer = nombre => { const h = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombre); if (!h) fallo("Falta la pestaña " + nombre + " en la hoja."); return h.getDataRange().getDisplayValues().slice(1); };
+  const leer = nombre => { const h = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombre); if (!h) fallo("Falta la pestaña \"" + nombre + "\" en la hoja."); return h.getDataRange().getDisplayValues().slice(1); };
   /* (aquí la herramienta se llama aTexto porque "texto" es lo buscado) */
   const aTexto = v => (v === null || v === undefined ? "" : String(v));
   const N = s => aTexto(s).normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase().replace(/\s+/g, " ").trim();
@@ -613,7 +615,7 @@ function cargaBuscarDocentes(ciclo, texto) {
  */
 function cargaGuardar(ciclo, carrera, asignaciones, versionBase, motivo) {
   const fallo = mensaje => { throw Object.assign(new Error(mensaje), { cargaPrevisto: true }); };
-  const leer = nombre => { const h = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombre); if (!h) fallo("Falta la pestaña " + nombre + " en la hoja."); return h.getDataRange().getDisplayValues().slice(1); };
+  const leer = nombre => { const h = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombre); if (!h) fallo("Falta la pestaña \"" + nombre + "\" en la hoja."); return h.getDataRange().getDisplayValues().slice(1); };
   const texto = v => (v === null || v === undefined ? "" : String(v));
   const N = s => texto(s).normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase().replace(/\s+/g, " ").trim();
   const json = t => { try { const o = JSON.parse(t); return o && typeof o === "object" ? o : {}; } catch (e) { return {}; } };
@@ -657,9 +659,10 @@ function cargaGuardar(ciclo, carrera, asignaciones, versionBase, motivo) {
     });
     if (!Array.isArray(asignaciones) || asignaciones.length > 5000) fallo("Las asignaciones no tienen el formato esperado.");
 
-    /* PASO 6 · 🔒 CANDADO: desde aquí hasta escribir, nadie más puede escribir en el Sheet (espera hasta 10 s). */
+    /* PASO 6 · 🔒 CANDADO: desde aquí hasta escribir, nadie más puede escribir en el Sheet. Si otro está guardando, se
+       espera hasta 10 segundos; si no se libera, responde "La hoja está ocupada…". finally lo suelta siempre. */
     const candado = LockService.getScriptLock();
-    candado.waitLock(10000);
+    try { candado.waitLock(10000); } catch (e) { fallo("La hoja está ocupada con otro guardado; vuelve a intentarlo en unos segundos."); }
     try {
       /* 6a · 📥 SHEET · LEE "Bloqueos": tu bloqueo de esta carga tiene que existir, ser tuyo y no haber vencido. */
       const bloqueos = leer("Bloqueos").map((f, i) => ({ fila: i + 2, cu: f[0].trim(), ciclo: f[1].trim(), carrera: f[2].trim().toUpperCase(),
@@ -801,9 +804,13 @@ function cargaGuardar(ciclo, carrera, asignaciones, versionBase, motivo) {
       hojaCargas.getRange(hojaCargas.getLastRow(), 1, 1, celdas.length).setNumberFormat("@").setValues([celdas]);
 
       /* 6j · 🗑 SHEET · BORRA tus filas de "Bloqueos" de esta carga (de abajo hacia arriba, para que no se corran los
-         números de fila): guardar termina la edición. */
+         números de fila): guardar termina la edición. Si es la última fila de la pestaña, el Sheet no deja borrarla y se
+         vacía en su lugar (cada deleteRow le quita una fila a la pestaña, así que con el uso llega a quedar una sola). */
       const hojaBloqueos = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Bloqueos");
-      bloqueos.filter(b => b.correo === correo).reverse().forEach(b => hojaBloqueos.deleteRow(b.fila));
+      bloqueos.filter(b => b.correo === correo).reverse().forEach(b => {
+        try { hojaBloqueos.deleteRow(b.fila); }
+        catch (e) { hojaBloqueos.getRange(b.fila, 1, 1, 5).setNumberFormat("@").setValues([["", "", "", "", ""]]); }
+      });
 
       /* PASO 7 · ↩ RESPUESTA. ➡ SIGUE EN CargaDocenteVista.html → guardar(): vuelve a la tabla (inicio → cargaInicio) con
          "Guardado como vN" y las advertencias. */
@@ -831,7 +838,7 @@ function cargaGuardar(ciclo, carrera, asignaciones, versionBase, motivo) {
  */
 function cargaMantener(ciclo, carrera) {
   const fallo = mensaje => { throw Object.assign(new Error(mensaje), { cargaPrevisto: true }); };
-  const leer = nombre => { const h = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombre); if (!h) fallo("Falta la pestaña " + nombre + " en la hoja."); return h.getDataRange().getDisplayValues().slice(1); };
+  const leer = nombre => { const h = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombre); if (!h) fallo("Falta la pestaña \"" + nombre + "\" en la hoja."); return h.getDataRange().getDisplayValues().slice(1); };
   const texto = v => (v === null || v === undefined ? "" : String(v));
   try {
     /* PASO 1 · ¿Quién eres? (correo, dominio y tu fila de 📥 "Usuarios"). */
@@ -852,7 +859,7 @@ function cargaMantener(ciclo, carrera) {
 
     /* PASO 3 · 🔒 CANDADO para leer y reescribir el bloqueo sin que otro se cruce. */
     const candado = LockService.getScriptLock();
-    candado.waitLock(10000);
+    try { candado.waitLock(10000); } catch (e) { fallo("La hoja está ocupada con otro guardado; vuelve a intentarlo en unos segundos."); }
     try {
       /* 3a · 📥 SHEET · LEE "Bloqueos": tu bloqueo de esta carga tiene que existir, ser tuyo y no haber vencido. */
       const b = leer("Bloqueos").map((f, i) => ({ fila: i + 2, cu: f[0].trim(), ciclo: f[1].trim(), carrera: f[2].trim().toUpperCase(),
@@ -890,7 +897,7 @@ function cargaMantener(ciclo, carrera) {
  */
 function cargaSalir(ciclo, carrera) {
   const fallo = mensaje => { throw Object.assign(new Error(mensaje), { cargaPrevisto: true }); };
-  const leer = nombre => { const h = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombre); if (!h) fallo("Falta la pestaña " + nombre + " en la hoja."); return h.getDataRange().getDisplayValues().slice(1); };
+  const leer = nombre => { const h = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombre); if (!h) fallo("Falta la pestaña \"" + nombre + "\" en la hoja."); return h.getDataRange().getDisplayValues().slice(1); };
   const texto = v => (v === null || v === undefined ? "" : String(v));
   try {
     /* PASO 1 · ¿Quién eres? (correo, dominio y tu fila de 📥 "Usuarios"). */
@@ -911,15 +918,19 @@ function cargaSalir(ciclo, carrera) {
 
     /* PASO 3 · 🔒 CANDADO. */
     const candado = LockService.getScriptLock();
-    candado.waitLock(10000);
+    try { candado.waitLock(10000); } catch (e) { fallo("La hoja está ocupada con otro guardado; vuelve a intentarlo en unos segundos."); }
     try {
       /* 3a · 📥 SHEET · LEE "Bloqueos": tus filas de carga de esta carrera y ciclo (vencidas o no). */
       const mias = leer("Bloqueos").map((f, i) => ({ fila: i + 2, cu: f[0].trim(), ciclo: f[1].trim(), carrera: f[2].trim().toUpperCase(),
         correo: f[3].trim().toLowerCase(), vigente: new Date(f[4].trim()).getTime() > Date.now() }))
         .filter(b => b.cu === "carga" && b.ciclo === ciclo && b.carrera === car.sigla).filter(b => b.correo === correo);
-      /* 3b · 🗑 SHEET · BORRA esas filas, de abajo hacia arriba (para que no se corran los números de fila). */
+      /* 3b · 🗑 SHEET · BORRA esas filas, de abajo hacia arriba (para que no se corran los números de fila). Si es la
+         última fila de la pestaña, el Sheet no deja borrarla y se vacía en su lugar. */
       const hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Bloqueos");
-      mias.reverse().forEach(b => hoja.deleteRow(b.fila));
+      mias.reverse().forEach(b => {
+        try { hoja.deleteRow(b.fila); }
+        catch (e) { hoja.getRange(b.fila, 1, 1, 5).setNumberFormat("@").setValues([["", "", "", "", ""]]); }
+      });
     } finally { candado.releaseLock(); }
 
     /* PASO 4 · ↩ RESPUESTA. ➡ SIGUE EN CargaDocenteVista.html → salir(): cierra la carga y vuelve a pedir la tabla. */
@@ -946,7 +957,7 @@ function cargaSalir(ciclo, carrera) {
  */
 function cargaHistorial(ciclo, carrera) {
   const fallo = mensaje => { throw Object.assign(new Error(mensaje), { cargaPrevisto: true }); };
-  const leer = nombre => { const h = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombre); if (!h) fallo("Falta la pestaña " + nombre + " en la hoja."); return h.getDataRange().getDisplayValues().slice(1); };
+  const leer = nombre => { const h = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombre); if (!h) fallo("Falta la pestaña \"" + nombre + "\" en la hoja."); return h.getDataRange().getDisplayValues().slice(1); };
   const texto = v => (v === null || v === undefined ? "" : String(v));
   const N = s => texto(s).normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase().replace(/\s+/g, " ").trim();
   const json = t => { try { const o = JSON.parse(t); return o && typeof o === "object" ? o : {}; } catch (e) { return {}; } };
@@ -1042,7 +1053,7 @@ function cargaHistorial(ciclo, carrera) {
  */
 function cargaVersion(ciclo, carrera, n) {
   const fallo = mensaje => { throw Object.assign(new Error(mensaje), { cargaPrevisto: true }); };
-  const leer = nombre => { const h = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombre); if (!h) fallo("Falta la pestaña " + nombre + " en la hoja."); return h.getDataRange().getDisplayValues().slice(1); };
+  const leer = nombre => { const h = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombre); if (!h) fallo("Falta la pestaña \"" + nombre + "\" en la hoja."); return h.getDataRange().getDisplayValues().slice(1); };
   const texto = v => (v === null || v === undefined ? "" : String(v));
   const N = s => texto(s).normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase().replace(/\s+/g, " ").trim();
   const json = t => { try { const o = JSON.parse(t); return o && typeof o === "object" ? o : {}; } catch (e) { return {}; } };
@@ -1173,7 +1184,7 @@ function cargaVersion(ciclo, carrera, n) {
  */
 function cargaRestaurar(ciclo, carrera, n) {
   const fallo = mensaje => { throw Object.assign(new Error(mensaje), { cargaPrevisto: true }); };
-  const leer = nombre => { const h = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombre); if (!h) fallo("Falta la pestaña " + nombre + " en la hoja."); return h.getDataRange().getDisplayValues().slice(1); };
+  const leer = nombre => { const h = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombre); if (!h) fallo("Falta la pestaña \"" + nombre + "\" en la hoja."); return h.getDataRange().getDisplayValues().slice(1); };
   const texto = v => (v === null || v === undefined ? "" : String(v));
   const N = s => texto(s).normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase().replace(/\s+/g, " ").trim();
   const json = t => { try { const o = JSON.parse(t); return o && typeof o === "object" ? o : {}; } catch (e) { return {}; } };
@@ -1214,7 +1225,7 @@ function cargaRestaurar(ciclo, carrera, n) {
 
     /* PASO 5 · 🔒 CANDADO. */
     const candado = LockService.getScriptLock();
-    candado.waitLock(10000);
+    try { candado.waitLock(10000); } catch (e) { fallo("La hoja está ocupada con otro guardado; vuelve a intentarlo en unos segundos."); }
     try {
       /* 5a · 📥 SHEET · LEE "Bloqueos": si otra cuenta edita esta carga ahora (bloqueo vigente), no se restaura. Si el
          bloqueo es tuyo, se conserva. */

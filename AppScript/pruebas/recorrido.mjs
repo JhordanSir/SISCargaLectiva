@@ -163,7 +163,11 @@ class RangoFalso {
     return this;
   }
   setValue(v) { return this.setValues([[v]]); }
-  setNumberFormat() { return this; }
+  /** Anota las filas que quedan con formato de texto (@): las pruebas comprueban que las filas nuevas lo tengan. */
+  setNumberFormat(formato) {
+    if (formato === "@") for (let i = 0; i < this.nf; i++) this.hoja.conTexto.add(this.fila + i);
+    return this;
+  }
   clearContent() { return this.setValues(Array.from({ length: this.nf }, () => Array(this.nc).fill(""))); }
 }
 
@@ -173,6 +177,7 @@ class HojaFalsa {
     this.datos = filas.map(f => f.map(String));
     this.maxFilas = Math.max(DIMENSION_INICIAL, this.datos.length);
     this.maxCols = Math.max(26, ...this.datos.map(f => f.length));
+    this.conTexto = new Set();   /* filas con formato de texto (@) */
   }
   escribir(fila, col, v) {
     const s = v === null || v === undefined ? "" : String(v);
@@ -204,6 +209,7 @@ class HojaFalsa {
     if (this.maxFilas - 1 <= 1) throw new Error("Sorry, it is not possible to delete all non-frozen rows.");
     this.datos.splice(fila - 1, 1);
     this.maxFilas--;
+    this.conTexto = new Set([...this.conTexto].filter(n => n !== fila).map(n => (n > fila ? n - 1 : n)));
     return this;
   }
   setFrozenRows() { return this; }

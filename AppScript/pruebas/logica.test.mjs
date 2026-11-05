@@ -939,6 +939,54 @@ describe("CU-001 · PlanDeCiclo.js y PlanDeCicloVista.html", () => {
     await c.leerArchivo(evento("utf8.csv", Buffer.from(BOM + csv, "utf8")));
     assert.deepEqual([c.error, c.texto.charCodeAt(0) === 0xfeff, c.plan.asignaturas[0].nombre], ["", false, "Introducción a la Programación"]);
   });
+
+  /* ---------- Hoja ocupada, última fila de Bloqueos, formato de texto y pestaña faltante ---------- */
+
+  /** El candado del script no se consigue: waitLock lanza, como cuando otro guardado tarda más de 10 s. */
+  const candadoOcupado = e => {
+    e.ctx.LockService.getScriptLock = () => ({ waitLock() { throw new Error("Lock timeout: another process was holding the lock for too long."); }, releaseLock() {} });
+  };
+
+  test("candado ocupado: abrir, guardar, mantener, salir y restaurar responden \"La hoja está ocupada…\" sin escribir", () => {
+    const e = entorno(TODAS);
+    guardarReal(e, "ING");
+    const a = datos(e, "planAbrir", CICLO, "ING");
+    const plan = planReal(e, "ING"), antes = JSON.stringify([e.hojas.Planes.datos, e.hojas.Bloqueos.datos]);
+    candadoOcupado(e);
+    for (const [fn, ...args] of [["planAbrir", CICLO, "ING"], ["planGuardar", CICLO, "ING", plan, a.version],
+      ["planMantener", CICLO, "ING"], ["planSalir", CICLO, "ING"], ["planRestaurar", CICLO, "ING", 1]])
+      assert.equal(fallo(e, fn, ...args), "La hoja está ocupada con otro guardado; vuelve a intentarlo en unos segundos.", fn);
+    assert.equal(JSON.stringify([e.hojas.Planes.datos, e.hojas.Bloqueos.datos]), antes);
+  });
+
+  test("con una sola fila en Bloqueos (Google no deja borrarla), guardar y salir la vacían y sueltan el bloqueo", () => {
+    const e = entorno(TODAS);
+    guardarReal(e, "ING");
+    const a = datos(e, "planAbrir", CICLO, "ING");
+    e.hojas.Bloqueos.maxFilas = e.hojas.Bloqueos.getLastRow();   /* cabecera + tu bloqueo, como tras mucho uso */
+    assert.equal(datos(e, "planGuardar", CICLO, "ING", planReal(e, "ING"), a.version).version, 2);
+    assert.deepEqual(bloqueos(e), []);
+    datos(e, "planAbrir", CICLO, "ING");
+    e.hojas.Bloqueos.maxFilas = e.hojas.Bloqueos.getLastRow();
+    assert.deepEqual(datos(e, "planSalir", CICLO, "ING"), {});
+    assert.deepEqual(bloqueos(e), []);
+  });
+
+  test("las filas que se agregan a Bloqueos y Planes quedan con formato de texto (@)", () => {
+    const e = entorno(TODAS);
+    const a = datos(e, "planAbrir", CICLO, "ING");
+    assert.ok(e.hojas.Bloqueos.conTexto.has(e.hojas.Bloqueos.getLastRow()), "bloqueo nuevo");
+    datos(e, "planGuardar", CICLO, "ING", planReal(e, "ING"), a.version);
+    assert.ok(e.hojas.Planes.conTexto.has(e.hojas.Planes.getLastRow()), "versión guardada");
+    datos(e, "planRestaurar", CICLO, "ING", 1);
+    assert.ok(e.hojas.Planes.conTexto.has(e.hojas.Planes.getLastRow()), "versión restaurada");
+  });
+
+  test("si falta una pestaña, el mensaje la nombra entre comillas", () => {
+    const e = entorno();
+    delete e.hojas.Planes;
+    assert.equal(fallo(e, "planInicio", CICLO), "Falta la pestaña \"Planes\" en la hoja.");
+  });
 });
 
 describe("CU-002 · CargaDocente.js y CargaDocenteVista.html", () => {
@@ -1620,5 +1668,46 @@ describe("CU-002 · CargaDocente.js y CargaDocenteVista.html", () => {
     c.cambios = true;
     await c.salir();
     assert.deepEqual([c.doc, e.hojas.Bloqueos.datos.length], [null, 1]);
+  });
+  /* ---------- Hoja ocupada, última fila de Bloqueos, formato de texto y pestaña faltante (como en CU-001) ---------- */
+
+  test("candado ocupado: abrir, guardar, mantener, salir y restaurar responden \"La hoja está ocupada…\" sin escribir", () => {
+    const e = entorno({ planes: { ING: PLAN_REGLAS } });
+    const a = ok(e.llamar("cargaAbrir", CICLO, "ING"));
+    const antes = JSON.stringify([e.hojas.Cargas.datos, e.hojas.Bloqueos.datos]);
+    e.ctx.LockService.getScriptLock = () => ({ waitLock() { throw new Error("Lock timeout: another process was holding the lock for too long."); }, releaseLock() {} });
+    for (const [fn, ...args] of [["cargaAbrir", CICLO, "ING"], ["cargaGuardar", CICLO, "ING", tp("R.1", "DOC A"), a.version, ""],
+      ["cargaMantener", CICLO, "ING"], ["cargaSalir", CICLO, "ING"], ["cargaRestaurar", CICLO, "ING", 1]])
+      falla(e.llamar(fn, ...args), /^La hoja está ocupada con otro guardado; vuelve a intentarlo en unos segundos\.$/);
+    assert.equal(JSON.stringify([e.hojas.Cargas.datos, e.hojas.Bloqueos.datos]), antes);
+  });
+
+  test("con una sola fila en Bloqueos (Google no deja borrarla), guardar y salir la vacían y sueltan el bloqueo", () => {
+    const e = entorno({ planes: { ING: PLAN_REGLAS } });
+    const a = ok(e.llamar("cargaAbrir", CICLO, "ING"));
+    e.hojas.Bloqueos.maxFilas = e.hojas.Bloqueos.getLastRow();   /* cabecera + tu bloqueo, como tras mucho uso */
+    const g = ok(e.llamar("cargaGuardar", CICLO, "ING", tp("R.1", "DOC A"), a.version, ""));
+    assert.deepEqual([g.guardado, g.version, e.hojas.Cargas.getLastRow(), e.hojas.Bloqueos.getLastRow()], [true, 1, 2, 1],
+      "guarda la versión y suelta el bloqueo vaciando la fila");
+    ok(e.llamar("cargaAbrir", CICLO, "ING"));
+    e.hojas.Bloqueos.maxFilas = e.hojas.Bloqueos.getLastRow();
+    assert.deepEqual(ok(e.llamar("cargaSalir", CICLO, "ING")), {});
+    assert.equal(e.hojas.Bloqueos.getLastRow(), 1);
+  });
+
+  test("las filas que se agregan a Bloqueos y Cargas quedan con formato de texto (@)", () => {
+    const e = entorno({ planes: { ING: PLAN_REGLAS } });
+    const a = ok(e.llamar("cargaAbrir", CICLO, "ING"));
+    assert.ok(e.hojas.Bloqueos.conTexto.has(e.hojas.Bloqueos.getLastRow()), "bloqueo nuevo");
+    ok(e.llamar("cargaGuardar", CICLO, "ING", tp("R.1", "DOC A"), a.version, ""));
+    assert.ok(e.hojas.Cargas.conTexto.has(e.hojas.Cargas.getLastRow()), "versión guardada");
+    ok(e.llamar("cargaRestaurar", CICLO, "ING", 1));
+    assert.ok(e.hojas.Cargas.conTexto.has(e.hojas.Cargas.getLastRow()), "versión restaurada");
+  });
+
+  test("si falta una pestaña, el mensaje la nombra entre comillas, como en CU-001", () => {
+    const e = entorno({ planes: { ING: PLAN_REGLAS } });
+    delete e.hojas.Docentes;
+    falla(e.llamar("cargaBuscarDocentes", CICLO, "perez"), /^Falta la pestaña "Docentes" en la hoja\.$/);
   });
 });
