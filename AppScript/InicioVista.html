@@ -1,18 +1,31 @@
-<!-- Vista Inicio (sin backend).
-     Botones: «Registrar plan de ciclo» (CU-001) y «Carga docente» (CU-002). El del rol de quien
-     usa la página se resalta; el otro abre su vista en solo lectura.
-     Alpine: usa $store.usuario (IndexVista.html) y cambia $store.nav.vista. -->
+<!-- =====================================================================
+     InicioVista.html · pantalla de Inicio (no tiene servidor propio)
+     ---------------------------------------------------------------------
+     Se pega dentro de IndexVista.html al armar la página. Solo lee $store.usuario (quién eres, lo
+     llena IndexVista.html al arrancar) y cambia $store.nav.vista al pulsar un botón.
+     QUÉ DISPARA CADA BOTÓN
+       «Registrar plan de ciclo» → $store.nav.vista = 'plan'
+         ➡ SIGUE EN PlanDeCicloVista.html: su init() ve el cambio y pide la tabla (planInicio).
+       «Carga docente» → $store.nav.vista = 'carga'
+         ➡ SIGUE EN CargaDocenteVista.html: su init() ve el cambio y pide la tabla (cargaInicio).
+     El botón de tu rol sale en azul (clase .primario del CSS de IndexVista.html); el otro abre su
+     vista en solo lectura.
+     ===================================================================== -->
 <section x-show="$store.nav.vista === 'inicio'" x-cloak>
   <h2>Carga lectiva</h2>
+  <!-- Mientras IndexVista.html espera la respuesta de indexUsuario. -->
   <p class="suave" x-show="$store.usuario.cargando">Comprobando tu cuenta…</p>
   <p class="error" x-show="$store.usuario.error" x-text="$store.usuario.error"></p>
+  <!-- Los dos botones aparecen solo cuando el servidor confirmó que tienes acceso. -->
   <div class="inicio" x-show="$store.usuario.acceso">
+    <!-- Azul si eres coordinador. El subtítulo une tus carreras: «Edita el plan de ING, ICO». -->
     <button :class="{ primario: $store.usuario.rol === 'coordinador' }" @click="$store.nav.vista = 'plan'">
       Registrar plan de ciclo
       <small x-text="$store.usuario.rol === 'coordinador'
         ? 'Edita el plan de ' + ($store.usuario.carreras.join(', ') || 'tus carreras')
         : 'Solo lectura'"></small>
     </button>
+    <!-- Azul si eres director. El subtítulo dice tu departamento. -->
     <button :class="{ primario: $store.usuario.rol === 'director' }" @click="$store.nav.vista = 'carga'">
       Carga docente
       <small x-text="$store.usuario.rol === 'director'

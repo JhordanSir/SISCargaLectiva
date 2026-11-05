@@ -181,7 +181,8 @@ describe("CU-001 · PlanDeCiclo.js y PlanDeCicloVista.html", () => {
     const e = entorno();
     const fuente = fs.readFileSync(path.join(RAIZ, "PlanDeCiclo.js"), "utf8");
     const nombres = [...fuente.matchAll(/^(?:async\s+)?(?:function\*?\s+|(?:const|let|var)\s+)([\w$]+)/gm)].map(m => m[1]);
-    assert.ok(nombres.length > 30);
+    /* Una función por acción, escrita de arriba abajo: 10 públicas y unas pocas constantes. */
+    assert.ok(nombres.length >= 10);
     assert.deepEqual(nombres.filter(n => !/^plan/i.test(n)), []);
     assert.deepEqual(nombres.filter(n => !n.endsWith("_")).sort(), [...PUBLICAS].sort());
     assert.doesNotMatch(fuente, /^(class|let|if|for)\b/m);
@@ -218,19 +219,35 @@ describe("CU-001 · PlanDeCiclo.js y PlanDeCicloVista.html", () => {
       assert.match(HTML, new RegExp('<button[^>]*:disabled="(!!ocupado"|ocupado \\|\\|)[^>]*@click="' + clic.replace(/[.()]/g, "\\$&") + '"'), clic);
   });
 
-  test("planLlamar resuelve con datos si ok y rechaza con el error si no, también por withFailureHandler", async () => {
+  test("cada llamada al servidor de la vista usa los datos si ok, deja el error si no (también por withFailureHandler) y libera ocupado", async () => {
+    /* Cada método escribe su propia llamada a google.script.run: se prueba con inicio(). */
+    let modo = "bien";
     const run = () => {
       let exito, falla;
       const p = { withSuccessHandler: f => { exito = f; return p; }, withFailureHandler: f => { falla = f; return p; } };
-      p.bien = () => setTimeout(() => exito({ ok: true, datos: { n: 1 } }));
-      p.mal = () => setTimeout(() => exito({ ok: false, error: "Ciclo desconocido: «x»." }));
-      p.roto = () => setTimeout(() => falla(new Error("Script function not found: roto")));
+      p.planInicio = () => setTimeout(() => {
+        if (modo === "bien") exito({ ok: true, datos: { ciclos: ["2026-1"], ciclo: "2026-1", carreras: [{ sigla: "ING" }] } });
+        else if (modo === "mal") exito({ ok: false, error: "Ciclo desconocido: «x»." });
+        else falla(new Error("Script function not found: planInicio"));
+      });
       return p;
     };
-    const { ctx } = vista(entorno(), run);
-    assert.deepEqual(plano(await ctx.planLlamar("bien")), { n: 1 });
-    await assert.rejects(ctx.planLlamar("mal"), { message: "Ciclo desconocido: «x»." });
-    await assert.rejects(ctx.planLlamar("roto"), { message: "Script function not found: roto" });
+    const { c } = vista(entorno(), run);
+    const espera = c.inicio();
+    assert.equal(c.ocupado, "inicio");
+    await espera;
+    assert.deepEqual(plano(c.carreras), [{ sigla: "ING" }]);
+    assert.equal(c.error, "");
+    assert.equal(c.ocupado, "");
+    modo = "mal";
+    await c.inicio();
+    assert.equal(c.error, "Ciclo desconocido: «x».");
+    assert.equal(c.ocupado, "");
+    modo = "roto";
+    await c.inicio();
+    assert.equal(c.error, "Script function not found: planInicio");
+    assert.equal(c.ocupado, "");
+    assert.deepEqual(plano(c.carreras), [{ sigla: "ING" }], "un error no borra la tabla");
   });
 
   /* ===================== Interpretación ===================== */
@@ -1051,7 +1068,8 @@ describe("CU-002 · CargaDocente.js y CargaDocenteVista.html", () => {
 
   test("CargaDocente.js: prefijo, funciones públicas exactas y JSDoc en cada función", () => {
     const declaradas = [...FUENTE_JS.matchAll(/^(?:function\s+|var\s+|let\s+|const\s+)([\w$]+)/gm)].map(m => m[1]);
-    assert.ok(declaradas.length > 20);
+    /* Una función por acción, escrita de arriba abajo: 10 públicas y unas pocas constantes. */
+    assert.ok(declaradas.length >= 10);
     assert.deepEqual(declaradas.filter(n => !/^carga/i.test(n)), [], "identificadores sin prefijo «carga»");
     const funciones = [...FUENTE_JS.matchAll(/^function\s+([\w$]+)/gm)].map(m => m[1]);
     assert.deepEqual(funciones.filter(n => !/_$/.test(n)).sort(), [...PUBLICAS].sort());

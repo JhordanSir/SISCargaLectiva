@@ -194,7 +194,7 @@ Copia literal del pedido:
 Notas técnicas:
 
 - **Registro de componentes y stores:** con el CDN, Alpine arranca solo. Hay que registrarlos dentro de `document.addEventListener("alpine:init", () => { … })`, y cada vista registra los suyos en su propio `<script>`.
-- **Llamadas al servidor:** cada vista tiene su propio envoltorio de `google.script.run` que devuelve una promesa (`planLlamar`, `cargaLlamar`). No lo compartas.
+- **Llamadas al servidor:** cada método de la vista escribe su propia llamada a `google.script.run` envuelta en una promesa (`ocupado` → llamada → respuesta → `finally`), sin envoltorio compartido, para que se lea en un solo sitio qué función del servidor se llama y qué se hace con la respuesta. En el servidor, una función pública por acción, escrita de arriba abajo (`PASO 1`, `PASO 2`…), con marcas `📥 SHEET · LEE`, `📤 SHEET · ESCRIBE`, `🗑 SHEET · BORRA` y `🔒 CANDADO` donde se toca la hoja.
 - **Comentarios en el `<script>`:** HtmlService los quita antes de servir la página y se equivoca con `//` dentro de cadenas o plantillas. No escribas URLs con `//` dentro del código JavaScript; en el HTML sí se puede.
 
 ---

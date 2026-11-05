@@ -2,7 +2,7 @@
 
 Aplicación web en Google Apps Script para planificar la **carga lectiva** de la Universidad La Salle (Arequipa): qué cursos y grupos abre cada carrera en un ciclo (**CU-001 Registrar plan de ciclo**) y qué docentes los dictan (**CU-002 Carga docente**). Los datos viven en el Google Sheet vinculado «SISCargaLectiva - Centro de datos».
 
-Esta es la versión **simplificada** (noviembre de 2026): 8 archivos y unas 2 200 líneas de aplicación, sin compilación ni dependencias. El estado anterior está en la etiqueta `antes-de-simplificar`.
+Esta es la versión **simplificada** (noviembre de 2026): 8 archivos y unas 4 000 líneas de aplicación (casi un tercio, comentarios), sin compilación ni dependencias. El estado anterior está en la etiqueta `antes-de-simplificar`.
 
 ## Qué hace
 
@@ -18,13 +18,13 @@ Apps Script no admite un `.js` y un `.html` con el mismo nombre (`clasp push` fa
 
 | Archivo | Qué es | Líneas |
 |---|---|---:|
-| [AppScript/Index.js](AppScript/Index.js) | `doGet` (sirve la página), `include` (pega las vistas) e `indexUsuario` (dominio y pestaña Usuarios). | 74 |
-| [AppScript/IndexVista.html](AppScript/IndexVista.html) | Carcasa: Alpine desde el CDN, el CSS escrito a mano, la barra con las vistas, el correo y el rol, «Acceso denegado» y los `include` de las tres vistas. | 119 |
-| [AppScript/InicioVista.html](AppScript/InicioVista.html) | Inicio: los dos botones. No tiene backend. | 23 |
-| [AppScript/PlanDeCicloVista.html](AppScript/PlanDeCicloVista.html) | Vista del CU-001: marcado y `Alpine.data("planDeCiclo")`. | 440 |
-| [AppScript/PlanDeCiclo.js](AppScript/PlanDeCiclo.js) | Backend del CU-001: todo empieza por `plan`. | 550 |
-| [AppScript/CargaDocenteVista.html](AppScript/CargaDocenteVista.html) | Vista del CU-002: marcado y `Alpine.data("cargaDocente")`. | 415 |
-| [AppScript/CargaDocente.js](AppScript/CargaDocente.js) | Backend del CU-002: todo empieza por `carga`. | 600 |
+| [AppScript/Index.js](AppScript/Index.js) | `doGet` (sirve la página), `include` (pega las vistas) e `indexUsuario` (dominio y pestaña Usuarios). | 98 |
+| [AppScript/IndexVista.html](AppScript/IndexVista.html) | Carcasa: Alpine desde el CDN, el CSS escrito a mano, la barra con las vistas, el correo y el rol, «Acceso denegado» y los `include` de las tres vistas. | 150 |
+| [AppScript/InicioVista.html](AppScript/InicioVista.html) | Inicio: los dos botones. No tiene backend. | 36 |
+| [AppScript/PlanDeCicloVista.html](AppScript/PlanDeCicloVista.html) | Vista del CU-001: marcado y `Alpine.data("planDeCiclo")`. | 778 |
+| [AppScript/PlanDeCiclo.js](AppScript/PlanDeCiclo.js) | Backend del CU-001: todo empieza por `plan`. | 944 |
+| [AppScript/CargaDocenteVista.html](AppScript/CargaDocenteVista.html) | Vista del CU-002: marcado y `Alpine.data("cargaDocente")`. | 707 |
+| [AppScript/CargaDocente.js](AppScript/CargaDocente.js) | Backend del CU-002: todo empieza por `carga`. | 1351 |
 | [AppScript/appsscript.json](AppScript/appsscript.json) | Manifiesto: zona `America/Lima`, aplicación web del dominio y permisos de hojas de cálculo y correo. | |
 
 `AppScript/pruebas/` no se sube (`.claspignore`): [logica.test.mjs](AppScript/pruebas/logica.test.mjs) tiene las pruebas y [recorrido.mjs](AppScript/pruebas/recorrido.mjs), el recorrido en Chrome y el Apps Script falso que usan las dos.
@@ -32,9 +32,11 @@ Apps Script no admite un `.js` y un `.html` con el mismo nombre (`clasp push` fa
 ## Cómo se empareja una vista con su backend
 
 - **Mismo nombre, sufijo `Vista`:** `PlanDeCicloVista.html` ↔ `PlanDeCiclo.js`, `CargaDocenteVista.html` ↔ `CargaDocente.js`, `IndexVista.html` ↔ `Index.js`.
-- **Mismo verbo, con prefijo en el servidor:** el método `guardar()` del componente llama a `planGuardar()`, `buscarDocentes()` a `cargaBuscarDocentes()`, etc. Cada vista tiene su envoltorio de `google.script.run` con promesa (`planLlamar`, `cargaLlamar`, `indexLlamar`).
-- **Nada compartido entre los dos CU.** En Apps Script todos los nombres son globales, así que todo lo del CU-001 empieza por `plan` y todo lo del CU-002 por `carga`. Bloqueo, versionado, lectura de CSV y normalización están copiados en cada `.js`. Una prueba comprueba que ningún nombre de un CU aparece en el otro.
-- **Cabecera:** cada archivo empieza con un comentario que dice qué vista es, qué botones tiene y qué funciones del servidor usa.
+- **Mismo verbo, con prefijo en el servidor:** el método `guardar()` del componente llama a `planGuardar()`, `buscarDocentes()` a `cargaBuscarDocentes()`, etc. Cada método escribe su propia llamada a `google.script.run` con promesa (sin envoltorio compartido), así que se ve en el mismo sitio qué función del servidor se llama y qué se hace con la respuesta.
+- **Nada compartido entre los dos CU.** En Apps Script todos los nombres son globales, así que todo lo del CU-001 empieza por `plan` y todo lo del CU-002 por `carga`. Bloqueo, versionado, lectura de CSV y normalización están copiados en cada `.js`, y dentro de cada `.js` en cada función que los usa. Una prueba comprueba que ningún nombre de un CU aparece en el otro.
+- **Cabecera:** cada archivo empieza con un comentario que dice qué vista es, qué botón llama a qué método y a qué función del servidor, y qué pestañas del Sheet usa.
+- **Una función por acción, de arriba abajo.** Cada función pública del servidor hace toda su acción dentro de sí misma y se lee como un texto, con `PASO 1`, `PASO 2`…: validar el usuario, leer las pestañas, tomar el candado, escribir, responder. Lo que necesita (leer una pestaña, cortar con un error, pasar a texto) son herramientas de una línea declaradas al principio de esa misma función. En las vistas, los métodos van en el orden en que se usan y cada uno sigue el mismo patrón: `ocupado`, llamada, respuesta, `finally`.
+- **Marcas en los comentarios** para seguir los datos: `📥 SHEET · LEE`, `📤 SHEET · ESCRIBE`, `🗑 SHEET · BORRA` y `🔒 CANDADO` en el servidor; `📡 → SERVIDOR`, `⬅ VUELVE` y `✎ SOLO MEMORIA` en las vistas; `⬅ VIENE DE` y `➡ SIGUE EN` en los dos lados para saber de dónde llega una llamada y dónde continúa. Con buscar `SHEET ·` se ven todas las lecturas y escrituras del Sheet.
 - **Respuesta del servidor:** toda función pública devuelve `{ ok: true, datos }` o `{ ok: false, error: "mensaje" }` y nunca lanza. Las escrituras van dentro de `LockService.getScriptLock()`.
 
 | Archivo | Funciones públicas |
@@ -45,15 +47,15 @@ Apps Script no admite un `.js` y un `.html` con el mismo nombre (`clasp push` fa
 
 ## Dónde se usa Alpine.js
 
-Alpine 3.17.5 se carga desde el CDN en [IndexVista.html:11](AppScript/IndexVista.html:11). Cada vista registra lo suyo dentro de `document.addEventListener("alpine:init", …)`.
+Alpine 3.17.5 se carga desde el CDN en [IndexVista.html:22](AppScript/IndexVista.html:22). Cada vista registra lo suyo dentro de `document.addEventListener("alpine:init", …)`.
 
 | Uso | Dónde |
 |---|---|
-| **Navegación.** `Alpine.store("nav", { vista: "inicio" })` y cada vista en `<section x-show="$store.nav.vista === '…'">` | Store en [IndexVista.html:91](AppScript/IndexVista.html:91); barra con `@click` y `:class` activo en [IndexVista.html:66-68](AppScript/IndexVista.html:66); botones de Inicio en [InicioVista.html:10](AppScript/InicioVista.html:10) y [:16](AppScript/InicioVista.html:16); secciones en [PlanDeCicloVista.html:7](AppScript/PlanDeCicloVista.html:7) y [CargaDocenteVista.html:8](AppScript/CargaDocenteVista.html:8) |
-| **Usuario.** `Alpine.store("usuario")` con el correo, el rol y el motivo de «Acceso denegado» | [IndexVista.html:92](AppScript/IndexVista.html:92) |
-| **Botones en espera.** `ocupado` vale la acción en curso (`"guardar"`, `"interpretar"`, `"buscar"`…) y vuelve a `""` en el éxito y en el error; los botones usan `:disabled="!!ocupado"` y `x-text="ocupado === 'guardar' ? 'Guardando…' : 'Guardar'"` | `llamar()` en [PlanDeCicloVista.html:194](AppScript/PlanDeCicloVista.html:194) y `pedir()` en [CargaDocenteVista.html:231](AppScript/CargaDocenteVista.html:231) |
-| **`x-for` con datos del servidor (CU-001)** | Tabla de carreras (`planInicio`) [PlanDeCicloVista.html:27](AppScript/PlanDeCicloVista.html:27); previsualización por semestre (`planInterpretar` / `planAbrir`) [:99](AppScript/PlanDeCicloVista.html:99); historial (`planHistorial`) [:65](AppScript/PlanDeCicloVista.html:65); candidatos de fusión (`planCandidatosFusion`) [:159](AppScript/PlanDeCicloVista.html:159) |
-| **`x-for` con datos del servidor (CU-002)** | Resultados de la búsqueda (`cargaBuscarDocentes`) [CargaDocenteVista.html:195](AppScript/CargaDocenteVista.html:195); tabla de secciones (`cargaAbrir`) [:145](AppScript/CargaDocenteVista.html:145); advertencias (`cargaGuardar`) [:23](AppScript/CargaDocenteVista.html:23); previsualización de la carga masiva (`cargaInterpretar`) [:119](AppScript/CargaDocenteVista.html:119) |
+| **Navegación.** `Alpine.store("nav", { vista: "inicio" })` y cada vista en `<section x-show="$store.nav.vista === '…'">` | Store en [IndexVista.html:111](AppScript/IndexVista.html:111); barra con `@click` y `:class` activo en [IndexVista.html:79-81](AppScript/IndexVista.html:79); botones de Inicio en [InicioVista.html:22](AppScript/InicioVista.html:22) y [:29](AppScript/InicioVista.html:29); secciones en [PlanDeCicloVista.html:19](AppScript/PlanDeCicloVista.html:19) y [CargaDocenteVista.html:20](AppScript/CargaDocenteVista.html:20) |
+| **Usuario.** `Alpine.store("usuario")` con el correo, el rol y el motivo de «Acceso denegado» | [IndexVista.html:114](AppScript/IndexVista.html:114) |
+| **Botones en espera.** `ocupado` vale la acción en curso (`"guardar"`, `"interpretar"`, `"buscar"`…) y vuelve a `""` en el éxito y en el error; los botones usan `:disabled="!!ocupado"` y `x-text="ocupado === 'guardar' ? 'Guardando…' : 'Guardar'"` | En cada método que llama al servidor; el patrón está explicado en [PlanDeCicloVista.html:213](AppScript/PlanDeCicloVista.html:213) y [CargaDocenteVista.html:245](AppScript/CargaDocenteVista.html:245) |
+| **`x-for` con datos del servidor (CU-001)** | Tabla de carreras (`planInicio`) [PlanDeCicloVista.html:42](AppScript/PlanDeCicloVista.html:42); previsualización por semestre (`planInterpretar` / `planAbrir`) [:121](AppScript/PlanDeCicloVista.html:121); historial (`planHistorial`) [:83](AppScript/PlanDeCicloVista.html:83); candidatos de fusión (`planCandidatosFusion`) [:184](AppScript/PlanDeCicloVista.html:184) |
+| **`x-for` con datos del servidor (CU-002)** | Resultados de la búsqueda (`cargaBuscarDocentes`) [CargaDocenteVista.html:222](AppScript/CargaDocenteVista.html:222); tabla de secciones (`cargaAbrir`) [:171](AppScript/CargaDocenteVista.html:171); advertencias (`cargaGuardar`) [:39](AppScript/CargaDocenteVista.html:39); previsualización de la carga masiva (`cargaInterpretar`) [:142](AppScript/CargaDocenteVista.html:142) |
 
 Dos cuidados:
 
@@ -116,6 +118,7 @@ Solo sirve la vista previa local en `http://127.0.0.1:8765/?usuario=<correo>`. E
 
 ## Documentación
 
+- [docs/mapa-interactivo.html](docs/mapa-interactivo.html): mapa interactivo para abrir en el navegador. Cada botón de la app con el código que activa (archivo y línea), el recorrido animado hasta el Google Sheet, 69 preguntas en lenguaje sencillo («¿dónde se pinta…?», «¿cómo se lee el CSV?», «¿dónde se acumulan las versiones?», «¿cómo se mezclan el Sheet y la aplicación web?»…) respondidas con un depurador que recorre el código real línea por línea, cómo se leen, escriben, versionan y bloquean los datos, y un laboratorio con `planInterpretar` y las reglas A07–A15. Si cambias el código de `AppScript/`, ejecuta `python3 docs/actualizar-mapa.py` para que el depurador muestre la versión nueva. Ojo: el mapa y sus 69 respuestas describen el código de antes de reescribirlo «una función por acción» (commit `8274f30`), con sus funciones auxiliares y números de línea; ese script solo copia el código nuevo, no rehace las respuestas.
 - [instrucciones.md](instrucciones.md): qué se simplificó, por qué y con qué decisiones.
 - [docs/CU/](docs/CU/): CU-001 y CU-002 en Word.
 - [docs/requerimientos/requirements.md](docs/requerimientos/requirements.md): requisitos, decisiones del equipo y lo que quedó fuera de alcance.
