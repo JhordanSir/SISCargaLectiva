@@ -116,6 +116,7 @@ Solo sirve la vista previa local en `http://127.0.0.1:8765/?usuario=<correo>`. E
 
 ## Documentación
 
+- [docs/mapa-interactivo.html](docs/mapa-interactivo.html): mapa interactivo para abrir en el navegador. Cada botón de la app con el código que activa (archivo y línea), el recorrido animado hasta el Google Sheet, cómo se leen, escriben, versionan y bloquean los datos, y un laboratorio con `planInterpretar` y las reglas A07–A15.
 - [instrucciones.md](instrucciones.md): qué se simplificó, por qué y con qué decisiones.
 - [docs/CU/](docs/CU/): CU-001 y CU-002 en Word.
 - [docs/requerimientos/requirements.md](docs/requerimientos/requirements.md): requisitos, decisiones del equipo y lo que quedó fuera de alcance.
