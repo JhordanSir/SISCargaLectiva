@@ -1,14 +1,14 @@
 """Vuelve a copiar el código de AppScript/ dentro de docs/mapa-interactivo.html.
 
-El depurador de la sección «Preguntas» muestra los archivos reales con sus números de línea.
-Esos archivos van incrustados en la página (bloque <script id="fuentes">). Después de cambiar
-el código, ejecuta desde la raíz del repositorio:
+El mapa no tiene números de línea escritos a mano: al abrirse, lee el código copiado en la página
+(bloque <script id="fuentes">) y de ahí saca cada función, sus comentarios «PASO 1 ·», «8a ·», «A07 ·»
+y las marcas 📥 📤 🗑 🔒 de lectura y escritura del Sheet. Después de cambiar el código, ejecuta desde
+la raíz del repositorio:
 
     python3 docs/actualizar-mapa.py
 
-Cada paso de las preguntas busca su línea por el texto que contiene, así que sigue apuntando
-bien aunque el código se mueva unas líneas. Si un texto desaparece, la consola del navegador
-avisa con «No encontré …».
+Si un botón o una pregunta del mapa apunta a algo que ya no existe (un método renombrado, un PASO que
+desapareció), la consola del navegador avisa con «Mapa: No encontré …».
 """
 import json
 import pathlib
