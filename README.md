@@ -118,7 +118,7 @@ Solo sirve la vista previa local en `http://127.0.0.1:8765/?usuario=<correo>`. E
 
 ## Documentación
 
-- [docs/mapa-interactivo.html](docs/mapa-interactivo.html): mapa interactivo para abrir en el navegador. Eliges un botón de la app y lees, de arriba abajo, lo que pasa en la pantalla, en el servidor y en el Google Sheet, con el código real y un recorrido animado paso a paso. También trae las 7 pestañas del Sheet con qué funciones las leen, escriben o borran, una simulación de versiones y bloqueos con dos coordinadores, 69 preguntas en lenguaje sencillo con enlaces al paso exacto del código y cómo se publica un cambio. Los pasos y las marcas salen de los comentarios del código: si cambias `AppScript/`, ejecuta `python3 docs/actualizar-mapa.py`.
+- [docs/mapa-interactivo.html](docs/mapa-interactivo.html): mapa interactivo para abrir en el navegador. Eliges un botón de la app y lees, de arriba abajo, lo que pasa en la pantalla, en el servidor y en el Google Sheet, con el código real y un recorrido animado paso a paso. También trae las 7 pestañas del Sheet con qué funciones las leen, escriben o borran, una simulación de versiones y bloqueos con dos coordinadores, 71 preguntas en lenguaje sencillo con enlaces al paso exacto del código (también por qué en el editor de Apps Script los `.js` se ven como `.gs`) y cómo se publica un cambio. Los pasos y las marcas salen de los comentarios del código: si cambias `AppScript/`, ejecuta `python3 docs/actualizar-mapa.py`.
 - [instrucciones.md](instrucciones.md): qué se simplificó, por qué y con qué decisiones.
 - [docs/CU/](docs/CU/): CU-001 y CU-002 en Word.
 - [docs/requerimientos/requirements.md](docs/requerimientos/requirements.md): requisitos, decisiones del equipo y lo que quedó fuera de alcance.

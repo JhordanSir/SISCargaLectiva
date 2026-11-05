@@ -58,6 +58,12 @@ section.bloque { padding: 34px 0 10px; }
 .titulo { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; }
 .titulo .num { font: 700 13px ui-monospace, monospace; color: var(--suave); }
 .intro { color: var(--suave); max-width: 880px; margin-bottom: 18px; }
+ol.uso { margin: -8px 0 12px; padding-left: 22px; max-width: 900px; }
+ol.uso li { margin-bottom: 4px; }
+.estrecho { display: none; }
+.colores { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; font-size: 13.5px; margin-bottom: 14px; }
+.colores > span:not(.chip) { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+.colores > span:not(.chip)::before { content: ""; width: 14px; height: 14px; border-radius: 4px; background: var(--c); }
 
 /* ---------- 1 · Cómo leer el mapa ---------- */
 .heroe { padding: 30px 0 6px; }
@@ -252,6 +258,8 @@ footer { padding: 30px 0 40px; color: var(--suave); font-size: 13px; }
   @keyframes bajar { to { top: 100%; } }
   .cabeza { grid-template-columns: minmax(0, 1fr); }
   .controles { justify-content: flex-start; }
+  .ancho { display: none; }
+  .estrecho { display: inline; }
   .viaje { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
   .viaje .caja.h { grid-column: span 2; }
   .cuerpo { grid-template-columns: minmax(0, 1fr); }
@@ -261,6 +269,7 @@ footer { padding: 30px 0 40px; color: var(--suave); font-size: 13px; }
 }
 @media (max-width: 520px) {
   .heroe h1 { font-size: 24px; }
+  .barra .largo { display: none; }
   .flujo { grid-template-columns: minmax(0, 1fr); }
   .codigo { font-size: 12px; }
   .codigo .l { grid-template-columns: 38px 1fr; }
@@ -275,12 +284,12 @@ footer { padding: 30px 0 40px; color: var(--suave); font-size: 13px; }
 <body>
 
 <header class="barra"><div class="contenedor">
-  <strong>Mapa de SISCargaLectiva</strong>
+  <strong>Mapa<span class="largo"> de SISCargaLectiva</span></strong>
   <nav>
     <a href="#leer">1 · Cómo leerlo</a><a href="#boton">2 · Sigue un botón</a><a href="#hoja">3 · El Sheet</a>
     <a href="#versiones">4 · Versiones y bloqueos</a><a href="#preguntas">5 · Preguntas</a><a href="#publicar">6 · Publicar cambios</a>
   </nav>
-  <button class="tema" id="tema" title="Cambiar entre claro y oscuro">◐</button>
+  <button class="tema" id="tema" title="Cambiar entre claro y oscuro">◐ Tema</button>
 </div></header>
 
 <main>
@@ -296,7 +305,7 @@ footer { padding: 30px 0 40px; color: var(--suave); font-size: 13px; }
     </div>
     <div class="conector" style="--c:var(--servidor)"><div class="via"></div><span>google.script.run</span></div>
     <div class="pieza" style="--c:var(--servidor)">
-      <div class="ico">☁</div><b>Servidor</b><small>Apps Script, en Google. Archivos <code>.js</code></small>
+      <div class="ico">☁</div><b>Servidor</b><small>Apps Script, en Google. Archivos <code>.js</code> (en el editor de Apps Script se ven como <code>.gs</code>, con las mismas líneas)</small>
       <ul><li>Una función por acción: <code>planGuardar</code>, <code>cargaAbrir</code>…</li><li>Revisa quién eres y qué puedes hacer, y es la única que toca el Sheet.</li></ul>
     </div>
     <div class="conector" style="--c:var(--hoja)"><div class="via"></div><span>SpreadsheetApp</span></div>
@@ -325,7 +334,13 @@ footer { padding: 30px 0 40px; color: var(--suave); font-size: 13px; }
 <!-- ================= 2 · SIGUE UN BOTÓN ================= -->
 <section class="bloque" id="boton"><div class="contenedor">
   <div class="titulo"><span class="num">02</span><h2>Sigue un botón</h2></div>
-  <p class="intro">Elige un botón. Abajo aparece todo lo que pasa, en orden: primero la pantalla, luego el servidor, luego otra vez la pantalla. Pulsa <b>▶ Recorrer</b> para verlo paso a paso, o haz clic en cualquier paso para ver su código a la derecha.</p>
+  <p class="intro">Abajo aparece todo lo que pasa al pulsar un botón, en el orden en que pasa: primero la pantalla, luego el servidor, luego otra vez la pantalla.</p>
+  <ol class="uso">
+    <li><b>Elige la pantalla</b> de la app (las tres pestañas de arriba) y <b>pulsa un botón</b>. Los que llevan ✎ no van al servidor.</li>
+    <li><b>Lee los pasos de arriba abajo.</b> Haz clic en cualquiera para ver su código real <span class="ancho">a la derecha</span><span class="estrecho">debajo del paso</span>, con las líneas marcadas en amarillo.</li>
+    <li><b>▶ Recorrer</b> los avanza solos y anima el viaje entre las tres cajas. También puedes usar ◀ ▶ o las flechas del teclado.</li>
+  </ol>
+  <p class="colores"><span style="--c:var(--pantalla)">Pantalla (navegador)</span><span style="--c:var(--servidor)">Servidor (Apps Script)</span><span style="--c:var(--hoja)">Google Sheet</span><span class="chip lee">📥 lee</span><span class="chip escribe">📤 escribe</span><span class="chip borra">🗑 borra</span><span class="chip candado">🔒 candado</span></p>
 
   <div class="tarjeta selector">
     <div class="cus" id="cus"></div>
@@ -514,22 +529,33 @@ function crearMotor(FUENTES, avisar) {
     }
     if (!inicio || !fin) { avisar("No encontré el bloque " + nombre + " en " + f); return (cache[clave] = null); }
 
-    /* Presentación: el comentario justo encima (JSDoc en el servidor, «ACCIÓN · …» o «---- Botón … ----» en la vista). */
+    /* Presentación: el comentario justo encima (JSDoc en el servidor, «ACCIÓN · …» o «---- Botón … ----» en la vista).
+       Se toma la descripción hasta la primera marca (⬅ VIENE DE, ↩ RESPUESTA, ➡ SIGUE EN) o etiqueta @. */
     let intro = "", viene = "";
+    const describir = lineas => {
+      const desc = [];
+      for (const bruta of lineas) {
+        const base = bruta.replace(/^\s*\/\*\*?/, "").replace(/\*\/\s*$/, "").replace(/^\s*\*(?!\/)\s?/, "");
+        let t = base.replace(/^\s*[=\-]{3,}\s*/, "").replace(/\s*[=\-]{3,}\s*$/, "").trim();
+        if (/^(⬅ VIENE DE|↩ RESPUESTA|➡ SIGUE EN|@)/.test(t)) break;
+        /* Un título entre guiones («---- Botón «Usar» ----») termina en punto para que no se pegue al texto siguiente. */
+        if (t && t !== base.trim() && !/[.:;!?]$/.test(t)) t += ".";
+        if (t) desc.push(t);
+      }
+      const d = desc.join(" ").replace(/^ACCIÓN\s*[:·]\s*/, "").replace(/\s+/g, " ").trim();
+      /* Mayúscula inicial, salvo si empieza con código («tocar(): …»). */
+      return /^[a-záéíóúñ]+[\s,]/.test(d) ? d.charAt(0).toUpperCase() + d.slice(1) : d;
+    };
     let k = inicio - 2;
     while (k >= 0 && ls[k].trim() === "") k--;
     if (k >= 0 && /\*\/\s*$/.test(ls[k])) {
       let a = k; while (a > 0 && !/\/\*/.test(ls[a])) a--;
-      const bruto = ls.slice(a, k + 1).join("\n");
-      const lineas = bruto.split("\n").map(s => s.replace(/^\s*\/?\*+\/?\s?/, "").replace(/\*\/\s*$/, "").replace(/^[=\-\s]+$/, "").trim());
-      const util = lineas.filter(s => s && !/^@/.test(s) && !/^[=\-]{5,}/.test(s));
-      viene = (util.find(s => /⬅ VIENE DE/.test(s)) || "").replace(/^.*⬅ VIENE DE:?\s*/, "");
-      intro = util.filter(s => !/⬅ VIENE DE|↩ RESPUESTA|➡ SIGUE EN/.test(s)).join(" ")
-        .replace(/^ACCIÓN\s*[:·]\s*/, "").replace(/-{3,}/g, "").replace(/\s+/g, " ").trim();
+      intro = describir(ls.slice(a, k + 1));
+      ls.slice(a, k + 1).forEach(t => { if (!viene && /⬅ VIENE DE/.test(t)) viene = t.replace(/^.*⬅ VIENE DE:?\s*/, "").trim(); });
     }
-
-    /* Sin comentario encima: el primer comentario de dentro del bloque. */
-    if (!intro && /^\s*\/\*/.test(ls[inicio] || "")) intro = limpiar(comentarioDesde(f, inicio + 1).texto);
+    /* Sin comentario encima: el primer comentario de dentro del bloque, si no es un paso. */
+    const reEtq = /^\s*\/\*\s*(?:PASO\s+\d+[a-z]?|\d+[a-z]|A\d\d)\s*·/;
+    if (!intro && /^\s*\/\*/.test(ls[inicio] || "") && !reEtq.test(ls[inicio])) intro = describir(comentarioDesde(f, inicio + 1).texto.split("\n"));
 
     /* Pasos. */
     const reP = /^\s*\/\*\s*(?:PASO\s+(\d+[a-z]?)|(\d+[a-z])|(A\d\d))\s*·\s*/;
@@ -545,12 +571,15 @@ function crearMotor(FUENTES, avisar) {
     const primera = marcasPaso.length ? marcasPaso[0].desde : fin;
     const antes = [];
     for (let i = inicio + 1; i < primera; i++) if (ls[i - 1].trim()) antes.push(i);
+    /* El «try {» que abre el cuerpo no es parte de las herramientas. */
+    while (antes.length && /^try \{$/.test(ls[antes[antes.length - 1] - 1].trim())) antes.pop();
     if (!marcasPaso.length) {
       pasos.push({ etq: "", nivel: 1, desde: inicio, hasta: fin, titulo: "" });
     } else if (antes.length) {
       const previo = ls.slice(antes[0] - 1, primera - 1).join("\n");
-      pasos.push({ etq: "", nivel: 1, desde: antes[0], hasta: primera - 1, previo: esJs(f),
-        titulo: esJs(f) ? "Herramientas de una línea que usa solo esta función." :
+      const herramientas = [...previo.matchAll(/^\s*const (\w+) =/gm)].map(m => m[1]);
+      pasos.push({ etq: "", nivel: 1, desde: antes[0], hasta: antes[antes.length - 1], previo: esJs(f), herramientas,
+        titulo: esJs(f) ? "Herramientas que esta función usa más abajo: " + herramientas.join(", ") + "." :
           /if \(!this\.ocupado\)/.test(previo) ? "Si ya hay otra llamada en curso (ocupado no está vacío), este clic no hace nada." : "Antes de empezar." });
     }
     marcasPaso.forEach((p, i) => {
@@ -663,10 +692,10 @@ const ACCIONES = [
     resultado: "Inicio con tu correo y tu rol arriba a la derecha. Si no tienes rol, «Acceso denegado» con el motivo.",
     cadena: [
       { metodo: "doGet", f: "IJ" },
-      { fragmento: '<?!= include("InicioVista") ?>', lineas: 3, f: "IV", zona: "servidor", nombre: "IndexVista.html",
+      { fragmento: '<?!= include("InicioVista") ?>', lineas: 3, f: "IV", zona: "servidor", nombre: "plantilla · marcas include",
         titulo: "Estas tres marcas se ejecutan en el servidor, mientras se arma la página: pegan las tres vistas dentro del <main>." },
       { metodo: "include", f: "IJ", titulo: "Devuelve el contenido de la vista pedida, que queda pegado en su lugar." },
-      { fragmento: 'Alpine.store("usuario").cargar();', f: "IV", nombre: "arranque",
+      { fragmento: 'Alpine.store("usuario").cargar();', f: "IV", nombre: "arranque de Alpine",
         titulo: "Ya en tu navegador: Alpine arranca y se llama sola a cargar() (justo abajo)." },
       { metodo: "cargar", f: "IV", llamadaDesde: 'Alpine.store("usuario").cargar();' }
     ] },
@@ -677,7 +706,7 @@ const ACCIONES = [
     resultado: "Se ve Inicio y el botón «Inicio» de la barra queda marcado.",
     cadena: [
       { clic: "@click=\"$store.nav.vista = 'inicio'\"", f: "IV", titulo: "Clic: $store.nav.vista pasa a «inicio». :class marca este botón como activo." },
-      { fragmento: "<section x-show=\"$store.nav.vista === 'inicio'\"", f: "INI", nombre: "x-show",
+      { fragmento: "<section x-show=\"$store.nav.vista === 'inicio'\"", f: "INI", nombre: "marcado · x-show",
         titulo: "x-show compara el store con «inicio»: esta sección aparece y las demás se esconden." }
     ] },
   { id: "nav.plan", cu: "app", lugar: "Barra superior", boton: "Registrar plan de ciclo",
@@ -685,9 +714,9 @@ const ACCIONES = [
     resultado: "La tabla de carreras del ciclo: versión del plan, quién lo guardó, cuántas asignaturas y grupos, y «Editar» o «Ver».",
     cadena: [
       { clic: "@click=\"$store.nav.vista = 'plan'\"", f: "IV", titulo: "Clic: $store.nav.vista pasa a «plan». :class marca este botón como activo." },
-      { fragmento: "<section x-show=\"$store.nav.vista === 'plan'\"", f: "PV", nombre: "x-show",
+      { fragmento: "<section x-show=\"$store.nav.vista === 'plan'\"", f: "PV", nombre: "marcado · x-show",
         titulo: "x-show: la sección del plan aparece. x-data=\"planDeCiclo\" es su componente (su memoria y sus métodos)." },
-      { fragmento: 'this.$watch("$store.nav.vista"', f: "PV", nombre: "init",
+      { fragmento: 'this.$watch("$store.nav.vista"', f: "PV", nombre: "init() · vigilante",
         titulo: "init() dejó un vigilante sobre el store: si la vista es «plan» y aún no hay tabla (listo = false), llama a inicio()." },
       { metodo: "inicio", f: "PV" }
     ] },
@@ -696,9 +725,9 @@ const ACCIONES = [
     resultado: "La tabla de carreras: departamento, versión del plan, versión de la carga, «N/M con docente» y «Editar» o «Ver».",
     cadena: [
       { clic: "@click=\"$store.nav.vista = 'carga'\"", f: "IV", titulo: "Clic: $store.nav.vista pasa a «carga». :class marca este botón como activo." },
-      { fragmento: "<section x-show=\"$store.nav.vista === 'carga'\"", f: "CV", nombre: "x-show",
+      { fragmento: "<section x-show=\"$store.nav.vista === 'carga'\"", f: "CV", nombre: "marcado · x-show",
         titulo: "x-show: la sección de la carga aparece. x-data=\"cargaDocente\" es su componente." },
-      { fragmento: 'this.$watch("$store.nav.vista"', f: "CV", nombre: "init",
+      { fragmento: 'this.$watch("$store.nav.vista"', f: "CV", nombre: "init() · vigilante",
         titulo: "init() dejó un vigilante sobre el store: si la vista es «carga» y aún no hay tabla, llama a inicio()." },
       { metodo: "inicio", f: "CV" }
     ] },
@@ -710,7 +739,7 @@ const ACCIONES = [
     cadena: [
       { clic: "@click=\"$store.nav.vista = 'plan'\">", f: "INI", lineas: 3,
         titulo: "Clic: $store.nav.vista pasa a «plan». :class pone «primario» (azul) si tu rol es coordinador; el texto chico dice qué carreras editas." },
-      { fragmento: 'this.$watch("$store.nav.vista"', f: "PV", nombre: "init",
+      { fragmento: 'this.$watch("$store.nav.vista"', f: "PV", nombre: "init() · vigilante",
         titulo: "init() de la vista del plan ve el cambio y llama a inicio()." },
       { metodo: "inicio", f: "PV" }
     ] },
@@ -720,7 +749,7 @@ const ACCIONES = [
     cadena: [
       { clic: "@click=\"$store.nav.vista = 'carga'\">", f: "INI", lineas: 3,
         titulo: "Clic: $store.nav.vista pasa a «carga». :class pone «primario» (azul) si tu rol es director." },
-      { fragmento: 'this.$watch("$store.nav.vista"', f: "CV", nombre: "init",
+      { fragmento: 'this.$watch("$store.nav.vista"', f: "CV", nombre: "init() · vigilante",
         titulo: "init() de la vista de la carga ve el cambio y llama a inicio()." },
       { metodo: "inicio", f: "CV" }
     ] },
@@ -748,18 +777,18 @@ const ACCIONES = [
     resumen: "Trae todas las versiones guardadas del plan de esta carrera.",
     resultado: "El panel Historial: una fila por versión con «Ver» y «Restaurar».",
     cadena: [{ clic: '@click="historial()"', f: "PV", titulo: "Clic en «Historial»." }, { metodo: "historial", f: "PV" }] },
-  { id: "plan.latido", cu: "plan", lugar: "Dentro del plan", boton: "Latido (solo, cada 5 min)",
+  { id: "plan.latido", cu: "plan", lugar: "Dentro del plan", boton: "Latido automático (cada 5 min)",
     resumen: "Nadie lo pulsa: cada 5 minutos, si tocaste algo, renueva tu bloqueo 30 minutos más.",
     resultado: "«Bloqueo hasta HH:MM» se actualiza. Si el bloqueo se perdió, vuelves a la tabla con un mensaje.",
     cadena: [
-      { fragmento: "this.temporizador = setInterval", f: "PV", nombre: "abrir · PASO 6",
+      { fragmento: "this.temporizador = setInterval", f: "PV", nombre: "abrir() · PASO 6",
         titulo: "Al abrir en edición, abrir() dejó un reloj: cada 5 minutos llama a latido()." },
-      { metodo: "latido", f: "PV", llamadaDesde: "this.latido()", titulo: "latido: solo sigue si tocaste algo en los últimos 5 minutos (actividad) y no hay otra llamada en curso. Si no, no llama y el bloqueo vencerá a los 30 minutos." }, { metodo: "mantener", f: "PV" }
+      { metodo: "latido", f: "PV", llamadaDesde: "this.latido()", titulo: "latido: solo sigue si tocaste algo en los últimos 5 minutos (actividad) y no hay otra llamada en curso. Si no, no llama y el bloqueo vencerá a los 30 minutos." }, { metodo: "mantener", f: "PV", intro: "Pide al servidor 30 minutos más de bloqueo. La llama latido(), justo arriba." }
     ] },
   { id: "plan.cerrar", cu: "plan", lugar: "Dentro del plan", boton: "Cerrar o recargar la pestaña",
     resumen: "Si cierras la pestaña con un plan en edición, intenta soltar tu bloqueo sin esperar respuesta.",
     resultado: "La pestaña se cierra. Si no alcanzó a soltarlo, el bloqueo vence solo a los 30 minutos.",
-    cadena: [{ fragmento: 'window.addEventListener("pagehide"', hasta: "});", f: "PV", nombre: "init · pagehide",
+    cadena: [{ fragmento: 'window.addEventListener("pagehide"', hasta: "});", f: "PV", nombre: "init() · pagehide",
       titulo: "init() dejó escuchando el evento «pagehide» (cerrar o recargar la pestaña)." }] },
 
   /* ---------- CU-001 · historial ---------- */
@@ -781,7 +810,7 @@ const ACCIONES = [
     resumen: "Manda lo que pegaste al servidor, que lo entiende y lo devuelve como plan. No guarda nada en el Sheet.",
     resultado: "La previsualización por semestre, con avisos en amarillo. Para que quede en el Sheet falta «Guardar».",
     cadena: [{ clic: '@click="interpretar()"', f: "PV", titulo: "Clic en «Interpretar» (con el rango pegado en el cuadro de texto)." }, { metodo: "interpretar", f: "PV" }] },
-  { id: "plan.archivo", cu: "plan", lugar: "Pegar o subir", boton: "Elegir archivo (.csv)",
+  { id: "plan.archivo", cu: "plan", lugar: "Pegar o subir", boton: "o sube un CSV (Elegir archivo)",
     resumen: "Lee el CSV en tu navegador, lo pone en el cuadro de texto e interpreta.",
     resultado: "Lo mismo que «Interpretar»: la previsualización por semestre.",
     cadena: [{ clic: '@change="leerArchivo($event)"', f: "PV", titulo: "Eliges un archivo: el evento «change» llama a leerArchivo." }, { metodo: "leerArchivo", f: "PV" }, { metodo: "interpretar", f: "PV" }] },
@@ -823,7 +852,7 @@ const ACCIONES = [
     cadena: [{ clic: '@click="candidatosFusion()"', f: "PV", titulo: "Clic en «Buscar en otras carreras» dentro del diálogo." }, { metodo: "candidatosFusion", f: "PV" }] },
   { id: "plan.aplicarFusion", cu: "plan", lugar: "Diálogos", boton: "Fusionar (diálogo)", memoria: true,
     resumen: "Une los grupos marcados en una fusión con un grupo principal. Solo en tu navegador.",
-    resultado: "La marca morada «FUS principal · con …» en cada grupo fusionado y «Hay cambios sin guardar».",
+    resultado: "La marca morada «FUS …» en cada grupo fusionado (en el principal dice «FUS principal · con …») y «Hay cambios sin guardar».",
     cadena: [{ clic: '@click="aplicarFusion()"', f: "PV", titulo: "Clic en «Fusionar» dentro del diálogo." }, { metodo: "aplicarFusion", f: "PV" }, { metodo: "fusionar", f: "PV" }] },
 
   /* ---------- CU-002 · tabla de carreras ---------- */
@@ -842,14 +871,14 @@ const ACCIONES = [
     resultado: "La lista de sugerencias (nombre y departamento) y «Hay cambios sin guardar».",
     cadena: [
       { clic: 'list="cargaCatalogo"', f: "CV", titulo: "El campo está unido a la lista «cargaCatalogo» (atributo list) y guarda lo escrito en c.docente (x-model)." },
-      { fragmento: '<datalist id="cargaCatalogo">', lineas: 3, f: "CV", nombre: "datalist",
+      { fragmento: '<datalist id="cargaCatalogo">', lineas: 3, f: "CV", nombre: "marcado · datalist",
         titulo: "La lista de sugerencias: una opción por docente del catálogo que trajo cargaAbrir (pestaña Docentes). El navegador la filtra mientras escribes." },
       { metodo: "tocar", f: "CV", titulo: "@input llama a tocar(): hay cambios sin guardar y hubo actividad (para el latido)." }
     ] },
   { id: "carga.guardar", cu: "carga", lugar: "Dentro de la carga", boton: "Guardar",
     resumen: "Revisa las reglas A07–A15 y, si se puede, guarda la carga como una versión nueva (una fila más en Cargas) y suelta tu bloqueo.",
     resultado: "Guardado: vuelves a la tabla con «Guardado como vN» y las advertencias. Con A07 o A12 sin motivo, no se guarda y sigues en la carga.",
-    cadena: [{ clic: '@click="guardar()"', f: "CV", lineas: 2, titulo: "Clic en «Guardar». Solo se ve en edición." }, { metodo: "guardar", f: "CV" }] },
+    cadena: [{ clic: '@click="guardar()"', f: "CV", lineas: 2, titulo: "Clic en «Guardar». Solo se ve en edición." }, { metodo: "guardar", f: "CV", intro: "Botón «Guardar»" }] },
   { id: "carga.salir", cu: "carga", lugar: "Dentro de la carga", boton: "Salir",
     resumen: "Sale de la carga sin guardar. Si estabas editando, borra tu bloqueo.",
     resultado: "Vuelves a la tabla de carreras. Lo que no guardaste se descarta.",
@@ -858,18 +887,18 @@ const ACCIONES = [
     resumen: "Trae todas las versiones guardadas de la carga de esta carrera.",
     resultado: "El panel Historial: una fila por versión con «Ver» y «Restaurar».",
     cadena: [{ clic: '@click="historial()"', f: "CV", titulo: "Clic en «Historial»." }, { metodo: "historial", f: "CV" }] },
-  { id: "carga.latido", cu: "carga", lugar: "Dentro de la carga", boton: "Latido (solo, cada 5 min)",
+  { id: "carga.latido", cu: "carga", lugar: "Dentro de la carga", boton: "Latido automático (cada 5 min)",
     resumen: "Nadie lo pulsa: cada 5 minutos, si tocaste algo, renueva tu bloqueo 30 minutos más.",
     resultado: "«Bloqueo hasta HH:MM» se actualiza. Si el bloqueo se perdió, vuelves a la tabla con un mensaje.",
     cadena: [
-      { fragmento: "this.reloj = setInterval", f: "CV", nombre: "abrir · PASO 6",
+      { fragmento: "this.reloj = setInterval", f: "CV", nombre: "abrir() · PASO 6",
         titulo: "Al abrir en edición, abrir() dejó un reloj: cada 5 minutos, si hubo actividad y no hay otra llamada, llama a mantener()." },
       { metodo: "mantener", f: "CV" }
     ] },
   { id: "carga.cerrar", cu: "carga", lugar: "Dentro de la carga", boton: "Cerrar o recargar la pestaña",
     resumen: "Si cierras la pestaña con una carga en edición, intenta soltar tu bloqueo sin esperar respuesta.",
     resultado: "La pestaña se cierra. Si no alcanzó a soltarlo, el bloqueo vence solo a los 30 minutos.",
-    cadena: [{ fragmento: 'window.addEventListener("pagehide"', hasta: "});", f: "CV", nombre: "init · pagehide",
+    cadena: [{ fragmento: 'window.addEventListener("pagehide"', hasta: "});", f: "CV", nombre: "init() · pagehide",
       titulo: "init() dejó escuchando el evento «pagehide» (cerrar o recargar la pestaña)." }] },
 
   /* ---------- CU-002 · historial ---------- */
@@ -883,7 +912,7 @@ const ACCIONES = [
     cadena: [{ clic: '@click="volver()"', f: "CV", titulo: "Clic en «Volver»." }, { metodo: "volver", f: "CV", titulo: "volver: doc vuelve a ser tu edición (guardada en «anterior») y deja de mostrarse la versión." }] },
   { id: "carga.restaurar", cu: "carga", lugar: "Historial", boton: "Restaurar",
     resumen: "Copia una versión antigua como versión NUEVA, pasando otra vez las reglas. No borra nada. Luego vuelve a abrir la carga.",
-    resultado: "«Restaurada la vN como vM» y la carga abierta con esos docentes.",
+    resultado: "«Se restauró la vN como vM.», la carga abierta con esos docentes y las advertencias de las reglas.",
     cadena: [{ clic: '@click="restaurar(v.version)"', f: "CV", titulo: "Clic en «Restaurar» de una fila del historial." }, { metodo: "restaurar", f: "CV" }] },
 
   /* ---------- CU-002 · carga masiva ---------- */
@@ -891,7 +920,7 @@ const ACCIONES = [
     resumen: "Manda el pegado (formato CargaXDepartamento) al servidor, que empareja cada fila con una sección. No guarda nada.",
     resultado: "La previsualización: qué docente va en cada componente, filas sin sección y avisos, con «Aplicar a la tabla» y «Descartar».",
     cadena: [{ clic: '@click="interpretar()"', f: "CV", titulo: "Clic en «Interpretar» de la carga masiva." }, { metodo: "interpretar", f: "CV" }] },
-  { id: "carga.archivo", cu: "carga", lugar: "Carga masiva", boton: "Elegir archivo (.csv)",
+  { id: "carga.archivo", cu: "carga", lugar: "Carga masiva", boton: "o sube un CSV (Elegir archivo)",
     resumen: "Lee el CSV en tu navegador, lo pone en el cuadro de la carga masiva e interpreta.",
     resultado: "Lo mismo que «Interpretar»: la previsualización.",
     cadena: [{ clic: '@change="leerArchivo($event)"', f: "CV", titulo: "Eliges un archivo: el evento «change» llama a leerArchivo." }, { metodo: "leerArchivo", f: "CV" }, { metodo: "interpretar", f: "CV" }] },
@@ -941,7 +970,7 @@ const PREGUNTAS = [
   { id: "q-mostrar-info", g: GRUPOS_P[0], pdf: true,
     q: "Al pulsar «Registrar plan de ciclo», ¿qué hace que se muestre la información (la tabla de carreras)?",
     r: "<p>Dos cosas. Primero, <code>x-show</code> hace visible la sección del plan porque el store ahora dice <code>'plan'</code>. Segundo, <code>init()</code> de esa vista dejó un vigilante: la primera vez que la vista es «plan», llama a <code>inicio()</code>, que pide la tabla a <code>planInicio</code>.</p><p>El servidor lee 5 pestañas y arma una fila por carrera. Al volver, la respuesta se guarda en <code>this.carreras</code> y <code>x-for</code> dibuja una fila de tabla por carrera.</p>",
-    ver: [{ a: "nav.plan", m: "init" }, { a: "nav.plan", m: "planInicio", p: "4" }, { a: "nav.plan", m: "inicio", p: "4" }] },
+    ver: [{ a: "nav.plan", m: "init() · vigilante", t: "▶ init(): el vigilante de la vista" }, { a: "nav.plan", m: "planInicio", p: "4" }, { a: "nav.plan", m: "inicio", p: "4" }] },
   { id: "q-inicio-der", g: GRUPOS_P[0],
     q: "¿Por qué en Inicio el botón dice «Edita el plan de DER» y «Carga docente» dice «Solo lectura»?",
     r: "<p>Sale de tu fila en la pestaña Usuarios: rol <code>coordinador</code> y carreras <code>DER</code>. <code>indexUsuario</code> convierte «DER» (o «ING, ICO») en una lista, y la vista la une con comas en el texto chico.</p><p>«Carga docente» dice «Solo lectura» porque esa condición pregunta si eres <code>director</code>.</p>",
@@ -972,6 +1001,14 @@ const PREGUNTAS = [
     q: "¿Cómo puede guardar en el Sheet alguien que no tiene permiso para abrir el Sheet?",
     r: "<p>La app trabaja con los permisos de quien la publicó (<code>\"executeAs\": \"USER_DEPLOYING\"</code>), no con los tuyos. El Sheet no se comparte con todos: la app es la única puerta.</p><p>Por eso cada función revisa tu rol y tus carreras antes de escribir. Aunque la app pueda escribir todo el Sheet, tú solo puedes guardar lo que te toca.</p>",
     ver: [{ f: "MF", buscar: "\"executeAs\"", n: 2, t: "executeAs" }, { a: "plan.guardar", m: "planGuardar", p: "4" }] },
+  { id: "m-nombre-pestana", g: GRUPOS_P[1],
+    q: "¿Cómo sabe una función qué pestaña del Sheet abrir (por ejemplo, planRestaurar)?",
+    r: "<p>El nombre está escrito en el código, como texto: <code>leer(\"Planes\")</code>, <code>pestana(\"Bloqueos\")</code>. No se busca en ningún otro lado.</p><ul><li><code>pestana(nombre)</code> hace <code>SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombre)</code>: toma el Sheet al que está pegado el proyecto y, dentro, la pestaña con ese nombre.</li><li><code>leer(nombre)</code> abre la pestaña así y trae sus filas como texto, sin la fila de cabeceras. En <code>CargaDocente.js</code>, <code>leer</code> llama a <code>getSheetByName</code> directamente.</li></ul><p>Si alguien renombra una pestaña en el Sheet, la app responde «Falta la pestaña «Planes» en la hoja.» hasta que vuelva a tener su nombre.</p>",
+    ver: [{ a: "plan.restaurar", m: "planRestaurar", p: "", t: "▶ planRestaurar · herramientas (pestana, leer)" }, { a: "plan.restaurar", m: "planRestaurar", p: "4b" }, { a: "plan.restaurar", m: "planRestaurar", p: "4d" }] },
+  { id: "m-gs-js", g: GRUPOS_P[1],
+    q: "¿Por qué en el editor de Apps Script el archivo se llama PlanDeCiclo.gs y aquí PlanDeCiclo.js?",
+    r: "<p>Es el mismo archivo. En el repositorio se guarda como <code>.js</code>; <code>clasp push</code> lo sube al proyecto de Apps Script, que lo muestra como <code>.gs</code>. El contenido y los números de línea son iguales: una línea de <code>PlanDeCiclo.gs</code> es la misma línea de <code>PlanDeCiclo.js</code>.</p><p>Los <code>.html</code> conservan su nombre. La carpeta <code>AppScript/pruebas/</code> nunca se sube: la excluye <code>.claspignore</code>.</p>",
+    ver: [{ f: "CL", buscar: "\"scriptExtensions\"", n: 4, t: ".clasp.json: extensiones" }, { f: "CI", buscar: "pruebas/", n: 1, t: ".claspignore" }] },
   { id: "m-url-a-inicio", g: GRUPOS_P[1],
     q: "¿Qué pasa, paso a paso, desde que abro la URL hasta que veo «Inicio»?",
     r: "<p>Dos viajes al servidor. El primero trae la página: <code>doGet</code> pega las tres vistas con <code>include</code> y manda un solo HTML. El segundo pregunta quién eres: <code>cargar()</code> llama a <code>indexUsuario</code>, que lee la pestaña Usuarios.</p><p>Pulsa ▶ Recorrer en este botón para verlo entero.</p>",
@@ -1133,7 +1170,7 @@ const PREGUNTAS = [
 
   /* ---------- CU-001 · guardar, bloqueo y conflictos ---------- */
   { id: "q-version-base", g: GRUPOS_P[5],
-    q: "¿De dónde salen «Versión base v1 (jhuamanih…, 2026-11-04 21:06)» y «Bloqueo hasta 23:07»?",
+    q: "¿De dónde salen «Versión base v1 (correo, fecha)» y «Bloqueo hasta 23:07»?",
     r: "<p>Los dos vienen de <code>planAbrir</code>. La versión base es la vigente al abrir (su número, usuario y fecha). «Bloqueo hasta» es el <code>vence</code> que se acaba de escribir en Bloqueos: ahora + 30 minutos. La vista toma solo la hora con <code>doc.vence.slice(11, 16)</code>.</p>",
     ver: [{ a: "plan.abrir", m: "planAbrir", p: "5b" }, { a: "plan.abrir", m: "planAbrir", p: "6" }, { f: "PV", buscar: "'Bloqueo hasta ' + doc.vence.slice(11, 16)", n: 1, t: "La etiqueta" }] },
   { id: "q-latido", g: GRUPOS_P[5],
@@ -1241,6 +1278,29 @@ const AVISOS = [];
 const avisar = t => { if (!AVISOS.includes(t)) { AVISOS.push(t); console.warn("Mapa: " + t); } };
 const M = crearMotor(FUENTES, avisar);
 const nombreArch = f => (ARCH[f] || f).replace("AppScript/", "");
+/* En el editor de Apps Script los .js se ven como .gs (clasp les cambia la extensión al subirlos); el contenido y las líneas son los mismos. */
+const nombreEditor = f => /\.js$/.test(ARCH[f] || "") ? nombreArch(f).replace(/\.js$/, ".gs") : "";
+
+/* Las herramientas de una línea que cada función del servidor declara al principio. */
+const HERRAMIENTAS = {
+  denegar: "arma la respuesta de «no puedes entrar» (acceso: false, con el motivo).",
+  fallo: "corta la acción con un mensaje; ese mensaje llega tal cual a la franja roja de la pantalla.",
+  pestana: "abre una pestaña por su nombre: getActiveSpreadsheet() es el Sheet al que está pegado el proyecto y getSheetByName(nombre) busca la pestaña. Si no existe, responde «Falta la pestaña…».",
+  leer: "📥 abre la pestaña por su nombre y trae todas sus filas como texto (getDisplayValues), sin la fila 1 de cabeceras.",
+  comoTexto: "si un valor empieza por = + - @ le pone un apóstrofo delante, para que el Sheet no lo tome como fórmula.",
+  fechaPeru: "la fecha y hora de Perú como texto, por ejemplo 2026-11-04T21:56:12-05:00.",
+  N: "normaliza un texto para comparar: sin tildes, en mayúsculas y sin espacios de más.",
+  L: "atajo a PLAN_LIMITES_: los topes del plan (asignaturas, grupos por asignatura, largo de los textos).",
+  objeto: "devuelve el valor si es un objeto; si no, {}.",
+  texto: "convierte cualquier valor en texto (en planGuardar, además lo deja en una línea y lo recorta a un largo máximo).",
+  aTexto: "convierte cualquier valor en texto (null o undefined dan un texto vacío).",
+  codigoDe: "el código de la asignatura normalizado (sin tildes ni espacios, en mayúsculas).",
+  entero: "el número si es entero y está entre un mínimo y un máximo; si no, null.",
+  hora: "una cantidad de horas: el número si es válido; si no, el texto tal cual.",
+  json: "abre un texto JSON; si está roto, devuelve {} en vez de fallar.",
+  numero: "convierte «2,5» o «2.5» en número; vacío o raro da null.",
+  claveDocente: "el nombre del docente normalizado (sin puntos, comas ni tildes, en mayúsculas) para compararlo con el catálogo."
+};
 
 /* ---------- Resaltado del código (comentarios, textos, palabras clave, etiquetas) ---------- */
 const PAL = /^(const|let|var|function|return|if|else|for|while|do|try|catch|finally|throw|new|async|await|of|in|typeof|this|null|true|false|undefined|break|continue|switch|case|default)$/;
@@ -1307,7 +1367,7 @@ const chipsOps = ops => {
 const ACC = {}; ACCIONES.forEach(a => { ACC[a.id] = a; });
 const CASCADAS = {};
 const cascadaDe = id => CASCADAS[id] || (CASCADAS[id] = M.cascada(ACC[id]));
-const CUS = [["app", "Al abrir y navegar"], ["plan", "Plan de ciclo · CU-001"], ["carga", "Carga docente · CU-002"]];
+const CUS = [["app", "Al abrir y navegar"], ["plan", "Registrar plan de ciclo (CU-001)"], ["carga", "Carga docente (CU-002)"]];
 const ZONA = {
   clic: { t: "🖱 Haces clic", c: "var(--pantalla)", cf: "var(--pantalla-f)" },
   pantalla: { t: "🖥 Pantalla", c: "var(--pantalla)", cf: "var(--pantalla-f)" },
@@ -1355,14 +1415,14 @@ function elegir(id, opciones) {
   let h = "", n = 0;
   grupos.forEach((g, gi) => {
     const z = ZONA[g.zona];
-    const titulo = g.zona === "clic" ? "" : g.sigue ? (g.zona === "pantalla" ? "De vuelta en la pantalla · " : "") + (g.firma || g.metodo) + " sigue" : (g.firma || g.metodo);
+    const titulo = g.zona === "clic" ? "" : g.sigue ? (g.firma || g.metodo) + " · sigue" : (g.firma || g.metodo);
     h += '<div class="grupo" style="--c:' + z.c + ";--cf:" + z.cf + '"><div class="cab"><span class="zona">' + (g.sigue && g.zona === "pantalla" ? "⬅ Vuelve a la pantalla" : z.t) + "</span>" +
-      (titulo ? '<span class="firma">' + esc(titulo) + "</span>" : "") + '<span class="arch">' + esc(nombreArch(g.f)) + "</span></div>" +
+      (titulo ? '<span class="firma">' + esc(titulo) + "</span>" : "") + '<span class="arch">' + esc(nombreArch(g.f)) + (nombreEditor(g.f) ? ' <span title="Así se llama en el editor de Apps Script">(' + esc(nombreEditor(g.f)) + " en Apps Script)</span>" : "") + "</span></div>" +
       (g.intro && !g.sigue ? '<div class="que">' + esc(g.intro) + "</div>" : "");
     g.pasos.forEach(p => {
-      const meta = '<span class="mono">:' + p.desde + (p.hasta > p.desde ? "–" + p.hasta : "") + "</span>" + chipsOps(p.ops) +
+      const meta = '<span class="mono">' + (p.hasta > p.desde ? "líneas " + p.desde + "–" + p.hasta : "línea " + p.desde) + "</span>" + chipsOps(p.ops) +
         (p.llamada ? '<span class="chip servidor">📡 ' + p.llamada + "</span>" : "") + (p.respuesta ? '<span class="chip servidor">↩ responde</span>' : "");
-      const etq = p.etq ? (p.nivel === 1 ? "PASO " + p.etq : p.etq) : g.zona === "clic" ? "🖱" : "·";
+      const etq = p.etq ? (p.nivel === 1 ? "PASO " + p.etq : p.etq) : g.zona === "clic" ? "🖱" : p.previo ? "🧰" : "·";
       h += '<button class="paso n' + p.nivel + '" data-i="' + n + '"><span class="etq">' + etq + '</span><span class="tit">' +
         conMarcas(p.titulo || (g.intro && g.pasos.length === 1 ? g.intro : "Todo el bloque.")) + '</span><span class="meta">' + meta + "</span></button>";
       n++;
@@ -1371,7 +1431,7 @@ function elegir(id, opciones) {
   });
   h += '<div class="final" data-i="' + n + '"><b>Lo que ves al final:</b> ' + esc(a.resultado) + "</div>";
   $("lista").innerHTML = h;
-  try { history.replaceState(null, "", "#b=" + id); } catch (e) { /* sin historial (vista previa) */ }
+  if (!(opciones && opciones.sinHash)) try { history.replaceState(null, "", "#b=" + id); } catch (e) { /* sin historial (vista previa) */ }
   irA(opciones && opciones.paso >= 0 ? opciones.paso : 0, false);
 }
 
@@ -1410,8 +1470,9 @@ function irA(i, mover) {
   }
 }
 function mostrarCodigo(p) {
-  $("p-arch").textContent = nombreArch(p.f);
-  $("p-lineas").textContent = "líneas " + p.desde + (p.hasta > p.desde ? "–" + p.hasta : "");
+  $("p-arch").textContent = nombreArch(p.f) + (p.metodo && !/·/.test(p.metodo) ? " · " + p.metodo + (/\.js$/.test(ARCH[p.f]) ? "" : "()") : "");
+  $("p-lineas").textContent = (p.hasta > p.desde ? "líneas " + p.desde + "–" + p.hasta : "línea " + p.desde) +
+    (nombreEditor(p.f) ? " · en el editor de Apps Script: " + nombreEditor(p.f) + ", mismas líneas" : "");
   $("p-git").href = REPO + ARCH[p.f] + "#L" + p.desde + (p.hasta > p.desde ? "-L" + p.hasta : "");
   pintarCodigo($("p-codigo"), p.f, p.desde, p.hasta, 3);
 }
@@ -1421,7 +1482,8 @@ function explicacion(x) {
   const etq = p.etq ? '<span class="mk">' + (p.nivel === 1 ? "PASO " + p.etq : p.etq) + " ·</span> " : "";
   if (p.zona === "clic") h = esc(p.titulo);
   else h = etq + conMarcas(p.titulo || x.g.intro || "");
-  if (p.previo) h += ' <span class="suave">Son flechas de una línea (<code>const fallo = …</code>) que esta función usa más abajo.</span>';
+  if (p.previo && p.herramientas && p.herramientas.length)
+    h += '<ul style="margin:6px 0 0;padding-left:18px">' + p.herramientas.map(n => "<li><code>" + esc(n) + "</code>: " + esc(HERRAMIENTAS[n] || "herramienta de esta función.") + "</li>").join("") + "</ul>";
   if (p.llamada) h += '<br><span class="mk srv">Aquí sale la llamada:</span> google.script.run → <code>' + esc(p.llamada) + "</code>. Sigue en el servidor, justo abajo.";
   if (p.respuesta) h += '<br><span class="mk resp">Esto es lo que vuelve a la pantalla.</span>';
   if (p.zona === "pantalla" && a.memoria && !p.llamada) h += '<br><span class="mk mem">✎ Solo memoria:</span> el Sheet no se entera hasta «Guardar».';
@@ -1430,6 +1492,7 @@ function explicacion(x) {
 function fraseEstado(x) {
   const p = x.p, o = p.ops, a = ACC[S.id];
   if (p.zona === "clic") return "haces clic en la pantalla.";
+  if (p.previo) return "el servidor (" + esc(p.metodo) + ") prepara las herramientas que usará más abajo. Todavía no toca el Sheet.";
   if (p.zona === "servidor") {
     const partes = [];
     if (o.candado) partes.push("toma el <b>candado</b>: nadie más escribe hasta que termine");
@@ -1546,15 +1609,15 @@ const DESC = {
   Bloqueos: "Quién está editando qué ahora mismo. <code>cu</code> = plan o carga. Vence a los 30 minutos; el latido lo renueva y Guardar o Salir lo borran."
 };
 const EJEMPLOS = {
-  Usuarios: [["mfloresl@ulasalle.edu.pe", "coordinador", "DER", ""], ["jortizc@ulasalle.edu.pe", "coordinador", "ING", ""], ["fmaresg@ulasalle.edu.pe", "director", "", "DIMA"]],
+  Usuarios: [["coord.der@ulasalle.edu.pe", "coordinador", "DER", ""], ["coord.ing@ulasalle.edu.pe", "coordinador", "ING, ICO", ""], ["dir.dima@ulasalle.edu.pe", "director", "", "DIMA"]],
   Ciclos: [["2026-1"], ["2026-2"]],
   Carreras: [["ING", "Ingeniería de Software", "DIMA"], ["DER", "Derecho", "DACJ"], ["PSI", "Psicología", "DAHUC"]],
-  Docentes: [["FLORES PARRA JOSUE MIGUEL", "DIMA", "Contratado", "TP", "", "SI", ""], ["CHÁVEZ CONTRERAS ÁNGEL EVARISTO", "DAHUC", "Ordinario", "TC", "Director de escuela", "NO", "10"]],
-  Planes: [["2026-2", "ING", "1", "jortizc@ulasalle.edu.pe", "2026-11-02T11:05:37-05:00", '{"asignaturas":[{"codigo":"3.1.1.24","nombre":"Fundamentos…'],
-    ["2026-2", "DER", "1", "mfloresl@ulasalle.edu.pe", "2026-11-03T08:22:50-05:00", '{"asignaturas":[{"codigo":"5.1.1.24",…'],
-    ["2026-2", "ING", "2", "jortizc@ulasalle.edu.pe", "2026-11-04T21:56:12-05:00", '{"asignaturas":[{"codigo":"3.1.1.24",…']],
-  Cargas: [["2026-2", "ING", "1", "fmaresg@ulasalle.edu.pe", "2026-11-04T02:29:49-05:00", "", '{"asignaciones":[{"clave":"ING|3.1.1.24|1","comp":"T",…']],
-  Bloqueos: [["plan", "2026-2", "ING", "jortizc@ulasalle.edu.pe", "2026-11-05T10:30:00-05:00"], ["carga", "2026-2", "ICO", "fmaresg@ulasalle.edu.pe", "2026-11-05T09:58:00-05:00"]]
+  Docentes: [["PÉREZ GÓMEZ ANA MARÍA", "DIMA", "Contratado", "TP", "", "SI", ""], ["QUISPE ROJAS LUIS ALBERTO", "DAHUC", "Ordinario", "TC", "Director de escuela", "NO", "10"]],
+  Planes: [["2026-2", "ING", "1", "coord.ing@ulasalle.edu.pe", "2026-11-02T11:05:37-05:00", '{"asignaturas":[{"codigo":"3.1.1.24","nombre":"Fundamentos…'],
+    ["2026-2", "DER", "1", "coord.der@ulasalle.edu.pe", "2026-11-03T08:22:50-05:00", '{"asignaturas":[{"codigo":"5.1.1.24",…'],
+    ["2026-2", "ING", "2", "coord.ing@ulasalle.edu.pe", "2026-11-04T21:56:12-05:00", '{"asignaturas":[{"codigo":"3.1.1.24",…']],
+  Cargas: [["2026-2", "ING", "1", "dir.dima@ulasalle.edu.pe", "2026-11-04T02:29:49-05:00", "", '{"asignaciones":[{"clave":"ING|3.1.1.24|1","comp":"T",…']],
+  Bloqueos: [["plan", "2026-2", "ING", "coord.ing@ulasalle.edu.pe", "2026-11-05T10:30:00-05:00"], ["carga", "2026-2", "ICO", "dir.dima@ulasalle.edu.pe", "2026-11-05T09:58:00-05:00"]]
 };
 const PUBLICAS = M.publicas();
 const USOS = {};
@@ -1693,6 +1756,7 @@ function textoVer(v) {
   if (v.f) return "Ver código: " + nombreArch(v.f);
   if (v.m) return "▶ " + v.m + (v.p ? " · " + (/^\d+$/.test(v.p) ? "PASO " + v.p : v.p) : "");
   if (v.a) return "▶ «" + ACC[v.a].boton + "»";
+  if (v.s) return { matriz: "Ver la tabla «funciones y pestañas»", publicar: "Ir a «Publicar cambios»", versiones: "Probarlo en «Versiones y bloqueos»", hoja: "Ir a «El Google Sheet»" }[v.s] || "Ir a la sección";
   return "Ver";
 }
 $("p-grupos").innerHTML = ['<button data-g="" aria-pressed="true">Todas</button>'].concat(GRUPOS_P.map(g => '<button data-g="' + esc(g) + '" aria-pressed="false">' + esc(g) + "</button>")).join("");
@@ -1745,7 +1809,7 @@ simReiniciar();
 pintarPreguntas();
 revisarPreguntas();
 const inicial = (location.hash.match(/^#b=([\w.]+)/) || [])[1];
-elegir(ACC[inicial] ? inicial : "plan.guardar");
+elegir(ACC[inicial] ? inicial : "plan.guardar", { sinHash: !ACC[inicial] });
 if (inicial && ACC[inicial]) setTimeout(() => $("boton").scrollIntoView(), 50);
 window.MAPA = { M, AVISOS, ACCIONES, cascadaDe, irAPaso, PREGUNTAS };
 
