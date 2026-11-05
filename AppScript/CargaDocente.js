@@ -1,11 +1,11 @@
 /* =====================================================================
-   CargaDocente.js · servidor del CU-002 «Carga docente»
+   CargaDocente.js · servidor del CU-002 "Carga docente"
    ---------------------------------------------------------------------
    CÓMO LEER ESTE ARCHIVO
    • Hay UNA función por acción de la vista (CargaDocenteVista.html). Cada una se lee de arriba abajo,
      como un texto: PASO 1, PASO 2… Todo lo que hace está escrito dentro de ella, aunque se repita en otras
      funciones (por ejemplo, armar las secciones desde el plan), para no tener que saltar de un lado a otro.
-   • Al principio de cada función hay unas «herramientas» de una línea que solo usa esa función:
+   • Al principio de cada función hay unas "herramientas" de una línea que solo usa esa función:
        fallo("mensaje")  corta la acción y el mensaje llega al navegador tal cual.
        leer("X")         📥 todas las filas de la pestaña X, sin la fila de cabeceras.
        texto(v)          v como texto ("" si es null o undefined).
@@ -19,10 +19,10 @@
        ↩ RESPUESTA         lo que vuelve al navegador
        ⬅ VIENE DE / ➡ SIGUE EN   de dónde llega la llamada y dónde continúa la historia
    • Todas devuelven { ok: true, datos } o { ok: false, error } y nunca lanzan: cada una termina con un
-     catch. Un error previsto (fallo) llega con su mensaje; uno inesperado, como «Error interno: …».
+     catch. Un error previsto (fallo) llega con su mensaje; uno inesperado, como "Error interno: …".
 
    QUÉ BOTÓN LLAMA A QUÉ FUNCIÓN   (botón → método de CargaDocenteVista.html → función de aquí)
-     Abrir la vista / selector «Ciclo» ...... inicio()           → cargaInicio
+     Abrir la vista / selector "Ciclo" ...... inicio()           → cargaInicio
      Editar / Ver ........................... abrir(sigla)       → cargaAbrir
      Interpretar / subir CSV (carga masiva) . interpretar()      → cargaInterpretar
      Buscar (docente) ....................... buscarDocentes()   → cargaBuscarDocentes
@@ -32,7 +32,7 @@
      Historial .............................. historial()        → cargaHistorial
      Ver (una versión del historial) ........ version(n)         → cargaVersion
      Restaurar .............................. restaurar(n)       → cargaRestaurar
-     «Aplicar a la tabla», «Descartar», «Usar» y escribir un docente no llaman al servidor.
+     "Aplicar a la tabla", "Descartar", "Usar" y escribir un docente no llaman al servidor.
 
    PESTAÑAS DEL SHEET QUE USA (todas como texto; la fila 1 son cabeceras)
      Usuarios (correo, rol, carreras, departamento) · Ciclos (ciclo) · Carreras (sigla, nombre, departamento)
@@ -40,8 +40,8 @@
      Planes (ciclo, carrera, version, usuario, fecha, contenido): las escribe el CU-001; aquí solo se leen.
      Cargas (ciclo, carrera, version, usuario, fecha, motivo, contenido): de solo agregar; la vigente es la de
        número más alto. contenido = { asignaciones: [{ clave, comp, docente, horas, codigo, semestre, dpto, intl }] }.
-     Bloqueos (cu, ciclo, carrera, correo, vence): aquí se usan las filas con cu = «carga».
-   No usa nada de los otros archivos: todo lo de aquí empieza por «carga».
+     Bloqueos (cu, ciclo, carrera, correo, vence): aquí se usan las filas con cu = "carga".
+   No usa nada de los otros archivos: todo lo de aquí empieza por "carga".
    ===================================================================== */
 
 /** @typedef {{ok: boolean, datos?: *, error?: string}} CargaRespuesta Lo que devuelve cada función pública. */
@@ -52,7 +52,7 @@ var CARGA_MAX_CELDA_ = 50000;       /* caracteres por celda de la hoja */
 var CARGA_SIN_BLOQUEO_ = "Tu bloqueo venció o lo tomó otra cuenta: lo que no guardaste se perdió.";
 
 /* =====================================================================
-   ACCIÓN · Abrir «Carga docente» o cambiar el selector «Ciclo»
+   ACCIÓN · Abrir "Carga docente" o cambiar el selector "Ciclo"
    ===================================================================== */
 
 /**
@@ -72,7 +72,7 @@ function cargaInicio(ciclo) {
   const json = t => { try { const o = JSON.parse(t); return o && typeof o === "object" ? o : {}; } catch (e) { return {}; } };
   const numero = v => { const s = texto(v).trim().replace(",", "."); return s !== "" && isFinite(Number(s)) ? Number(s) : null; };
   try {
-    /* PASO 1 · ¿Quién eres? Google da el correo; tiene que ser de la universidad. 📥 SHEET · LEE «Usuarios»: tu rol
+    /* PASO 1 · ¿Quién eres? Google da el correo; tiene que ser de la universidad. 📥 SHEET · LEE "Usuarios": tu rol
        (columna B) y tu departamento (columna D). */
     const correo = texto(Session.getActiveUser().getEmail()).trim().toLowerCase();
     if (!correo) fallo("Acceso denegado: cuenta no identificada: Google no informó tu correo. Entra con tu cuenta " + CARGA_DOMINIO_ + ".");
@@ -81,16 +81,16 @@ function cargaInicio(ciclo) {
     if (rol !== "coordinador" && rol !== "director") fallo("Acceso denegado: cuenta sin rol: " + correo + " no figura como coordinador ni director en la pestaña Usuarios.");
     const departamento = texto(filaUsuario[3]).trim().toUpperCase();
 
-    /* PASO 2 · ¿Qué ciclo? 📥 SHEET · LEE «Ciclos». Sin ciclo elegido (la primera vez) se usa el último de la lista. */
+    /* PASO 2 · ¿Qué ciclo? 📥 SHEET · LEE "Ciclos". Sin ciclo elegido (la primera vez) se usa el último de la lista. */
     const ciclos = leer("Ciclos").map(x => x[0].trim()).filter(String);
     if (!ciclos.length) fallo("La pestaña Ciclos está vacía.");
     ciclo = texto(ciclo).trim() || ciclos[ciclos.length - 1];
     if (ciclos.indexOf(ciclo) < 0) fallo("Ciclo desconocido: " + ciclo);
 
-    /* PASO 3 · 📥 SHEET · LEE «Carreras»: todas, con su departamento (el director edita las de su departamento). */
+    /* PASO 3 · 📥 SHEET · LEE "Carreras": todas, con su departamento (el director edita las de su departamento). */
     const carreras = leer("Carreras").map(x => ({ sigla: x[0].trim().toUpperCase(), nombre: x[1].trim(), departamento: texto(x[2]).trim().toUpperCase() })).filter(c => c.sigla);
 
-    /* PASO 4 · 📥 SHEET · LEE «Planes» (el CU-001 los escribe): el plan vigente de cada carrera en este ciclo (la versión
+    /* PASO 4 · 📥 SHEET · LEE "Planes" (el CU-001 los escribe): el plan vigente de cada carrera en este ciclo (la versión
        más alta) con sus asignaturas. Sin plan, la carrera no se puede abrir aquí. */
     const planes = {};
     leer("Planes").forEach(f => {
@@ -99,18 +99,18 @@ function cargaInicio(ciclo) {
     });
     Object.keys(planes).forEach(c => { planes[c].asignaturas = (json(planes[c].contenido).asignaturas || []).filter(a => a && Array.isArray(a.grupos)); });
 
-    /* PASO 5 · 📥 SHEET · LEE «Cargas»: la carga vigente (versión más alta) de cada carrera en este ciclo. */
+    /* PASO 5 · 📥 SHEET · LEE "Cargas": la carga vigente (versión más alta) de cada carrera en este ciclo. */
     const vigentes = {};
     leer("Cargas").map(f => ({ ciclo: f[0].trim(), carrera: f[1].trim().toUpperCase(), version: Number(f[2]) || 0, usuario: f[3].trim(), fecha: f[4].trim(),
       motivo: texto(f[5]).trim(), contenido: texto(f[6]) })).filter(v => v.ciclo === ciclo && v.version > 0)
       .forEach(v => { if (!vigentes[v.carrera] || v.version > vigentes[v.carrera].version) vigentes[v.carrera] = v; });
 
-    /* PASO 6 · 📥 SHEET · LEE «Bloqueos»: los bloqueos de carga vigentes de este ciclo (vence en el futuro). */
+    /* PASO 6 · 📥 SHEET · LEE "Bloqueos": los bloqueos de carga vigentes de este ciclo (vence en el futuro). */
     const bloqueos = leer("Bloqueos").map((f, i) => ({ fila: i + 2, cu: f[0].trim(), ciclo: f[1].trim(), carrera: f[2].trim().toUpperCase(),
       correo: f[3].trim().toLowerCase(), vigente: new Date(f[4].trim()).getTime() > Date.now() })).filter(b => b.cu === "carga" && b.ciclo === ciclo && b.vigente);
 
     /* PASO 7 · Fusiones entre grupos de todos los planes (para saber qué grupos se asignan en otra carrera). Una fusión
-       vive en el plan que la creó; si un grupo está en dos, gana la de su propia carrera. ref = «CARRERA|CODIGO|GRUPO». */
+       vive en el plan que la creó; si un grupo está en dos, gana la de su propia carrera. ref = "CARRERA|CODIGO|GRUPO". */
     const ref = (car, codigo, n) => N(car) + "|" + N(codigo).replace(/ /g, "") + "|" + Number(n);
     const recorrerGrupos = fn => carreras.forEach(c => ((planes[c.sigla] || {}).asignaturas || []).forEach(a => a.grupos.forEach(g => fn(c.sigla, a, g))));
     const existe = {}, fusionDe = {};
@@ -146,7 +146,7 @@ function cargaInicio(ciclo) {
           if (!componentesG.length && th > 0) componentesG.push({ comp: "T", horas: th, docente: "" });
           secciones.push({ clave: c.sigla + "|" + texto(a.codigo || a.nombre).trim() + "|" + g.n, componentes: componentesG });
         }));
-        /* 8b · Pone en cada componente el docente de la carga vigente (por clave «CARRERA|CODIGO|GRUPO» + componente) y cuenta. */
+        /* 8b · Pone en cada componente el docente de la carga vigente (por clave "CARRERA|CODIGO|GRUPO" + componente) y cuenta. */
         const porComp = {};
         secciones.forEach(s => s.componentes.forEach(k => { porComp[s.clave + "|" + k.comp] = k; }));
         const lista = v ? json(v.contenido).asignaciones : null;
@@ -172,12 +172,12 @@ function cargaInicio(ciclo) {
 }
 
 /* =====================================================================
-   ACCIÓN · Botón «Editar» o «Ver» de una carrera
+   ACCIÓN · Botón "Editar" o "Ver" de una carrera
    ===================================================================== */
 
 /**
  * Abre la carga de una carrera: sus secciones (desde el plan vigente) con los docentes de la carga vigente. En
- * «edicion» si puedes editarla y ninguna otra cuenta la edita (toma o renueva el bloqueo); si no, en «lectura».
+ * "edicion" si puedes editarla y ninguna otra cuenta la edita (toma o renueva el bloqueo); si no, en "lectura".
  * ⬅ VIENE DE: CargaDocenteVista.html → abrir(sigla). También restaurar(n), que vuelve a abrir al terminar.
  * ↩ RESPUESTA: { ciclo, carrera, nombre, departamento, modo, motivo, editor, vence, version, versionPlan,
  *   secciones, noAsignables, huerfanas, catalogo }.
@@ -194,7 +194,7 @@ function cargaAbrir(ciclo, carrera) {
   const numero = v => { const s = texto(v).trim().replace(",", "."); return s !== "" && isFinite(Number(s)) ? Number(s) : null; };
   const claveDocente = nombre => N(texto(nombre).replace(/[.,]/g, " "));
   try {
-    /* PASO 1 · ¿Quién eres? (correo, dominio y tu fila de 📥 «Usuarios»: rol y departamento). */
+    /* PASO 1 · ¿Quién eres? (correo, dominio y tu fila de 📥 "Usuarios": rol y departamento). */
     const correo = texto(Session.getActiveUser().getEmail()).trim().toLowerCase();
     if (!correo) fallo("Acceso denegado: cuenta no identificada: Google no informó tu correo. Entra con tu cuenta " + CARGA_DOMINIO_ + ".");
     if (correo.slice(-CARGA_DOMINIO_.length) !== CARGA_DOMINIO_) fallo("Acceso denegado: cuenta fuera del dominio: solo pueden entrar cuentas " + CARGA_DOMINIO_ + ".");
@@ -202,7 +202,7 @@ function cargaAbrir(ciclo, carrera) {
     if (rol !== "coordinador" && rol !== "director") fallo("Acceso denegado: cuenta sin rol: " + correo + " no figura como coordinador ni director en la pestaña Usuarios.");
     const departamento = texto(filaUsuario[3]).trim().toUpperCase();
 
-    /* PASO 2 · ¿Qué ciclo y qué carrera? 📥 SHEET · LEE «Ciclos» (vacío = el último) y «Carreras». */
+    /* PASO 2 · ¿Qué ciclo y qué carrera? 📥 SHEET · LEE "Ciclos" (vacío = el último) y "Carreras". */
     const ciclos = leer("Ciclos").map(x => x[0].trim()).filter(String);
     if (!ciclos.length) fallo("La pestaña Ciclos está vacía.");
     ciclo = texto(ciclo).trim() || ciclos[ciclos.length - 1];
@@ -211,7 +211,7 @@ function cargaAbrir(ciclo, carrera) {
     const sigla = texto(carrera).trim().toUpperCase(), car = carreras.filter(c => c.sigla === sigla)[0];
     if (carrera !== undefined && !car) fallo("Carrera desconocida: " + sigla);
 
-    /* PASO 3 · 📥 SHEET · LEE «Planes»: el plan vigente de cada carrera (hace falta el de todas por las fusiones).
+    /* PASO 3 · 📥 SHEET · LEE "Planes": el plan vigente de cada carrera (hace falta el de todas por las fusiones).
        Sin plan de esta carrera no hay secciones: se avisa. */
     const planes = {};
     leer("Planes").forEach(f => {
@@ -223,7 +223,7 @@ function cargaAbrir(ciclo, carrera) {
 
     /* PASO 4 · SECCIONES de la carrera a partir de los planes vigentes:
        · una sección por grupo sin fusión, y una por fusión cuyo grupo principal es de esta carrera;
-       · los demás grupos fusionados van a «noAsignables» («fusionado con …», sin campo de docente);
+       · los demás grupos fusionados van a "noAsignables" ("fusionado con …", sin campo de docente);
        · cada sección tiene sus componentes: T si HT > 0, P si HP > 0, T1…Tn / P1…Pn si hay desdoble, y una sola T con
          TH si HT y HP son 0. Una fusión vive en el plan que la creó; si un grupo está en dos, gana la de su carrera. */
     const ref = (c, codigo, n) => N(c) + "|" + N(codigo).replace(/ /g, "") + "|" + Number(n);
@@ -252,7 +252,7 @@ function cargaAbrir(ciclo, carrera) {
       }
       const fusion = fz ? fz.fusion : null;
       const avisos = [], componentes = [], d = g.desdoble && Number(g.desdoble.n) >= 2 && Number(g.desdoble.n) <= 9 ? g.desdoble : null;
-      const horas = (v, nombre) => numero(v) !== null ? numero(v) : (texto(v).trim() && avisos.push(nombre + " no numérico («" + v + "»): se toma 0."), 0);
+      const horas = (v, nombre) => numero(v) !== null ? numero(v) : (texto(v).trim() && avisos.push(nombre + " no numérico (\"" + v + "\"): se toma 0."), 0);
       const ht = horas(g.ht, "HT"), hp = horas(g.hp, "HP"), th = g.th === undefined || g.th === "" ? ht + hp : horas(g.th, "TH");
       const poner = (letra, h) => (d && d.componente === letra ? Array.from({ length: Number(d.n) }, (_, i) => letra + (i + 1)) : [letra])
         .forEach(comp => componentes.push({ comp, horas: h, docente: "" }));
@@ -270,7 +270,7 @@ function cargaAbrir(ciclo, carrera) {
       });
     }));
 
-    /* PASO 5 · 📥 SHEET · LEE «Cargas»: las versiones de la carga de esta carrera y la vigente (versión más alta). */
+    /* PASO 5 · 📥 SHEET · LEE "Cargas": las versiones de la carga de esta carrera y la vigente (versión más alta). */
     let vigente = null;
     leer("Cargas").map(f => ({ ciclo: f[0].trim(), carrera: f[1].trim().toUpperCase(), version: Number(f[2]) || 0, usuario: f[3].trim(), fecha: f[4].trim(),
       motivo: texto(f[5]).trim(), contenido: texto(f[6]) })).filter(v => v.ciclo === ciclo && v.version > 0)
@@ -284,7 +284,7 @@ function cargaAbrir(ciclo, carrera) {
     candado.waitLock(10000);
     let modo;
     try {
-      /* 7a · 📥 SHEET · LEE «Bloqueos»: las filas de carga de esta carrera y ciclo. ¿Otra cuenta la edita ahora? */
+      /* 7a · 📥 SHEET · LEE "Bloqueos": las filas de carga de esta carrera y ciclo. ¿Otra cuenta la edita ahora? */
       const todos = leer("Bloqueos").map((f, i) => ({ fila: i + 2, cu: f[0].trim(), ciclo: f[1].trim(), carrera: f[2].trim().toUpperCase(),
         correo: f[3].trim().toLowerCase(), vigente: new Date(f[4].trim()).getTime() > Date.now() })).filter(b => b.cu === "carga" && b.ciclo === ciclo && b.carrera === sigla);
       const otro = todos.filter(b => b.vigente && b.correo !== correo)[0];
@@ -293,7 +293,7 @@ function cargaAbrir(ciclo, carrera) {
         modo = { modo: "lectura", editor: otro ? otro.correo : "", vence: "",
           motivo: puede ? "En edición por " + otro.correo : "Solo lectura: no es una carrera de tu departamento" };
       } else {
-        /* 7c · EDICIÓN. 📤 SHEET · ESCRIBE en «Bloqueos» [carga, ciclo, carrera, tu correo, ahora + 30 min]: reescribe tu fila
+        /* 7c · EDICIÓN. 📤 SHEET · ESCRIBE en "Bloqueos" [carga, ciclo, carrera, tu correo, ahora + 30 min]: reescribe tu fila
            (o la primera de esta carrera, aunque esté vencida) o agrega una nueva. Lo que empieza por = + - @ lleva apóstrofo. */
         const vence = new Date(Date.now() + CARGA_BLOQUEO_MS_ - 5 * 3600000).toISOString().slice(0, 19) + "-05:00";
         const mio = todos.filter(b => b.correo === correo)[0] || todos[0];
@@ -306,15 +306,15 @@ function cargaAbrir(ciclo, carrera) {
       }
     } finally { candado.releaseLock(); }
 
-    /* PASO 8 · Pone en cada componente el docente de la carga vigente (por clave «CARRERA|CODIGO|GRUPO» + componente).
-       Las asignaciones cuyo componente ya no existe en el plan vigente son «huérfanas»: se avisan y se pierden al guardar. */
+    /* PASO 8 · Pone en cada componente el docente de la carga vigente (por clave "CARRERA|CODIGO|GRUPO" + componente).
+       Las asignaciones cuyo componente ya no existe en el plan vigente son "huérfanas": se avisan y se pierden al guardar. */
     const porComp = {};
     secciones.forEach(s => s.componentes.forEach(c => { porComp[s.clave + "|" + c.comp] = c; }));
     const asignaciones = (() => { const l = vigente ? json(vigente.contenido).asignaciones : null; return Array.isArray(l) ? l : []; })();
     const huerfanas = asignaciones.filter(a => { const c = porComp[a.clave + "|" + a.comp]; if (c) c.docente = texto(a.docente); return !c; })
       .map(a => ({ clave: a.clave, comp: a.comp, docente: a.docente, codigo: a.codigo || "", horas: a.horas || 0 }));
 
-    /* PASO 9 · 📥 SHEET · LEE «Docentes»: el catálogo (sin repetidos) para las sugerencias del campo de docente. */
+    /* PASO 9 · 📥 SHEET · LEE "Docentes": el catálogo (sin repetidos) para las sugerencias del campo de docente. */
     const lista = [], vistos = {};
     leer("Docentes").forEach(f => {
       const docente = texto(f[0]).replace(/\s+/g, " ").trim(), k = claveDocente(docente);
@@ -335,16 +335,16 @@ function cargaAbrir(ciclo, carrera) {
 }
 
 /* =====================================================================
-   ACCIÓN · Botón «Interpretar» de la carga masiva (o elegir un .csv, que termina en lo mismo)
+   ACCIÓN · Botón "Interpretar" de la carga masiva (o elegir un .csv, que termina en lo mismo)
    ===================================================================== */
 
 /**
  * Lee el rango pegado o el CSV con el formato CargaXDepartamento y empareja cada fila con una sección del plan
- * vigente. NO escribe nada: devuelve una previsualización; «Aplicar a la tabla» la vuelca en la vista y recién
- * «Guardar» la lleva al Sheet.
+ * vigente. NO escribe nada: devuelve una previsualización; "Aplicar a la tabla" la vuelca en la vista y recién
+ * "Guardar" la lleva al Sheet.
  * ⬅ VIENE DE: CargaDocenteVista.html → interpretar() (y leerArchivo, que lee el .csv y llama a interpretar()).
  * ↩ RESPUESTA: { asignaciones, sinSeccion, noEnCatalogo, descartadas, avisos }.
- * @param {string} texto Filas separadas por tabulación, «;» o «,».
+ * @param {string} texto Filas separadas por tabulación, ";" o ",".
  * @param {string} ciclo
  * @param {string} carrera
  * @returns {CargaRespuesta}
@@ -352,21 +352,21 @@ function cargaAbrir(ciclo, carrera) {
 function cargaInterpretar(texto, ciclo, carrera) {
   const fallo = mensaje => { throw Object.assign(new Error(mensaje), { cargaPrevisto: true }); };
   const leer = nombre => { const h = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombre); if (!h) fallo("Falta la pestaña " + nombre + " en la hoja."); return h.getDataRange().getDisplayValues().slice(1); };
-  /* (aquí la herramienta se llama aTexto porque «texto» es lo pegado) */
+  /* (aquí la herramienta se llama aTexto porque "texto" es lo pegado) */
   const aTexto = v => (v === null || v === undefined ? "" : String(v));
   const N = s => aTexto(s).normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase().replace(/\s+/g, " ").trim();
   const json = t => { try { const o = JSON.parse(t); return o && typeof o === "object" ? o : {}; } catch (e) { return {}; } };
   const numero = v => { const s = aTexto(v).trim().replace(",", "."); return s !== "" && isFinite(Number(s)) ? Number(s) : null; };
   const claveDocente = nombre => N(aTexto(nombre).replace(/[.,]/g, " "));
   try {
-    /* PASO 1 · ¿Quién eres? (correo, dominio y tu fila de 📥 «Usuarios»). Basta con tener rol. */
+    /* PASO 1 · ¿Quién eres? (correo, dominio y tu fila de 📥 "Usuarios"). Basta con tener rol. */
     const correo = aTexto(Session.getActiveUser().getEmail()).trim().toLowerCase();
     if (!correo) fallo("Acceso denegado: cuenta no identificada: Google no informó tu correo. Entra con tu cuenta " + CARGA_DOMINIO_ + ".");
     if (correo.slice(-CARGA_DOMINIO_.length) !== CARGA_DOMINIO_) fallo("Acceso denegado: cuenta fuera del dominio: solo pueden entrar cuentas " + CARGA_DOMINIO_ + ".");
     const filaUsuario = leer("Usuarios").filter(x => x[0].trim().toLowerCase() === correo)[0], rol = filaUsuario ? filaUsuario[1].trim().toLowerCase() : "";
     if (rol !== "coordinador" && rol !== "director") fallo("Acceso denegado: cuenta sin rol: " + correo + " no figura como coordinador ni director en la pestaña Usuarios.");
 
-    /* PASO 2 · ¿Qué ciclo y qué carrera? 📥 SHEET · LEE «Ciclos» (vacío = el último) y «Carreras». */
+    /* PASO 2 · ¿Qué ciclo y qué carrera? 📥 SHEET · LEE "Ciclos" (vacío = el último) y "Carreras". */
     const ciclos = leer("Ciclos").map(x => x[0].trim()).filter(String);
     if (!ciclos.length) fallo("La pestaña Ciclos está vacía.");
     ciclo = aTexto(ciclo).trim() || ciclos[ciclos.length - 1];
@@ -376,7 +376,7 @@ function cargaInterpretar(texto, ciclo, carrera) {
     if (carrera !== undefined && !car) fallo("Carrera desconocida: " + sigla);
     if (!aTexto(texto).trim()) fallo("Pega el rango o sube un CSV");
 
-    /* PASO 3 · 📥 SHEET · LEE «Planes»: el plan vigente de cada carrera. Sin plan de esta carrera no hay con qué emparejar. */
+    /* PASO 3 · 📥 SHEET · LEE "Planes": el plan vigente de cada carrera. Sin plan de esta carrera no hay con qué emparejar. */
     const planes = {};
     leer("Planes").forEach(f => {
       const c = f[1].trim().toUpperCase(), v = Number(f[2]) || 0;
@@ -386,7 +386,7 @@ function cargaInterpretar(texto, ciclo, carrera) {
     if (!planes[car.sigla]) fallo(car.sigla + " no tiene plan registrado en " + ciclo);
 
     /* PASO 4 · SECCIONES de la carrera (igual que al abrir la carga): una por grupo asignable con sus componentes T/P.
-       porRef une la referencia «CARRERA|CODIGO|GRUPO» de cada grupo con su sección; los grupos fusionados cuyo
+       porRef une la referencia "CARRERA|CODIGO|GRUPO" de cada grupo con su sección; los grupos fusionados cuyo
        principal es otro guardan a dónde apuntan (principalRef) o en qué carrera se asignan (carreraPrincipal). */
     const ref = (c, codigo, n) => N(c) + "|" + N(codigo).replace(/ /g, "") + "|" + Number(n);
     const recorrerGrupos = fn => carreras.forEach(c => ((planes[c.sigla] || {}).asignaturas || []).forEach(a => a.grupos.forEach(g => fn(c.sigla, a, g))));
@@ -423,7 +423,7 @@ function cargaInterpretar(texto, ciclo, carrera) {
       porRef[r] = { clave: sigla + "|" + aTexto(a.codigo || a.nombre).trim() + "|" + g.n, codigo: aTexto(a.codigo), asignatura: aTexto(a.nombre), grupo: g.n, componentes };
     }));
 
-    /* PASO 5 · 📥 SHEET · LEE «Docentes»: el catálogo, para usar el nombre exacto del docente y avisar si no está. */
+    /* PASO 5 · 📥 SHEET · LEE "Docentes": el catálogo, para usar el nombre exacto del docente y avisar si no está. */
     const porClave = {};
     leer("Docentes").forEach(f => {
       const docente = aTexto(f[0]).replace(/\s+/g, " ").trim(), k = claveDocente(docente);
@@ -432,7 +432,7 @@ function cargaInterpretar(texto, ciclo, carrera) {
     });
 
     /* PASO 6 · Partir el texto en filas y celdas. Separador: tabulación si aparece en las 5 primeras líneas no vacías (la
-       hoja real empieza con una fecha en una sola celda); si no, «;» o «,», el que más aparezca. Comillas al estilo
+       hoja real empieza con una fecha en una sola celda); si no, ";" o ",", el que más aparezca. Comillas al estilo
        Excel: un campo entre comillas puede tener separadores y saltos de línea, y "" es una comilla. */
     const t = aTexto(texto).replace(/^﻿/, ""), primeras = t.split(/\r?\n/).filter(l => l.trim()).slice(0, 5).join("\n");
     const cuenta = c => primeras.split(c).length - 1, filas = [];
@@ -463,13 +463,13 @@ function cargaInterpretar(texto, ciclo, carrera) {
       asignatura: col(["ASIGNATURA", "CURSO"]), ht: col(["HORAS TEORICAS", "HT"]), hp: col(["HORAS PRACTICAS", "HP"]) };
 
     /* PASO 8 · Fila por fila. El docente va solo en la primera fila de su bloque: las siguientes con DOCENTE vacío lo
-       heredan, y una fila con «TOTAL» termina el bloque. Cada fila de esta carrera con código se empareja con su sección
-       por CÓDIGO + grupo (SEMESTRE «1-2» → grupo 2) y llena T y/o P según las horas que trae. */
+       heredan, y una fila con "TOTAL" termina el bloque. Cada fila de esta carrera con código se empareja con su sección
+       por CÓDIGO + grupo (SEMESTRE "1-2" → grupo 2) y llena T y/o P según las horas que trae. */
     const r = { asignaciones: [], sinSeccion: [], noEnCatalogo: [], descartadas: 0, avisos: [] }, usados = {};
     let docente = "";
     for (let i = ic + 1; i < filas.length; i++) {
       const f = filas[i], numFila = i + 1, codigo = celda(f, k.codigo), asignatura = celda(f, k.asignatura);
-      /* «TOTAL» (DIMA) o «TOTAL PROFESORES»… en la columna CÓDIGO (DACJ): fin del bloque del docente. */
+      /* "TOTAL" (DIMA) o "TOTAL PROFESORES"… en la columna CÓDIGO (DACJ): fin del bloque del docente. */
       if (norm[i].some(c => /^TOTAL\b/.test(c))) { docente = ""; continue; }
       if (celda(f, k.docente)) docente = celda(f, k.docente);
       if (!codigo) continue;
@@ -503,8 +503,8 @@ function cargaInterpretar(texto, ciclo, carrera) {
     if (r.descartadas) r.avisos.unshift("Se descartaron " + r.descartadas + " filas de otra carrera.");
     if (r.sinSeccion.length) r.avisos.push(r.sinSeccion.length + " filas sin sección asignable en el plan.");
 
-    /* PASO 9 · ↩ RESPUESTA. ➡ SIGUE EN CargaDocenteVista.html → interpretar(): la previsualización con «Aplicar a la tabla»
-       y «Descartar». Nada se guardó todavía. */
+    /* PASO 9 · ↩ RESPUESTA. ➡ SIGUE EN CargaDocenteVista.html → interpretar(): la previsualización con "Aplicar a la tabla"
+       y "Descartar". Nada se guardó todavía. */
     return { ok: true, datos: r };
   } catch (e) {
     if (e && e.cargaPrevisto) return { ok: false, error: e.message };
@@ -514,7 +514,7 @@ function cargaInterpretar(texto, ciclo, carrera) {
 }
 
 /* =====================================================================
-   ACCIÓN · Botón «Buscar» del panel «Buscar docente» (o Enter en su campo)
+   ACCIÓN · Botón "Buscar" del panel "Buscar docente" (o Enter en su campo)
    ===================================================================== */
 
 /**
@@ -530,21 +530,21 @@ function cargaInterpretar(texto, ciclo, carrera) {
 function cargaBuscarDocentes(ciclo, texto) {
   const fallo = mensaje => { throw Object.assign(new Error(mensaje), { cargaPrevisto: true }); };
   const leer = nombre => { const h = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombre); if (!h) fallo("Falta la pestaña " + nombre + " en la hoja."); return h.getDataRange().getDisplayValues().slice(1); };
-  /* (aquí la herramienta se llama aTexto porque «texto» es lo buscado) */
+  /* (aquí la herramienta se llama aTexto porque "texto" es lo buscado) */
   const aTexto = v => (v === null || v === undefined ? "" : String(v));
   const N = s => aTexto(s).normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase().replace(/\s+/g, " ").trim();
   const json = t => { try { const o = JSON.parse(t); return o && typeof o === "object" ? o : {}; } catch (e) { return {}; } };
-  /* Nombre para comparar: normalizado y sin comas ni puntos («PÉREZ, Juan.» = «PEREZ JUAN»). */
+  /* Nombre para comparar: normalizado y sin comas ni puntos ("PÉREZ, Juan." = "PEREZ JUAN"). */
   const claveDocente = nombre => N(aTexto(nombre).replace(/[.,]/g, " "));
   try {
-    /* PASO 1 · ¿Quién eres? (correo, dominio y tu fila de 📥 «Usuarios»). Basta con tener rol. */
+    /* PASO 1 · ¿Quién eres? (correo, dominio y tu fila de 📥 "Usuarios"). Basta con tener rol. */
     const correo = aTexto(Session.getActiveUser().getEmail()).trim().toLowerCase();
     if (!correo) fallo("Acceso denegado: cuenta no identificada: Google no informó tu correo. Entra con tu cuenta " + CARGA_DOMINIO_ + ".");
     if (correo.slice(-CARGA_DOMINIO_.length) !== CARGA_DOMINIO_) fallo("Acceso denegado: cuenta fuera del dominio: solo pueden entrar cuentas " + CARGA_DOMINIO_ + ".");
     const filaUsuario = leer("Usuarios").filter(x => x[0].trim().toLowerCase() === correo)[0], rol = filaUsuario ? filaUsuario[1].trim().toLowerCase() : "";
     if (rol !== "coordinador" && rol !== "director") fallo("Acceso denegado: cuenta sin rol: " + correo + " no figura como coordinador ni director en la pestaña Usuarios.");
 
-    /* PASO 2 · ¿Qué ciclo? 📥 SHEET · LEE «Ciclos» (vacío = el último) y «Carreras» (las cargas se suman de todas). */
+    /* PASO 2 · ¿Qué ciclo? 📥 SHEET · LEE "Ciclos" (vacío = el último) y "Carreras" (las cargas se suman de todas). */
     const ciclos = leer("Ciclos").map(x => x[0].trim()).filter(String);
     if (!ciclos.length) fallo("La pestaña Ciclos está vacía.");
     ciclo = aTexto(ciclo).trim() || ciclos[ciclos.length - 1];
@@ -555,13 +555,13 @@ function cargaBuscarDocentes(ciclo, texto) {
     const buscado = claveDocente(aTexto(texto).slice(0, 100));
     if ((buscado.match(/[A-Z]/g) || []).length < 2) fallo("Escribe al menos 2 letras");
 
-    /* PASO 4 · 📥 SHEET · LEE «Cargas»: la carga vigente (versión más alta) de cada carrera en este ciclo. */
+    /* PASO 4 · 📥 SHEET · LEE "Cargas": la carga vigente (versión más alta) de cada carrera en este ciclo. */
     const vigentes = {};
     leer("Cargas").map(f => ({ ciclo: f[0].trim(), carrera: f[1].trim().toUpperCase(), version: Number(f[2]) || 0, usuario: f[3].trim(), fecha: f[4].trim(),
       motivo: aTexto(f[5]).trim(), contenido: aTexto(f[6]) })).filter(v => v.ciclo === ciclo && v.version > 0)
       .forEach(v => { if (!vigentes[v.carrera] || v.version > vigentes[v.carrera].version) vigentes[v.carrera] = v; });
 
-    /* PASO 5 · 📥 SHEET · LEE «Docentes»: una ficha por docente del catálogo (sin repetidos), con 0 horas. */
+    /* PASO 5 · 📥 SHEET · LEE "Docentes": una ficha por docente del catálogo (sin repetidos), con 0 horas. */
     const fichas = {}, vistos = {};
     leer("Docentes").forEach(f => {
       const docente = aTexto(f[0]).replace(/\s+/g, " ").trim(), k = claveDocente(docente);
@@ -585,7 +585,7 @@ function cargaBuscarDocentes(ciclo, texto) {
     const palabras = buscado.split(" "), claves = Object.keys(fichas).filter(k => palabras.every(p => k.indexOf(p) >= 0)).sort();
 
     /* PASO 8 · ↩ RESPUESTA (máximo 30; total sirve para avisar que hay más). ➡ SIGUE EN CargaDocenteVista.html →
-       buscarDocentes(): la tabla de resultados con el botón «Usar». */
+       buscarDocentes(): la tabla de resultados con el botón "Usar". */
     return { ok: true, datos: { resultados: claves.slice(0, 30).map(k => fichas[k]), total: claves.length } };
   } catch (e) {
     if (e && e.cargaPrevisto) return { ok: false, error: e.message };
@@ -595,7 +595,7 @@ function cargaBuscarDocentes(ciclo, texto) {
 }
 
 /* =====================================================================
-   ACCIÓN · Botón «Guardar»
+   ACCIÓN · Botón "Guardar"
    ===================================================================== */
 
 /**
@@ -620,7 +620,7 @@ function cargaGuardar(ciclo, carrera, asignaciones, versionBase, motivo) {
   const numero = v => { const s = texto(v).trim().replace(",", "."); return s !== "" && isFinite(Number(s)) ? Number(s) : null; };
   const claveDocente = nombre => N(texto(nombre).replace(/[.,]/g, " "));
   try {
-    /* PASO 1 · ¿Quién eres? (correo, dominio y tu fila de 📥 «Usuarios»: rol y departamento). */
+    /* PASO 1 · ¿Quién eres? (correo, dominio y tu fila de 📥 "Usuarios": rol y departamento). */
     const correo = texto(Session.getActiveUser().getEmail()).trim().toLowerCase();
     if (!correo) fallo("Acceso denegado: cuenta no identificada: Google no informó tu correo. Entra con tu cuenta " + CARGA_DOMINIO_ + ".");
     if (correo.slice(-CARGA_DOMINIO_.length) !== CARGA_DOMINIO_) fallo("Acceso denegado: cuenta fuera del dominio: solo pueden entrar cuentas " + CARGA_DOMINIO_ + ".");
@@ -628,7 +628,7 @@ function cargaGuardar(ciclo, carrera, asignaciones, versionBase, motivo) {
     if (rol !== "coordinador" && rol !== "director") fallo("Acceso denegado: cuenta sin rol: " + correo + " no figura como coordinador ni director en la pestaña Usuarios.");
     const departamento = texto(filaUsuario[3]).trim().toUpperCase();
 
-    /* PASO 2 · ¿Qué ciclo y qué carrera? 📥 SHEET · LEE «Ciclos» (vacío = el último) y «Carreras». */
+    /* PASO 2 · ¿Qué ciclo y qué carrera? 📥 SHEET · LEE "Ciclos" (vacío = el último) y "Carreras". */
     const ciclos = leer("Ciclos").map(x => x[0].trim()).filter(String);
     if (!ciclos.length) fallo("La pestaña Ciclos está vacía.");
     ciclo = texto(ciclo).trim() || ciclos[ciclos.length - 1];
@@ -646,7 +646,7 @@ function cargaGuardar(ciclo, carrera, asignaciones, versionBase, motivo) {
     if (!Number.isInteger(base) || base < 0) fallo("Versión base inválida.");
     const mot = typeof motivo === "string" ? motivo.trim().slice(0, 500) : "";
 
-    /* PASO 5 · 📥 SHEET · LEE «Docentes»: el catálogo con los datos que usan las reglas (condición, dedicación, cargo, TC en
+    /* PASO 5 · 📥 SHEET · LEE "Docentes": el catálogo con los datos que usan las reglas (condición, dedicación, cargo, TC en
        otra universidad, horas no lectivas). */
     const catalogo = {};
     leer("Docentes").forEach(f => {
@@ -661,12 +661,12 @@ function cargaGuardar(ciclo, carrera, asignaciones, versionBase, motivo) {
     const candado = LockService.getScriptLock();
     candado.waitLock(10000);
     try {
-      /* 6a · 📥 SHEET · LEE «Bloqueos»: tu bloqueo de esta carga tiene que existir, ser tuyo y no haber vencido. */
+      /* 6a · 📥 SHEET · LEE "Bloqueos": tu bloqueo de esta carga tiene que existir, ser tuyo y no haber vencido. */
       const bloqueos = leer("Bloqueos").map((f, i) => ({ fila: i + 2, cu: f[0].trim(), ciclo: f[1].trim(), carrera: f[2].trim().toUpperCase(),
         correo: f[3].trim().toLowerCase(), vigente: new Date(f[4].trim()).getTime() > Date.now() })).filter(b => b.cu === "carga" && b.ciclo === ciclo && b.carrera === car.sigla);
       if (!bloqueos.filter(b => b.vigente && b.correo === correo)[0]) fallo(CARGA_SIN_BLOQUEO_);
 
-      /* 6b · 📥 SHEET · LEE «Planes»: el plan vigente de cada carrera (sin plan de esta carrera no hay secciones). */
+      /* 6b · 📥 SHEET · LEE "Planes": el plan vigente de cada carrera (sin plan de esta carrera no hay secciones). */
       const planes = {};
       leer("Planes").forEach(f => {
         const c = f[1].trim().toUpperCase(), v = Number(f[2]) || 0;
@@ -676,7 +676,7 @@ function cargaGuardar(ciclo, carrera, asignaciones, versionBase, motivo) {
       if (!planes[sigla]) fallo(sigla + " no tiene plan registrado en " + ciclo);
 
       /* 6c · SECCIONES de la carrera desde los planes vigentes (igual que al abrir): una por grupo asignable, con sus
-         componentes T/P (T1…Tn / P1…Pn con desdoble) y sus horas, código, semestre, dpto e «intl». */
+         componentes T/P (T1…Tn / P1…Pn con desdoble) y sus horas, código, semestre, dpto e "intl". */
       const ref = (c, codigo, n) => N(c) + "|" + N(codigo).replace(/ /g, "") + "|" + Number(n);
       const recorrerGrupos = fn => carreras.forEach(c => ((planes[c.sigla] || {}).asignaturas || []).forEach(a => a.grupos.forEach(g => fn(c.sigla, a, g))));
       const existe = {}, fusionDe = {};
@@ -707,7 +707,7 @@ function cargaGuardar(ciclo, carrera, asignaciones, versionBase, motivo) {
           intl: /INTERNACIONAL|VIRTUAL/.test(N(texto(g.obs) + " " + texto(a.obs))), componentes });
       }));
 
-      /* 6d · 📥 SHEET · LEE «Cargas»: la vigente de esta carrera (para comparar con la versión base) y las vigentes de las
+      /* 6d · 📥 SHEET · LEE "Cargas": la vigente de esta carrera (para comparar con la versión base) y las vigentes de las
          OTRAS carreras (sus horas cuentan en las reglas). */
       const vigentes = {};
       leer("Cargas").map(f => ({ ciclo: f[0].trim(), carrera: f[1].trim().toUpperCase(), version: Number(f[2]) || 0, usuario: f[3].trim(), fecha: f[4].trim(),
@@ -790,7 +790,7 @@ function cargaGuardar(ciclo, carrera, asignaciones, versionBase, motivo) {
       if (bloquea || requiereMotivo)
         return { ok: true, datos: { guardado: false, version: actual, fecha: "", advertencias, requiereMotivo } };
 
-      /* 6i · 📤 SHEET · ESCRIBE una fila NUEVA al final de «Cargas»: [ciclo, carrera, versión + 1, tu correo, fecha de Perú,
+      /* 6i · 📤 SHEET · ESCRIBE una fila NUEVA al final de "Cargas": [ciclo, carrera, versión + 1, tu correo, fecha de Perú,
          motivo, JSON con las asignaciones limpias]. Primero se comprueba que el JSON quepa en una celda. La fila se deja
          con formato de texto (@) y lo que empieza por = + - @ lleva apóstrofo. */
       const contenido = JSON.stringify({ asignaciones: nuevas }), fecha = new Date(Date.now() - 5 * 3600000).toISOString().slice(0, 19) + "-05:00";
@@ -800,13 +800,13 @@ function cargaGuardar(ciclo, carrera, asignaciones, versionBase, motivo) {
       hojaCargas.appendRow(celdas);
       hojaCargas.getRange(hojaCargas.getLastRow(), 1, 1, celdas.length).setNumberFormat("@").setValues([celdas]);
 
-      /* 6j · 🗑 SHEET · BORRA tus filas de «Bloqueos» de esta carga (de abajo hacia arriba, para que no se corran los
+      /* 6j · 🗑 SHEET · BORRA tus filas de "Bloqueos" de esta carga (de abajo hacia arriba, para que no se corran los
          números de fila): guardar termina la edición. */
       const hojaBloqueos = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Bloqueos");
       bloqueos.filter(b => b.correo === correo).reverse().forEach(b => hojaBloqueos.deleteRow(b.fila));
 
       /* PASO 7 · ↩ RESPUESTA. ➡ SIGUE EN CargaDocenteVista.html → guardar(): vuelve a la tabla (inicio → cargaInicio) con
-         «Guardado como vN» y las advertencias. */
+         "Guardado como vN" y las advertencias. */
       return { ok: true, datos: { guardado: true, version: actual + 1, fecha, advertencias, requiereMotivo: false } };
     } finally { candado.releaseLock(); }
   } catch (e) {
@@ -834,14 +834,14 @@ function cargaMantener(ciclo, carrera) {
   const leer = nombre => { const h = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombre); if (!h) fallo("Falta la pestaña " + nombre + " en la hoja."); return h.getDataRange().getDisplayValues().slice(1); };
   const texto = v => (v === null || v === undefined ? "" : String(v));
   try {
-    /* PASO 1 · ¿Quién eres? (correo, dominio y tu fila de 📥 «Usuarios»). */
+    /* PASO 1 · ¿Quién eres? (correo, dominio y tu fila de 📥 "Usuarios"). */
     const correo = texto(Session.getActiveUser().getEmail()).trim().toLowerCase();
     if (!correo) fallo("Acceso denegado: cuenta no identificada: Google no informó tu correo. Entra con tu cuenta " + CARGA_DOMINIO_ + ".");
     if (correo.slice(-CARGA_DOMINIO_.length) !== CARGA_DOMINIO_) fallo("Acceso denegado: cuenta fuera del dominio: solo pueden entrar cuentas " + CARGA_DOMINIO_ + ".");
     const filaUsuario = leer("Usuarios").filter(x => x[0].trim().toLowerCase() === correo)[0], rol = filaUsuario ? filaUsuario[1].trim().toLowerCase() : "";
     if (rol !== "coordinador" && rol !== "director") fallo("Acceso denegado: cuenta sin rol: " + correo + " no figura como coordinador ni director en la pestaña Usuarios.");
 
-    /* PASO 2 · ¿Qué ciclo y qué carrera? 📥 SHEET · LEE «Ciclos» (vacío = el último) y «Carreras». */
+    /* PASO 2 · ¿Qué ciclo y qué carrera? 📥 SHEET · LEE "Ciclos" (vacío = el último) y "Carreras". */
     const ciclos = leer("Ciclos").map(x => x[0].trim()).filter(String);
     if (!ciclos.length) fallo("La pestaña Ciclos está vacía.");
     ciclo = texto(ciclo).trim() || ciclos[ciclos.length - 1];
@@ -854,19 +854,19 @@ function cargaMantener(ciclo, carrera) {
     const candado = LockService.getScriptLock();
     candado.waitLock(10000);
     try {
-      /* 3a · 📥 SHEET · LEE «Bloqueos»: tu bloqueo de esta carga tiene que existir, ser tuyo y no haber vencido. */
+      /* 3a · 📥 SHEET · LEE "Bloqueos": tu bloqueo de esta carga tiene que existir, ser tuyo y no haber vencido. */
       const b = leer("Bloqueos").map((f, i) => ({ fila: i + 2, cu: f[0].trim(), ciclo: f[1].trim(), carrera: f[2].trim().toUpperCase(),
         correo: f[3].trim().toLowerCase(), vigente: new Date(f[4].trim()).getTime() > Date.now() }))
         .filter(x => x.cu === "carga" && x.ciclo === ciclo && x.carrera === car.sigla).filter(x => x.vigente && x.correo === correo)[0];
       if (!b) fallo(CARGA_SIN_BLOQUEO_);
 
-      /* 3b · 📤 SHEET · ESCRIBE (reescribe la MISMA fila de «Bloqueos») con vence = ahora + 30 minutos. */
+      /* 3b · 📤 SHEET · ESCRIBE (reescribe la MISMA fila de "Bloqueos") con vence = ahora + 30 minutos. */
       const vence = new Date(Date.now() + CARGA_BLOQUEO_MS_ - 5 * 3600000).toISOString().slice(0, 19) + "-05:00";
       const hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Bloqueos");
       const celdas = ["carga", ciclo, car.sigla, correo, vence].map(x => { const s = texto(x); return /^[=+\-@]/.test(s) ? "'" + s : s; });
       hoja.getRange(b.fila, 1, 1, celdas.length).setNumberFormat("@").setValues([celdas]);
 
-      /* PASO 4 · ↩ RESPUESTA. ➡ SIGUE EN CargaDocenteVista.html → mantener(): actualiza «Bloqueo hasta HH:MM». */
+      /* PASO 4 · ↩ RESPUESTA. ➡ SIGUE EN CargaDocenteVista.html → mantener(): actualiza "Bloqueo hasta HH:MM". */
       return { ok: true, datos: { vence } };
     } finally { candado.releaseLock(); }
   } catch (e) {
@@ -877,12 +877,12 @@ function cargaMantener(ciclo, carrera) {
 }
 
 /* =====================================================================
-   ACCIÓN · Botón «Salir» (y cerrar la pestaña con una carga abierta)
+   ACCIÓN · Botón "Salir" (y cerrar la pestaña con una carga abierta)
    ===================================================================== */
 
 /**
  * Suelta tu bloqueo de la carga: borra tus filas de Bloqueos de esa carrera y ciclo (las de otra cuenta no se tocan).
- * ⬅ VIENE DE: CargaDocenteVista.html → salir(), y el evento «pagehide» de su init() al cerrar la pestaña.
+ * ⬅ VIENE DE: CargaDocenteVista.html → salir(), y el evento "pagehide" de su init() al cerrar la pestaña.
  * ↩ RESPUESTA: {}.
  * @param {string} ciclo
  * @param {string} carrera
@@ -893,14 +893,14 @@ function cargaSalir(ciclo, carrera) {
   const leer = nombre => { const h = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombre); if (!h) fallo("Falta la pestaña " + nombre + " en la hoja."); return h.getDataRange().getDisplayValues().slice(1); };
   const texto = v => (v === null || v === undefined ? "" : String(v));
   try {
-    /* PASO 1 · ¿Quién eres? (correo, dominio y tu fila de 📥 «Usuarios»). */
+    /* PASO 1 · ¿Quién eres? (correo, dominio y tu fila de 📥 "Usuarios"). */
     const correo = texto(Session.getActiveUser().getEmail()).trim().toLowerCase();
     if (!correo) fallo("Acceso denegado: cuenta no identificada: Google no informó tu correo. Entra con tu cuenta " + CARGA_DOMINIO_ + ".");
     if (correo.slice(-CARGA_DOMINIO_.length) !== CARGA_DOMINIO_) fallo("Acceso denegado: cuenta fuera del dominio: solo pueden entrar cuentas " + CARGA_DOMINIO_ + ".");
     const filaUsuario = leer("Usuarios").filter(x => x[0].trim().toLowerCase() === correo)[0], rol = filaUsuario ? filaUsuario[1].trim().toLowerCase() : "";
     if (rol !== "coordinador" && rol !== "director") fallo("Acceso denegado: cuenta sin rol: " + correo + " no figura como coordinador ni director en la pestaña Usuarios.");
 
-    /* PASO 2 · ¿Qué ciclo y qué carrera? 📥 SHEET · LEE «Ciclos» (vacío = el último) y «Carreras». */
+    /* PASO 2 · ¿Qué ciclo y qué carrera? 📥 SHEET · LEE "Ciclos" (vacío = el último) y "Carreras". */
     const ciclos = leer("Ciclos").map(x => x[0].trim()).filter(String);
     if (!ciclos.length) fallo("La pestaña Ciclos está vacía.");
     ciclo = texto(ciclo).trim() || ciclos[ciclos.length - 1];
@@ -913,7 +913,7 @@ function cargaSalir(ciclo, carrera) {
     const candado = LockService.getScriptLock();
     candado.waitLock(10000);
     try {
-      /* 3a · 📥 SHEET · LEE «Bloqueos»: tus filas de carga de esta carrera y ciclo (vencidas o no). */
+      /* 3a · 📥 SHEET · LEE "Bloqueos": tus filas de carga de esta carrera y ciclo (vencidas o no). */
       const mias = leer("Bloqueos").map((f, i) => ({ fila: i + 2, cu: f[0].trim(), ciclo: f[1].trim(), carrera: f[2].trim().toUpperCase(),
         correo: f[3].trim().toLowerCase(), vigente: new Date(f[4].trim()).getTime() > Date.now() }))
         .filter(b => b.cu === "carga" && b.ciclo === ciclo && b.carrera === car.sigla).filter(b => b.correo === correo);
@@ -932,7 +932,7 @@ function cargaSalir(ciclo, carrera) {
 }
 
 /* =====================================================================
-   ACCIÓN · Botón «Historial»
+   ACCIÓN · Botón "Historial"
    ===================================================================== */
 
 /**
@@ -952,14 +952,14 @@ function cargaHistorial(ciclo, carrera) {
   const json = t => { try { const o = JSON.parse(t); return o && typeof o === "object" ? o : {}; } catch (e) { return {}; } };
   const numero = v => { const s = texto(v).trim().replace(",", "."); return s !== "" && isFinite(Number(s)) ? Number(s) : null; };
   try {
-    /* PASO 1 · ¿Quién eres? (correo, dominio y tu fila de 📥 «Usuarios»). */
+    /* PASO 1 · ¿Quién eres? (correo, dominio y tu fila de 📥 "Usuarios"). */
     const correo = texto(Session.getActiveUser().getEmail()).trim().toLowerCase();
     if (!correo) fallo("Acceso denegado: cuenta no identificada: Google no informó tu correo. Entra con tu cuenta " + CARGA_DOMINIO_ + ".");
     if (correo.slice(-CARGA_DOMINIO_.length) !== CARGA_DOMINIO_) fallo("Acceso denegado: cuenta fuera del dominio: solo pueden entrar cuentas " + CARGA_DOMINIO_ + ".");
     const filaUsuario = leer("Usuarios").filter(x => x[0].trim().toLowerCase() === correo)[0], rol = filaUsuario ? filaUsuario[1].trim().toLowerCase() : "";
     if (rol !== "coordinador" && rol !== "director") fallo("Acceso denegado: cuenta sin rol: " + correo + " no figura como coordinador ni director en la pestaña Usuarios.");
 
-    /* PASO 2 · ¿Qué ciclo y qué carrera? 📥 SHEET · LEE «Ciclos» (vacío = el último) y «Carreras». */
+    /* PASO 2 · ¿Qué ciclo y qué carrera? 📥 SHEET · LEE "Ciclos" (vacío = el último) y "Carreras". */
     const ciclos = leer("Ciclos").map(x => x[0].trim()).filter(String);
     if (!ciclos.length) fallo("La pestaña Ciclos está vacía.");
     ciclo = texto(ciclo).trim() || ciclos[ciclos.length - 1];
@@ -968,7 +968,7 @@ function cargaHistorial(ciclo, carrera) {
     const sigla = texto(carrera).trim().toUpperCase(), car = carreras.filter(c => c.sigla === sigla)[0];
     if (carrera !== undefined && !car) fallo("Carrera desconocida: " + sigla);
 
-    /* PASO 3 · 📥 SHEET · LEE «Planes»: el plan vigente de cada carrera (para saber cuántos componentes hay en total). */
+    /* PASO 3 · 📥 SHEET · LEE "Planes": el plan vigente de cada carrera (para saber cuántos componentes hay en total). */
     const planes = {};
     leer("Planes").forEach(f => {
       const c = f[1].trim().toUpperCase(), v = Number(f[2]) || 0;
@@ -1008,7 +1008,7 @@ function cargaHistorial(ciclo, carrera) {
       }));
     }
 
-    /* PASO 5 · 📥 SHEET · LEE «Cargas»: todas las versiones de esta carrera y ciclo, de mayor a menor, con su resumen. */
+    /* PASO 5 · 📥 SHEET · LEE "Cargas": todas las versiones de esta carrera y ciclo, de mayor a menor, con su resumen. */
     const versiones = leer("Cargas").map(f => ({ ciclo: f[0].trim(), carrera: f[1].trim().toUpperCase(), version: Number(f[2]) || 0, usuario: f[3].trim(),
       fecha: f[4].trim(), motivo: texto(f[5]).trim(), contenido: texto(f[6]) })).filter(v => v.ciclo === ciclo && v.version > 0)
       .filter(v => v.carrera === sigla).sort((a, b) => b.version - a.version).map(v => {
@@ -1027,14 +1027,14 @@ function cargaHistorial(ciclo, carrera) {
 }
 
 /* =====================================================================
-   ACCIÓN · Botón «Ver» de una versión del historial
+   ACCIÓN · Botón "Ver" de una versión del historial
    ===================================================================== */
 
 /**
  * La versión n de la carga colocada sobre las secciones del plan VIGENTE, en solo lectura (mismo formato que
  * cargaAbrir). No escribe nada ni toca el bloqueo.
  * ⬅ VIENE DE: CargaDocenteVista.html → version(n).
- * ↩ RESPUESTA: igual que cargaAbrir, con modo «lectura» y motivo «Versión n · solo lectura».
+ * ↩ RESPUESTA: igual que cargaAbrir, con modo "lectura" y motivo "Versión n · solo lectura".
  * @param {string} ciclo
  * @param {string} carrera
  * @param {number} n Número de versión.
@@ -1049,14 +1049,14 @@ function cargaVersion(ciclo, carrera, n) {
   const numero = v => { const s = texto(v).trim().replace(",", "."); return s !== "" && isFinite(Number(s)) ? Number(s) : null; };
   const claveDocente = nombre => N(texto(nombre).replace(/[.,]/g, " "));
   try {
-    /* PASO 1 · ¿Quién eres? (correo, dominio y tu fila de 📥 «Usuarios»). */
+    /* PASO 1 · ¿Quién eres? (correo, dominio y tu fila de 📥 "Usuarios"). */
     const correo = texto(Session.getActiveUser().getEmail()).trim().toLowerCase();
     if (!correo) fallo("Acceso denegado: cuenta no identificada: Google no informó tu correo. Entra con tu cuenta " + CARGA_DOMINIO_ + ".");
     if (correo.slice(-CARGA_DOMINIO_.length) !== CARGA_DOMINIO_) fallo("Acceso denegado: cuenta fuera del dominio: solo pueden entrar cuentas " + CARGA_DOMINIO_ + ".");
     const filaUsuario = leer("Usuarios").filter(x => x[0].trim().toLowerCase() === correo)[0], rol = filaUsuario ? filaUsuario[1].trim().toLowerCase() : "";
     if (rol !== "coordinador" && rol !== "director") fallo("Acceso denegado: cuenta sin rol: " + correo + " no figura como coordinador ni director en la pestaña Usuarios.");
 
-    /* PASO 2 · ¿Qué ciclo y qué carrera? 📥 SHEET · LEE «Ciclos» (vacío = el último) y «Carreras». */
+    /* PASO 2 · ¿Qué ciclo y qué carrera? 📥 SHEET · LEE "Ciclos" (vacío = el último) y "Carreras". */
     const ciclos = leer("Ciclos").map(x => x[0].trim()).filter(String);
     if (!ciclos.length) fallo("La pestaña Ciclos está vacía.");
     ciclo = texto(ciclo).trim() || ciclos[ciclos.length - 1];
@@ -1069,7 +1069,7 @@ function cargaVersion(ciclo, carrera, n) {
     const num = typeof n === "number" || (typeof n === "string" && n.trim()) ? Number(n) : NaN;
     if (!Number.isInteger(num) || num < 0) fallo("Versión inválida.");
 
-    /* PASO 4 · 📥 SHEET · LEE «Planes»: el plan vigente de cada carrera. Sin plan de esta carrera no hay secciones. */
+    /* PASO 4 · 📥 SHEET · LEE "Planes": el plan vigente de cada carrera. Sin plan de esta carrera no hay secciones. */
     const planes = {};
     leer("Planes").forEach(f => {
       const c = f[1].trim().toUpperCase(), v = Number(f[2]) || 0;
@@ -1105,7 +1105,7 @@ function cargaVersion(ciclo, carrera, n) {
       }
       const fusion = fz ? fz.fusion : null;
       const avisos = [], componentes = [], d = g.desdoble && Number(g.desdoble.n) >= 2 && Number(g.desdoble.n) <= 9 ? g.desdoble : null;
-      const horas = (v, nombre) => numero(v) !== null ? numero(v) : (texto(v).trim() && avisos.push(nombre + " no numérico («" + v + "»): se toma 0."), 0);
+      const horas = (v, nombre) => numero(v) !== null ? numero(v) : (texto(v).trim() && avisos.push(nombre + " no numérico (\"" + v + "\"): se toma 0."), 0);
       const ht = horas(g.ht, "HT"), hp = horas(g.hp, "HP"), th = g.th === undefined || g.th === "" ? ht + hp : horas(g.th, "TH");
       const poner = (letra, h) => (d && d.componente === letra ? Array.from({ length: Number(d.n) }, (_, i) => letra + (i + 1)) : [letra])
         .forEach(comp => componentes.push({ comp, horas: h, docente: "" }));
@@ -1123,20 +1123,20 @@ function cargaVersion(ciclo, carrera, n) {
       });
     }));
 
-    /* PASO 6 · 📥 SHEET · LEE «Cargas» y busca la versión n de esta carrera. */
+    /* PASO 6 · 📥 SHEET · LEE "Cargas" y busca la versión n de esta carrera. */
     const v = leer("Cargas").map(f => ({ ciclo: f[0].trim(), carrera: f[1].trim().toUpperCase(), version: Number(f[2]) || 0, usuario: f[3].trim(), fecha: f[4].trim(),
       motivo: texto(f[5]).trim(), contenido: texto(f[6]) })).filter(x => x.ciclo === ciclo && x.version > 0)
       .filter(x => x.carrera === sigla).filter(x => x.version === num)[0] || fallo("No existe la versión " + num + " de esta carga.");
 
     /* PASO 7 · Pone en cada componente el docente de ESA versión. Lo que ya no tiene componente en el plan vigente queda
-       como «huérfano» (se muestra en un aviso). */
+       como "huérfano" (se muestra en un aviso). */
     const porComp = {};
     secciones.forEach(s => s.componentes.forEach(c => { porComp[s.clave + "|" + c.comp] = c; }));
     const asignaciones = (() => { const l = json(v.contenido).asignaciones; return Array.isArray(l) ? l : []; })();
     const huerfanas = asignaciones.filter(a => { const c = porComp[a.clave + "|" + a.comp]; if (c) c.docente = texto(a.docente); return !c; })
       .map(a => ({ clave: a.clave, comp: a.comp, docente: a.docente, codigo: a.codigo || "", horas: a.horas || 0 }));
 
-    /* PASO 8 · 📥 SHEET · LEE «Docentes»: el catálogo (la vista lo usa para las sugerencias). */
+    /* PASO 8 · 📥 SHEET · LEE "Docentes": el catálogo (la vista lo usa para las sugerencias). */
     const lista = [], vistos = {};
     leer("Docentes").forEach(f => {
       const docente = texto(f[0]).replace(/\s+/g, " ").trim(), k = claveDocente(docente);
@@ -1145,8 +1145,8 @@ function cargaVersion(ciclo, carrera, n) {
       lista.push({ docente, departamento: texto(f[1]).trim().toUpperCase() });
     });
 
-    /* PASO 9 · ↩ RESPUESTA en modo lectura. ➡ SIGUE EN CargaDocenteVista.html → version(n): guarda tu edición en «anterior»
-       y muestra esta versión con el aviso «Versión n · solo lectura» y el botón «Volver». */
+    /* PASO 9 · ↩ RESPUESTA en modo lectura. ➡ SIGUE EN CargaDocenteVista.html → version(n): guarda tu edición en "anterior"
+       y muestra esta versión con el aviso "Versión n · solo lectura" y el botón "Volver". */
     return { ok: true, datos: Object.assign({ ciclo, carrera: car.sigla, nombre: car.nombre, departamento: car.departamento },
       { modo: "lectura", motivo: "Versión " + num + " · solo lectura", editor: "", vence: "" },
       { version: v.version, versionPlan: planes[sigla].version, secciones, noAsignables, huerfanas, catalogo: lista }) };
@@ -1158,7 +1158,7 @@ function cargaVersion(ciclo, carrera, n) {
 }
 
 /* =====================================================================
-   ACCIÓN · Botón «Restaurar» de una versión del historial
+   ACCIÓN · Botón "Restaurar" de una versión del historial
    ===================================================================== */
 
 /**
@@ -1180,7 +1180,7 @@ function cargaRestaurar(ciclo, carrera, n) {
   const numero = v => { const s = texto(v).trim().replace(",", "."); return s !== "" && isFinite(Number(s)) ? Number(s) : null; };
   const claveDocente = nombre => N(texto(nombre).replace(/[.,]/g, " "));
   try {
-    /* PASO 1 · ¿Quién eres? (correo, dominio y tu fila de 📥 «Usuarios»: rol y departamento). */
+    /* PASO 1 · ¿Quién eres? (correo, dominio y tu fila de 📥 "Usuarios": rol y departamento). */
     const correo = texto(Session.getActiveUser().getEmail()).trim().toLowerCase();
     if (!correo) fallo("Acceso denegado: cuenta no identificada: Google no informó tu correo. Entra con tu cuenta " + CARGA_DOMINIO_ + ".");
     if (correo.slice(-CARGA_DOMINIO_.length) !== CARGA_DOMINIO_) fallo("Acceso denegado: cuenta fuera del dominio: solo pueden entrar cuentas " + CARGA_DOMINIO_ + ".");
@@ -1188,7 +1188,7 @@ function cargaRestaurar(ciclo, carrera, n) {
     if (rol !== "coordinador" && rol !== "director") fallo("Acceso denegado: cuenta sin rol: " + correo + " no figura como coordinador ni director en la pestaña Usuarios.");
     const departamento = texto(filaUsuario[3]).trim().toUpperCase();
 
-    /* PASO 2 · ¿Qué ciclo y qué carrera? 📥 SHEET · LEE «Ciclos» (vacío = el último) y «Carreras». */
+    /* PASO 2 · ¿Qué ciclo y qué carrera? 📥 SHEET · LEE "Ciclos" (vacío = el último) y "Carreras". */
     const ciclos = leer("Ciclos").map(x => x[0].trim()).filter(String);
     if (!ciclos.length) fallo("La pestaña Ciclos está vacía.");
     ciclo = texto(ciclo).trim() || ciclos[ciclos.length - 1];
@@ -1203,7 +1203,7 @@ function cargaRestaurar(ciclo, carrera, n) {
     const num = typeof n === "number" || (typeof n === "string" && n.trim()) ? Number(n) : NaN;
     if (!Number.isInteger(num) || num < 0) fallo("Versión inválida.");
 
-    /* PASO 4 · 📥 SHEET · LEE «Docentes»: el catálogo con los datos que usan las reglas. */
+    /* PASO 4 · 📥 SHEET · LEE "Docentes": el catálogo con los datos que usan las reglas. */
     const catalogo = {};
     leer("Docentes").forEach(f => {
       const docente = texto(f[0]).replace(/\s+/g, " ").trim(), k = claveDocente(docente);
@@ -1216,14 +1216,14 @@ function cargaRestaurar(ciclo, carrera, n) {
     const candado = LockService.getScriptLock();
     candado.waitLock(10000);
     try {
-      /* 5a · 📥 SHEET · LEE «Bloqueos»: si otra cuenta edita esta carga ahora (bloqueo vigente), no se restaura. Si el
+      /* 5a · 📥 SHEET · LEE "Bloqueos": si otra cuenta edita esta carga ahora (bloqueo vigente), no se restaura. Si el
          bloqueo es tuyo, se conserva. */
       const otro = leer("Bloqueos").map((f, i) => ({ fila: i + 2, cu: f[0].trim(), ciclo: f[1].trim(), carrera: f[2].trim().toUpperCase(),
         correo: f[3].trim().toLowerCase(), vigente: new Date(f[4].trim()).getTime() > Date.now() }))
         .filter(b => b.cu === "carga" && b.ciclo === ciclo && b.carrera === car.sigla).filter(b => b.vigente && b.correo !== correo)[0];
       if (otro) fallo("No se puede restaurar: la carga está en edición por " + otro.correo + ".");
 
-      /* 5b · 📥 SHEET · LEE «Planes»: el plan vigente de cada carrera (sin plan de esta carrera no hay secciones). */
+      /* 5b · 📥 SHEET · LEE "Planes": el plan vigente de cada carrera (sin plan de esta carrera no hay secciones). */
       const planes = {};
       leer("Planes").forEach(f => {
         const c = f[1].trim().toUpperCase(), v = Number(f[2]) || 0;
@@ -1263,7 +1263,7 @@ function cargaRestaurar(ciclo, carrera, n) {
           intl: /INTERNACIONAL|VIRTUAL/.test(N(texto(g.obs) + " " + texto(a.obs))), componentes });
       }));
 
-      /* 5d · 📥 SHEET · LEE «Cargas»: la versión n de esta carrera, la vigente (para el número de la nueva) y las vigentes de
+      /* 5d · 📥 SHEET · LEE "Cargas": la versión n de esta carrera, la vigente (para el número de la nueva) y las vigentes de
          las OTRAS carreras (sus horas cuentan en las reglas). */
       const todas = leer("Cargas").map(f => ({ ciclo: f[0].trim(), carrera: f[1].trim().toUpperCase(), version: Number(f[2]) || 0, usuario: f[3].trim(),
         fecha: f[4].trim(), motivo: texto(f[5]).trim(), contenido: texto(f[6]) })).filter(x => x.ciclo === ciclo && x.version > 0);
@@ -1329,7 +1329,7 @@ function cargaRestaurar(ciclo, carrera, n) {
       if (requiereMotivo)
         fallo("La v" + num + " necesita un motivo (A12) y no lo tiene: abre la carga, revísala y guárdala con un motivo.");
 
-      /* 5h · 📤 SHEET · ESCRIBE una fila NUEVA al final de «Cargas» con las asignaciones de la versión n (ya limpias), su
+      /* 5h · 📤 SHEET · ESCRIBE una fila NUEVA al final de "Cargas" con las asignaciones de la versión n (ya limpias), su
          motivo y restauradaDe: n. Primero se comprueba que el JSON quepa en una celda. Las demás versiones se quedan. */
       const version = vigentes[sigla].version + 1;
       const contenido = JSON.stringify({ asignaciones: nuevas, restauradaDe: num }), fecha = new Date(Date.now() - 5 * 3600000).toISOString().slice(0, 19) + "-05:00";
@@ -1340,7 +1340,7 @@ function cargaRestaurar(ciclo, carrera, n) {
       hojaCargas.getRange(hojaCargas.getLastRow(), 1, 1, celdas.length).setNumberFormat("@").setValues([celdas]);
 
       /* PASO 6 · ↩ RESPUESTA. ➡ SIGUE EN CargaDocenteVista.html → restaurar(n): vuelve a abrir la carga (abrir → cargaAbrir) y
-         muestra «Se restauró la vn como vM.» con las advertencias. */
+         muestra "Se restauró la vn como vM." con las advertencias. */
       return { ok: true, datos: { version, fecha, advertencias } };
     } finally { candado.releaseLock(); }
   } catch (e) {

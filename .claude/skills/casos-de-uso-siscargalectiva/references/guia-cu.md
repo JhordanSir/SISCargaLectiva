@@ -57,10 +57,11 @@ Lista numerada. Cada precondición debe ser algo de lo que el flujo básico **de
 Tabla `Término | Descripción`, en orden alfabético. Incluye toda sigla (DAHU, HT, HP, TH...), todo término de dominio que no sea de conocimiento común, y toda acción con nombre propio que uses en los pasos ("Agregar grupo", "Grupo principal"). Si usas un término tres o más veces en los flujos y no está aquí, falta en el glosario — esto es exactamente lo que revisa `scripts/lint_cu.py`.
 
 ### 2.1 Flujo básico
-En los documentos Word de `docs/CU/` es una tabla con el número y la acción del **ACTOR** y el número y la acción del **SISTEMA**, numerada desde 1 en orden de lectura (fila por fila, primero el actor). Dos reglas de formato que pidió el equipo el 2026-11-05 (`requirements.md`, sección 10, «Tablas de flujo de los CU»):
+En los documentos Word de `docs/CU/` es una tabla con el número y la acción del **ACTOR** y el número y la acción del **SISTEMA**, numerada desde 1 en orden de lectura (fila por fila, primero el actor). Tres reglas de formato que pidió el equipo el 2026-11-05 (`requirements.md`, sección 10, "Tablas de flujo de los CU"):
 
 - La respuesta del sistema va **en la misma fila** que la acción del actor que la provoca, nunca en una fila nueva con la celda del actor vacía. Los pasos del sistema que siguen van en filas propias.
-- El último paso, numerado dentro de la tabla, es «Fin del caso de uso.».
+- El último paso, numerado dentro de la tabla, es "Fin del caso de uso.".
+- Las citas (botones, pantallas, mensajes del sistema) van entre comillas dobles: "Guardar", "Acceso denegado". No se usan las comillas «». Una cita dentro de otra va entre comillas simples: "Semestre no reconocido: '<texto>'".
 
 Antes era una tabla `Paso | Responsable | Acción` en Markdown; los ejemplos de abajo conservan ese formato, pero las reglas de redacción son las mismas. Reglas no negociables (vienen directo del checklist "Forma"):
 

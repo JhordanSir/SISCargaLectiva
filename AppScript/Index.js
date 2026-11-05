@@ -1,5 +1,5 @@
 /* =====================================================================
-   Index.js · servidor de la carcasa (IndexVista.html: barra, «Acceso denegado» e Inicio)
+   Index.js · servidor de la carcasa (IndexVista.html: barra, "Acceso denegado" e Inicio)
    ---------------------------------------------------------------------
    CÓMO LEER ESTE ARCHIVO
    Cada función es una acción completa y se lee de arriba abajo (PASO 1, PASO 2…).
@@ -11,7 +11,7 @@
    QUÉ ACCIÓN LLAMA A QUÉ FUNCIÓN
      Abrir la URL de la app ..................... doGet
        └ pega las tres vistas en la página ........ include (lo usa IndexVista.html al armarse)
-     Al cargar la página, «¿quién soy?» ........... indexUsuario
+     Al cargar la página, "¿quién soy?" ........... indexUsuario
        ⬅ VIENE DE IndexVista.html → Alpine.store("usuario").cargar()
 
    Apps Script no admite un .js y un .html con el mismo nombre: por eso cada vista se llama
@@ -40,7 +40,7 @@ function doGet() {
 /**
  * Contenido de otro .html del proyecto, para pegarlo dentro de IndexVista.html.
  * ⬅ VIENE DE: las marcas <?!= include("InicioVista") ?> (y las otras dos) de IndexVista.html, durante doGet.
- * @param {string} nombre «InicioVista», «PlanDeCicloVista» o «CargaDocenteVista».
+ * @param {string} nombre "InicioVista", "PlanDeCicloVista" o "CargaDocenteVista".
  * @returns {string}
  */
 function include(nombre) {
@@ -48,14 +48,14 @@ function include(nombre) {
 }
 
 /**
- * ACCIÓN: la página acaba de cargar y pregunta «¿quién soy y qué rol tengo?».
+ * ACCIÓN: la página acaba de cargar y pregunta "¿quién soy y qué rol tengo?".
  * ⬅ VIENE DE: IndexVista.html → Alpine.store("usuario").cargar() (google.script.run.indexUsuario).
  * ↩ RESPUESTA: { ok: true, datos: { acceso, correo, rol, carreras, departamento, motivo? } } o { ok: false, error }.
  * Nunca lanza. Si la cuenta no puede entrar, ok sigue siendo true pero acceso es false y motivo dice por qué.
  * @returns {{ok: boolean, datos?: Object, error?: string}}
  */
 function indexUsuario() {
-  /* Respuesta de «no puedes entrar»: ok es true (no es un error del servidor), pero acceso es false. */
+  /* Respuesta de "no puedes entrar": ok es true (no es un error del servidor), pero acceso es false. */
   const denegar = (correo, motivo) =>
     ({ ok: true, datos: { acceso: false, correo: correo, rol: "", carreras: [], departamento: "", motivo: motivo } });
   try {
@@ -63,11 +63,11 @@ function indexUsuario() {
     const correo = String(Session.getActiveUser().getEmail() || "").trim().toLowerCase();
     if (!correo) return denegar("", "Cuenta no identificada: Google no informó tu correo. Entra con tu cuenta @ulasalle.edu.pe.");
 
-    /* PASO 2 · ¿Es una cuenta de la universidad? Los últimos caracteres tienen que ser «@ulasalle.edu.pe». */
+    /* PASO 2 · ¿Es una cuenta de la universidad? Los últimos caracteres tienen que ser "@ulasalle.edu.pe". */
     if (correo.slice(-INDEX_DOMINIO.length) !== INDEX_DOMINIO)
       return denegar(correo, "Cuenta fuera del dominio: solo pueden entrar cuentas " + INDEX_DOMINIO + ".");
 
-    /* PASO 3 · 📥 SHEET · LEE la pestaña «Usuarios» entera (columnas: correo, rol, carreras, departamento)
+    /* PASO 3 · 📥 SHEET · LEE la pestaña "Usuarios" entera (columnas: correo, rol, carreras, departamento)
        y busca la fila de este correo. slice(1) quita la fila de cabeceras. */
     const hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Usuarios");
     const filas = hoja ? hoja.getDataRange().getDisplayValues().slice(1) : [];
@@ -78,7 +78,7 @@ function indexUsuario() {
     if (rol !== "coordinador" && rol !== "director")
       return denegar(correo, "Cuenta sin rol: " + correo + " no figura como coordinador ni director en la pestaña Usuarios.");
 
-    /* PASO 5 · ↩ RESPUESTA con el rol. Las carreras vienen como «ING, ICO» y se vuelven ["ING", "ICO"].
+    /* PASO 5 · ↩ RESPUESTA con el rol. Las carreras vienen como "ING, ICO" y se vuelven ["ING", "ICO"].
        ➡ SIGUE EN IndexVista.html: el .then de cargar() copia estos datos en $store.usuario. */
     return {
       ok: true,
@@ -91,7 +91,7 @@ function indexUsuario() {
       }
     };
   } catch (e) {
-    /* Error inesperado (por ejemplo, el Sheet no responde): queda en el registro de Apps Script («Ejecuciones»). */
+    /* Error inesperado (por ejemplo, el Sheet no responde): queda en el registro de Apps Script ("Ejecuciones"). */
     console.error(e);
     return { ok: false, error: "No se pudo leer la pestaña Usuarios: " + (e && e.message ? e.message : e) };
   }

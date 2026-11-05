@@ -74,7 +74,7 @@ export function leerXlsx(ruta) {
 }
 
 /* Lo que muestra Excel en una celda numérica: General, o la fecha si el estilo es de fecha
-   (como «1-2» escrito en SEMESTRE, que Excel guarda como 1 de febrero con formato «d-m»). */
+   (como "1-2" escrito en SEMESTRE, que Excel guarda como 1 de febrero con formato "d-m"). */
 const FECHAS_PREDEFINIDAS = { 14: "m/d/yy", 15: "d-mmm-yy", 16: "d-mmm", 17: "mmm-yy", 22: "m/d/yy h:mm" };
 function leerEstilos(xml) {
   const formatos = Object.fromEntries([...xml.matchAll(/<numFmt\b[^>]*numFmtId="(\d+)"[^>]*formatCode="([^"]*)"/g)]
@@ -302,7 +302,7 @@ export function crearEntorno(op = {}) {
     ctx, hojas, estado,
     como(correo) { estado.usuario = correo; return this; },
     avanzar(ms) { estado.desfase += ms; return this; },
-    /** Como google.script.run: solo funciones públicas (sin «_») y el resultado pasa por JSON. */
+    /** Como google.script.run: solo funciones públicas (sin "_") y el resultado pasa por JSON. */
     llamar(nombre, ...args) {
       if (/_$/.test(nombre) || typeof ctx[nombre] !== "function") throw new Error("Script function not found: " + nombre);
       const r = ctx[nombre](...JSON.parse(JSON.stringify(args)));
@@ -504,7 +504,7 @@ const AYUDAS = `(() => {
   window.__sis = {
     vistos,
     botones: (t, raiz) => [...(raiz || document).querySelectorAll("button")].filter(b => visible(b) && (texto(b) === t || texto(b).startsWith(t))),
-    boton(t, raiz) { const b = this.botones(t, raiz)[0]; if (!b) throw new Error("No hay botón visible «" + t + "»"); return b; },
+    boton(t, raiz) { const b = this.botones(t, raiz)[0]; if (!b) throw new Error('No hay botón visible "' + t + '"'); return b; },
     fila(t) { return [...document.querySelectorAll("tr")].find(tr => visible(tr) && [...tr.cells].some(td => texto(td) === t || texto(td).split(" ")[0] === t)); },
     escribir(el, valor) { el.value = valor; el.dispatchEvent(new Event("input", { bubbles: true })); el.dispatchEvent(new Event("change", { bubbles: true })); },
     textoVisible: () => document.body.innerText
@@ -512,17 +512,17 @@ const AYUDAS = `(() => {
   return true;
 })()`;
 
-/** Pulsa un botón que llama al servidor y comprueba que pasa por «textoCarga» y vuelve a estar habilitado. */
+/** Pulsa un botón que llama al servidor y comprueba que pasa por "textoCarga" y vuelve a estar habilitado. */
 async function pulsarConCarga(p, textoBoton, textoCarga, { raiz = "", despues = textoBoton } = {}) {
   await p.evaluar(AYUDAS);
   const sel = `__sis.botones(${JSON.stringify(textoBoton)}${raiz ? ", " + raiz : ""}).find(b => !b.disabled)`;
-  await p.esperar("!!" + sel, 15000, "«" + textoBoton + "» habilitado");
+  await p.esperar("!!" + sel, 15000, "\"" + textoBoton + "\" habilitado");
   await p.evaluar(`__sis.vistos.clear(); ${sel}.click(); true`);
-  await p.esperar(`__sis.vistos.has(${JSON.stringify(textoCarga)})`, 10000, "«" + textoBoton + "» muestra «" + textoCarga + "»");
+  await p.esperar(`__sis.vistos.has(${JSON.stringify(textoCarga)})`, 10000, "\"" + textoBoton + "\" muestra \"" + textoCarga + "\"");
   await p.esperar(`!document.querySelector("button:disabled") || ![...document.querySelectorAll("button")].some(b => b.disabled && b.textContent.includes(${JSON.stringify(textoCarga)}))`,
-    30000, "«" + textoCarga + "» termina");
+    30000, "\"" + textoCarga + "\" termina");
   if (despues) await p.esperar(`__sis.botones(${JSON.stringify(despues)}).some(b => !b.disabled) || true`, 5000);
-  asegurar(true, "«" + textoBoton + "» muestra «" + textoCarga + "» mientras espera al servidor y luego vuelve");
+  asegurar(true, "\"" + textoBoton + "\" muestra \"" + textoCarga + "\" mientras espera al servidor y luego vuelve");
 }
 
 async function ir(p, url) {
@@ -535,7 +535,7 @@ async function ir(p, url) {
 async function navegarA(p, texto, vista) {
   await p.evaluar(`__sis.boton(${JSON.stringify(texto)}, document.querySelector(".inicio") || document).click(); true`);
   await p.esperar(`Alpine.store("nav").vista === ${JSON.stringify(vista)}`, 5000, "vista " + vista);
-  asegurar(true, "«" + texto + "» abre la vista " + vista + " ($store.nav)");
+  asegurar(true, "\"" + texto + "\" abre la vista " + vista + " ($store.nav)");
 }
 
 async function recorrerPlan(p, { carrera, tsv, fusionarCon }) {
@@ -639,10 +639,10 @@ async function recorridoLocal() {
     console.log("Acceso");
     await ir(p, local.url + "?usuario=alguien@gmail.com");
     await p.esperar("Alpine.store('nav').vista === 'denegado' && /Cuenta fuera del dominio/.test(__sis.textoVisible())", 5000, "acceso denegado");
-    asegurar(true, "una cuenta fuera de @ulasalle.edu.pe ve «Acceso denegado» con el motivo");
+    asegurar(true, "una cuenta fuera de @ulasalle.edu.pe ve \"Acceso denegado\" con el motivo");
     await ir(p, local.url + "?usuario=sinrol@ulasalle.edu.pe");
     await p.esperar("Alpine.store('nav').vista === 'denegado' && /Cuenta sin rol/.test(__sis.textoVisible())", 5000, "sin rol");
-    asegurar(true, "una cuenta sin rol ve «Acceso denegado»");
+    asegurar(true, "una cuenta sin rol ve \"Acceso denegado\"");
 
     console.log("CU-001 como coordinador de ING");
     await ir(p, local.url + "?usuario=mfloresl@ulasalle.edu.pe");

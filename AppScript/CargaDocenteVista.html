@@ -1,25 +1,25 @@
 <!-- =====================================================================
-     CargaDocenteVista.html · vista del CU-002 «Carga docente»
+     CargaDocenteVista.html · vista del CU-002 "Carga docente"
      ---------------------------------------------------------------------
      Arriba está el marcado (lo que se ve) y abajo, en el bloque de JavaScript, el componente
-     «cargaDocente» con un método por acción. Su servidor es CargaDocente.js: cada método que habla con el
-     servidor llama a la función de mismo verbo con prefijo «carga» (guardar() → cargaGuardar).
+     "cargaDocente" con un método por acción. Su servidor es CargaDocente.js: cada método que habla con el
+     servidor llama a la función de mismo verbo con prefijo "carga" (guardar() → cargaGuardar).
      QUÉ DISPARA CADA BOTÓN (método de abajo → función de CargaDocente.js)
-       Abrir la vista / «Ciclo» ......... inicio()           → cargaInicio
-       «Editar» / «Ver» ................. abrir(sigla)       → cargaAbrir      (toma el bloqueo)
-       «Interpretar» / «Elegir archivo» . interpretar() / leerArchivo() → cargaInterpretar
-       «Aplicar a la tabla», «Descartar», escribir un docente, «Usar»
+       Abrir la vista / "Ciclo" ......... inicio()           → cargaInicio
+       "Editar" / "Ver" ................. abrir(sigla)       → cargaAbrir      (toma el bloqueo)
+       "Interpretar" / "Elegir archivo" . interpretar() / leerArchivo() → cargaInterpretar
+       "Aplicar a la tabla", "Descartar", escribir un docente, "Usar"
                                           solo cambian doc.secciones en el navegador (no llaman al servidor)
-       «Buscar» ......................... buscarDocentes()   → cargaBuscarDocentes
-       «Guardar» ........................ guardar()          → cargaGuardar    (reglas A07–A15; fila nueva en Cargas)
-       «Salir» .......................... salir()            → cargaSalir      (suelta el bloqueo)
-       «Historial» / «Ver» / «Restaurar» / «Volver»  historial() / version(n) / restaurar(n) / volver()
+       "Buscar" ......................... buscarDocentes()   → cargaBuscarDocentes
+       "Guardar" ........................ guardar()          → cargaGuardar    (reglas A07–A15; fila nueva en Cargas)
+       "Salir" .......................... salir()            → cargaSalir      (suelta el bloqueo)
+       "Historial" / "Ver" / "Restaurar" / "Volver"  historial() / version(n) / restaurar(n) / volver()
                                           → cargaHistorial / cargaVersion / cargaRestaurar / (sin servidor)
        (cada 5 min, solo) ............... mantener()         → cargaMantener
      ===================================================================== -->
 <section x-show="$store.nav.vista === 'carga'" x-data="cargaDocente" x-cloak>
   <h2>Carga docente</h2>
-  <!-- Selector «Ciclo». Al cambiarlo → inicio() → cargaInicio. Se deshabilita mientras hay una llamada o una carga abierta. -->
+  <!-- Selector "Ciclo". Al cambiarlo → inicio() → cargaInicio. Se deshabilita mientras hay una llamada o una carga abierta. -->
   <div class="fila">
     <label>Ciclo
       <select x-model="ciclo" @change="inicio()" :disabled="!!(ocupado || doc)">
@@ -61,7 +61,7 @@
             </td>
             <td class="num" x-text="c.versionPlan ? c.asignados + '/' + c.componentes + ' con docente' : ''"></td>
             <td>
-              <!-- «Editar» (azul, carreras de tu departamento) o «Ver» → abrir(sigla) → cargaAbrir. Sin plan no aparece. -->
+              <!-- "Editar" (azul, carreras de tu departamento) o "Ver" → abrir(sigla) → cargaAbrir. Sin plan no aparece. -->
               <button class="chico" :class="{ primario: c.puedeEditar }" x-show="c.versionPlan" :disabled="!!ocupado" @click="abrir(c.sigla)"
                       x-text="ocupado === 'abrir' && pedida === c.sigla ? 'Abriendo…' : (c.puedeEditar ? 'Editar' : 'Ver')"></button>
             </td>
@@ -80,8 +80,8 @@
         <span class="marca lectura" x-show="doc.modo === 'lectura'" x-text="vistaVersion ? 'Versión ' + vistaVersion + ' · solo lectura' : doc.motivo"></span>
         <span class="marca des" x-show="doc.modo === 'edicion'" x-text="'Bloqueo hasta ' + doc.vence.slice(11, 16)"></span>
       </div>
-      <!-- «Volver» → volver() (sin servidor) · «Guardar» → guardar() → cargaGuardar · «Salir» → salir() → cargaSalir
-           · «Historial» → historial() → cargaHistorial -->
+      <!-- "Volver" → volver() (sin servidor) · "Guardar" → guardar() → cargaGuardar · "Salir" → salir() → cargaSalir
+           · "Historial" → historial() → cargaHistorial -->
       <div class="fila">
         <button x-show="vistaVersion" @click="volver()">Volver</button>
         <button class="primario" x-show="editable()" :disabled="!!ocupado" @click="guardar()"
@@ -96,7 +96,7 @@
         <textarea x-model="motivo" @input="tocar()" style="min-height: 60px" placeholder="Por qué un docente con cargo pasa de 24 h"></textarea>
       </div>
 
-      <!-- PANEL HISTORIAL (lo llena historial()). «Ver» → version(n) → cargaVersion · «Restaurar» → restaurar(n) → cargaRestaurar. -->
+      <!-- PANEL HISTORIAL (lo llena historial()). "Ver" → version(n) → cargaVersion · "Restaurar" → restaurar(n) → cargaRestaurar. -->
       <div class="panel" x-show="versiones.length && !vistaVersion">
         <h3>Historial</h3>
         <table>
@@ -117,8 +117,8 @@
         </table>
       </div>
 
-      <!-- CARGA MASIVA. «Interpretar» → interpretar() → cargaInterpretar. «Elegir archivo» → leerArchivo() → interpretar().
-           En la previsualización: «Aplicar a la tabla» → aplicar() y «Descartar» → descartar() (sin servidor). -->
+      <!-- CARGA MASIVA. "Interpretar" → interpretar() → cargaInterpretar. "Elegir archivo" → leerArchivo() → interpretar().
+           En la previsualización: "Aplicar a la tabla" → aplicar() y "Descartar" → descartar() (sin servidor). -->
       <div class="panel" x-show="editable()">
         <h3>Carga masiva</h3>
         <textarea x-model="masivo.texto" placeholder="Pega aquí el rango copiado de la hoja CargaXDepartamento (con la fila de cabeceras DOCENTE, CARRERA, SEMESTRE, CODIGO…)"></textarea>
@@ -163,7 +163,7 @@
          x-text="'Asignaciones que ya no están en el plan (se pierden al guardar): ' + doc.huerfanas.map(h => h.codigo + ' ' + h.comp + ' · ' + h.docente).join('; ')"></p>
 
       <!-- SECCIONES: una fila por grupo asignable (doc.secciones) y un campo de docente por componente (T, P, P1…).
-           Escribir en el campo cambia c.docente (✎ solo memoria) y llama a tocar(). Al enfocarlo, «Usar» sabrá dónde escribir. -->
+           Escribir en el campo cambia c.docente (✎ solo memoria) y llama a tocar(). Al enfocarlo, "Usar" sabrá dónde escribir. -->
       <div class="tabla">
         <table>
           <thead><tr><th>Sem.</th><th>Código</th><th>Asignatura</th><th>Grupo</th><th>DPTO</th><th>Marcas</th><th>Docente por componente</th></tr></thead>
@@ -207,7 +207,7 @@
     </div>
   </template>
 
-  <!-- BUSCAR DOCENTE (siempre visible). «Buscar» o Enter → buscarDocentes() → cargaBuscarDocentes. «Usar» → usar(r) (sin servidor). -->
+  <!-- BUSCAR DOCENTE (siempre visible). "Buscar" o Enter → buscarDocentes() → cargaBuscarDocentes. "Usar" → usar(r) (sin servidor). -->
   <div class="panel">
     <h3>Buscar docente</h3>
     <div class="fila">
@@ -233,7 +233,7 @@
 
 <script>
   /* =====================================================================
-     Componente «cargaDocente»: la memoria y los métodos de la sección del CU-002 (arriba, x-data="cargaDocente").
+     Componente "cargaDocente": la memoria y los métodos de la sección del CU-002 (arriba, x-data="cargaDocente").
      ---------------------------------------------------------------------
      CÓMO LEER ESTE BLOQUE
      • Los métodos están en el orden en que se usan: abrir la vista → abrir una carga → latido / salir →
@@ -241,11 +241,11 @@
      • Marcas:
          📡 → SERVIDOR    aquí sale la llamada a CargaDocente.js (google.script.run). Allí sigue la historia.
          ⬅ VUELVE         aquí llega la respuesta { ok, datos } o { ok: false, error }.
-         ✎ SOLO MEMORIA   el cambio vive en doc.secciones (el navegador); el Sheet no se entera hasta «Guardar».
+         ✎ SOLO MEMORIA   el cambio vive en doc.secciones (el navegador); el Sheet no se entera hasta "Guardar".
      • Todas las llamadas al servidor siguen el mismo patrón, escrito en cada método:
          1. Si ya hay una llamada en curso (ocupado no está vacío), este clic no hace nada.
          2. this.ocupado = "acción": deshabilita todos los botones (:disabled="!!ocupado") y cambia el texto del
-            botón pulsado («Guardando…»); se borra el error y se marca actividad (la mira el latido).
+            botón pulsado ("Guardando…"); se borra el error y se marca actividad (la mira el latido).
          3. google.script.run.withSuccessHandler(…).withFailureHandler(…)["cargaX"](…) envuelto en una promesa
             para poder esperarlo con await. Si la respuesta no es ok, el mensaje queda en this.error.
          4. finally: this.ocupado = "" (los botones se habilitan siempre, salga bien o mal).
@@ -255,11 +255,11 @@
   document.addEventListener("alpine:init", () => {
     Alpine.data("cargaDocente", () => ({
       /* ---------- Memoria del componente ----------
-         ocupado: acción en curso ("" = ninguna) · error / exito: mensajes · pedida: qué fila pidió (para «Abriendo…»)
+         ocupado: acción en curso ("" = ninguna) · error / exito: mensajes · pedida: qué fila pidió (para "Abriendo…")
          ciclos, ciclo, carreras: la tabla · doc: la carga abierta (o la versión que se está viendo) · anterior: tu
          edición guardada mientras ves una versión · vistaVersion: número de la versión que se ve (0 = ninguna)
          versiones: el historial · masivo: texto pegado y resultado de interpretar · busqueda, resultados, total: el
-         buscador · elegido: el último docente «Usar» · enfocado: el último campo de docente que tocaste
+         buscador · elegido: el último docente "Usar" · enfocado: el último campo de docente que tocaste
          advertencias, requiereMotivo, motivo: lo que devuelve Guardar · cambios: hay algo sin guardar
          actividad: tocaste algo (lo mira el latido) · reloj: el latido de 5 min */
       ocupado: "", error: "", exito: "", listo: false, pedida: "",
@@ -291,22 +291,22 @@
       /* =================================================================
          AYUDAS QUE USA EL MARCADO
          ================================================================= */
-      /* fechaCorta: «2026-11-04T21:56:12-05:00» → «2026-11-04 21:56». */
+      /* fechaCorta: "2026-11-04T21:56:12-05:00" → "2026-11-04 21:56". */
       fechaCorta(f) { return f ? f.slice(0, 10) + " " + f.slice(11, 16) : ""; },
       /* editable(): se pueden escribir docentes, usar la carga masiva y Guardar. Falso en lectura o viendo una versión. */
       editable() { return !!this.doc && this.doc.modo === "edicion" && !this.vistaVersion; },
-      /* puede(): «Restaurar» del historial solo aparece si eres director de esa carrera (dato de la tabla de carreras). */
+      /* puede(): "Restaurar" del historial solo aparece si eres director de esa carrera (dato de la tabla de carreras). */
       puede() { const d = this.anterior || this.doc, c = d && this.carreras.find(x => x.sigla === d.carrera); return !!(c && c.puedeEditar); },
       /* tocar(): lo llaman el campo de docente y el motivo al escribir (✎ SOLO MEMORIA): hay cambios y hubo actividad. */
       tocar() { this.cambios = true; this.actividad = true; },
 
       /* =================================================================
-         ACCIÓN · Abrir la vista o cambiar el selector «Ciclo» → tabla de carreras
+         ACCIÓN · Abrir la vista o cambiar el selector "Ciclo" → tabla de carreras
          ================================================================= */
       async inicio() {
         let r = null;
         if (!this.ocupado) {
-          /* PASO 1 · «Cargando…» y selector deshabilitado. */
+          /* PASO 1 · "Cargando…" y selector deshabilitado. */
           this.ocupado = "inicio";
           this.error = "";
           this.actividad = true;
@@ -328,10 +328,10 @@
       },
 
       /* =================================================================
-         ACCIÓN · Botón «Editar» / «Ver» de una carrera
+         ACCIÓN · Botón "Editar" / "Ver" de una carrera
          ================================================================= */
       async abrir(sigla) {
-        /* PASO 1 · Recuerda qué fila se pidió, para poner «Abriendo…» solo en ese botón. */
+        /* PASO 1 · Recuerda qué fila se pidió, para poner "Abriendo…" solo en ese botón. */
         this.pedida = sigla;
         let r = null;
         if (!this.ocupado) {
@@ -357,7 +357,7 @@
         Object.assign(this, { reloj: null, doc: null, anterior: null, vistaVersion: 0, versiones: [], masivo: { texto: "", resultado: null },
           motivo: "", requiereMotivo: false, cambios: false, actividad: false, enfocado: null, elegido: "" });
         /* PASO 5 · Muestra la carga (template x-if="doc"). Desde aquí, los docentes que escribas viven en doc.secciones hasta
-           pulsar «Guardar». */
+           pulsar "Guardar". */
         Object.assign(this, { doc: r, exito: "", advertencias: [] });
         /* PASO 6 · En edición, programa el latido: cada 5 minutos, si hubo actividad y no hay otra llamada → mantener() (abajo). */
         if (r.modo === "edicion") this.reloj = setInterval(() => { if (this.actividad && !this.ocupado) this.mantener(); }, 5 * 60000);
@@ -367,7 +367,7 @@
          ACCIÓN · Latido cada 5 minutos (lo dispara el reloj de abrir)
          ================================================================= */
       async mantener() {
-        /* PASO 1 · La carga en edición (si estás viendo una versión, la tuya está guardada en «anterior»). Sin edición, nada. */
+        /* PASO 1 · La carga en edición (si estás viendo una versión, la tuya está guardada en "anterior"). Sin edición, nada. */
         const d = this.anterior || this.doc;
         if (!(d && d.modo === "edicion")) return;
         let r = null;
@@ -376,12 +376,12 @@
           this.error = "";
           this.actividad = true;
           try {
-            /* PASO 2 · 📡 → SERVIDOR: CargaDocente.js → cargaMantener(ciclo, carrera). Reescribe «vence» en Bloqueos. */
+            /* PASO 2 · 📡 → SERVIDOR: CargaDocente.js → cargaMantener(ciclo, carrera). Reescribe "vence" en Bloqueos. */
             const respuesta = await new Promise((listo, mal) => google.script.run
               .withSuccessHandler(listo)
               .withFailureHandler(mal)
               ["cargaMantener"](d.ciclo, d.carrera));
-            /* PASO 3 · ⬅ VUELVE con { vence } o con «Tu bloqueo venció o lo tomó otra cuenta…». */
+            /* PASO 3 · ⬅ VUELVE con { vence } o con "Tu bloqueo venció o lo tomó otra cuenta…". */
             if (!respuesta || !respuesta.ok) throw new Error((respuesta && respuesta.error) || "Respuesta vacía del servidor.");
             r = respuesta.datos;
           } catch (e) { this.error = (e && e.message) || String(e); }
@@ -402,7 +402,7 @@
       },
 
       /* =================================================================
-         ACCIÓN · Botón «Salir»
+         ACCIÓN · Botón "Salir"
          ================================================================= */
       async salir() {
         /* PASO 1 · Si hay cambios sin guardar, pregunta antes de perderlos. Cancelar = no pasa nada. */
@@ -438,7 +438,7 @@
       },
 
       /* =================================================================
-         ACCIÓN · Botón «Guardar»
+         ACCIÓN · Botón "Guardar"
          ================================================================= */
       /* asignaciones(): lo que se manda al guardar: { clave, comp, docente } de cada componente con docente escrito. */
       asignaciones() {
@@ -454,7 +454,7 @@
         const d = this.doc;
         let r = null;
         if (!this.ocupado) {
-          /* PASO 1 · «Guardando…» y todos los botones deshabilitados. */
+          /* PASO 1 · "Guardando…" y todos los botones deshabilitados. */
           this.ocupado = "guardar";
           this.error = "";
           this.actividad = true;
@@ -475,7 +475,7 @@
         }
         if (!r) {
           /* PASO 3b · Si el error es que se perdió el bloqueo: cierra la carga y vuelve a la tabla con el mensaje.
-             Con cualquier otro error (por ejemplo «Hay una versión más nueva…») sigues en la carga con tus cambios. */
+             Con cualquier otro error (por ejemplo "Hay una versión más nueva…") sigues en la carga con tus cambios. */
           if (this.error.indexOf("Tu bloqueo") === 0) {
             const mensaje = this.error;
             if (this.reloj) clearInterval(this.reloj);
@@ -486,7 +486,7 @@
           }
           return;
         }
-        /* PASO 4 · Las advertencias se muestran siempre (panel de arriba, x-for). requiereMotivo muestra el campo «Motivo (A12)». */
+        /* PASO 4 · Las advertencias se muestran siempre (panel de arriba, x-for). requiereMotivo muestra el campo "Motivo (A12)". */
         this.advertencias = r.advertencias;
         this.requiereMotivo = r.requiereMotivo;
         if (!r.guardado) {
@@ -500,18 +500,18 @@
         Object.assign(this, { reloj: null, doc: null, anterior: null, vistaVersion: 0, versiones: [], masivo: { texto: "", resultado: null },
           motivo: "", requiereMotivo: false, cambios: false, actividad: false, enfocado: null, elegido: "" });
         await this.inicio();
-        /* PASO 6 · Franja verde «Guardado como vN» y las advertencias sobre la tabla. */
+        /* PASO 6 · Franja verde "Guardado como vN" y las advertencias sobre la tabla. */
         Object.assign(this, { exito: "Guardado como v" + r.version, advertencias: r.advertencias });
       },
 
       /* =================================================================
-         ACCIÓN · Botón «Interpretar» de la carga masiva
+         ACCIÓN · Botón "Interpretar" de la carga masiva
          ================================================================= */
       async interpretar() {
         const d = this.doc;
         let r = null;
         if (!this.ocupado) {
-          /* PASO 1 · «Interpretando…»; también se deshabilita «Elegir archivo». */
+          /* PASO 1 · "Interpretando…"; también se deshabilita "Elegir archivo". */
           this.ocupado = "interpretar";
           this.error = "";
           this.actividad = true;
@@ -527,12 +527,12 @@
           } catch (e) { this.error = (e && e.message) || String(e); }
           finally { this.ocupado = ""; }
         }
-        /* PASO 4 · Muestra la previsualización (template x-if="masivo.resultado") con «Aplicar a la tabla» y «Descartar».
+        /* PASO 4 · Muestra la previsualización (template x-if="masivo.resultado") con "Aplicar a la tabla" y "Descartar".
            La tabla de secciones todavía no cambia. */
         this.masivo.resultado = r;
       },
 
-      /* ---------- «o sube un CSV» (elegir un archivo .csv) ---------- */
+      /* ---------- "o sube un CSV" (elegir un archivo .csv) ---------- */
       async leerArchivo(evento) {
         /* PASO 1 · El archivo elegido; solo .csv (para .xlsx hay que copiar el rango y pegarlo). */
         const archivo = evento.target.files[0];
@@ -554,7 +554,7 @@
         await this.interpretar();
       },
 
-      /* ---------- Botón «Aplicar a la tabla» (✎ SOLO MEMORIA) ---------- */
+      /* ---------- Botón "Aplicar a la tabla" (✎ SOLO MEMORIA) ---------- */
       aplicar() {
         /* Vuelca cada asignación de la previsualización en el campo de su componente (por clave + componente). */
         const r = this.masivo.resultado, porClave = {};
@@ -572,16 +572,16 @@
         return n;
       },
 
-      /* ---------- Botón «Descartar»: olvida la previsualización (no cambia nada) ---------- */
+      /* ---------- Botón "Descartar": olvida la previsualización (no cambia nada) ---------- */
       descartar() { this.masivo = { texto: "", resultado: null }; },
 
       /* =================================================================
-         ACCIÓN · Botón «Buscar» del panel «Buscar docente» (o Enter en su campo)
+         ACCIÓN · Botón "Buscar" del panel "Buscar docente" (o Enter en su campo)
          ================================================================= */
       async buscarDocentes() {
         let r = null;
         if (!this.ocupado) {
-          /* PASO 1 · «Buscando…». */
+          /* PASO 1 · "Buscando…". */
           this.ocupado = "buscar";
           this.error = "";
           this.actividad = true;
@@ -602,7 +602,7 @@
         this.total = r ? r.total : 0;
       },
 
-      /* ---------- Botón «Usar» de un resultado (✎ SOLO MEMORIA) ----------
+      /* ---------- Botón "Usar" de un resultado (✎ SOLO MEMORIA) ----------
          Lo pone en el último campo de docente que tocaste: cada campo tiene @focus="enfocado = c" (una referencia al
          componente), así que escribir en enfocado.docente llena ese campo. */
       usar(r) {
@@ -611,13 +611,13 @@
       },
 
       /* =================================================================
-         ACCIÓN · Botón «Historial»
+         ACCIÓN · Botón "Historial"
          ================================================================= */
       async historial() {
         const d = this.doc;
         let r = null;
         if (!this.ocupado) {
-          /* PASO 1 · «Buscando versiones…». */
+          /* PASO 1 · "Buscando versiones…". */
           this.ocupado = "historial";
           this.error = "";
           this.actividad = true;
@@ -638,10 +638,10 @@
       },
 
       /* =================================================================
-         ACCIÓN · Botón «Ver» de una versión del historial
+         ACCIÓN · Botón "Ver" de una versión del historial
          ================================================================= */
       async version(n) {
-        /* PASO 1 · La carga en edición (o la que ya estaba guardada en «anterior») y qué versión se pidió («Abriendo…»). */
+        /* PASO 1 · La carga en edición (o la que ya estaba guardada en "anterior") y qué versión se pidió ("Abriendo…"). */
         const d = this.anterior || this.doc;
         this.pedida = n;
         let r = null;
@@ -662,16 +662,16 @@
           finally { this.ocupado = ""; }
         }
         if (!r) return;
-        /* PASO 4 · Tu edición se guarda en «anterior» (una sola vez) y se muestra la versión n. «Volver» la recupera. */
+        /* PASO 4 · Tu edición se guarda en "anterior" (una sola vez) y se muestra la versión n. "Volver" la recupera. */
         if (!this.anterior) this.anterior = this.doc;
         Object.assign(this, { doc: r, vistaVersion: n });
       },
 
-      /* ---------- Botón «Volver»: deja de ver la versión y recupera tu edición, intacta ---------- */
+      /* ---------- Botón "Volver": deja de ver la versión y recupera tu edición, intacta ---------- */
       volver() { Object.assign(this, { doc: this.anterior, anterior: null, vistaVersion: 0 }); },
 
       /* =================================================================
-         ACCIÓN · Botón «Restaurar» de una versión del historial
+         ACCIÓN · Botón "Restaurar" de una versión del historial
          ================================================================= */
       async restaurar(n) {
         /* PASO 1 · Confirma: se creará una versión NUEVA con el contenido de la vn (y se pierde lo no guardado). */
