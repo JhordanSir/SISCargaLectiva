@@ -14,6 +14,10 @@
      Al cargar la página, "¿quién soy?" ........... indexUsuario
        ⬅ VIENE DE IndexVista.html → Alpine.store("usuario").cargar()
 
+   QUÉ PESTAÑAS TOCA CADA FUNCIÓN   (📥 lee · 📤 escribe · 🗑 borra · 🔒 candado)
+     indexUsuario ........... 📥 Usuarios
+     Sale del código: una prueba de pruebas/logica.test.mjs avisa si este cuadro y el código no coinciden.
+
    Apps Script no admite un .js y un .html con el mismo nombre: por eso cada vista se llama
    <Nombre>Vista.html y su servidor <Nombre>.js. Este archivo no usa nada de PlanDeCiclo.js ni de
    CargaDocente.js, y ellos tampoco lo usan.

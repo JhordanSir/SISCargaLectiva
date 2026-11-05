@@ -1,6 +1,7 @@
 /* Pruebas de la lógica de la aplicación: node --test AppScript/pruebas/logica.test.mjs
    Cargan los .js en un contexto vm con Apps Script falso (recorrido.mjs → crearEntorno) y los
-   <script> de las vistas con un Alpine falso. Tres bloques: la carcasa, CU-001 y CU-002. */
+   <script> de las vistas con un Alpine falso. Cuatro bloques: la carcasa, CU-001, CU-002 y los comentarios (que
+   las pestañas del Sheet que nombran sean las que usa el código). */
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -1709,5 +1710,103 @@ describe("CU-002 · CargaDocente.js y CargaDocenteVista.html", () => {
     const e = entorno({ planes: { ING: PLAN_REGLAS } });
     delete e.hojas.Docentes;
     falla(e.llamar("cargaBuscarDocentes", CICLO, "perez"), /^Falta la pestaña "Docentes" en la hoja\.$/);
+  });
+});
+
+describe("Comentarios · las pestañas del Sheet que nombran son las que usa el código", () => {
+  const leer = n => fs.readFileSync(path.join(RAIZ, n), "utf8");
+  const SERVIDOR = ["Index.js", "PlanDeCiclo.js", "CargaDocente.js"];
+  const VISTAS = { "IndexVista.html": "Index.js", "PlanDeCicloVista.html": "PlanDeCiclo.js", "CargaDocenteVista.html": "CargaDocente.js" };
+  const sinComentarios = t => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/<!--[\s\S]*?-->/g, "");
+  const ordenado = o => ({ lee: [...o.lee].sort(), escribe: [...o.escribe].sort(), borra: [...o.borra].sort(), candado: o.candado });
+
+  /* Lo que hace cada función pública de los .js, leído del código (sin comentarios): qué pestañas lee (leer("X") o
+     getDataRange), escribe (appendRow, o getRange…setValues con datos), borra (deleteRow, o setValues con una fila vacía) y
+     si toma el candado (waitLock). Una hoja guardada en una constante (const h = pestana("X")) cuenta como la pestaña X. */
+  const delCodigo = () => {
+    const out = {};
+    for (const archivo of SERVIDOR) {
+      const lineas = leer(archivo).split("\n");
+      lineas.forEach((l, i) => {
+        const m = /^function (\w+)\(/.exec(l);
+        if (!m || m[1] === "doGet" || m[1] === "include") return;
+        let fin = i;
+        while (!lineas[fin].startsWith("}")) fin++;
+        const cuerpo = sinComentarios(lineas.slice(i, fin + 1).join("\n"));
+        const o = { lee: [], escribe: [], borra: [], candado: cuerpo.includes("waitLock(") };
+        const hojas = Object.fromEntries([...cuerpo.matchAll(
+          /const (\w+) = (?:SpreadsheetApp\.getActiveSpreadsheet\(\)\.getSheetByName|pestana)\("(\w+)"\)/g)].map(x => [x[1], x[2]]));
+        for (const linea of cuerpo.split("\n")) {
+          const eventos = [...linea.matchAll(/leer\("(\w+)"\)/g)].map(x => [x.index, "lee", x[1]]);
+          for (const x of linea.matchAll(/(?:pestana\("(\w+)"\)|\b(\w+))\.(appendRow|deleteRow|getDataRange|getRange)\b/g)) {
+            const t = x[1] || hojas[x[2]];
+            if (!t) continue;
+            const k = { appendRow: "escribe", deleteRow: "borra", getDataRange: "lee" }[x[3]]
+              || (!linea.includes("setValues(") ? "lee" : /vacias|\[\["", ""/.test(linea) ? "borra" : "escribe");
+            eventos.push([x.index, k, t]);
+          }
+          eventos.sort((a, b) => a[0] - b[0]).forEach(([, k, t]) => { if (!o[k].includes(t)) o[k].push(t); });
+        }
+        out[m[1]] = o;
+      });
+    }
+    return out;
+  };
+
+  /* "📥 A, B · 📤 C · 🗑 D · 🔒 candado" → { lee, escribe, borra, candado }. */
+  const leerResumen = (t, donde) => {
+    const o = { lee: [], escribe: [], borra: [], candado: false };
+    for (const parte of t.split(" · ")) {
+      const m = /^(📥|📤|🗑) (\w+(?:, \w+)*)$/u.exec(parte.trim());
+      if (parte.trim() === "🔒 candado") o.candado = true;
+      else if (m) o[{ "📥": "lee", "📤": "escribe", "🗑": "borra" }[m[1]]] = m[2].split(", ");
+      else assert.fail(donde + ": no entiendo \"" + parte + "\"");
+    }
+    return ordenado(o);
+  };
+
+  test("el código solo usa métodos del Sheet que esta prueba sabe leer", () => {
+    for (const archivo of SERVIDOR) {
+      const raros = sinComentarios(leer(archivo)).match(
+        /\.(setValue|deleteRows|insertRows?|insertRows?(?:Before|After)|clear\w*|insertSheet|deleteSheet|setFormulas?|copyTo|moveTo|getValues)\(/g);
+      assert.equal(raros, null, archivo + " usa " + raros + ": enséñale a delCodigo() qué hace");
+    }
+  });
+
+  test("el cuadro \"QUÉ PESTAÑAS TOCA CADA FUNCIÓN\" de cada .js dice lo que hace cada función", () => {
+    const codigo = delCodigo();
+    for (const archivo of SERVIDOR) {
+      const texto = leer(archivo);
+      assert.ok(texto.includes("QUÉ PESTAÑAS TOCA CADA FUNCIÓN"), archivo + " no tiene el cuadro");
+      const cuadro = texto.slice(texto.indexOf("QUÉ PESTAÑAS TOCA CADA FUNCIÓN")).split("\n\n")[0];
+      const filas = [...cuadro.matchAll(/^ {5}(\w+) \.+ (.+)$/gm)];
+      const publicas = Object.keys(codigo).filter(f => texto.includes("\nfunction " + f + "("));
+      assert.deepEqual(filas.map(m => m[1]), publicas, archivo + ": el cuadro no nombra las mismas funciones, en el mismo orden");
+      for (const [, f, resumen] of filas) assert.deepEqual(leerResumen(resumen, archivo + " → " + f), ordenado(codigo[f]), archivo + " → " + f);
+    }
+  });
+
+  test("la línea \"Sheet:\" de cada 📡 de las vistas dice lo que hace la función que nombra", () => {
+    const codigo = delCodigo();
+    for (const [vista, servidor] of Object.entries(VISTAS)) {
+      const llamadas = [...leer(vista).matchAll(/\/\*(?:(?!\*\/)[\s\S])*?📡 → SERVIDOR:? (\w+\.js) → (\w+)[\s\S]*?\*\//g)];
+      assert.ok(llamadas.length, vista + " no tiene comentarios 📡");
+      for (const [comentario, archivo, f] of llamadas) {
+        assert.equal(archivo, servidor, vista + ": el 📡 de " + f + " dice " + archivo);
+        assert.ok(codigo[f], vista + ": " + f + " no es una función de " + servidor);
+        const linea = /\n\s*Sheet: (.+?) \*\/$/.exec(comentario);
+        assert.ok(linea, vista + ": al 📡 de " + f + " le falta la línea \"Sheet:\"");
+        assert.deepEqual(leerResumen(linea[1], vista + " → " + f), ordenado(codigo[f]), vista + " → " + f);
+      }
+    }
+  });
+
+  test("cada función del servidor que llama una vista tiene su 📡, y cada 📡 nombra una que la vista llama", () => {
+    for (const vista of Object.keys(VISTAS)) {
+      const html = leer(vista);
+      const llama = new Set([...sinComentarios(html).matchAll(/\["(\w+)"\]\(/g)].map(m => m[1]));
+      const nombra = new Set([...html.matchAll(/📡 → SERVIDOR:? \w+\.js → (\w+)/g)].map(m => m[1]));
+      assert.deepEqual([...nombra].sort(), [...llama].sort(), vista);
+    }
   });
 });

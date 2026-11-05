@@ -34,6 +34,19 @@
      Ver (una versión del historial) ..... version(n)          → planVersion
      Restaurar ........................... restaurar(n)        → planRestaurar
 
+   QUÉ PESTAÑAS TOCA CADA FUNCIÓN   (📥 lee · 📤 escribe · 🗑 borra · 🔒 candado)
+     planInicio ............. 📥 Usuarios, Planes, Bloqueos, Ciclos, Carreras
+     planAbrir .............. 📥 Usuarios, Carreras, Ciclos, Bloqueos, Planes · 📤 Bloqueos · 🔒 candado
+     planInterpretar ........ 📥 Usuarios, Carreras
+     planCandidatosFusion ... 📥 Usuarios, Carreras, Ciclos, Planes
+     planGuardar ............ 📥 Usuarios, Carreras, Ciclos, Bloqueos, Planes · 📤 Planes · 🗑 Bloqueos · 🔒 candado
+     planMantener ........... 📥 Usuarios, Carreras, Ciclos, Bloqueos · 📤 Bloqueos · 🔒 candado
+     planSalir .............. 📥 Usuarios, Carreras, Ciclos, Bloqueos · 🗑 Bloqueos · 🔒 candado
+     planHistorial .......... 📥 Usuarios, Carreras, Ciclos, Planes
+     planVersion ............ 📥 Usuarios, Carreras, Ciclos, Planes
+     planRestaurar .......... 📥 Usuarios, Carreras, Ciclos, Bloqueos, Planes · 📤 Planes · 🔒 candado
+     Sale del código: una prueba de pruebas/logica.test.mjs avisa si este cuadro y el código no coinciden.
+
    PESTAÑAS DEL SHEET QUE USA (todas como texto; la fila 1 son cabeceras)
      Usuarios (correo, rol, carreras, departamento) · Ciclos (ciclo) · Carreras (sigla, nombre,
      departamento) · Planes (ciclo, carrera, version, usuario, fecha, contenido) ·

@@ -16,10 +16,18 @@
        "Historial" / "Ver" / "Restaurar" / "Volver"  historial() / version(n) / restaurar(n) / volver()
                                           → cargaHistorial / cargaVersion / cargaRestaurar / (sin servidor)
        (cada 5 min, solo) ............... mantener()         → cargaMantener
+       Cerrar o recargar la pestaña ..... init() (evento pagehide) → cargaSalir (suelta el bloqueo sin esperar respuesta)
+       "Motivo (A12)" ................... tocar() (no llama al servidor; el motivo viaja con el siguiente "Guardar")
+     DÓNDE MIRAR
+       Qué pestañas del Sheet toca cada llamada: la línea "Sheet:" de su comentario 📡 (abajo) y el cuadro
+       "QUÉ PESTAÑAS TOCA CADA FUNCIÓN" de CargaDocente.js. Lo que pidió el docente con Alpine: busca "ALPINE ·".
      ===================================================================== -->
+<!-- ALPINE · navegación: x-show muestra esta sección cuando $store.nav.vista es 'carga' (la cambian la barra y
+     el botón de Inicio). x-data="cargaDocente" es el componente del bloque de JavaScript de abajo. -->
 <section x-show="$store.nav.vista === 'carga'" x-data="cargaDocente" x-cloak>
   <h2>Carga docente</h2>
-  <!-- Selector "Ciclo". Al cambiarlo → inicio() → cargaInicio. Se deshabilita mientras hay una llamada o una carga abierta. -->
+  <!-- Selector "Ciclo". Al cambiarlo → inicio() → cargaInicio. Se deshabilita mientras hay una llamada o una carga abierta.
+       ALPINE · en espera: "Cargando…" y el selector deshabilitado mientras dura la llamada. -->
   <div class="fila">
     <label>Ciclo
       <select x-model="ciclo" @change="inicio()" :disabled="!!(ocupado || doc)">
@@ -33,7 +41,8 @@
   <p class="error" x-show="error" x-text="error"></p>
   <p class="exito" x-show="exito" x-text="exito"></p>
 
-  <!-- ADVERTENCIAS A07–A15: las devuelve cargaGuardar (o cargaRestaurar). Rojo = bloqueo (A07), gris = info (A14), amarillo = el resto. -->
+  <!-- ADVERTENCIAS A07–A15: las devuelve cargaGuardar (o cargaRestaurar). Rojo = bloqueo (A07), gris = info (A14), amarillo = el resto.
+       ALPINE · x-for con datos del servidor: x-for="(a, i) in advertencias" (las deja guardar() o restaurar()). -->
   <div class="panel" x-show="advertencias.length">
     <h3>Advertencias</h3>
     <template x-for="(a, i) in advertencias" :key="i">
@@ -45,7 +54,8 @@
     </template>
   </div>
 
-  <!-- TABLA DE CARRERAS: una fila por carrera, con lo que devolvió cargaInicio (this.carreras). Se ve mientras no hay carga abierta. -->
+  <!-- TABLA DE CARRERAS: una fila por carrera, con lo que devolvió cargaInicio (this.carreras). Se ve mientras no hay carga abierta.
+       ALPINE · x-for con datos del servidor: x-for="c in carreras" (los deja inicio(), PASO 4). -->
   <div class="tabla" x-show="!doc">
     <table>
       <thead><tr><th>Carrera</th><th>Departamento</th><th>Plan</th><th>Carga</th><th class="num">Con docente</th><th></th></tr></thead>
@@ -61,7 +71,8 @@
             </td>
             <td class="num" x-text="c.versionPlan ? c.asignados + '/' + c.componentes + ' con docente' : ''"></td>
             <td>
-              <!-- "Editar" (azul, carreras de tu departamento) o "Ver" → abrir(sigla) → cargaAbrir. Sin plan no aparece. -->
+              <!-- "Editar" (azul, carreras de tu departamento) o "Ver" → abrir(sigla) → cargaAbrir. Sin plan no aparece.
+                   ALPINE · en espera: "Abriendo…" en esa fila. -->
               <button class="chico" :class="{ primario: c.puedeEditar }" x-show="c.versionPlan" :disabled="!!ocupado" @click="abrir(c.sigla)"
                       x-text="ocupado === 'abrir' && pedida === c.sigla ? 'Abriendo…' : (c.puedeEditar ? 'Editar' : 'Ver')"></button>
             </td>
@@ -81,7 +92,8 @@
         <span class="marca des" x-show="doc.modo === 'edicion'" x-text="'Bloqueo hasta ' + doc.vence.slice(11, 16)"></span>
       </div>
       <!-- "Volver" → volver() (sin servidor) · "Guardar" → guardar() → cargaGuardar · "Salir" → salir() → cargaSalir
-           · "Historial" → historial() → cargaHistorial -->
+           · "Historial" → historial() → cargaHistorial
+           ALPINE · en espera: "Guardando…", "Saliendo…" o "Buscando versiones…" y todos los botones deshabilitados. -->
       <div class="fila">
         <button x-show="vistaVersion" @click="volver()">Volver</button>
         <button class="primario" x-show="editable()" :disabled="!!ocupado" @click="guardar()"
@@ -90,13 +102,16 @@
         <button x-show="!vistaVersion" :disabled="!!ocupado" @click="historial()"
                 x-text="ocupado === 'historial' ? 'Buscando versiones…' : 'Historial'"></button>
       </div>
-      <!-- Motivo (A12): aparece cuando guardar() recibe requiereMotivo = true. Se manda en la siguiente llamada a cargaGuardar. -->
+      <!-- Motivo (A12): aparece cuando guardar() recibe requiereMotivo = true. Se manda en la siguiente llamada a cargaGuardar.
+           Escribir en él llama a tocar() (✎ solo memoria: marca que hay cambios). -->
       <div x-show="editable() && (requiereMotivo || motivo)">
         <label>Motivo (A12)</label>
         <textarea x-model="motivo" @input="tocar()" style="min-height: 60px" placeholder="Por qué un docente con cargo pasa de 24 h"></textarea>
       </div>
 
-      <!-- PANEL HISTORIAL (lo llena historial()). "Ver" → version(n) → cargaVersion · "Restaurar" → restaurar(n) → cargaRestaurar. -->
+      <!-- PANEL HISTORIAL (lo llena historial()). "Ver" → version(n) → cargaVersion · "Restaurar" → restaurar(n) → cargaRestaurar.
+           ALPINE · x-for con datos del servidor: x-for="v in versiones" (las deja historial(), PASO 4).
+           ALPINE · en espera: "Abriendo…" o "Restaurando…" en esa fila. -->
       <div class="panel" x-show="versiones.length && !vistaVersion">
         <h3>Historial</h3>
         <table>
@@ -118,7 +133,9 @@
       </div>
 
       <!-- CARGA MASIVA. "Interpretar" → interpretar() → cargaInterpretar. "Elegir archivo" → leerArchivo() → interpretar().
-           En la previsualización: "Aplicar a la tabla" → aplicar() y "Descartar" → descartar() (sin servidor). -->
+           En la previsualización: "Aplicar a la tabla" → aplicar() y "Descartar" → descartar() (sin servidor).
+           ALPINE · en espera: "Interpretando…" y "Elegir archivo" deshabilitado mientras dura la llamada.
+           ALPINE · x-for con datos del servidor: x-for="a in masivo.resultado.asignaciones" (lo deja interpretar()). -->
       <div class="panel" x-show="editable()">
         <h3>Carga masiva</h3>
         <textarea x-model="masivo.texto" placeholder="Pega aquí el rango copiado de la hoja CargaXDepartamento (con la fila de cabeceras DOCENTE, CARRERA, SEMESTRE, CODIGO…)"></textarea>
@@ -163,7 +180,8 @@
          x-text="'Asignaciones que ya no están en el plan (se pierden al guardar): ' + doc.huerfanas.map(h => h.codigo + ' ' + h.comp + ' · ' + h.docente).join('; ')"></p>
 
       <!-- SECCIONES: una fila por grupo asignable (doc.secciones) y un campo de docente por componente (T, P, P1…).
-           Escribir en el campo cambia c.docente (✎ solo memoria) y llama a tocar(). Al enfocarlo, "Usar" sabrá dónde escribir. -->
+           Escribir en el campo cambia c.docente (✎ solo memoria) y llama a tocar(). Al enfocarlo, "Usar" sabrá dónde escribir.
+           ALPINE · x-for con datos del servidor: x-for="s in doc.secciones" y "c in s.componentes" (los deja abrir()). -->
       <div class="tabla">
         <table>
           <thead><tr><th>Sem.</th><th>Código</th><th>Asignatura</th><th>Grupo</th><th>DPTO</th><th>Marcas</th><th>Docente por componente</th></tr></thead>
@@ -200,14 +218,17 @@
           </tbody>
         </table>
       </div>
-      <!-- Sugerencias de docentes: el catálogo que vino de la pestaña Docentes en cargaAbrir. El navegador las filtra al escribir. -->
+      <!-- Sugerencias de docentes: el catálogo que vino de la pestaña Docentes en cargaAbrir. El navegador las filtra al escribir.
+           ALPINE · x-for con datos del servidor: x-for sobre doc.catalogo. -->
       <datalist id="cargaCatalogo">
         <template x-for="(d, i) in doc.catalogo" :key="i"><option :value="d.docente" x-text="d.departamento"></option></template>
       </datalist>
     </div>
   </template>
 
-  <!-- BUSCAR DOCENTE (siempre visible). "Buscar" o Enter → buscarDocentes() → cargaBuscarDocentes. "Usar" → usar(r) (sin servidor). -->
+  <!-- BUSCAR DOCENTE (siempre visible). "Buscar" o Enter → buscarDocentes() → cargaBuscarDocentes. "Usar" → usar(r) (sin servidor).
+       ALPINE · en espera: "Buscando…" en el botón.
+       ALPINE · x-for con datos del servidor: x-for="r in resultados" (los deja buscarDocentes(), PASO 4). -->
   <div class="panel">
     <h3>Buscar docente</h3>
     <div class="fila">
@@ -242,7 +263,9 @@
          📡 → SERVIDOR    aquí sale la llamada a CargaDocente.js (google.script.run). Allí sigue la historia.
          ⬅ VUELVE         aquí llega la respuesta { ok, datos } o { ok: false, error }.
          ✎ SOLO MEMORIA   el cambio vive en doc.secciones (el navegador); el Sheet no se entera hasta "Guardar".
-     • Todas las llamadas al servidor siguen el mismo patrón, escrito en cada método:
+         Sheet:           debajo de cada 📡: qué pestañas lee (📥), escribe (📤) o borra (🗑) y si usa el 🔒.
+         ALPINE ·         lo que pidió el docente con Alpine: navegación, en espera y x-for con datos del servidor.
+     • ALPINE · en espera. Todas las llamadas al servidor siguen el mismo patrón, escrito en cada método:
          1. Si ya hay una llamada en curso (ocupado no está vacío), este clic no hace nada.
          2. this.ocupado = "acción": deshabilita todos los botones (:disabled="!!ocupado") y cambia el texto del
             botón pulsado ("Guardando…"); se borra el error y se marca actividad (la mira el latido).
@@ -275,11 +298,12 @@
          ================================================================= */
       init() {
         /* La primera vez que se muestra esta vista (botón de la barra o de Inicio cambia $store.nav.vista), pide la tabla.
-           ➡ SIGUE EN inicio(), abajo. */
+           ➡ SIGUE EN inicio(), abajo. ALPINE · navegación: $watch vigila $store.nav.vista. */
         this.$watch("$store.nav.vista", v => { if (v === "carga" && !this.listo) this.inicio(); });
         if (Alpine.store("nav").vista === "carga") this.inicio();
         /* Si se cierra o recarga la pestaña con una carga en edición (aunque se esté viendo una versión), intenta soltar el
-           bloqueo sin esperar respuesta. 📡 → SERVIDOR: CargaDocente.js → cargaSalir. Si no alcanza, vence a los 30 min. */
+           bloqueo sin esperar respuesta. 📡 → SERVIDOR: CargaDocente.js → cargaSalir. Si no alcanza, vence a los 30 min.
+           Sheet: 📥 Usuarios, Ciclos, Carreras, Bloqueos · 🗑 Bloqueos · 🔒 candado */
         window.addEventListener("pagehide", () => {
           const d = this.anterior || this.doc;
           if (d && d.modo === "edicion")
@@ -306,12 +330,13 @@
       async inicio() {
         let r = null;
         if (!this.ocupado) {
-          /* PASO 1 · "Cargando…" y selector deshabilitado. */
+          /* PASO 1 · ALPINE · en espera: "Cargando…" y selector deshabilitado. */
           this.ocupado = "inicio";
           this.error = "";
           this.actividad = true;
           try {
-            /* PASO 2 · 📡 → SERVIDOR: CargaDocente.js → cargaInicio(ciclo). Lee Usuarios, Ciclos, Carreras, Planes, Cargas y Bloqueos. */
+            /* PASO 2 · 📡 → SERVIDOR: CargaDocente.js → cargaInicio(ciclo).
+               Sheet: 📥 Usuarios, Ciclos, Carreras, Planes, Cargas, Bloqueos */
             const respuesta = await new Promise((listo, mal) => google.script.run
               .withSuccessHandler(listo)
               .withFailureHandler(mal)
@@ -323,7 +348,8 @@
           finally { this.ocupado = ""; }
         }
         if (!r) return;
-        /* PASO 4 · La tabla se repinta sola (x-for="c in carreras"). listo = true: no se vuelve a pedir al volver a la vista. */
+        /* PASO 4 · La tabla se repinta sola (x-for="c in carreras"). listo = true: no se vuelve a pedir al volver a la vista.
+           ALPINE · x-for con datos del servidor. */
         Object.assign(this, { listo: true, ciclos: r.ciclos, ciclo: r.ciclo, carreras: r.carreras });
       },
 
@@ -331,7 +357,7 @@
          ACCIÓN · Botón "Editar" / "Ver" de una carrera
          ================================================================= */
       async abrir(sigla) {
-        /* PASO 1 · Recuerda qué fila se pidió, para poner "Abriendo…" solo en ese botón. */
+        /* PASO 1 · ALPINE · en espera: recuerda qué fila se pidió, para poner "Abriendo…" solo en ese botón. */
         this.pedida = sigla;
         let r = null;
         if (!this.ocupado) {
@@ -340,7 +366,8 @@
           this.actividad = true;
           try {
             /* PASO 2 · 📡 → SERVIDOR: CargaDocente.js → cargaAbrir(ciclo, sigla). Arma las secciones desde el plan vigente,
-               pone los docentes de la carga vigente y, en edición, escribe tu bloqueo en la pestaña Bloqueos. */
+               pone los docentes de la carga vigente y, en edición, escribe tu bloqueo en la pestaña Bloqueos.
+               Sheet: 📥 Usuarios, Ciclos, Carreras, Planes, Cargas, Bloqueos, Docentes · 📤 Bloqueos · 🔒 candado */
             const respuesta = await new Promise((listo, mal) => google.script.run
               .withSuccessHandler(listo)
               .withFailureHandler(mal)
@@ -357,9 +384,10 @@
         Object.assign(this, { reloj: null, doc: null, anterior: null, vistaVersion: 0, versiones: [], masivo: { texto: "", resultado: null },
           motivo: "", requiereMotivo: false, cambios: false, actividad: false, enfocado: null, elegido: "" });
         /* PASO 5 · Muestra la carga (template x-if="doc"). Desde aquí, los docentes que escribas viven en doc.secciones hasta
-           pulsar "Guardar". */
+           pulsar "Guardar". ALPINE · x-for con datos del servidor: x-for="s in doc.secciones". */
         Object.assign(this, { doc: r, exito: "", advertencias: [] });
-        /* PASO 6 · En edición, programa el latido: cada 5 minutos, si hubo actividad y no hay otra llamada → mantener() (abajo). */
+        /* PASO 6 · En edición, programa el latido: cada 5 minutos, si hubo actividad y no hay otra llamada → mantener() (abajo).
+           En CU-001 esta condición vive en un método latido(); aquí va dentro del setInterval, guardado en this.reloj. */
         if (r.modo === "edicion") this.reloj = setInterval(() => { if (this.actividad && !this.ocupado) this.mantener(); }, 5 * 60000);
       },
 
@@ -367,7 +395,8 @@
          ACCIÓN · Latido cada 5 minutos (lo dispara el reloj de abrir)
          ================================================================= */
       async mantener() {
-        /* PASO 1 · La carga en edición (si estás viendo una versión, la tuya está guardada en "anterior"). Sin edición, nada. */
+        /* PASO 1 · La carga en edición (si estás viendo una versión, la tuya está guardada en "anterior"). Sin edición, nada.
+           ALPINE · en espera: ocupado = "mantener" deshabilita los botones mientras dura. */
         const d = this.anterior || this.doc;
         if (!(d && d.modo === "edicion")) return;
         let r = null;
@@ -376,7 +405,8 @@
           this.error = "";
           this.actividad = true;
           try {
-            /* PASO 2 · 📡 → SERVIDOR: CargaDocente.js → cargaMantener(ciclo, carrera). Reescribe "vence" en Bloqueos. */
+            /* PASO 2 · 📡 → SERVIDOR: CargaDocente.js → cargaMantener(ciclo, carrera). Reescribe "vence" en Bloqueos.
+               Sheet: 📥 Usuarios, Ciclos, Carreras, Bloqueos · 📤 Bloqueos · 🔒 candado */
             const respuesta = await new Promise((listo, mal) => google.script.run
               .withSuccessHandler(listo)
               .withFailureHandler(mal)
@@ -407,7 +437,8 @@
       async salir() {
         /* PASO 1 · Si hay cambios sin guardar, pregunta antes de perderlos. Cancelar = no pasa nada. */
         if (this.cambios && !confirm("Hay cambios sin guardar. ¿Salir sin guardar?")) return;
-        /* PASO 2 · En edición hay que soltar el bloqueo (en lectura no hay nada que soltar). */
+        /* PASO 2 · En edición hay que soltar el bloqueo (en lectura no hay nada que soltar).
+           ALPINE · en espera: "Saliendo…". */
         const d = this.anterior || this.doc;
         if (d && d.modo === "edicion") {
           let r = null;
@@ -416,7 +447,8 @@
             this.error = "";
             this.actividad = true;
             try {
-              /* 📡 → SERVIDOR: CargaDocente.js → cargaSalir(ciclo, carrera). Borra tus filas de Bloqueos. */
+              /* 📡 → SERVIDOR: CargaDocente.js → cargaSalir(ciclo, carrera). Borra tus filas de Bloqueos.
+                 Sheet: 📥 Usuarios, Ciclos, Carreras, Bloqueos · 🗑 Bloqueos · 🔒 candado */
               const respuesta = await new Promise((listo, mal) => google.script.run
                 .withSuccessHandler(listo)
                 .withFailureHandler(mal)
@@ -454,7 +486,7 @@
         const d = this.doc;
         let r = null;
         if (!this.ocupado) {
-          /* PASO 1 · "Guardando…" y todos los botones deshabilitados. */
+          /* PASO 1 · ALPINE · en espera: "Guardando…" y todos los botones deshabilitados. */
           this.ocupado = "guardar";
           this.error = "";
           this.actividad = true;
@@ -462,7 +494,8 @@
             /* PASO 2 · 📡 → SERVIDOR: CargaDocente.js → cargaGuardar(ciclo, carrera, asignaciones, versionBase, motivo).
                asignaciones() (justo arriba) junta los docentes escritos; las horas NO se mandan: el servidor las toma del plan.
                doc.version es la versión con la que abriste: el servidor rechaza si alguien guardó otra entre medio.
-               Allí se aplican las reglas A07–A15, se escribe la fila nueva en Cargas y se borra tu bloqueo. */
+               Allí se aplican las reglas A07–A15, se escribe la fila nueva en Cargas y se borra tu bloqueo.
+               Sheet: 📥 Usuarios, Ciclos, Carreras, Docentes, Bloqueos, Planes, Cargas · 📤 Cargas · 🗑 Bloqueos · 🔒 candado */
             const respuesta = await new Promise((listo, mal) => google.script.run
               .withSuccessHandler(listo)
               .withFailureHandler(mal)
@@ -486,7 +519,8 @@
           }
           return;
         }
-        /* PASO 4 · Las advertencias se muestran siempre (panel de arriba, x-for). requiereMotivo muestra el campo "Motivo (A12)". */
+        /* PASO 4 · Las advertencias se muestran siempre (panel de arriba, x-for). requiereMotivo muestra el campo "Motivo (A12)".
+           ALPINE · x-for con datos del servidor: x-for="(a, i) in advertencias". */
         this.advertencias = r.advertencias;
         this.requiereMotivo = r.requiereMotivo;
         if (!r.guardado) {
@@ -511,12 +545,13 @@
         const d = this.doc;
         let r = null;
         if (!this.ocupado) {
-          /* PASO 1 · "Interpretando…"; también se deshabilita "Elegir archivo". */
+          /* PASO 1 · ALPINE · en espera: "Interpretando…"; también se deshabilita "Elegir archivo". */
           this.ocupado = "interpretar";
           this.error = "";
           this.actividad = true;
           try {
-            /* PASO 2 · 📡 → SERVIDOR: CargaDocente.js → cargaInterpretar(texto, ciclo, carrera). No escribe nada en el Sheet. */
+            /* PASO 2 · 📡 → SERVIDOR: CargaDocente.js → cargaInterpretar(texto, ciclo, carrera). No escribe nada en el Sheet.
+               Sheet: 📥 Usuarios, Ciclos, Carreras, Planes, Docentes */
             const respuesta = await new Promise((listo, mal) => google.script.run
               .withSuccessHandler(listo)
               .withFailureHandler(mal)
@@ -528,7 +563,7 @@
           finally { this.ocupado = ""; }
         }
         /* PASO 4 · Muestra la previsualización (template x-if="masivo.resultado") con "Aplicar a la tabla" y "Descartar".
-           La tabla de secciones todavía no cambia. */
+           La tabla de secciones todavía no cambia. ALPINE · x-for con datos del servidor. */
         this.masivo.resultado = r;
       },
 
@@ -581,12 +616,13 @@
       async buscarDocentes() {
         let r = null;
         if (!this.ocupado) {
-          /* PASO 1 · "Buscando…". */
+          /* PASO 1 · ALPINE · en espera: "Buscando…". */
           this.ocupado = "buscar";
           this.error = "";
           this.actividad = true;
           try {
-            /* PASO 2 · 📡 → SERVIDOR: CargaDocente.js → cargaBuscarDocentes(ciclo, texto). Lee Docentes y las cargas vigentes. */
+            /* PASO 2 · 📡 → SERVIDOR: CargaDocente.js → cargaBuscarDocentes(ciclo, texto). Lee Docentes y las cargas vigentes.
+               Sheet: 📥 Usuarios, Ciclos, Carreras, Cargas, Docentes */
             const respuesta = await new Promise((listo, mal) => google.script.run
               .withSuccessHandler(listo)
               .withFailureHandler(mal)
@@ -597,7 +633,8 @@
           } catch (e) { this.error = (e && e.message) || String(e); }
           finally { this.ocupado = ""; }
         }
-        /* PASO 4 · La tabla de resultados (x-for="r in resultados"); si hay más de 30, se avisa con total. */
+        /* PASO 4 · La tabla de resultados (x-for="r in resultados"); si hay más de 30, se avisa con total.
+           ALPINE · x-for con datos del servidor. */
         this.resultados = r ? r.resultados : [];
         this.total = r ? r.total : 0;
       },
@@ -617,12 +654,13 @@
         const d = this.doc;
         let r = null;
         if (!this.ocupado) {
-          /* PASO 1 · "Buscando versiones…". */
+          /* PASO 1 · ALPINE · en espera: "Buscando versiones…". */
           this.ocupado = "historial";
           this.error = "";
           this.actividad = true;
           try {
-            /* PASO 2 · 📡 → SERVIDOR: CargaDocente.js → cargaHistorial(ciclo, carrera). Lee las versiones en Cargas. */
+            /* PASO 2 · 📡 → SERVIDOR: CargaDocente.js → cargaHistorial(ciclo, carrera). Lee las versiones en Cargas.
+               Sheet: 📥 Usuarios, Ciclos, Carreras, Planes, Cargas */
             const respuesta = await new Promise((listo, mal) => google.script.run
               .withSuccessHandler(listo)
               .withFailureHandler(mal)
@@ -633,7 +671,8 @@
           } catch (e) { this.error = (e && e.message) || String(e); }
           finally { this.ocupado = ""; }
         }
-        /* PASO 4 · El panel Historial aparece en cuanto hay versiones (x-show="versiones.length && !vistaVersion"). */
+        /* PASO 4 · El panel Historial aparece en cuanto hay versiones (x-show="versiones.length && !vistaVersion").
+           ALPINE · x-for con datos del servidor: x-for="v in versiones". */
         if (r) this.versiones = r.versiones;
       },
 
@@ -641,7 +680,8 @@
          ACCIÓN · Botón "Ver" de una versión del historial
          ================================================================= */
       async version(n) {
-        /* PASO 1 · La carga en edición (o la que ya estaba guardada en "anterior") y qué versión se pidió ("Abriendo…"). */
+        /* PASO 1 · La carga en edición (o la que ya estaba guardada en "anterior") y qué versión se pidió.
+           ALPINE · en espera: "Abriendo…" en esa fila. */
         const d = this.anterior || this.doc;
         this.pedida = n;
         let r = null;
@@ -650,7 +690,8 @@
           this.error = "";
           this.actividad = true;
           try {
-            /* PASO 2 · 📡 → SERVIDOR: CargaDocente.js → cargaVersion(ciclo, carrera, n). Solo lee. */
+            /* PASO 2 · 📡 → SERVIDOR: CargaDocente.js → cargaVersion(ciclo, carrera, n). Solo lee.
+               Sheet: 📥 Usuarios, Ciclos, Carreras, Planes, Cargas, Docentes */
             const respuesta = await new Promise((listo, mal) => google.script.run
               .withSuccessHandler(listo)
               .withFailureHandler(mal)
@@ -662,7 +703,8 @@
           finally { this.ocupado = ""; }
         }
         if (!r) return;
-        /* PASO 4 · Tu edición se guarda en "anterior" (una sola vez) y se muestra la versión n. "Volver" la recupera. */
+        /* PASO 4 · Tu edición se guarda en "anterior" (una sola vez) y se muestra la versión n. "Volver" la recupera.
+           ALPINE · x-for con datos del servidor: la tabla (x-for="s in doc.secciones") muestra la versión n. */
         if (!this.anterior) this.anterior = this.doc;
         Object.assign(this, { doc: r, vistaVersion: n });
       },
@@ -674,7 +716,8 @@
          ACCIÓN · Botón "Restaurar" de una versión del historial
          ================================================================= */
       async restaurar(n) {
-        /* PASO 1 · Confirma: se creará una versión NUEVA con el contenido de la vn (y se pierde lo no guardado). */
+        /* PASO 1 · Confirma: se creará una versión NUEVA con el contenido de la vn (y se pierde lo no guardado).
+           ALPINE · en espera: "Restaurando…" en esa fila. */
         const aviso = this.cambios ? " Perderás los cambios sin guardar." : "";
         if (!confirm("Se creará una versión nueva con el contenido de la v" + n + "." + aviso + " ¿Continuar?")) return;
         const d = this.anterior || this.doc;
@@ -686,7 +729,8 @@
           this.actividad = true;
           try {
             /* PASO 2 · 📡 → SERVIDOR: CargaDocente.js → cargaRestaurar(ciclo, carrera, n). Vuelve a pasar las reglas y agrega la
-               fila nueva en Cargas. */
+               fila nueva en Cargas.
+               Sheet: 📥 Usuarios, Ciclos, Carreras, Docentes, Bloqueos, Planes, Cargas · 📤 Cargas · 🔒 candado */
             const respuesta = await new Promise((listo, mal) => google.script.run
               .withSuccessHandler(listo)
               .withFailureHandler(mal)

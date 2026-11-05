@@ -35,6 +35,19 @@
      Restaurar .............................. restaurar(n)       → cargaRestaurar
      "Aplicar a la tabla", "Descartar", "Usar" y escribir un docente no llaman al servidor.
 
+   QUÉ PESTAÑAS TOCA CADA FUNCIÓN   (📥 lee · 📤 escribe · 🗑 borra · 🔒 candado)
+     cargaInicio ............ 📥 Usuarios, Ciclos, Carreras, Planes, Cargas, Bloqueos
+     cargaAbrir ............. 📥 Usuarios, Ciclos, Carreras, Planes, Cargas, Bloqueos, Docentes · 📤 Bloqueos · 🔒 candado
+     cargaInterpretar ....... 📥 Usuarios, Ciclos, Carreras, Planes, Docentes
+     cargaBuscarDocentes .... 📥 Usuarios, Ciclos, Carreras, Cargas, Docentes
+     cargaGuardar ........... 📥 Usuarios, Ciclos, Carreras, Docentes, Bloqueos, Planes, Cargas · 📤 Cargas · 🗑 Bloqueos · 🔒 candado
+     cargaMantener .......... 📥 Usuarios, Ciclos, Carreras, Bloqueos · 📤 Bloqueos · 🔒 candado
+     cargaSalir ............. 📥 Usuarios, Ciclos, Carreras, Bloqueos · 🗑 Bloqueos · 🔒 candado
+     cargaHistorial ......... 📥 Usuarios, Ciclos, Carreras, Planes, Cargas
+     cargaVersion ........... 📥 Usuarios, Ciclos, Carreras, Planes, Cargas, Docentes
+     cargaRestaurar ......... 📥 Usuarios, Ciclos, Carreras, Docentes, Bloqueos, Planes, Cargas · 📤 Cargas · 🔒 candado
+     Sale del código: una prueba de pruebas/logica.test.mjs avisa si este cuadro y el código no coinciden.
+
    PESTAÑAS DEL SHEET QUE USA (todas como texto; la fila 1 son cabeceras)
      Usuarios (correo, rol, carreras, departamento) · Ciclos (ciclo) · Carreras (sigla, nombre, departamento)
      Docentes (DOCENTE, DEPARTAMENTO, CONDICION, DEDICACION, CARGO, TC_OTRA_UNIV, NO_LECTIVAS)
