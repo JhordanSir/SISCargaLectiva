@@ -1,13 +1,24 @@
 <!DOCTYPE html>
-<!-- Carcasa de la aplicación (backend: Index.js).
-     Botones: la barra superior (Inicio, Registrar plan de ciclo, Carga docente) cambia de vista
-     con $store.nav.vista; las vistas se incluyen abajo con include().
-     Servidor: indexUsuario (correo, rol, carreras y departamento de quien usa la página).
-     Alpine: store «nav» (vista visible) y store «usuario» (quién usa la página). -->
+<!-- =====================================================================
+     IndexVista.html · carcasa de la aplicación (su servidor: Index.js)
+     ---------------------------------------------------------------------
+     CÓMO SE ARMA LA PÁGINA
+       1. Al abrir la URL, Index.js → doGet() toma este archivo como plantilla.
+       2. Las tres marcas de inclusión del <main> (más abajo) pegan, en el servidor, InicioVista.html,
+          PlanDeCicloVista.html y CargaDocenteVista.html: el navegador recibe UNA sola página.
+       3. Se carga Alpine.js (la etiqueta del CDN, aquí abajo) y corre el bloque de JavaScript del
+          final de este archivo: crea la memoria compartida ($store.nav y $store.usuario) y pregunta
+          «¿quién soy?» al servidor (Index.js → indexUsuario).
+     QUÉ DISPARA CADA BOTÓN DE LA BARRA
+       Inicio / Registrar plan de ciclo / Carga docente → solo cambian $store.nav.vista (no llaman al
+       servidor). Cada sección se muestra u oculta con su x-show. La primera vez que se ve una
+       sección, su componente pide sus datos (ver el init() de cada vista).
+     ===================================================================== -->
 <html lang="es">
 <head>
   <base target="_top">
   <meta charset="utf-8">
+  <!-- Alpine.js desde el CDN. «defer»: corre cuando el HTML ya está leído. Lo que tenga x-cloak queda oculto hasta entonces. -->
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.17.5/dist/cdn.min.js"></script>
   <style>
     :root { --texto: #1f2933; --suave: #5f6b7a; --borde: #d5dbe3; --fondo: #f5f7fa; --primario: #1d4ed8;
@@ -59,6 +70,8 @@
   </style>
 </head>
 <body x-data>
+  <!-- BARRA SUPERIOR. Los botones solo existen si tienes acceso (x-if: si es falso, ni se crean).
+       Cada @click cambia $store.nav.vista y :class pinta de celeste (clase .activo, arriba en el CSS) el de la vista actual. -->
   <header class="barra">
     <strong>SISCargaLectiva</strong>
     <template x-if="$store.usuario.acceso">
@@ -68,52 +81,70 @@
         <button :class="{ activo: $store.nav.vista === 'carga' }" @click="$store.nav.vista = 'carga'">Carga docente</button>
       </span>
     </template>
+    <!-- «correo · rol» arriba a la derecha: sale de $store.usuario, que llena cargar() (abajo) con la respuesta de indexUsuario. -->
     <span class="usuario" x-show="$store.usuario.correo" x-cloak
           x-text="$store.usuario.correo + ($store.usuario.rol ? ' · ' + $store.usuario.rol : '')"></span>
   </header>
 
   <main>
+    <!-- «Acceso denegado»: se ve cuando cargar() (abajo) recibe acceso = false y pone $store.nav.vista = 'denegado'. -->
     <section x-show="$store.nav.vista === 'denegado'" x-cloak>
       <h2>Acceso denegado</h2>
       <p class="error" x-text="$store.usuario.motivo"></p>
       <p class="suave">Si crees que es un error, pide que agreguen tu cuenta a la pestaña Usuarios.</p>
     </section>
 
+    <!-- Las tres vistas, pegadas en el servidor durante doGet (Index.js). Cada una es una <section> con su x-show. -->
     <?!= include("InicioVista") ?>
     <?!= include("PlanDeCicloVista") ?>
     <?!= include("CargaDocenteVista") ?>
   </main>
 
   <script>
-    /* Stores de la carcasa. La vista visible es $store.nav.vista: «inicio», «plan», «carga»
-       o «denegado». Cada vista registra su propio componente en su archivo. */
+    /* =================================================================
+       Memoria compartida de toda la página (stores de Alpine) y la pregunta «¿quién soy?».
+       Corre una sola vez, cuando Alpine arranca (evento alpine:init).
+       ================================================================= */
     document.addEventListener("alpine:init", () => {
+      /* $store.nav.vista = qué sección se ve: «inicio», «plan», «carga» o «denegado».
+         La cambian los botones de la barra y de Inicio; cada <section> la mira con x-show. */
       Alpine.store("nav", { vista: "inicio" });
+
+      /* $store.usuario = quién usa la página. Lo leen la barra, Inicio y las dos vistas de los CU. */
       Alpine.store("usuario", {
         cargando: true, acceso: false, correo: "", rol: "", carreras: [], departamento: "", motivo: "", error: "",
+
+        /* ACCIÓN: preguntar al servidor quién soy (se llama sola, justo abajo, al arrancar). */
         cargar() {
+          /* PASO 1 · Mientras espera, Inicio muestra «Comprobando tu cuenta…» (InicioVista.html). */
           this.cargando = true;
           this.error = "";
-          indexLlamar("indexUsuario")
-            .then(datos => {
-              Object.assign(this, datos);
-              if (!datos.acceso) Alpine.store("nav").vista = "denegado";
+
+          /* PASO 2 · 📡 → SERVIDOR: Index.js → indexUsuario(). Allí se lee la pestaña «Usuarios» del Sheet.
+             withSuccessHandler recibe lo que devolvió la función; withFailureHandler, un fallo de red o de Apps Script. */
+          new Promise((listo, mal) => google.script.run
+            .withSuccessHandler(listo)
+            .withFailureHandler(mal)
+            ["indexUsuario"]())
+
+            /* PASO 3 · ⬅ VUELVE DEL SERVIDOR con { ok, datos } o { ok: false, error }. */
+            .then(r => {
+              if (!r || !r.ok) throw new Error((r && r.error) || "Respuesta vacía del servidor.");
+              /* Copia correo, rol, carreras… en $store.usuario: la barra y los botones de Inicio se repintan solos. */
+              Object.assign(this, r.datos);
+              /* Sin acceso: se muestra la sección «Acceso denegado» (arriba, en el <main>). */
+              if (!r.datos.acceso) Alpine.store("nav").vista = "denegado";
             })
-            .catch(e => { this.error = e.message; })
+            /* Si algo falló, el mensaje se ve en rojo en Inicio. */
+            .catch(e => { this.error = (e && e.message) || String(e); })
+            /* PASO 4 · Termina la espera (bien o mal). */
             .finally(() => { this.cargando = false; });
         }
       });
+
+      /* Arranque: pregunta quién soy en cuanto Alpine está listo. */
       Alpine.store("usuario").cargar();
     });
-
-    /* google.script.run con promesa: resuelve con datos si ok, rechaza con el error si no. */
-    function indexLlamar(nombre, ...args) {
-      return new Promise((resolver, rechazar) => {
-        google.script.run
-          .withSuccessHandler(r => (r && r.ok ? resolver(r.datos) : rechazar(new Error((r && r.error) || "Respuesta vacía del servidor."))))
-          .withFailureHandler(e => rechazar(new Error((e && e.message) || String(e))))[nombre](...args);
-      });
-    }
   </script>
 </body>
 </html>

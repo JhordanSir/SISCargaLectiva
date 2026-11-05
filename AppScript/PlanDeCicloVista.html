@@ -1,10 +1,23 @@
-<!-- Vista CU-001 «Registrar plan de ciclo» (backend: PlanDeCiclo.js, por planLlamar).
-     Botones: Ciclo; Editar / Ver; Interpretar y archivo .csv; por grupo + Grupo, Quitar, Desdoblar… / Quitar desdoble,
-     Fusionar… / Deshacer fusión; Guardar, Salir e Historial (Ver, Restaurar, Volver); diálogos de desdoble y de fusión.
-     Cada método que llama al servidor lleva su verbo: inicio → planInicio, abrir → planAbrir, y así interpretar,
-     candidatosFusion, guardar, mantener, salir, historial, version y restaurar. Las operaciones sobre grupos solo cambian
-     this.plan. Alpine: «ocupado» en los botones; x-for en carreras, previsualización, historial y opciones de fusión. -->
+<!-- =====================================================================
+     PlanDeCicloVista.html · vista del CU-001 «Registrar plan de ciclo»
+     ---------------------------------------------------------------------
+     Arriba está el marcado (lo que se ve) y abajo, en el bloque de JavaScript, el componente
+     «planDeCiclo» con un método por acción. Su servidor es PlanDeCiclo.js: cada método que habla con el
+     servidor llama a la función de mismo verbo con prefijo «plan» (guardar() → planGuardar).
+     QUÉ DISPARA CADA BOTÓN (método de abajo → función de PlanDeCiclo.js)
+       Abrir la vista / «Ciclo» ...... inicio()           → planInicio
+       «Editar» / «Ver» .............. abrir(sigla)       → planAbrir      (toma el bloqueo)
+       «Interpretar» / «Elegir archivo» interpretar() / leerArchivo() → planInterpretar
+       «+ Grupo», «Quitar», «Desdoblar…», «Quitar desdoble», «Fusionar…», «Deshacer fusión»
+                                       solo cambian this.plan en el navegador (no llaman al servidor)
+       «Buscar en otras carreras» .... candidatosFusion() → planCandidatosFusion
+       «Guardar» ..................... guardar()          → planGuardar    (fila nueva en Planes)
+       «Salir» ....................... salir()            → planSalir      (suelta el bloqueo)
+       «Historial» / «Ver» / «Restaurar»  historial() / version(n) / restaurar(n) → planHistorial / planVersion / planRestaurar
+       (cada 5 min, solo) ............ latido() → mantener() → planMantener
+     ===================================================================== -->
 <section x-show="$store.nav.vista === 'plan'" x-data="planDeCiclo" x-cloak>
+  <!-- Título y selector «Ciclo». Al cambiarlo → inicio() → planInicio. Se deshabilita mientras hay una llamada en curso o un plan abierto. -->
   <div class="fila">
     <h2>Registrar plan de ciclo</h2>
     <label>Ciclo
@@ -14,11 +27,13 @@
     </label>
     <span class="suave" x-show="ocupado === 'inicio'">Cargando…</span>
   </div>
+  <!-- Mensajes: rojo = this.error (lo pone cualquier método si el servidor responde con error); verde = this.exito
+       (guardar() y restaurar()); amarillo = this.avisos (avisos de fusiones al guardar). -->
   <p class="error" x-show="error" x-text="error"></p>
   <p class="exito" x-show="exito" x-text="exito"></p>
   <template x-for="(a, i) in avisos" :key="i"><p class="aviso" x-text="a"></p></template>
 
-  <!-- Tabla de carreras (planInicio) -->
+  <!-- TABLA DE CARRERAS: una fila por carrera, con lo que devolvió planInicio (this.carreras). -->
   <div class="tabla" x-show="pantalla === 'tabla'">
     <table>
       <thead><tr><th>Carrera</th><th>Plan</th><th>Guardado por</th><th>Fecha</th><th class="num">Asignaturas</th>
@@ -30,6 +45,7 @@
             <td x-text="c.version ? 'v' + c.version : 'Sin plan'"></td><td x-text="c.usuario"></td><td x-text="fecha(c.fecha)"></td>
             <td class="num" x-text="c.asignaturas"></td><td class="num" x-text="c.grupos"></td>
             <td><span class="marca lectura" x-show="c.editor" x-text="'En edición por ' + c.editor"></span></td>
+            <!-- «Editar» (azul, tus carreras) o «Ver» → abrir(sigla) → planAbrir. -->
             <td><button class="chico" :class="{ primario: c.puedeEditar }" :disabled="!!ocupado" @click="abrir(c.sigla)"
                         x-text="ocupado === 'abrir ' + c.sigla ? 'Abriendo…' : (c.puedeEditar ? 'Editar' : 'Ver')"></button></td>
           </tr>
@@ -38,7 +54,7 @@
     </table>
   </div>
 
-  <!-- Pantalla del plan (planAbrir) -->
+  <!-- PANTALLA DEL PLAN: aparece cuando abrir() pone pantalla = 'plan'. doc = lo que devolvió planAbrir. -->
   <template x-if="pantalla === 'plan'">
     <div>
       <div class="fila">
@@ -48,6 +64,7 @@
               x-text="/^Solo lectura/.test(doc.motivo) ? doc.motivo : 'Solo lectura · ' + doc.motivo"></span>
         <span class="marca" x-show="doc.modo === 'edicion'" x-text="'Bloqueo hasta ' + doc.vence.slice(11, 16)"></span>
       </div>
+      <!-- «Guardar» → guardar() → planGuardar · «Salir» → salir() → planSalir · «Historial» → historial() → planHistorial -->
       <div class="fila">
         <button class="primario" x-show="doc.modo === 'edicion'" :disabled="ocupado || !!vistaVersion" @click="guardar()"
                 x-text="ocupado === 'guardar' ? 'Guardando…' : 'Guardar'"></button>
@@ -56,6 +73,7 @@
         <span class="aviso" x-show="cambios">Hay cambios sin guardar.</span>
       </div>
 
+      <!-- PANEL HISTORIAL (lo abre historial()). «Ver» → version(n) → planVersion · «Restaurar» → restaurar(n) → planRestaurar. -->
       <div class="panel" x-show="verHistorial">
         <div class="fila"><strong>Historial</strong><button class="chico" @click="verHistorial = false">Cerrar</button></div>
         <p class="suave" x-show="!versiones.length">Este plan aún no tiene versiones.</p>
@@ -74,12 +92,15 @@
         </table>
       </div>
 
+      <!-- Aviso «Versión n · solo lectura» mientras se ve una versión del historial. «Volver» la cierra (tu edición sigue intacta). -->
       <template x-if="vistaVersion">
         <p class="aviso fila"><strong x-text="'Versión ' + vistaVersion.version + ' · solo lectura'"></strong>
           <span x-text="vistaVersion.usuario + ', ' + fecha(vistaVersion.fecha)"></span>
           <button class="chico" @click="vistaVersion = null">Volver</button></p>
       </template>
 
+      <!-- PEGAR O SUBIR. El área guarda lo pegado en this.texto. «Interpretar» → interpretar() → planInterpretar.
+           «Elegir archivo» → leerArchivo() (lee el .csv en el navegador) → interpretar(). -->
       <div class="panel" x-show="editable">
         <textarea x-model="texto" placeholder="Pega aquí el rango copiado de Excel o Google Sheets (con la fila de cabeceras)"></textarea>
         <div class="fila">
@@ -90,7 +111,8 @@
         <template x-for="(a, i) in (lectura ? lectura.avisos : [])" :key="i"><p class="aviso" x-text="a"></p></template>
       </div>
 
-      <!-- Previsualización por semestre (planInterpretar / planAbrir) -->
+      <!-- PREVISUALIZACIÓN POR SEMESTRE: dibuja «mostrado» (tu plan o la versión que estás viendo) con los getters
+           totales y semestres del componente. Los botones de cada fila solo cambian this.plan (✎ solo memoria). -->
       <p class="suave" x-text="totales"></p>
       <div class="tabla">
         <table>
@@ -111,6 +133,8 @@
                     <span class="marca fus" x-show="f.g.fusion" x-text="f.g.fusion ? textoFusion(f.asig, f.g) : ''"></span>
                     <span class="marca fus" x-show="f.g.fusionExterna" x-text="f.g.fusionExterna ? 'FUS – fusionado con ' + f.g.fusionExterna.carrera : ''"></span>
                   </td>
+                  <!-- Acciones del grupo: agregarGrupo, uiQuitarGrupo → quitarGrupo, abrirDesdoble, quitarDesdoble, abrirFusion,
+                       deshacerFusion. Ninguna llama al servidor. -->
                   <td x-show="editable">
                     <button class="chico" x-show="f.primera" :disabled="!!ocupado" @click="agregarGrupo(f.asig)">+ Grupo</button>
                     <button class="chico peligro" :disabled="ocupado || f.asig.grupos.length < 2" @click="uiQuitarGrupo(f.asig, f.g)">Quitar</button>
@@ -129,7 +153,7 @@
     </div>
   </template>
 
-  <!-- Diálogo de desdoble -->
+  <!-- DIÁLOGO DE DESDOBLE (lo abre abrirDesdoble). «Desdoblar» → aplicarDesdoble() → desdoblar(). Solo memoria. -->
   <template x-if="desdobleDe">
     <div class="dialogo"><div>
       <h3 x-text="'Desdoblar ' + desdobleDe.titulo"></h3>
@@ -142,7 +166,8 @@
     </div></div>
   </template>
 
-  <!-- Diálogo de fusión (planCandidatosFusion) -->
+  <!-- DIÁLOGO DE FUSIÓN (lo abre abrirFusion). «Buscar en otras carreras» → candidatosFusion() → planCandidatosFusion.
+       Las filas salen de opcionesFusion(); los avisos, de advertenciasDialogo(). «Fusionar» → aplicarFusion() → fusionar(). -->
   <template x-if="fusionDe">
     <div class="dialogo"><div>
       <h3 x-text="'Fusionar ' + fusionDe.titulo"></h3>
@@ -175,129 +200,365 @@
 </section>
 
 <script>
+  /* =====================================================================
+     Componente «planDeCiclo»: la memoria y los métodos de la sección del CU-001 (arriba, x-data="planDeCiclo").
+     ---------------------------------------------------------------------
+     CÓMO LEER ESTE BLOQUE
+     • Los métodos están en el orden en que se usan: abrir la vista → abrir un plan → pegar → operar con
+       grupos → guardar / salir / historial → diálogos. Cada método se lee de arriba abajo (PASO 1, 2…).
+     • Marcas:
+         📡 → SERVIDOR    aquí sale la llamada a PlanDeCiclo.js (google.script.run). Allí sigue la historia.
+         ⬅ VUELVE         aquí llega la respuesta { ok, datos } o { ok: false, error }.
+         ✎ SOLO MEMORIA   el cambio vive en this.plan (el navegador); el Sheet no se entera hasta «Guardar».
+     • Todas las llamadas al servidor siguen el mismo patrón, escrito en cada método:
+         1. this.ocupado = "acción": deshabilita todos los botones (:disabled="!!ocupado") y cambia el texto
+            del botón pulsado («Guardando…»).
+         2. google.script.run.withSuccessHandler(…).withFailureHandler(…)["planX"](…) envuelto en una promesa
+            para poder esperarlo con await.
+         3. Si la respuesta no es ok (o falló la red), el mensaje queda en this.error (franja roja).
+         4. finally: this.ocupado = "" (los botones se habilitan siempre, salga bien o mal).
+     • Comentarios solo con barra y asterisco: Apps Script quita los comentarios de los scripts de las vistas y
+       confundiría dos barras dentro de un texto con un comentario.
+     ===================================================================== */
   document.addEventListener("alpine:init", () => {
     Alpine.data("planDeCiclo", () => ({
+      /* ---------- Memoria del componente (lo que la pantalla muestra) ----------
+         ocupado: acción en curso ("" = ninguna) · error / exito / avisos: mensajes · ciclos, ciclo, carreras: la tabla
+         pantalla: "tabla" o "plan" · doc: el plan abierto (modo, versión, bloqueo) · plan: { asignaturas } en edición
+         texto: lo pegado · lectura: resultado de interpretar · cambios: hay algo sin guardar · actividad: tocaste algo
+         (lo mira el latido) · temporizador: el latido de 5 min · verHistorial, versiones, vistaVersion: el historial
+         desdobleDe, fusionDe: los diálogos abiertos */
       listo: false, ocupado: "", error: "", exito: "", avisos: [], ciclos: [], ciclo: "", carreras: [],
       pantalla: "tabla", doc: null, plan: { asignaturas: [] }, texto: "", lectura: null, cambios: false, actividad: false,
       temporizador: null, verHistorial: false, versiones: [], vistaVersion: null, desdobleDe: null, fusionDe: null,
 
+      /* =================================================================
+         ARRANQUE (Alpine lo llama solo, al crear el componente)
+         ================================================================= */
       init() {
+        /* La primera vez que se muestra esta vista (botón de la barra o de Inicio cambia $store.nav.vista), pide la tabla.
+           ➡ SIGUE EN inicio(), justo abajo. */
         this.$watch("$store.nav.vista", v => { if (v === "plan" && !this.listo) this.inicio(); });
         if (Alpine.store("nav").vista === "plan") this.inicio();
+        /* Si se cierra o recarga la pestaña con un plan en edición, intenta soltar el bloqueo sin esperar respuesta.
+           📡 → SERVIDOR: PlanDeCiclo.js → planSalir. Si no alcanza a salir, el bloqueo vence solo a los 30 minutos. */
         window.addEventListener("pagehide", () => {
-          if (this.doc && this.doc.modo === "edicion" && this.pantalla === "plan") planLlamar("planSalir", this.doc.ciclo, this.doc.carrera).catch(() => {});
+          if (this.doc && this.doc.modo === "edicion" && this.pantalla === "plan")
+            new Promise((listo, mal) => google.script.run.withSuccessHandler(listo).withFailureHandler(mal)
+              ["planSalir"](this.doc.ciclo, this.doc.carrera)).catch(() => {});
         });
       },
 
-      /* Llamada al servidor: ocupado = acción mientras dura (vuelve a "" también si falla); devuelve los datos, o null con
-         el mensaje en error. El mantener del latido no cuenta como actividad ni borra el error que se está mostrando. */
-      async llamar(accion, nombre, ...args) {
-        this.ocupado = accion;
-        if (accion !== "mantener") { this.error = ""; this.actividad = true; }
-        try { return await planLlamar(nombre, ...args); }
-        catch (e) { this.error = e.message; return null; }
-        finally { this.ocupado = ""; }
-      },
-
+      /* =================================================================
+         ACCIÓN · Abrir la vista o cambiar el selector «Ciclo» → tabla de carreras
+         ================================================================= */
       async inicio() {
-        const d = await this.llamar("inicio", "planInicio", this.ciclo);
+        /* PASO 1 · Botones en espera: «Cargando…» junto al título y selector deshabilitado. */
+        this.ocupado = "inicio";
+        this.error = "";
+        this.actividad = true;
+        let d = null;
+        try {
+          /* PASO 2 · 📡 → SERVIDOR: PlanDeCiclo.js → planInicio(ciclo). Lee Usuarios, Planes, Bloqueos, Ciclos y Carreras. */
+          const r = await new Promise((listo, mal) => google.script.run
+            .withSuccessHandler(listo)
+            .withFailureHandler(mal)
+            ["planInicio"](this.ciclo));
+          /* PASO 3 · ⬅ VUELVE con { ciclos, ciclo, carreras } o con un error. */
+          if (!r || !r.ok) throw new Error((r && r.error) || "Respuesta vacía del servidor.");
+          d = r.datos;
+        } catch (e) { this.error = (e && e.message) || String(e); }
+        finally { this.ocupado = ""; }
+        /* PASO 4 · La tabla se repinta sola (x-for="c in carreras"). listo = true: no se vuelve a pedir al volver a la vista. */
         if (d) Object.assign(this, { ciclos: d.ciclos, ciclo: d.ciclo, carreras: d.carreras, listo: true });
       },
 
+      /* =================================================================
+         ACCIÓN · Botón «Editar» / «Ver» de una carrera
+         ================================================================= */
       async abrir(sigla) {
+        /* PASO 1 · Limpia los mensajes y pone el botón de esa fila en «Abriendo…». */
         this.exito = "";
         this.avisos = [];
-        const d = await this.llamar("abrir " + sigla, "planAbrir", this.ciclo, sigla);
+        this.ocupado = "abrir " + sigla;
+        this.error = "";
+        this.actividad = true;
+        let d = null;
+        try {
+          /* PASO 2 · 📡 → SERVIDOR: PlanDeCiclo.js → planAbrir(ciclo, sigla). Decide edición o lectura; en edición escribe
+             tu bloqueo en la pestaña Bloqueos. */
+          const r = await new Promise((listo, mal) => google.script.run
+            .withSuccessHandler(listo)
+            .withFailureHandler(mal)
+            ["planAbrir"](this.ciclo, sigla));
+          /* PASO 3 · ⬅ VUELVE con { modo, motivo, vence, version, plan… }. */
+          if (!r || !r.ok) throw new Error((r && r.error) || "Respuesta vacía del servidor.");
+          d = r.datos;
+        } catch (e) { this.error = (e && e.message) || String(e); }
+        finally { this.ocupado = ""; }
         if (!d) return;
-        this.cerrar();
+        /* PASO 4 · Cierra lo que hubiera abierto antes (latido, historial, diálogos). */
+        clearInterval(this.temporizador);
+        Object.assign(this, { temporizador: null, pantalla: "tabla", verHistorial: false, versiones: [], vistaVersion: null, desdobleDe: null, fusionDe: null });
+        /* PASO 5 · Muestra la pantalla del plan. Desde aquí, todo cambio vive en this.plan hasta pulsar «Guardar». */
         Object.assign(this, { doc: d, plan: d.plan, texto: "", lectura: null, cambios: false, actividad: false, pantalla: "plan" });
+        /* PASO 6 · En edición, programa el latido: cada 5 minutos → latido() (abajo) → mantener() → planMantener. */
         if (d.modo === "edicion") this.temporizador = setInterval(() => this.latido(), 5 * 60000);
       },
 
-      cerrar() {
-        clearInterval(this.temporizador);
-        Object.assign(this, { temporizador: null, pantalla: "tabla", verHistorial: false, versiones: [], vistaVersion: null, desdobleDe: null, fusionDe: null });
-      },
-
+      /* =================================================================
+         ACCIÓN · Latido cada 5 minutos (lo dispara el setInterval de abrir)
+         ================================================================= */
       latido() {
+        /* Solo renueva el bloqueo si tocaste algo en los últimos 5 minutos y no hay otra llamada en curso. Si no,
+           no llama: tras 30 minutos sin actividad el bloqueo vence y otra cuenta puede tomarlo.
+           ➡ SIGUE EN mantener(), justo abajo. */
         if (!this.actividad || this.ocupado) return;
         this.actividad = false;
         this.mantener();
       },
 
       async mantener() {
-        const d = await this.llamar("mantener", "planMantener", this.doc.ciclo, this.doc.carrera);
+        /* PASO 1 · ocupado = "mantener". A diferencia de las demás llamadas, no borra el error que se esté mostrando ni
+           cuenta como actividad. */
+        this.ocupado = "mantener";
+        let d = null;
+        try {
+          /* PASO 2 · 📡 → SERVIDOR: PlanDeCiclo.js → planMantener(ciclo, carrera). Reescribe «vence» en Bloqueos. */
+          const r = await new Promise((listo, mal) => google.script.run
+            .withSuccessHandler(listo)
+            .withFailureHandler(mal)
+            ["planMantener"](this.doc.ciclo, this.doc.carrera));
+          /* PASO 3 · ⬅ VUELVE con { vence } o con «Tu bloqueo venció o lo tomó otra cuenta…». */
+          if (!r || !r.ok) throw new Error((r && r.error) || "Respuesta vacía del servidor.");
+          d = r.datos;
+        } catch (e) { this.error = (e && e.message) || String(e); }
+        finally { this.ocupado = ""; }
+        /* PASO 4 · Bien: «Bloqueo hasta HH:MM» se actualiza solo. */
         if (d) this.doc.vence = d.vence;
-        else if (/^Tu bloqueo/.test(this.error)) this.perderBloqueo();
+        else if (/^Tu bloqueo/.test(this.error)) {
+          /* PASO 4b · Se perdió el bloqueo: cierra el plan, vuelve a pedir la tabla con inicio() y deja el mensaje a la vista. */
+          const mensaje = this.error;
+          clearInterval(this.temporizador);
+          Object.assign(this, { temporizador: null, pantalla: "tabla", verHistorial: false, versiones: [], vistaVersion: null, desdobleDe: null, fusionDe: null });
+          this.inicio().then(() => { this.error = mensaje; });
+        }
       },
 
-      async perderBloqueo() {
-        const mensaje = this.error;
-        this.cerrar();
-        await this.inicio();
-        this.error = mensaje;
-      },
-
+      /* =================================================================
+         ACCIÓN · Botón «Interpretar» (lo pegado en el área de texto)
+         ================================================================= */
       async interpretar() {
-        const d = await this.llamar("interpretar", "planInterpretar", this.texto, this.doc.carrera);
+        /* PASO 1 · «Interpretando…»; también se deshabilita «Elegir archivo». */
+        this.ocupado = "interpretar";
+        this.error = "";
+        this.actividad = true;
+        let d = null;
+        try {
+          /* PASO 2 · 📡 → SERVIDOR: PlanDeCiclo.js → planInterpretar(texto, carrera). No escribe nada en el Sheet. */
+          const r = await new Promise((listo, mal) => google.script.run
+            .withSuccessHandler(listo)
+            .withFailureHandler(mal)
+            ["planInterpretar"](this.texto, this.doc.carrera));
+          /* PASO 3 · ⬅ VUELVE con { asignaturas, filas, descartadas, avisos }. */
+          if (!r || !r.ok) throw new Error((r && r.error) || "Respuesta vacía del servidor.");
+          d = r.datos;
+        } catch (e) { this.error = (e && e.message) || String(e); }
+        finally { this.ocupado = ""; }
+        /* PASO 4 · Si ya había un plan, pregunta antes de reemplazarlo (se pierden las fusiones propias). */
         if (!d || (this.plan.asignaturas.length && !confirm("Esto reemplaza todo el plan, fusiones incluidas. ¿Continuar?"))) return;
+        /* PASO 5 · Conserva las marcas de fusiones que hicieron OTRAS carreras (fusionExterna): no son tuyas. */
         const externas = {};
         this.plan.asignaturas.forEach(a => a.grupos.forEach(g => { if (g.fusionExterna) externas[a.codigo + "|" + g.n] = g.fusionExterna; }));
         d.asignaturas.forEach(a => a.grupos.forEach(g => { if (externas[a.codigo + "|" + g.n]) g.fusionExterna = externas[a.codigo + "|" + g.n]; }));
+        /* PASO 6 · ✎ SOLO MEMORIA: reemplaza this.plan; la previsualización por semestre se repinta y aparece
+           «Hay cambios sin guardar». */
         Object.assign(this, { plan: { asignaturas: d.asignaturas }, lectura: d, cambios: true });
       },
 
+      /* =================================================================
+         ACCIÓN · «o sube un CSV» (elegir un archivo .csv)
+         ================================================================= */
       async leerArchivo(evento) {
+        /* PASO 1 · El archivo elegido. Se vacía el campo enseguida para poder volver a elegir el mismo archivo. */
         const archivo = evento.target.files[0];
         evento.target.value = "";
         if (!archivo) return;
         if (!/\.csv$/i.test(archivo.name)) { this.error = "Solo se aceptan archivos .csv; para .xlsx copia el rango y pégalo."; return; }
+        /* PASO 2 · Se lee EN EL NAVEGADOR (no se sube a Drive). UTF-8 estricto; si falla, Windows-1252 (como lo guarda
+           Excel en Windows), para que las tildes salgan bien. */
         const bytes = await archivo.arrayBuffer();
         let texto;
         try { texto = new TextDecoder("utf-8", { fatal: true }).decode(bytes); }
         catch (e) { texto = new TextDecoder("windows-1252").decode(bytes); }
-        this.texto = texto.replace(/^\uFEFF/, "");
+        /* PASO 3 · Se quita la marca BOM y se pone en el área de texto (x-model="texto"). ➡ SIGUE EN interpretar() (arriba). */
+        this.texto = texto.replace(/^﻿/, "");
         await this.interpretar();
       },
 
+      /* =================================================================
+         ACCIÓN · Botón «Guardar»
+         ================================================================= */
       async guardar() {
-        const d = await this.llamar("guardar", "planGuardar", this.doc.ciclo, this.doc.carrera, JSON.parse(JSON.stringify(this.plan)), this.doc.version);
-        if (!d) { if (/^Tu bloqueo/.test(this.error)) this.perderBloqueo(); return; }
-        this.cerrar();
+        /* PASO 1 · «Guardando…» y todos los botones deshabilitados. */
+        this.ocupado = "guardar";
+        this.error = "";
+        this.actividad = true;
+        let d = null;
+        try {
+          /* PASO 2 · 📡 → SERVIDOR: PlanDeCiclo.js → planGuardar(ciclo, carrera, plan, versionBase).
+             JSON.parse(JSON.stringify(...)) copia this.plan sin la «reactividad» de Alpine, para que se pueda enviar.
+             doc.version es la versión con la que abriste: el servidor rechaza si alguien guardó otra entre medio.
+             Allí se escribe la fila nueva en Planes y se borra tu bloqueo. */
+          const r = await new Promise((listo, mal) => google.script.run
+            .withSuccessHandler(listo)
+            .withFailureHandler(mal)
+            ["planGuardar"](this.doc.ciclo, this.doc.carrera, JSON.parse(JSON.stringify(this.plan)), this.doc.version));
+          /* PASO 3 · ⬅ VUELVE con { version, fecha, avisos } o con un error. */
+          if (!r || !r.ok) throw new Error((r && r.error) || "Respuesta vacía del servidor.");
+          d = r.datos;
+        } catch (e) { this.error = (e && e.message) || String(e); }
+        finally { this.ocupado = ""; }
+        if (!d) {
+          /* PASO 3b · Si el error es que se perdió el bloqueo: cierra el plan y vuelve a la tabla con el mensaje.
+             Con cualquier otro error (por ejemplo «Hay una versión más nueva…») sigues en el plan con tus cambios. */
+          if (/^Tu bloqueo/.test(this.error)) {
+            const mensaje = this.error;
+            clearInterval(this.temporizador);
+            Object.assign(this, { temporizador: null, pantalla: "tabla", verHistorial: false, versiones: [], vistaVersion: null, desdobleDe: null, fusionDe: null });
+            this.inicio().then(() => { this.error = mensaje; });
+          }
+          return;
+        }
+        /* PASO 4 · Guardado: cierra el plan (para el latido) y vuelve a la tabla, que se pide de nuevo con inicio() (arriba). */
+        clearInterval(this.temporizador);
+        Object.assign(this, { temporizador: null, pantalla: "tabla", verHistorial: false, versiones: [], vistaVersion: null, desdobleDe: null, fusionDe: null });
         await this.inicio();
+        /* PASO 5 · Franja verde «Guardado como vN.» y los avisos de fusiones con otras carreras (amarillo). */
         Object.assign(this, { exito: "Guardado como v" + d.version + ".", avisos: d.avisos });
       },
 
+      /* =================================================================
+         ACCIÓN · Botón «Salir»
+         ================================================================= */
       async salir() {
+        /* PASO 1 · Si hay cambios sin guardar, pregunta antes de perderlos. Cancelar = no pasa nada. */
         if (this.cambios && !confirm("Hay cambios sin guardar. ¿Salir sin guardar?")) return;
-        if (this.doc.modo === "edicion" && !(await this.llamar("salir", "planSalir", this.doc.ciclo, this.doc.carrera))) return;
-        this.cerrar();
+        /* PASO 2 · En edición hay que soltar el bloqueo (en lectura no hay nada que soltar). */
+        if (this.doc.modo === "edicion") {
+          this.ocupado = "salir";
+          this.error = "";
+          this.actividad = true;
+          let d = null;
+          try {
+            /* 📡 → SERVIDOR: PlanDeCiclo.js → planSalir(ciclo, carrera). Borra tu fila de Bloqueos. */
+            const r = await new Promise((listo, mal) => google.script.run
+              .withSuccessHandler(listo)
+              .withFailureHandler(mal)
+              ["planSalir"](this.doc.ciclo, this.doc.carrera));
+            /* ⬅ VUELVE con {} o con un error. */
+            if (!r || !r.ok) throw new Error((r && r.error) || "Respuesta vacía del servidor.");
+            d = r.datos;
+          } catch (e) { this.error = (e && e.message) || String(e); }
+          finally { this.ocupado = ""; }
+          if (!d) return;
+        }
+        /* PASO 3 · Cierra el plan (lo no guardado se descarta) y vuelve a pedir la tabla con inicio() (arriba). */
+        clearInterval(this.temporizador);
+        Object.assign(this, { temporizador: null, pantalla: "tabla", verHistorial: false, versiones: [], vistaVersion: null, desdobleDe: null, fusionDe: null });
         await this.inicio();
       },
 
+      /* =================================================================
+         ACCIÓN · Botón «Historial»
+         ================================================================= */
       async historial() {
-        const d = await this.llamar("historial", "planHistorial", this.doc.ciclo, this.doc.carrera);
+        /* PASO 1 · «Buscando…». */
+        this.ocupado = "historial";
+        this.error = "";
+        this.actividad = true;
+        let d = null;
+        try {
+          /* PASO 2 · 📡 → SERVIDOR: PlanDeCiclo.js → planHistorial(ciclo, carrera). Lee todas las versiones en Planes. */
+          const r = await new Promise((listo, mal) => google.script.run
+            .withSuccessHandler(listo)
+            .withFailureHandler(mal)
+            ["planHistorial"](this.doc.ciclo, this.doc.carrera));
+          /* PASO 3 · ⬅ VUELVE con { versiones: [{ version, usuario, fecha, resumen }] }. */
+          if (!r || !r.ok) throw new Error((r && r.error) || "Respuesta vacía del servidor.");
+          d = r.datos;
+        } catch (e) { this.error = (e && e.message) || String(e); }
+        finally { this.ocupado = ""; }
+        /* PASO 4 · Abre el panel Historial (x-show="verHistorial") con una fila por versión (x-for). */
         if (d) Object.assign(this, { versiones: d.versiones, verHistorial: true });
       },
 
+      /* =================================================================
+         ACCIÓN · Botón «Ver» de una versión del historial
+         ================================================================= */
       async version(n) {
-        const d = await this.llamar("version " + n, "planVersion", this.doc.ciclo, this.doc.carrera, n);
+        /* PASO 1 · «Abriendo…» en la fila de esa versión. */
+        this.ocupado = "version " + n;
+        this.error = "";
+        this.actividad = true;
+        let d = null;
+        try {
+          /* PASO 2 · 📡 → SERVIDOR: PlanDeCiclo.js → planVersion(ciclo, carrera, n). Solo lee. */
+          const r = await new Promise((listo, mal) => google.script.run
+            .withSuccessHandler(listo)
+            .withFailureHandler(mal)
+            ["planVersion"](this.doc.ciclo, this.doc.carrera, n));
+          /* PASO 3 · ⬅ VUELVE con la versión n en modo lectura. */
+          if (!r || !r.ok) throw new Error((r && r.error) || "Respuesta vacía del servidor.");
+          d = r.datos;
+        } catch (e) { this.error = (e && e.message) || String(e); }
+        finally { this.ocupado = ""; }
+        /* PASO 4 · Se guarda APARTE (vistaVersion): this.plan, tu edición, no se toca. El getter «mostrado» (abajo) hace
+           que la tabla muestre esta versión; «editable» es falso, así que se ocultan los botones y Guardar se deshabilita.
+           El botón «Volver» del aviso amarillo pone vistaVersion = null. */
         if (d) this.vistaVersion = d;
       },
 
+      /* =================================================================
+         ACCIÓN · Botón «Restaurar» de una versión del historial
+         ================================================================= */
       async restaurar(n) {
+        /* PASO 1 · Confirma: se creará una versión NUEVA con el contenido de la vn (y se pierde lo no guardado). */
         if (!confirm("Se guardará una versión nueva con el contenido de la v" + n + (this.cambios ? "; lo que no guardaste se perderá" : "") + ". ¿Continuar?")) return;
-        const d = await this.llamar("restaurar " + n, "planRestaurar", this.doc.ciclo, this.doc.carrera, n);
+        this.ocupado = "restaurar " + n;
+        this.error = "";
+        this.actividad = true;
+        let d = null;
+        try {
+          /* PASO 2 · 📡 → SERVIDOR: PlanDeCiclo.js → planRestaurar(ciclo, carrera, n). Agrega la fila nueva en Planes. */
+          const r = await new Promise((listo, mal) => google.script.run
+            .withSuccessHandler(listo)
+            .withFailureHandler(mal)
+            ["planRestaurar"](this.doc.ciclo, this.doc.carrera, n));
+          /* PASO 3 · ⬅ VUELVE con { version } (la nueva). */
+          if (!r || !r.ok) throw new Error((r && r.error) || "Respuesta vacía del servidor.");
+          d = r.datos;
+        } catch (e) { this.error = (e && e.message) || String(e); }
+        finally { this.ocupado = ""; }
         if (!d) return;
+        /* PASO 4 · Vuelve a abrir el plan para ver lo restaurado (➡ abrir(), arriba: otra vez planAbrir) y avisa. */
         await this.abrir(this.doc.carrera);
         this.exito = "Restaurada la v" + n + " como v" + d.version + ".";
       },
 
-      /* ---- Lo que muestra la pantalla ---- */
+      /* =================================================================
+         LO QUE MUESTRA LA PANTALLA (Alpine los recalcula solos cuando cambia lo que leen)
+         ================================================================= */
+      /* editable: se pueden usar el área de pegado, los botones de cada grupo y Guardar. Falso en lectura o viendo una versión. */
       get editable() { return !!this.doc && this.doc.modo === "edicion" && !this.vistaVersion; },
+      /* puedeEditarActual: «Restaurar» del historial solo aparece en tus carreras. */
       get puedeEditarActual() { return !!this.doc && this.carreras.some(c => c.sigla === this.doc.carrera && c.puedeEditar); },
+      /* mostrado: el plan que dibuja la tabla: la versión del historial que estás viendo, o tu plan en edición. */
       get mostrado() { return this.vistaVersion ? this.vistaVersion.plan : this.plan; },
+      /* totales: «68 asignaturas, 77 grupos» sobre la tabla. */
       get totales() { const a = this.mostrado.asignaturas; return a.length + " asignaturas, " + a.reduce((n, x) => n + x.grupos.length, 0) + " grupos"; },
+      /* semestres: la tabla agrupada. Un bloque por semestre (en el orden en que vienen las asignaturas) con una fila por
+         grupo; «primera» marca el primer grupo de cada asignatura (ahí va el botón «+ Grupo»). */
       get semestres() {
         const lista = [], porTitulo = {};
         this.mostrado.asignaturas.forEach(a => {
@@ -309,132 +570,209 @@
         lista.forEach(s => { s.titulo += " · " + s.asignaturas + " asignaturas, " + s.filas.length + " grupos"; });
         return lista;
       },
+      /* fecha: «2026-11-04T21:56:12-05:00» → «2026-11-04 21:56». */
       fecha(f) { return f ? f.slice(0, 10) + " " + f.slice(11, 16) : ""; },
+      /* textoFusion: la marca morada «FUS principal · con ICO 4.1.2.24-1»: los otros miembros de la fusión y cuál es el principal. */
       textoFusion(asig, g) {
+        const mismo = (a, b) => a.carrera === b.carrera && a.codigo === b.codigo && a.grupo === b.grupo;
         const f = g.fusion, yo = { carrera: this.doc.carrera, codigo: asig.codigo, grupo: g.n };
-        const otros = f.miembros.filter(m => !this.mismo(m, yo)).map(m => m.carrera + " " + m.codigo + "-" + m.grupo + (this.mismo(m, f.principal) ? " (principal)" : ""));
-        return "FUS " + (this.mismo(yo, f.principal) ? "principal · " : "") + "con " + otros.join(", ");
+        const otros = f.miembros.filter(m => !mismo(m, yo)).map(m => m.carrera + " " + m.codigo + "-" + m.grupo + (mismo(m, f.principal) ? " (principal)" : ""));
+        return "FUS " + (mismo(yo, f.principal) ? "principal · " : "") + "con " + otros.join(", ");
       },
-      mismo(a, b) { return a.carrera === b.carrera && a.codigo === b.codigo && a.grupo === b.grupo; },
-      normalizar(s) { return String(s).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/\s+/g, " ").trim(); },
+      /* buscarGrupo: { a: asignatura, g: grupo } de este plan con ese código y número, o null. */
       buscarGrupo(codigo, n) {
         for (const a of this.plan.asignaturas) for (const g of a.grupos) if (a.codigo === codigo && g.n === n) return { a, g };
         return null;
       },
-      enFusionLocal(r) { return this.plan.asignaturas.some(a => a.grupos.some(g => g.fusion && g.fusion.miembros.some(m => this.mismo(m, r)))); },
-      marcar() { this.cambios = true; this.actividad = true; this.error = ""; },
 
-      /* ---- Operaciones en memoria sobre this.plan ---- */
+      /* =================================================================
+         ACCIONES SOBRE GRUPOS · ✎ SOLO MEMORIA (cambian this.plan; llegan al Sheet con «Guardar»)
+         Todas terminan marcando: cambios = true (aviso «Hay cambios sin guardar»), actividad = true (el próximo latido
+         renovará el bloqueo) y error = "".
+         ================================================================= */
+
+      /* ---------- Botón «+ Grupo» (solo en la primera fila de cada asignatura) ---------- */
       agregarGrupo(asig) {
+        /* Número = el mayor + 1 (no rellena huecos). Horas = las del grupo de número más bajo. Sin desdoble ni fusión. */
         const base = asig.grupos.reduce((m, g) => (g.n < m.n ? g : m)), n = Math.max(...asig.grupos.map(g => g.n)) + 1;
         asig.grupos.push({ n, ht: base.ht, hp: base.hp, th: base.th, obs: "", avisos: [], desdoble: null, fusion: null });
-        this.marcar();
+        this.cambios = true; this.actividad = true; this.error = "";
         return n;
       },
-      quitarGrupo(asig, grupo) {
-        if (asig.grupos.length < 2) return false;
-        if (grupo.fusion) this.deshacerFusion(grupo.fusion.id);
-        asig.grupos.splice(asig.grupos.indexOf(grupo), 1);
-        this.marcar();
-        return true;
-      },
+
+      /* ---------- Botón «Quitar» ---------- */
       uiQuitarGrupo(asig, grupo) {
+        /* PASO 1 · Ventana de confirmación del navegador, con un aviso si el grupo está en una fusión (propia o de otra carrera). */
         const extra = grupo.fusion ? " Está en una fusión: se deshará." :
           grupo.fusionExterna ? " " + grupo.fusionExterna.carrera + " lo tiene en una fusión que quedará incompleta." : "";
+        /* PASO 2 · Aceptar ➡ SIGUE EN quitarGrupo(), justo abajo. */
         if (confirm("¿Quitar el grupo " + grupo.n + " de " + asig.codigo + " " + asig.nombre + "?" + extra)) this.quitarGrupo(asig, grupo);
       },
+      quitarGrupo(asig, grupo) {
+        /* Una asignatura no puede quedarse sin grupos (el botón ya está deshabilitado en ese caso). */
+        if (asig.grupos.length < 2) return false;
+        /* Si el grupo estaba en una fusión, se deshace en todos los grupos de esa fusión. */
+        if (grupo.fusion) {
+          const id = grupo.fusion.id;
+          this.plan.asignaturas.forEach(a => a.grupos.forEach(g => { if (g.fusion && g.fusion.id === id) g.fusion = null; }));
+        }
+        /* Se saca del arreglo: la fila desaparece. Los demás grupos no se renumeran. */
+        asig.grupos.splice(asig.grupos.indexOf(grupo), 1);
+        this.cambios = true; this.actividad = true; this.error = "";
+        return true;
+      },
+
+      /* ---------- Botón «Desdoblar…» → diálogo → botón «Desdoblar» ---------- */
+      abrirDesdoble(asig, g) {
+        /* Abre el diálogo (x-if="desdobleDe"). Propone práctica (P) si el grupo tiene HP; si no, teoría (T). */
+        this.error = "";
+        this.desdobleDe = { titulo: asig.codigo + "-" + g.n + " " + asig.nombre, grupo: g, n: 2, componente: typeof g.hp === "number" && g.hp > 0 ? "P" : "T" };
+      },
+      aplicarDesdoble() {
+        /* Botón «Desdoblar» del diálogo ➡ desdoblar(), justo abajo. Si sale bien, se cierra el diálogo. */
+        if (this.desdoblar(this.desdobleDe.grupo, this.desdobleDe.componente, Number(this.desdobleDe.n))) this.desdobleDe = null;
+      },
       desdoblar(grupo, componente, n) {
+        /* Mismas reglas que comprueba el servidor al guardar: P exige HP > 0, T exige HT > 0, de 2 a 9 subgrupos.
+           En la Carga docente, el grupo tendrá P1…Pn (o T1…Tn), cada uno con su docente. */
         const horas = componente === "P" ? grupo.hp : grupo.ht;
         if (componente !== "P" && componente !== "T") this.error = "Elige práctica (P) o teoría (T).";
         else if (typeof horas !== "number" || horas <= 0) this.error = "Para desdoblar la " + (componente === "P" ? "práctica el grupo necesita HP" : "teoría el grupo necesita HT") + " mayor que 0.";
         else if (!Number.isInteger(n) || n < 2 || n > 9) this.error = "El desdoble va de 2 a 9 subgrupos.";
-        else { grupo.desdoble = { componente, n }; this.marcar(); return true; }
+        else { grupo.desdoble = { componente, n }; this.cambios = true; this.actividad = true; this.error = ""; return true; }
         return false;
       },
-      quitarDesdoble(grupo) { grupo.desdoble = null; this.marcar(); },
-      abrirDesdoble(asig, g) {
-        this.error = "";
-        this.desdobleDe = { titulo: asig.codigo + "-" + g.n + " " + asig.nombre, grupo: g, n: 2, componente: typeof g.hp === "number" && g.hp > 0 ? "P" : "T" };
-      },
-      aplicarDesdoble() { if (this.desdoblar(this.desdobleDe.grupo, this.desdobleDe.componente, Number(this.desdobleDe.n))) this.desdobleDe = null; },
 
-      /* seleccion: refs {carrera, codigo, grupo}; las de otras carreras traen sus datos de planCandidatosFusion.
-         Devuelve las advertencias (o null si no se pudo fusionar). */
-      fusionar(seleccion, principal) {
-        const carrera = this.doc.carrera, miembros = [];
-        for (const r of seleccion) {
-          if (miembros.some(m => this.mismo(m, r))) continue;
-          const local = r.carrera === carrera, x = local ? this.buscarGrupo(r.codigo, r.grupo) : null;
-          if (local && (!x || x.g.fusion || x.g.fusionExterna)) { this.error = "El grupo " + r.codigo + "-" + r.grupo + " no existe o ya está fusionado."; return null; }
-          if (!local && (r.fusionadoEn || this.enFusionLocal(r))) { this.error = r.carrera + " " + r.codigo + "-" + r.grupo + " ya está fusionado."; return null; }
-          const d = local ? { nombre: x.a.nombre, ht: x.g.ht, hp: x.g.hp, th: x.g.th } : r;
-          miembros.push({ carrera: r.carrera, codigo: r.codigo, grupo: r.grupo, nombre: d.nombre, ht: d.ht, hp: d.hp, th: d.th });
-        }
-        if (miembros.length < 2) { this.error = "Elige al menos dos grupos."; return null; }
-        if (!miembros.some(m => m.carrera === carrera)) { this.error = "La fusión debe incluir al menos un grupo de " + carrera + "."; return null; }
-        const p = principal ? miembros.find(m => this.mismo(m, principal)) : null;
-        if (!p) { this.error = "Elige el grupo principal entre los elegidos."; return null; }
-        let mayor = 0;
-        this.plan.asignaturas.forEach(a => a.grupos.forEach(g => { if (g.fusion) mayor = Math.max(mayor, Number(g.fusion.id.slice(1))); }));
-        const fusion = { id: "F" + (mayor + 1), principal: { carrera: p.carrera, codigo: p.codigo, grupo: p.grupo }, miembros };
-        miembros.filter(m => m.carrera === carrera).forEach(m => { this.buscarGrupo(m.codigo, m.grupo).g.fusion = JSON.parse(JSON.stringify(fusion)); });
-        this.marcar();
-        return this.advertenciasFusion(miembros, p);
-      },
-      advertenciasFusion(miembros, p) {
-        return miembros.filter(m => m !== p).map(m => {
-          const dif = [];
-          if (this.normalizar(m.nombre) !== this.normalizar(p.nombre)) dif.push("otro nombre («" + m.nombre + "»)");
-          if (m.codigo !== p.codigo) dif.push("otro código");
-          if (m.ht !== p.ht || m.hp !== p.hp || m.th !== p.th) dif.push("otras horas (HT " + m.ht + ", HP " + m.hp + ", TH " + m.th + ")");
-          return dif.length ? m.carrera + " " + m.codigo + "-" + m.grupo + ": " + dif.join(", ") + "." : "";
-        }).filter(String);
-      },
-      deshacerFusion(id) {
-        this.plan.asignaturas.forEach(a => a.grupos.forEach(g => { if (g.fusion && g.fusion.id === id) g.fusion = null; }));
-        this.marcar();
-      },
+      /* ---------- Botón «Quitar desdoble» ---------- */
+      quitarDesdoble(grupo) { grupo.desdoble = null; this.cambios = true; this.actividad = true; this.error = ""; },
 
-      /* ---- Diálogo de fusión ---- */
+      /* =================================================================
+         DIÁLOGO DE FUSIÓN: «Fusionar…» → (opcional) «Buscar en otras carreras» → marcar grupos → «Fusionar»
+         ================================================================= */
+
+      /* ---------- Botón «Fusionar…» de una fila: abre el diálogo con ese grupo marcado y como principal ---------- */
       abrirFusion(asig, g) {
         const clave = this.doc.carrera + "|" + asig.codigo + "|" + g.n;
         this.error = "";
         this.fusionDe = { titulo: asig.codigo + "-" + g.n + " " + asig.nombre, marcados: [clave], principal: clave, filtro: "", externos: [] };
       },
+
+      /* ---------- Botón «Buscar en otras carreras» del diálogo ---------- */
       async candidatosFusion() {
-        const d = await this.llamar("candidatos", "planCandidatosFusion", this.doc.ciclo, this.doc.carrera);
+        /* PASO 1 · «Buscando…». */
+        this.ocupado = "candidatos";
+        this.error = "";
+        this.actividad = true;
+        let d = null;
+        try {
+          /* PASO 2 · 📡 → SERVIDOR: PlanDeCiclo.js → planCandidatosFusion(ciclo, carrera). Lee los planes de las otras carreras. */
+          const r = await new Promise((listo, mal) => google.script.run
+            .withSuccessHandler(listo)
+            .withFailureHandler(mal)
+            ["planCandidatosFusion"](this.doc.ciclo, this.doc.carrera));
+          /* PASO 3 · ⬅ VUELVE con { candidatos }. */
+          if (!r || !r.ok) throw new Error((r && r.error) || "Respuesta vacía del servidor.");
+          d = r.datos;
+        } catch (e) { this.error = (e && e.message) || String(e); }
+        finally { this.ocupado = ""; }
+        /* PASO 4 · Se agregan a la lista del diálogo (opcionesFusion, abajo). */
         if (d && this.fusionDe) this.fusionDe.externos = d.candidatos;
       },
-      /* Grupos locales con código (los sin código no se pueden fusionar) y candidatos externos; bloqueo dice por qué no se eligen. */
+
+      /* ---------- Las filas de la tabla del diálogo (x-for="o in opcionesFusion(false)") ----------
+         Tus grupos con código y los candidatos de otras carreras. «bloqueo» dice por qué un grupo no se puede elegir
+         (ya está en una fusión). Con todas = false se aplica el filtro de texto (los ya marcados siempre se ven). */
       opcionesFusion(todas) {
-        const carrera = this.doc.carrera, f = this.fusionDe, filtro = this.normalizar(f.filtro), lista = [];
+        const normalizar = s => String(s).normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase().replace(/\s+/g, " ").trim();
+        const mismo = (a, b) => a.carrera === b.carrera && a.codigo === b.codigo && a.grupo === b.grupo;
+        const enFusionLocal = r => this.plan.asignaturas.some(a => a.grupos.some(g => g.fusion && g.fusion.miembros.some(m => mismo(m, r))));
+        const carrera = this.doc.carrera, f = this.fusionDe, filtro = normalizar(f.filtro), lista = [];
         this.plan.asignaturas.forEach(a => a.codigo && a.grupos.forEach(g => lista.push({
           carrera, codigo: a.codigo, nombre: a.nombre, grupo: g.n, ht: g.ht, hp: g.hp, th: g.th,
           bloqueo: g.fusion ? "en la fusión " + g.fusion.id : g.fusionExterna ? "fusionado con " + g.fusionExterna.carrera : "" })));
         f.externos.forEach(c => lista.push(Object.assign({}, c, {
-          bloqueo: c.fusionadoEn ? "ya fusionado en " + c.fusionadoEn : this.enFusionLocal(c) ? "en una fusión de este plan" : "" })));
+          bloqueo: c.fusionadoEn ? "ya fusionado en " + c.fusionadoEn : enFusionLocal(c) ? "en una fusión de este plan" : "" })));
         lista.forEach(o => { o.clave = o.carrera + "|" + o.codigo + "|" + o.grupo; });
-        return lista.filter(o => todas || !filtro || f.marcados.includes(o.clave) || this.normalizar(o.carrera + " " + o.codigo + " " + o.nombre).includes(filtro));
+        return lista.filter(o => todas || !filtro || f.marcados.includes(o.clave) || normalizar(o.carrera + " " + o.codigo + " " + o.nombre).includes(filtro));
       },
-      seleccionFusion() {
-        const sel = this.opcionesFusion(true).filter(o => this.fusionDe.marcados.includes(o.clave));
-        return { sel, p: sel.find(o => o.clave === this.fusionDe.principal) || null };
+
+      /* ---------- Avisos amarillos del diálogo (x-for="a in advertenciasDialogo()") ----------
+         Con dos o más grupos marcados y un principal: qué miembros tienen otro nombre, otro código u otras horas que el
+         principal. Solo avisan: nunca impiden fusionar. s es la selección { sel, p } (si no se pasa, se calcula aquí). */
+      advertenciasDialogo(s) {
+        if (!s) {
+          const sel = this.opcionesFusion(true).filter(o => this.fusionDe.marcados.includes(o.clave));
+          s = { sel, p: sel.find(o => o.clave === this.fusionDe.principal) || null };
+        }
+        if (!(s.sel.length > 1 && s.p)) return [];
+        const normalizar = x => String(x).normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase().replace(/\s+/g, " ").trim();
+        return s.sel.filter(m => m !== s.p).map(m => {
+          const dif = [];
+          if (normalizar(m.nombre) !== normalizar(s.p.nombre)) dif.push("otro nombre («" + m.nombre + "»)");
+          if (m.codigo !== s.p.codigo) dif.push("otro código");
+          if (m.ht !== s.p.ht || m.hp !== s.p.hp || m.th !== s.p.th) dif.push("otras horas (HT " + m.ht + ", HP " + m.hp + ", TH " + m.th + ")");
+          return dif.length ? m.carrera + " " + m.codigo + "-" + m.grupo + ": " + dif.join(", ") + "." : "";
+        }).filter(String);
       },
-      advertenciasDialogo(s = this.seleccionFusion()) { return s.sel.length > 1 && s.p ? this.advertenciasFusion(s.sel, s.p) : []; },
+
+      /* ---------- Botón «Fusionar» del diálogo ---------- */
       aplicarFusion() {
-        const s = this.seleccionFusion(), adv = this.advertenciasDialogo(s);
+        /* PASO 1 · Los grupos marcados y el principal elegido (radio). */
+        const sel = this.opcionesFusion(true).filter(o => this.fusionDe.marcados.includes(o.clave));
+        const s = { sel, p: sel.find(o => o.clave === this.fusionDe.principal) || null };
+        /* PASO 2 · Si no coinciden en todo, pregunta (advertenciasDialogo, arriba). */
+        const adv = this.advertenciasDialogo(s);
         if (adv.length && !confirm("Los grupos no coinciden en todo:\n" + adv.join("\n") + "\n¿Fusionar de todos modos?")) return;
+        /* PASO 3 · ➡ SIGUE EN fusionar(), justo abajo. Si sale bien, se cierra el diálogo. */
         if (this.fusionar(s.sel, s.p)) this.fusionDe = null;
+      },
+
+      /* ---------- La fusión en memoria (✎ SOLO MEMORIA) ----------
+         seleccion: grupos { carrera, codigo, grupo }; los de otras carreras traen sus datos (de planCandidatosFusion).
+         Devuelve las advertencias, o null si no se pudo fusionar (el motivo queda en this.error). */
+      fusionar(seleccion, principal) {
+        const mismo = (a, b) => a.carrera === b.carrera && a.codigo === b.codigo && a.grupo === b.grupo;
+        const normalizar = s => String(s).normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase().replace(/\s+/g, " ").trim();
+        const enFusionLocal = r => this.plan.asignaturas.some(a => a.grupos.some(g => g.fusion && g.fusion.miembros.some(m => mismo(m, r))));
+        const carrera = this.doc.carrera, miembros = [];
+        /* PASO 1 · Cada grupo elegido (sin repetir): los de esta carrera tienen que existir y no estar ya fusionados; los de
+           otra carrera, no estar en otra fusión. Se copian nombre y horas. */
+        for (const r of seleccion) {
+          if (miembros.some(m => mismo(m, r))) continue;
+          const local = r.carrera === carrera, x = local ? this.buscarGrupo(r.codigo, r.grupo) : null;
+          if (local && (!x || x.g.fusion || x.g.fusionExterna)) { this.error = "El grupo " + r.codigo + "-" + r.grupo + " no existe o ya está fusionado."; return null; }
+          if (!local && (r.fusionadoEn || enFusionLocal(r))) { this.error = r.carrera + " " + r.codigo + "-" + r.grupo + " ya está fusionado."; return null; }
+          const d = local ? { nombre: x.a.nombre, ht: x.g.ht, hp: x.g.hp, th: x.g.th } : r;
+          miembros.push({ carrera: r.carrera, codigo: r.codigo, grupo: r.grupo, nombre: d.nombre, ht: d.ht, hp: d.hp, th: d.th });
+        }
+        /* PASO 2 · Al menos dos grupos, al menos uno de esta carrera, y el principal entre los elegidos. */
+        if (miembros.length < 2) { this.error = "Elige al menos dos grupos."; return null; }
+        if (!miembros.some(m => m.carrera === carrera)) { this.error = "La fusión debe incluir al menos un grupo de " + carrera + "."; return null; }
+        const p = principal ? miembros.find(m => mismo(m, principal)) : null;
+        if (!p) { this.error = "Elige el grupo principal entre los elegidos."; return null; }
+        /* PASO 3 · id = «F» + (el mayor número usado + 1). El mismo objeto se copia en cada grupo de ESTA carrera. Los de
+           otras carreras solo quedan dentro de este objeto: su plan no cambia (la otra carrera lo verá como
+           «FUS – fusionado con …», calculado por el servidor al abrir). */
+        let mayor = 0;
+        this.plan.asignaturas.forEach(a => a.grupos.forEach(g => { if (g.fusion) mayor = Math.max(mayor, Number(g.fusion.id.slice(1))); }));
+        const fusion = { id: "F" + (mayor + 1), principal: { carrera: p.carrera, codigo: p.codigo, grupo: p.grupo }, miembros };
+        miembros.filter(m => m.carrera === carrera).forEach(m => { this.buscarGrupo(m.codigo, m.grupo).g.fusion = JSON.parse(JSON.stringify(fusion)); });
+        this.cambios = true; this.actividad = true; this.error = "";
+        /* PASO 4 · Devuelve las mismas advertencias que muestra el diálogo (nombre, código u horas distintos al principal). */
+        return miembros.filter(m => m !== p).map(m => {
+          const dif = [];
+          if (normalizar(m.nombre) !== normalizar(p.nombre)) dif.push("otro nombre («" + m.nombre + "»)");
+          if (m.codigo !== p.codigo) dif.push("otro código");
+          if (m.ht !== p.ht || m.hp !== p.hp || m.th !== p.th) dif.push("otras horas (HT " + m.ht + ", HP " + m.hp + ", TH " + m.th + ")");
+          return dif.length ? m.carrera + " " + m.codigo + "-" + m.grupo + ": " + dif.join(", ") + "." : "";
+        }).filter(String);
+      },
+
+      /* ---------- Botón «Deshacer fusión» (✎ SOLO MEMORIA): quita la fusión de todos los grupos que la llevan ---------- */
+      deshacerFusion(id) {
+        this.plan.asignaturas.forEach(a => a.grupos.forEach(g => { if (g.fusion && g.fusion.id === id) g.fusion = null; }));
+        this.cambios = true; this.actividad = true; this.error = "";
       }
     }));
   });
-
-  /* google.script.run con promesa: resuelve con datos si ok; si no, rechaza con el error. */
-  function planLlamar(nombre, ...args) {
-    return new Promise((resolver, rechazar) => {
-      google.script.run
-        .withSuccessHandler(r => (r && r.ok ? resolver(r.datos) : rechazar(new Error((r && r.error) || "Respuesta vacía del servidor."))))
-        .withFailureHandler(e => rechazar(new Error((e && e.message) || String(e))))[nombre](...args);
-    });
-  }
 </script>
