@@ -9,6 +9,10 @@
        3. Se carga Alpine.js (la etiqueta del CDN, aquí abajo) y corre el bloque de JavaScript del
           final de este archivo: crea la memoria compartida ($store.nav y $store.usuario) y pregunta
           "¿quién soy?" al servidor (Index.js → indexUsuario).
+     DÓNDE MIRAR
+       "ALPINE ·" marca lo que pidió el docente con Alpine.js (navegación, en espera, x-for con datos del
+       servidor) en las cuatro vistas. "SHEET ·" marca en los .js cada lectura y escritura del Sheet, y la
+       línea "Sheet:" de cada 📡 dice qué pestañas toca esa llamada.
      QUÉ DISPARA CADA BOTÓN DE LA BARRA
        Inicio / Registrar plan de ciclo / Carga docente → solo cambian $store.nav.vista (no llaman al
        servidor). Cada sección se muestra u oculta con su x-show. La primera vez que se ve una
@@ -71,7 +75,8 @@
 </head>
 <body x-data>
   <!-- BARRA SUPERIOR. Los botones solo existen si tienes acceso (x-if: si es falso, ni se crean).
-       Cada @click cambia $store.nav.vista y :class pinta de celeste (clase .activo, arriba en el CSS) el de la vista actual. -->
+       Cada @click cambia $store.nav.vista y :class pinta de celeste (clase .activo, arriba en el CSS) el de la vista actual.
+       ALPINE · navegación. -->
   <header class="barra">
     <strong>SISCargaLectiva</strong>
     <template x-if="$store.usuario.acceso">
@@ -87,7 +92,8 @@
   </header>
 
   <main>
-    <!-- "Acceso denegado": se ve cuando cargar() (abajo) recibe acceso = false y pone $store.nav.vista = 'denegado'. -->
+    <!-- "Acceso denegado": se ve cuando cargar() (abajo) recibe acceso = false y pone $store.nav.vista = 'denegado'.
+         ALPINE · navegación: x-show según $store.nav.vista. -->
     <section x-show="$store.nav.vista === 'denegado'" x-cloak>
       <h2>Acceso denegado</h2>
       <p class="error" x-text="$store.usuario.motivo"></p>
@@ -106,7 +112,7 @@
        Corre una sola vez, cuando Alpine arranca (evento alpine:init).
        ================================================================= */
     document.addEventListener("alpine:init", () => {
-      /* $store.nav.vista = qué sección se ve: "inicio", "plan", "carga" o "denegado".
+      /* ALPINE · navegación. $store.nav.vista = qué sección se ve: "inicio", "plan", "carga" o "denegado".
          La cambian los botones de la barra y de Inicio; cada <section> la mira con x-show. */
       Alpine.store("nav", { vista: "inicio" });
 
@@ -116,12 +122,13 @@
 
         /* ACCIÓN: preguntar al servidor quién soy (se llama sola, justo abajo, al arrancar). */
         cargar() {
-          /* PASO 1 · Mientras espera, Inicio muestra "Comprobando tu cuenta…" (InicioVista.html). */
+          /* PASO 1 · ALPINE · en espera: mientras espera, Inicio muestra "Comprobando tu cuenta…" (InicioVista.html). */
           this.cargando = true;
           this.error = "";
 
           /* PASO 2 · 📡 → SERVIDOR: Index.js → indexUsuario(). Allí se lee la pestaña "Usuarios" del Sheet.
-             withSuccessHandler recibe lo que devolvió la función; withFailureHandler, un fallo de red o de Apps Script. */
+             withSuccessHandler recibe lo que devolvió la función; withFailureHandler, un fallo de red o de Apps Script.
+             Sheet: 📥 Usuarios */
           new Promise((listo, mal) => google.script.run
             .withSuccessHandler(listo)
             .withFailureHandler(mal)
@@ -137,7 +144,7 @@
             })
             /* Si algo falló, el mensaje se ve en rojo en Inicio. */
             .catch(e => { this.error = (e && e.message) || String(e); })
-            /* PASO 4 · Termina la espera (bien o mal). */
+            /* PASO 4 · ALPINE · en espera: termina la espera (bien o mal) y se oculta "Comprobando tu cuenta…". */
             .finally(() => { this.cargando = false; });
         }
       });

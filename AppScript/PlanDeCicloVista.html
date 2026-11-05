@@ -15,9 +15,21 @@
        "Salir" ....................... salir()            → planSalir      (suelta el bloqueo)
        "Historial" / "Ver" / "Restaurar"  historial() / version(n) / restaurar(n) → planHistorial / planVersion / planRestaurar
        (cada 5 min, solo) ............ latido() → mantener() → planMantener
+       Cerrar o recargar la pestaña .. init() (evento pagehide) → planSalir (suelta el bloqueo sin esperar respuesta)
+       "Volver" (aviso de versión) ... vistaVersion = null (no llama al servidor)
+       "Cerrar" (panel Historial) .... verHistorial = false (no llama al servidor)
+       "Desdoblar" (diálogo) ......... aplicarDesdoble() → desdoblar() (no llama al servidor)
+       "Fusionar" (diálogo) .......... aplicarFusion() → fusionar() (no llama al servidor)
+       "Cancelar" (diálogos) ......... cierra el diálogo (no llama al servidor)
+     DÓNDE MIRAR
+       Qué pestañas del Sheet toca cada llamada: la línea "Sheet:" de su comentario 📡 (abajo) y el cuadro
+       "QUÉ PESTAÑAS TOCA CADA FUNCIÓN" de PlanDeCiclo.js. Lo que pidió el docente con Alpine: busca "ALPINE ·".
      ===================================================================== -->
+<!-- ALPINE · navegación: x-show muestra esta sección cuando $store.nav.vista es 'plan' (la cambian la barra y
+     el botón de Inicio). x-data="planDeCiclo" es el componente del bloque de JavaScript de abajo. -->
 <section x-show="$store.nav.vista === 'plan'" x-data="planDeCiclo" x-cloak>
-  <!-- Título y selector "Ciclo". Al cambiarlo → inicio() → planInicio. Se deshabilita mientras hay una llamada en curso o un plan abierto. -->
+  <!-- Título y selector "Ciclo". Al cambiarlo → inicio() → planInicio. Se deshabilita mientras hay una llamada en curso o un plan abierto.
+       ALPINE · en espera: "Cargando…" y el selector deshabilitado mientras dura la llamada. -->
   <div class="fila">
     <h2>Registrar plan de ciclo</h2>
     <label>Ciclo
@@ -33,7 +45,8 @@
   <p class="exito" x-show="exito" x-text="exito"></p>
   <template x-for="(a, i) in avisos" :key="i"><p class="aviso" x-text="a"></p></template>
 
-  <!-- TABLA DE CARRERAS: una fila por carrera, con lo que devolvió planInicio (this.carreras). -->
+  <!-- TABLA DE CARRERAS: una fila por carrera, con lo que devolvió planInicio (this.carreras).
+       ALPINE · x-for con datos del servidor: x-for="c in carreras" (los deja inicio(), PASO 4). -->
   <div class="tabla" x-show="pantalla === 'tabla'">
     <table>
       <thead><tr><th>Carrera</th><th>Plan</th><th>Guardado por</th><th>Fecha</th><th class="num">Asignaturas</th>
@@ -45,7 +58,8 @@
             <td x-text="c.version ? 'v' + c.version : 'Sin plan'"></td><td x-text="c.usuario"></td><td x-text="fecha(c.fecha)"></td>
             <td class="num" x-text="c.asignaturas"></td><td class="num" x-text="c.grupos"></td>
             <td><span class="marca lectura" x-show="c.editor" x-text="'En edición por ' + c.editor"></span></td>
-            <!-- "Editar" (azul, tus carreras) o "Ver" → abrir(sigla) → planAbrir. -->
+            <!-- "Editar" (azul, tus carreras) o "Ver" → abrir(sigla) → planAbrir.
+                 ALPINE · en espera: "Abriendo…" en esa fila. -->
             <td><button class="chico" :class="{ primario: c.puedeEditar }" :disabled="!!ocupado" @click="abrir(c.sigla)"
                         x-text="ocupado === 'abrir ' + c.sigla ? 'Abriendo…' : (c.puedeEditar ? 'Editar' : 'Ver')"></button></td>
           </tr>
@@ -64,7 +78,8 @@
               x-text="/^Solo lectura/.test(doc.motivo) ? doc.motivo : 'Solo lectura · ' + doc.motivo"></span>
         <span class="marca" x-show="doc.modo === 'edicion'" x-text="'Bloqueo hasta ' + doc.vence.slice(11, 16)"></span>
       </div>
-      <!-- "Guardar" → guardar() → planGuardar · "Salir" → salir() → planSalir · "Historial" → historial() → planHistorial -->
+      <!-- "Guardar" → guardar() → planGuardar · "Salir" → salir() → planSalir · "Historial" → historial() → planHistorial
+           ALPINE · en espera: "Guardando…", "Saliendo…" o "Buscando…"; :disabled="!!ocupado" apaga los botones. -->
       <div class="fila">
         <button class="primario" x-show="doc.modo === 'edicion'" :disabled="ocupado || !!vistaVersion" @click="guardar()"
                 x-text="ocupado === 'guardar' ? 'Guardando…' : 'Guardar'"></button>
@@ -73,7 +88,9 @@
         <span class="aviso" x-show="cambios">Hay cambios sin guardar.</span>
       </div>
 
-      <!-- PANEL HISTORIAL (lo abre historial()). "Ver" → version(n) → planVersion · "Restaurar" → restaurar(n) → planRestaurar. -->
+      <!-- PANEL HISTORIAL (lo abre historial()). "Ver" → version(n) → planVersion · "Restaurar" → restaurar(n) → planRestaurar.
+           ALPINE · x-for con datos del servidor: x-for="v in versiones" (las deja historial(), PASO 4).
+           ALPINE · en espera: "Abriendo…" o "Restaurando…" en esa fila. -->
       <div class="panel" x-show="verHistorial">
         <div class="fila"><strong>Historial</strong><button class="chico" @click="verHistorial = false">Cerrar</button></div>
         <p class="suave" x-show="!versiones.length">Este plan aún no tiene versiones.</p>
@@ -100,7 +117,8 @@
       </template>
 
       <!-- PEGAR O SUBIR. El área guarda lo pegado en this.texto. "Interpretar" → interpretar() → planInterpretar.
-           "Elegir archivo" → leerArchivo() (lee el .csv en el navegador) → interpretar(). -->
+           "Elegir archivo" → leerArchivo() (lee el .csv en el navegador) → interpretar().
+           ALPINE · en espera: "Interpretando…" y "Elegir archivo" deshabilitado mientras dura la llamada. -->
       <div class="panel" x-show="editable">
         <textarea x-model="texto" placeholder="Pega aquí el rango copiado de Excel o Google Sheets (con la fila de cabeceras)"></textarea>
         <div class="fila">
@@ -112,7 +130,9 @@
       </div>
 
       <!-- PREVISUALIZACIÓN POR SEMESTRE: dibuja "mostrado" (tu plan o la versión que estás viendo) con los getters
-           totales y semestres del componente. Los botones de cada fila solo cambian this.plan (✎ solo memoria). -->
+           totales y semestres del componente. Los botones de cada fila solo cambian this.plan (✎ solo memoria).
+           ALPINE · x-for con datos del servidor: x-for="s in semestres" y x-for="f in s.filas" dibujan el plan que
+           trajo planAbrir o planInterpretar. -->
       <p class="suave" x-text="totales"></p>
       <div class="tabla">
         <table>
@@ -167,7 +187,9 @@
   </template>
 
   <!-- DIÁLOGO DE FUSIÓN (lo abre abrirFusion). "Buscar en otras carreras" → candidatosFusion() → planCandidatosFusion.
-       Las filas salen de opcionesFusion(); los avisos, de advertenciasDialogo(). "Fusionar" → aplicarFusion() → fusionar(). -->
+       Las filas salen de opcionesFusion(); los avisos, de advertenciasDialogo(). "Fusionar" → aplicarFusion() → fusionar().
+       ALPINE · x-for con datos del servidor: x-for="o in opcionesFusion(false)", con los grupos de planCandidatosFusion.
+       ALPINE · en espera: "Buscando…" en "Buscar en otras carreras". -->
   <template x-if="fusionDe">
     <div class="dialogo"><div>
       <h3 x-text="'Fusionar ' + fusionDe.titulo"></h3>
@@ -210,7 +232,9 @@
          📡 → SERVIDOR    aquí sale la llamada a PlanDeCiclo.js (google.script.run). Allí sigue la historia.
          ⬅ VUELVE         aquí llega la respuesta { ok, datos } o { ok: false, error }.
          ✎ SOLO MEMORIA   el cambio vive en this.plan (el navegador); el Sheet no se entera hasta "Guardar".
-     • Todas las llamadas al servidor siguen el mismo patrón, escrito en cada método:
+         Sheet:           debajo de cada 📡: qué pestañas lee (📥), escribe (📤) o borra (🗑) y si usa el 🔒.
+         ALPINE ·         lo que pidió el docente con Alpine: navegación, en espera y x-for con datos del servidor.
+     • ALPINE · en espera. Todas las llamadas al servidor siguen el mismo patrón, escrito en cada método:
          1. this.ocupado = "acción": deshabilita todos los botones (:disabled="!!ocupado") y cambia el texto
             del botón pulsado ("Guardando…").
          2. google.script.run.withSuccessHandler(…).withFailureHandler(…)["planX"](…) envuelto en una promesa
@@ -237,11 +261,12 @@
          ================================================================= */
       init() {
         /* La primera vez que se muestra esta vista (botón de la barra o de Inicio cambia $store.nav.vista), pide la tabla.
-           ➡ SIGUE EN inicio(), justo abajo. */
+           ➡ SIGUE EN inicio(), justo abajo. ALPINE · navegación: $watch vigila $store.nav.vista. */
         this.$watch("$store.nav.vista", v => { if (v === "plan" && !this.listo) this.inicio(); });
         if (Alpine.store("nav").vista === "plan") this.inicio();
         /* Si se cierra o recarga la pestaña con un plan en edición, intenta soltar el bloqueo sin esperar respuesta.
-           📡 → SERVIDOR: PlanDeCiclo.js → planSalir. Si no alcanza a salir, el bloqueo vence solo a los 30 minutos. */
+           📡 → SERVIDOR: PlanDeCiclo.js → planSalir. Si no alcanza a salir, el bloqueo vence solo a los 30 minutos.
+           Sheet: 📥 Usuarios, Carreras, Ciclos, Bloqueos · 🗑 Bloqueos · 🔒 candado */
         window.addEventListener("pagehide", () => {
           if (this.doc && this.doc.modo === "edicion" && this.pantalla === "plan")
             new Promise((listo, mal) => google.script.run.withSuccessHandler(listo).withFailureHandler(mal)
@@ -253,13 +278,14 @@
          ACCIÓN · Abrir la vista o cambiar el selector "Ciclo" → tabla de carreras
          ================================================================= */
       async inicio() {
-        /* PASO 1 · Botones en espera: "Cargando…" junto al título y selector deshabilitado. */
+        /* PASO 1 · ALPINE · en espera: "Cargando…" junto al título y selector deshabilitado. */
         this.ocupado = "inicio";
         this.error = "";
         this.actividad = true;
         let d = null;
         try {
-          /* PASO 2 · 📡 → SERVIDOR: PlanDeCiclo.js → planInicio(ciclo). Lee Usuarios, Planes, Bloqueos, Ciclos y Carreras. */
+          /* PASO 2 · 📡 → SERVIDOR: PlanDeCiclo.js → planInicio(ciclo).
+             Sheet: 📥 Usuarios, Planes, Bloqueos, Ciclos, Carreras */
           const r = await new Promise((listo, mal) => google.script.run
             .withSuccessHandler(listo)
             .withFailureHandler(mal)
@@ -269,7 +295,8 @@
           d = r.datos;
         } catch (e) { this.error = (e && e.message) || String(e); }
         finally { this.ocupado = ""; }
-        /* PASO 4 · La tabla se repinta sola (x-for="c in carreras"). listo = true: no se vuelve a pedir al volver a la vista. */
+        /* PASO 4 · La tabla se repinta sola (x-for="c in carreras"). listo = true: no se vuelve a pedir al volver a la vista.
+           ALPINE · x-for con datos del servidor. */
         if (d) Object.assign(this, { ciclos: d.ciclos, ciclo: d.ciclo, carreras: d.carreras, listo: true });
       },
 
@@ -277,7 +304,7 @@
          ACCIÓN · Botón "Editar" / "Ver" de una carrera
          ================================================================= */
       async abrir(sigla) {
-        /* PASO 1 · Limpia los mensajes y pone el botón de esa fila en "Abriendo…". */
+        /* PASO 1 · ALPINE · en espera: limpia los mensajes y pone el botón de esa fila en "Abriendo…". */
         this.exito = "";
         this.avisos = [];
         this.ocupado = "abrir " + sigla;
@@ -286,7 +313,8 @@
         let d = null;
         try {
           /* PASO 2 · 📡 → SERVIDOR: PlanDeCiclo.js → planAbrir(ciclo, sigla). Decide edición o lectura; en edición escribe
-             tu bloqueo en la pestaña Bloqueos. */
+             tu bloqueo en la pestaña Bloqueos.
+             Sheet: 📥 Usuarios, Carreras, Ciclos, Bloqueos, Planes · 📤 Bloqueos · 🔒 candado */
           const r = await new Promise((listo, mal) => google.script.run
             .withSuccessHandler(listo)
             .withFailureHandler(mal)
@@ -300,7 +328,8 @@
         /* PASO 4 · Cierra lo que hubiera abierto antes (latido, historial, diálogos). */
         clearInterval(this.temporizador);
         Object.assign(this, { temporizador: null, pantalla: "tabla", verHistorial: false, versiones: [], vistaVersion: null, desdobleDe: null, fusionDe: null });
-        /* PASO 5 · Muestra la pantalla del plan. Desde aquí, todo cambio vive en this.plan hasta pulsar "Guardar". */
+        /* PASO 5 · Muestra la pantalla del plan. Desde aquí, todo cambio vive en this.plan hasta pulsar "Guardar".
+           ALPINE · x-for con datos del servidor: la previsualización (x-for="s in semestres") dibuja this.plan. */
         Object.assign(this, { doc: d, plan: d.plan, texto: "", lectura: null, cambios: false, actividad: false, pantalla: "plan" });
         /* PASO 6 · En edición, programa el latido: cada 5 minutos → latido() (abajo) → mantener() → planMantener. */
         if (d.modo === "edicion") this.temporizador = setInterval(() => this.latido(), 5 * 60000);
@@ -320,11 +349,12 @@
 
       async mantener() {
         /* PASO 1 · ocupado = "mantener". A diferencia de las demás llamadas, no borra el error que se esté mostrando ni
-           cuenta como actividad. */
+           cuenta como actividad. ALPINE · en espera: ocupado deshabilita los botones mientras dura. */
         this.ocupado = "mantener";
         let d = null;
         try {
-          /* PASO 2 · 📡 → SERVIDOR: PlanDeCiclo.js → planMantener(ciclo, carrera). Reescribe "vence" en Bloqueos. */
+          /* PASO 2 · 📡 → SERVIDOR: PlanDeCiclo.js → planMantener(ciclo, carrera). Reescribe "vence" en Bloqueos.
+             Sheet: 📥 Usuarios, Carreras, Ciclos, Bloqueos · 📤 Bloqueos · 🔒 candado */
           const r = await new Promise((listo, mal) => google.script.run
             .withSuccessHandler(listo)
             .withFailureHandler(mal)
@@ -349,13 +379,14 @@
          ACCIÓN · Botón "Interpretar" (lo pegado en el área de texto)
          ================================================================= */
       async interpretar() {
-        /* PASO 1 · "Interpretando…"; también se deshabilita "Elegir archivo". */
+        /* PASO 1 · ALPINE · en espera: "Interpretando…"; también se deshabilita "Elegir archivo". */
         this.ocupado = "interpretar";
         this.error = "";
         this.actividad = true;
         let d = null;
         try {
-          /* PASO 2 · 📡 → SERVIDOR: PlanDeCiclo.js → planInterpretar(texto, carrera). No escribe nada en el Sheet. */
+          /* PASO 2 · 📡 → SERVIDOR: PlanDeCiclo.js → planInterpretar(texto, carrera). No escribe nada en el Sheet.
+             Sheet: 📥 Usuarios, Carreras */
           const r = await new Promise((listo, mal) => google.script.run
             .withSuccessHandler(listo)
             .withFailureHandler(mal)
@@ -400,7 +431,7 @@
          ACCIÓN · Botón "Guardar"
          ================================================================= */
       async guardar() {
-        /* PASO 1 · "Guardando…" y todos los botones deshabilitados. */
+        /* PASO 1 · ALPINE · en espera: "Guardando…" y todos los botones deshabilitados. */
         this.ocupado = "guardar";
         this.error = "";
         this.actividad = true;
@@ -409,7 +440,8 @@
           /* PASO 2 · 📡 → SERVIDOR: PlanDeCiclo.js → planGuardar(ciclo, carrera, plan, versionBase).
              JSON.parse(JSON.stringify(...)) copia this.plan sin la "reactividad" de Alpine, para que se pueda enviar.
              doc.version es la versión con la que abriste: el servidor rechaza si alguien guardó otra entre medio.
-             Allí se escribe la fila nueva en Planes y se borra tu bloqueo. */
+             Allí se escribe la fila nueva en Planes y se borra tu bloqueo.
+             Sheet: 📥 Usuarios, Carreras, Ciclos, Bloqueos, Planes · 📤 Planes · 🗑 Bloqueos · 🔒 candado */
           const r = await new Promise((listo, mal) => google.script.run
             .withSuccessHandler(listo)
             .withFailureHandler(mal)
@@ -444,14 +476,16 @@
       async salir() {
         /* PASO 1 · Si hay cambios sin guardar, pregunta antes de perderlos. Cancelar = no pasa nada. */
         if (this.cambios && !confirm("Hay cambios sin guardar. ¿Salir sin guardar?")) return;
-        /* PASO 2 · En edición hay que soltar el bloqueo (en lectura no hay nada que soltar). */
+        /* PASO 2 · En edición hay que soltar el bloqueo (en lectura no hay nada que soltar).
+           ALPINE · en espera: "Saliendo…". */
         if (this.doc.modo === "edicion") {
           this.ocupado = "salir";
           this.error = "";
           this.actividad = true;
           let d = null;
           try {
-            /* 📡 → SERVIDOR: PlanDeCiclo.js → planSalir(ciclo, carrera). Borra tu fila de Bloqueos. */
+            /* 📡 → SERVIDOR: PlanDeCiclo.js → planSalir(ciclo, carrera). Borra tu fila de Bloqueos.
+               Sheet: 📥 Usuarios, Carreras, Ciclos, Bloqueos · 🗑 Bloqueos · 🔒 candado */
             const r = await new Promise((listo, mal) => google.script.run
               .withSuccessHandler(listo)
               .withFailureHandler(mal)
@@ -473,13 +507,14 @@
          ACCIÓN · Botón "Historial"
          ================================================================= */
       async historial() {
-        /* PASO 1 · "Buscando…". */
+        /* PASO 1 · ALPINE · en espera: "Buscando…". */
         this.ocupado = "historial";
         this.error = "";
         this.actividad = true;
         let d = null;
         try {
-          /* PASO 2 · 📡 → SERVIDOR: PlanDeCiclo.js → planHistorial(ciclo, carrera). Lee todas las versiones en Planes. */
+          /* PASO 2 · 📡 → SERVIDOR: PlanDeCiclo.js → planHistorial(ciclo, carrera). Lee todas las versiones en Planes.
+             Sheet: 📥 Usuarios, Carreras, Ciclos, Planes */
           const r = await new Promise((listo, mal) => google.script.run
             .withSuccessHandler(listo)
             .withFailureHandler(mal)
@@ -489,7 +524,8 @@
           d = r.datos;
         } catch (e) { this.error = (e && e.message) || String(e); }
         finally { this.ocupado = ""; }
-        /* PASO 4 · Abre el panel Historial (x-show="verHistorial") con una fila por versión (x-for). */
+        /* PASO 4 · Abre el panel Historial (x-show="verHistorial") con una fila por versión (x-for).
+           ALPINE · x-for con datos del servidor: x-for="v in versiones". */
         if (d) Object.assign(this, { versiones: d.versiones, verHistorial: true });
       },
 
@@ -497,13 +533,14 @@
          ACCIÓN · Botón "Ver" de una versión del historial
          ================================================================= */
       async version(n) {
-        /* PASO 1 · "Abriendo…" en la fila de esa versión. */
+        /* PASO 1 · ALPINE · en espera: "Abriendo…" en la fila de esa versión. */
         this.ocupado = "version " + n;
         this.error = "";
         this.actividad = true;
         let d = null;
         try {
-          /* PASO 2 · 📡 → SERVIDOR: PlanDeCiclo.js → planVersion(ciclo, carrera, n). Solo lee. */
+          /* PASO 2 · 📡 → SERVIDOR: PlanDeCiclo.js → planVersion(ciclo, carrera, n). Solo lee.
+             Sheet: 📥 Usuarios, Carreras, Ciclos, Planes */
           const r = await new Promise((listo, mal) => google.script.run
             .withSuccessHandler(listo)
             .withFailureHandler(mal)
@@ -523,14 +560,16 @@
          ACCIÓN · Botón "Restaurar" de una versión del historial
          ================================================================= */
       async restaurar(n) {
-        /* PASO 1 · Confirma: se creará una versión NUEVA con el contenido de la vn (y se pierde lo no guardado). */
+        /* PASO 1 · Confirma: se creará una versión NUEVA con el contenido de la vn (y se pierde lo no guardado).
+           ALPINE · en espera: "Restaurando…" en esa fila. */
         if (!confirm("Se guardará una versión nueva con el contenido de la v" + n + (this.cambios ? "; lo que no guardaste se perderá" : "") + ". ¿Continuar?")) return;
         this.ocupado = "restaurar " + n;
         this.error = "";
         this.actividad = true;
         let d = null;
         try {
-          /* PASO 2 · 📡 → SERVIDOR: PlanDeCiclo.js → planRestaurar(ciclo, carrera, n). Agrega la fila nueva en Planes. */
+          /* PASO 2 · 📡 → SERVIDOR: PlanDeCiclo.js → planRestaurar(ciclo, carrera, n). Agrega la fila nueva en Planes.
+             Sheet: 📥 Usuarios, Carreras, Ciclos, Bloqueos, Planes · 📤 Planes · 🔒 candado */
           const r = await new Promise((listo, mal) => google.script.run
             .withSuccessHandler(listo)
             .withFailureHandler(mal)
@@ -659,13 +698,14 @@
 
       /* ---------- Botón "Buscar en otras carreras" del diálogo ---------- */
       async candidatosFusion() {
-        /* PASO 1 · "Buscando…". */
+        /* PASO 1 · ALPINE · en espera: "Buscando…". */
         this.ocupado = "candidatos";
         this.error = "";
         this.actividad = true;
         let d = null;
         try {
-          /* PASO 2 · 📡 → SERVIDOR: PlanDeCiclo.js → planCandidatosFusion(ciclo, carrera). Lee los planes de las otras carreras. */
+          /* PASO 2 · 📡 → SERVIDOR: PlanDeCiclo.js → planCandidatosFusion(ciclo, carrera). Lee los planes de las otras carreras.
+             Sheet: 📥 Usuarios, Carreras, Ciclos, Planes */
           const r = await new Promise((listo, mal) => google.script.run
             .withSuccessHandler(listo)
             .withFailureHandler(mal)
@@ -675,7 +715,7 @@
           d = r.datos;
         } catch (e) { this.error = (e && e.message) || String(e); }
         finally { this.ocupado = ""; }
-        /* PASO 4 · Se agregan a la lista del diálogo (opcionesFusion, abajo). */
+        /* PASO 4 · Se agregan a la lista del diálogo (opcionesFusion, abajo). ALPINE · x-for con datos del servidor. */
         if (d && this.fusionDe) this.fusionDe.externos = d.candidatos;
       },
 
@@ -717,7 +757,8 @@
 
       /* ---------- Botón "Fusionar" del diálogo ---------- */
       aplicarFusion() {
-        /* PASO 1 · Los grupos marcados y el principal elegido (radio). */
+        /* PASO 1 · Los grupos marcados y el principal elegido (radio), de la misma lista que dibuja el diálogo:
+           opcionesFusion(true), arriba. */
         const sel = this.opcionesFusion(true).filter(o => this.fusionDe.marcados.includes(o.clave));
         const s = { sel, p: sel.find(o => o.clave === this.fusionDe.principal) || null };
         /* PASO 2 · Si no coinciden en todo, pregunta (advertenciasDialogo, arriba). */
@@ -736,7 +777,8 @@
         const enFusionLocal = r => this.plan.asignaturas.some(a => a.grupos.some(g => g.fusion && g.fusion.miembros.some(m => mismo(m, r))));
         const carrera = this.doc.carrera, miembros = [];
         /* PASO 1 · Cada grupo elegido (sin repetir): los de esta carrera tienen que existir y no estar ya fusionados; los de
-           otra carrera, no estar en otra fusión. Se copian nombre y horas. */
+           otra carrera, no estar en otra fusión. Se copian nombre y horas. buscarGrupo() (arriba) encuentra el grupo
+           en this.plan. */
         for (const r of seleccion) {
           if (miembros.some(m => mismo(m, r))) continue;
           const local = r.carrera === carrera, x = local ? this.buscarGrupo(r.codigo, r.grupo) : null;

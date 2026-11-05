@@ -34,6 +34,19 @@
      Ver (una versión del historial) ..... version(n)          → planVersion
      Restaurar ........................... restaurar(n)        → planRestaurar
 
+   QUÉ PESTAÑAS TOCA CADA FUNCIÓN   (📥 lee · 📤 escribe · 🗑 borra · 🔒 candado)
+     planInicio ............. 📥 Usuarios, Planes, Bloqueos, Ciclos, Carreras
+     planAbrir .............. 📥 Usuarios, Carreras, Ciclos, Bloqueos, Planes · 📤 Bloqueos · 🔒 candado
+     planInterpretar ........ 📥 Usuarios, Carreras
+     planCandidatosFusion ... 📥 Usuarios, Carreras, Ciclos, Planes
+     planGuardar ............ 📥 Usuarios, Carreras, Ciclos, Bloqueos, Planes · 📤 Planes · 🗑 Bloqueos · 🔒 candado
+     planMantener ........... 📥 Usuarios, Carreras, Ciclos, Bloqueos · 📤 Bloqueos · 🔒 candado
+     planSalir .............. 📥 Usuarios, Carreras, Ciclos, Bloqueos · 🗑 Bloqueos · 🔒 candado
+     planHistorial .......... 📥 Usuarios, Carreras, Ciclos, Planes
+     planVersion ............ 📥 Usuarios, Carreras, Ciclos, Planes
+     planRestaurar .......... 📥 Usuarios, Carreras, Ciclos, Bloqueos, Planes · 📤 Planes · 🔒 candado
+     Sale del código: una prueba de pruebas/logica.test.mjs avisa si este cuadro y el código no coinciden.
+
    PESTAÑAS DEL SHEET QUE USA (todas como texto; la fila 1 son cabeceras)
      Usuarios (correo, rol, carreras, departamento) · Ciclos (ciclo) · Carreras (sigla, nombre,
      departamento) · Planes (ciclo, carrera, version, usuario, fecha, contenido) ·
@@ -182,11 +195,14 @@ function planAbrir(ciclo, carrera) {
       const vigente = b && b.vigente ? b : null;
       if (puede && (!vigente || vigente.correo === correo)) {
         /* 5b · EDICIÓN. 📤 SHEET · ESCRIBE en "Bloqueos" [plan, ciclo, carrera, tu correo, ahora + 30 min]. Si ya
-           había una fila de este plan (aunque fuera de otra persona y estuviera vencida) se reescribe esa; si no, se agrega. */
+           había una fila de este plan (aunque fuera de otra persona y estuviera vencida) se reescribe esa; si no, se agrega.
+           La fila queda con formato de texto (@), para que el Sheet no convierta el ciclo ni la fecha en otra cosa. */
         const vence = fechaPeru(Date.now() + 30 * 60000);
         const celdas = ["plan", ciclo, sigla, correo, vence].map(comoTexto);
-        if (b) pestana("Bloqueos").getRange(b.fila, 1, 1, celdas.length).setNumberFormat("@").setValues([celdas]);
-        else pestana("Bloqueos").appendRow(celdas);
+        const hojaBloqueos = pestana("Bloqueos");
+        let fila = b ? b.fila : 0;
+        if (!fila) { hojaBloqueos.appendRow(celdas); fila = hojaBloqueos.getLastRow(); }
+        hojaBloqueos.getRange(fila, 1, 1, celdas.length).setNumberFormat("@").setValues([celdas]);
         acceso = { modo: "edicion", motivo: "", editor: correo, vence };
       } else {
         /* 5c · LECTURA: no es tu carrera, u otra cuenta tiene el bloqueo vigente. No se escribe nada. */
@@ -624,9 +640,12 @@ function planGuardar(ciclo, carrera, contenido, versionBase) {
       }));
 
       /* 8d · 📤 SHEET · ESCRIBE una fila NUEVA al final de "Planes": [ciclo, carrera, versión + 1, tu correo, fecha de
-         Perú, JSON del plan]. Las versiones anteriores no se tocan nunca. */
+         Perú, JSON del plan]. Las versiones anteriores no se tocan nunca. La fila queda con formato de texto (@). */
       const fecha = fechaPeru(Date.now());
-      pestana("Planes").appendRow([ciclo, sigla, actual + 1, correo, fecha, json].map(comoTexto));
+      const nueva = [ciclo, sigla, actual + 1, correo, fecha, json].map(comoTexto);
+      const hojaPlanes = pestana("Planes");
+      hojaPlanes.appendRow(nueva);
+      hojaPlanes.getRange(hojaPlanes.getLastRow(), 1, 1, nueva.length).setNumberFormat("@").setValues([nueva]);
 
       /* 8e · 🗑 SHEET · BORRA tu fila de "Bloqueos": guardar termina la edición. Si es la última fila de la pestaña, el
          Sheet no deja borrarla y se vacía en su lugar. */
@@ -929,8 +948,12 @@ function planRestaurar(ciclo, carrera, n) {
       if (json.length > PLAN_MAX_CELDA_)
         fallo("El plan ocupa " + json.length + " caracteres y una celda admite " + PLAN_MAX_CELDA_ + ": quita grupos o acorta las observaciones.");
 
-      /* 4d · 📤 SHEET · ESCRIBE una fila NUEVA al final de "Planes" con el contenido de la versión n. Las demás se quedan. */
-      pestana("Planes").appendRow([ciclo, sigla, version, correo, fechaPeru(Date.now()), json].map(comoTexto));
+      /* 4d · 📤 SHEET · ESCRIBE una fila NUEVA al final de "Planes" con el contenido de la versión n. Las demás se quedan.
+         La fila queda con formato de texto (@). */
+      const nueva = [ciclo, sigla, version, correo, fechaPeru(Date.now()), json].map(comoTexto);
+      const hojaPlanes = pestana("Planes");
+      hojaPlanes.appendRow(nueva);
+      hojaPlanes.getRange(hojaPlanes.getLastRow(), 1, 1, nueva.length).setNumberFormat("@").setValues([nueva]);
 
       /* PASO 5 · ↩ RESPUESTA. ➡ SIGUE EN PlanDeCicloVista.html → restaurar(n): vuelve a abrir el plan (abrir → planAbrir)
          y muestra "Restaurada la vn como vM.". */

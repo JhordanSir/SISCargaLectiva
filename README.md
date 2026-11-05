@@ -18,13 +18,13 @@ Apps Script no admite un `.js` y un `.html` con el mismo nombre (`clasp push` fa
 
 | Archivo | Qué es | Líneas |
 |---|---|---:|
-| [AppScript/Index.js](AppScript/Index.js) | `doGet` (sirve la página), `include` (pega las vistas) e `indexUsuario` (dominio y pestaña Usuarios). | 98 |
-| [AppScript/IndexVista.html](AppScript/IndexVista.html) | Carcasa: Alpine desde el CDN, el CSS escrito a mano, la barra con las vistas, el correo y el rol, "Acceso denegado" y los `include` de las tres vistas. | 150 |
-| [AppScript/InicioVista.html](AppScript/InicioVista.html) | Inicio: los dos botones. No tiene backend. | 36 |
-| [AppScript/PlanDeCicloVista.html](AppScript/PlanDeCicloVista.html) | Vista del CU-001: marcado y `Alpine.data("planDeCiclo")`. | 778 |
-| [AppScript/PlanDeCiclo.js](AppScript/PlanDeCiclo.js) | Backend del CU-001: todo empieza por `plan`. | 944 |
-| [AppScript/CargaDocenteVista.html](AppScript/CargaDocenteVista.html) | Vista del CU-002: marcado y `Alpine.data("cargaDocente")`. | 707 |
-| [AppScript/CargaDocente.js](AppScript/CargaDocente.js) | Backend del CU-002: todo empieza por `carga`. | 1351 |
+| [AppScript/Index.js](AppScript/Index.js) | `doGet` (sirve la página), `include` (pega las vistas) e `indexUsuario` (dominio y pestaña Usuarios). | 102 |
+| [AppScript/IndexVista.html](AppScript/IndexVista.html) | Carcasa: Alpine desde el CDN, el CSS escrito a mano, la barra con las vistas, el correo y el rol, "Acceso denegado" y los `include` de las tres vistas. | 157 |
+| [AppScript/InicioVista.html](AppScript/InicioVista.html) | Inicio: los dos botones. No tiene backend. | 39 |
+| [AppScript/PlanDeCicloVista.html](AppScript/PlanDeCicloVista.html) | Vista del CU-001: marcado y `Alpine.data("planDeCiclo")`. | 820 |
+| [AppScript/PlanDeCiclo.js](AppScript/PlanDeCiclo.js) | Backend del CU-001: todo empieza por `plan`. | 967 |
+| [AppScript/CargaDocenteVista.html](AppScript/CargaDocenteVista.html) | Vista del CU-002: marcado y `Alpine.data("cargaDocente")`. | 751 |
+| [AppScript/CargaDocente.js](AppScript/CargaDocente.js) | Backend del CU-002: todo empieza por `carga`. | 1375 |
 | [AppScript/appsscript.json](AppScript/appsscript.json) | Manifiesto: zona `America/Lima`, aplicación web del dominio y permisos de hojas de cálculo y correo. | |
 
 `AppScript/pruebas/` no se sube (`.claspignore`): [logica.test.mjs](AppScript/pruebas/logica.test.mjs) tiene las pruebas y [recorrido.mjs](AppScript/pruebas/recorrido.mjs), el recorrido en Chrome y el Apps Script falso que usan las dos.
@@ -34,10 +34,10 @@ Apps Script no admite un `.js` y un `.html` con el mismo nombre (`clasp push` fa
 - **Mismo nombre, sufijo `Vista`:** `PlanDeCicloVista.html` ↔ `PlanDeCiclo.js`, `CargaDocenteVista.html` ↔ `CargaDocente.js`, `IndexVista.html` ↔ `Index.js`.
 - **Mismo verbo, con prefijo en el servidor:** el método `guardar()` del componente llama a `planGuardar()`, `buscarDocentes()` a `cargaBuscarDocentes()`, etc. Cada método escribe su propia llamada a `google.script.run` con promesa (sin envoltorio compartido), así que se ve en el mismo sitio qué función del servidor se llama y qué se hace con la respuesta.
 - **Nada compartido entre los dos CU.** En Apps Script todos los nombres son globales, así que todo lo del CU-001 empieza por `plan` y todo lo del CU-002 por `carga`. Bloqueo, versionado, lectura de CSV y normalización están copiados en cada `.js`, y dentro de cada `.js` en cada función que los usa. Una prueba comprueba que ningún nombre de un CU aparece en el otro.
-- **Cabecera:** cada archivo empieza con un comentario que dice qué vista es, qué botón llama a qué método y a qué función del servidor, y qué pestañas del Sheet usa.
+- **Cabecera:** cada archivo empieza con un comentario que dice qué vista es, qué botón llama a qué método y a qué función del servidor, y qué pestañas del Sheet usa. En los `.js`, el cuadro "QUÉ PESTAÑAS TOCA CADA FUNCIÓN" dice qué lee (📥), escribe (📤) o borra (🗑) cada función pública y si toma el candado (🔒).
 - **Una función por acción, de arriba abajo.** Cada función pública del servidor hace toda su acción dentro de sí misma y se lee como un texto, con `PASO 1`, `PASO 2`…: validar el usuario, leer las pestañas, tomar el candado, escribir, responder. Lo que necesita (leer una pestaña, cortar con un error, pasar a texto) son herramientas de una línea declaradas al principio de esa misma función. En las vistas, los métodos van en el orden en que se usan y cada uno sigue el mismo patrón: `ocupado`, llamada, respuesta, `finally`.
-- **Marcas en los comentarios** para seguir los datos: `📥 SHEET · LEE`, `📤 SHEET · ESCRIBE`, `🗑 SHEET · BORRA` y `🔒 CANDADO` en el servidor; `📡 → SERVIDOR`, `⬅ VUELVE` y `✎ SOLO MEMORIA` en las vistas; `⬅ VIENE DE` y `➡ SIGUE EN` en los dos lados para saber de dónde llega una llamada y dónde continúa. Con buscar `SHEET ·` se ven todas las lecturas y escrituras del Sheet.
-- **Respuesta del servidor:** toda función pública devuelve `{ ok: true, datos }` o `{ ok: false, error: "mensaje" }` y nunca lanza. Las escrituras van dentro de `LockService.getScriptLock()`.
+- **Marcas en los comentarios** para seguir los datos: `📥 SHEET · LEE`, `📤 SHEET · ESCRIBE`, `🗑 SHEET · BORRA` y `🔒 CANDADO` en el servidor; `📡 → SERVIDOR`, `⬅ VUELVE` y `✎ SOLO MEMORIA` en las vistas; `⬅ VIENE DE` y `➡ SIGUE EN` en los dos lados para saber de dónde llega una llamada y dónde continúa. Con buscar `SHEET ·` se ven todas las lecturas y escrituras del Sheet. En las vistas, cada `📡 → SERVIDOR` termina con una línea `Sheet: 📥 … · 📤 … · 🗑 … · 🔒 candado` con lo que toca esa llamada, y `ALPINE ·` marca lo que pidió el docente con Alpine (navegación, botones en espera y `x-for` con datos del servidor). Una prueba compara el cuadro de pestañas y cada línea `Sheet:` con el código, así que no se quedan desactualizados.
+- **Respuesta del servidor:** toda función pública devuelve `{ ok: true, datos }` o `{ ok: false, error: "mensaje" }` y nunca lanza. Las escrituras van dentro de `LockService.getScriptLock()`: si otro guardado no lo suelta en 10 segundos, la respuesta es "La hoja está ocupada con otro guardado; vuelve a intentarlo en unos segundos". Si falta una pestaña, el mensaje la nombra ("Falta la pestaña 'Planes' en la hoja").
 
 | Archivo | Funciones públicas |
 |---|---|
@@ -47,15 +47,15 @@ Apps Script no admite un `.js` y un `.html` con el mismo nombre (`clasp push` fa
 
 ## Dónde se usa Alpine.js
 
-Alpine 3.17.5 se carga desde el CDN en [IndexVista.html:22](AppScript/IndexVista.html:22). Cada vista registra lo suyo dentro de `document.addEventListener("alpine:init", …)`.
+Alpine 3.17.5 se carga desde el CDN en [IndexVista.html:26](AppScript/IndexVista.html:26). Cada vista registra lo suyo dentro de `document.addEventListener("alpine:init", …)`. En el código, cada uno de estos usos lleva al lado un comentario con `ALPINE ·`.
 
 | Uso | Dónde |
 |---|---|
-| **Navegación.** `Alpine.store("nav", { vista: "inicio" })` y cada vista en `<section x-show="$store.nav.vista === '…'">` | Store en [IndexVista.html:111](AppScript/IndexVista.html:111); barra con `@click` y `:class` activo en [IndexVista.html:79-81](AppScript/IndexVista.html:79); botones de Inicio en [InicioVista.html:22](AppScript/InicioVista.html:22) y [:29](AppScript/InicioVista.html:29); secciones en [PlanDeCicloVista.html:19](AppScript/PlanDeCicloVista.html:19) y [CargaDocenteVista.html:20](AppScript/CargaDocenteVista.html:20) |
-| **Usuario.** `Alpine.store("usuario")` con el correo, el rol y el motivo de "Acceso denegado" | [IndexVista.html:114](AppScript/IndexVista.html:114) |
-| **Botones en espera.** `ocupado` vale la acción en curso (`"guardar"`, `"interpretar"`, `"buscar"`…) y vuelve a `""` en el éxito y en el error; los botones usan `:disabled="!!ocupado"` y `x-text="ocupado === 'guardar' ? 'Guardando…' : 'Guardar'"` | En cada método que llama al servidor; el patrón está explicado en [PlanDeCicloVista.html:213](AppScript/PlanDeCicloVista.html:213) y [CargaDocenteVista.html:245](AppScript/CargaDocenteVista.html:245) |
-| **`x-for` con datos del servidor (CU-001)** | Tabla de carreras (`planInicio`) [PlanDeCicloVista.html:42](AppScript/PlanDeCicloVista.html:42); previsualización por semestre (`planInterpretar` / `planAbrir`) [:121](AppScript/PlanDeCicloVista.html:121); historial (`planHistorial`) [:83](AppScript/PlanDeCicloVista.html:83); candidatos de fusión (`planCandidatosFusion`) [:184](AppScript/PlanDeCicloVista.html:184) |
-| **`x-for` con datos del servidor (CU-002)** | Resultados de la búsqueda (`cargaBuscarDocentes`) [CargaDocenteVista.html:222](AppScript/CargaDocenteVista.html:222); tabla de secciones (`cargaAbrir`) [:171](AppScript/CargaDocenteVista.html:171); advertencias (`cargaGuardar`) [:39](AppScript/CargaDocenteVista.html:39); previsualización de la carga masiva (`cargaInterpretar`) [:142](AppScript/CargaDocenteVista.html:142) |
+| **Navegación.** `Alpine.store("nav", { vista: "inicio" })` y cada vista en `<section x-show="$store.nav.vista === '…'">` | Store en [IndexVista.html:117](AppScript/IndexVista.html:117); barra con `@click` y `:class` activo en [IndexVista.html:84-86](AppScript/IndexVista.html:84); botones de Inicio en [InicioVista.html:24](AppScript/InicioVista.html:24) y [:32](AppScript/InicioVista.html:32); secciones en [PlanDeCicloVista.html:30](AppScript/PlanDeCicloVista.html:30) y [CargaDocenteVista.html:27](AppScript/CargaDocenteVista.html:27) |
+| **Usuario.** `Alpine.store("usuario")` con el correo, el rol y el motivo de "Acceso denegado" | [IndexVista.html:120](AppScript/IndexVista.html:120) |
+| **Botones en espera.** `ocupado` vale la acción en curso (`"guardar"`, `"interpretar"`, `"buscar"`…) y vuelve a `""` en el éxito y en el error; los botones usan `:disabled="!!ocupado"` y `x-text="ocupado === 'guardar' ? 'Guardando…' : 'Guardar'"` | En cada método que llama al servidor; el patrón está explicado en [PlanDeCicloVista.html:237](AppScript/PlanDeCicloVista.html:237) y [CargaDocenteVista.html:268](AppScript/CargaDocenteVista.html:268) |
+| **`x-for` con datos del servidor (CU-001)** | Tabla de carreras (`planInicio`) [PlanDeCicloVista.html:55](AppScript/PlanDeCicloVista.html:55); previsualización por semestre (`planInterpretar` / `planAbrir`) [:141](AppScript/PlanDeCicloVista.html:141); historial (`planHistorial`) [:100](AppScript/PlanDeCicloVista.html:100); candidatos de fusión (`planCandidatosFusion`) [:206](AppScript/PlanDeCicloVista.html:206) |
+| **`x-for` con datos del servidor (CU-002)** | Resultados de la búsqueda (`cargaBuscarDocentes`) [CargaDocenteVista.html:243](AppScript/CargaDocenteVista.html:243); tabla de secciones (`cargaAbrir`) [:189](AppScript/CargaDocenteVista.html:189); advertencias (`cargaGuardar`) [:48](AppScript/CargaDocenteVista.html:48); previsualización de la carga masiva (`cargaInterpretar`) [:159](AppScript/CargaDocenteVista.html:159) |
 
 Dos cuidados:
 
@@ -88,7 +88,7 @@ Desde la raíz, con Node 24 y sin instalar nada:
 node --test AppScript/pruebas/logica.test.mjs
 ```
 
-Son 61 pruebas: la carcasa, CU-001 y CU-002, con Apps Script simulado en `vm` y los `<script>` de las vistas ejecutados con un Alpine falso. Usan los Excel reales de `docs/archivos/`: las 8 carreras dan 345 asignaturas y 366 grupos. Psicología repite el código 9.2.5.24 en dos cursos, y el segundo se lee como otro grupo, con aviso. Con Node 24, `node --test AppScript/pruebas/` no funciona porque toma la carpeta como un archivo, así que hay que nombrar el archivo.
+Son 73 pruebas: la carcasa, CU-001, CU-002 y los comentarios (que el cuadro de pestañas de cada `.js` y la línea `Sheet:` de cada `📡` digan lo mismo que el código), con Apps Script simulado en `vm` y los `<script>` de las vistas ejecutados con un Alpine falso. Usan los Excel reales de `docs/archivos/`: las 8 carreras dan 345 asignaturas y 366 grupos. Psicología repite el código 9.2.5.24 en dos cursos, y el segundo se lee como otro grupo, con aviso. Con Node 24, `node --test AppScript/pruebas/` no funciona porque toma la carpeta como un archivo, así que hay que nombrar el archivo.
 
 ```bash
 node AppScript/pruebas/recorrido.mjs
