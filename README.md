@@ -116,7 +116,7 @@ Solo sirve la vista previa local en `http://127.0.0.1:8765/?usuario=<correo>`. E
 
 ## Documentación
 
-- [docs/mapa-interactivo.html](docs/mapa-interactivo.html): mapa interactivo para abrir en el navegador. Cada botón de la app con el código que activa (archivo y línea), el recorrido animado hasta el Google Sheet, 44 preguntas («¿dónde se pinta…?», «¿cómo se lee el CSV?», «¿dónde se acumulan las versiones?»…) respondidas con un depurador que recorre el código real línea por línea, cómo se leen, escriben, versionan y bloquean los datos, y un laboratorio con `planInterpretar` y las reglas A07–A15. Si cambias el código de `AppScript/`, ejecuta `python3 docs/actualizar-mapa.py` para que el depurador muestre la versión nueva.
+- [docs/mapa-interactivo.html](docs/mapa-interactivo.html): mapa interactivo para abrir en el navegador. Cada botón de la app con el código que activa (archivo y línea), el recorrido animado hasta el Google Sheet, 69 preguntas en lenguaje sencillo («¿dónde se pinta…?», «¿cómo se lee el CSV?», «¿dónde se acumulan las versiones?», «¿cómo se mezclan el Sheet y la aplicación web?»…) respondidas con un depurador que recorre el código real línea por línea, cómo se leen, escriben, versionan y bloquean los datos, y un laboratorio con `planInterpretar` y las reglas A07–A15. Si cambias el código de `AppScript/`, ejecuta `python3 docs/actualizar-mapa.py` para que el depurador muestre la versión nueva.
 - [instrucciones.md](instrucciones.md): qué se simplificó, por qué y con qué decisiones.
 - [docs/CU/](docs/CU/): CU-001 y CU-002 en Word.
 - [docs/requerimientos/requirements.md](docs/requerimientos/requirements.md): requisitos, decisiones del equipo y lo que quedó fuera de alcance.

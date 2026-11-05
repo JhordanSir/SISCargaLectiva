@@ -20,6 +20,7 @@ ARCHIVOS = {
     "IV": "AppScript/IndexVista.html", "IJ": "AppScript/Index.js", "INI": "AppScript/InicioVista.html",
     "PV": "AppScript/PlanDeCicloVista.html", "PJ": "AppScript/PlanDeCiclo.js",
     "CV": "AppScript/CargaDocenteVista.html", "CJ": "AppScript/CargaDocente.js", "MF": "AppScript/appsscript.json",
+    "CL": "AppScript/.clasp.json", "CI": "AppScript/.claspignore",
 }
 
 fuentes = {k: (RAIZ / v).read_text(encoding="utf-8") for k, v in ARCHIVOS.items()}
