@@ -1,7 +1,2 @@
 pruebas/**
 **/node_modules/**
-estilos/**
-package.json
-package-lock.json
-jsconfig.json
-**/*.d.ts

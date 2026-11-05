@@ -1,0 +1,440 @@
+<!-- Vista CU-001 «Registrar plan de ciclo» (backend: PlanDeCiclo.js, por planLlamar).
+     Botones: Ciclo; Editar / Ver; Interpretar y archivo .csv; por grupo + Grupo, Quitar, Desdoblar… / Quitar desdoble,
+     Fusionar… / Deshacer fusión; Guardar, Salir e Historial (Ver, Restaurar, Volver); diálogos de desdoble y de fusión.
+     Cada método que llama al servidor lleva su verbo: inicio → planInicio, abrir → planAbrir, y así interpretar,
+     candidatosFusion, guardar, mantener, salir, historial, version y restaurar. Las operaciones sobre grupos solo cambian
+     this.plan. Alpine: «ocupado» en los botones; x-for en carreras, previsualización, historial y opciones de fusión. -->
+<section x-show="$store.nav.vista === 'plan'" x-data="planDeCiclo" x-cloak>
+  <div class="fila">
+    <h2>Registrar plan de ciclo</h2>
+    <label>Ciclo
+      <select :disabled="ocupado || pantalla !== 'tabla'" @change="ciclo = $event.target.value; inicio()">
+        <template x-for="c in ciclos" :key="c"><option :value="c" :selected="c === ciclo" x-text="c"></option></template>
+      </select>
+    </label>
+    <span class="suave" x-show="ocupado === 'inicio'">Cargando…</span>
+  </div>
+  <p class="error" x-show="error" x-text="error"></p>
+  <p class="exito" x-show="exito" x-text="exito"></p>
+  <template x-for="(a, i) in avisos" :key="i"><p class="aviso" x-text="a"></p></template>
+
+  <!-- Tabla de carreras (planInicio) -->
+  <div class="tabla" x-show="pantalla === 'tabla'">
+    <table>
+      <thead><tr><th>Carrera</th><th>Plan</th><th>Guardado por</th><th>Fecha</th><th class="num">Asignaturas</th>
+        <th class="num">Grupos</th><th>Edición</th><th></th></tr></thead>
+      <tbody>
+        <template x-for="c in carreras" :key="c.sigla">
+          <tr>
+            <td><strong x-text="c.sigla"></strong> <span x-text="c.nombre"></span></td>
+            <td x-text="c.version ? 'v' + c.version : 'Sin plan'"></td><td x-text="c.usuario"></td><td x-text="fecha(c.fecha)"></td>
+            <td class="num" x-text="c.asignaturas"></td><td class="num" x-text="c.grupos"></td>
+            <td><span class="marca lectura" x-show="c.editor" x-text="'En edición por ' + c.editor"></span></td>
+            <td><button class="chico" :class="{ primario: c.puedeEditar }" :disabled="!!ocupado" @click="abrir(c.sigla)"
+                        x-text="ocupado === 'abrir ' + c.sigla ? 'Abriendo…' : (c.puedeEditar ? 'Editar' : 'Ver')"></button></td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pantalla del plan (planAbrir) -->
+  <template x-if="pantalla === 'plan'">
+    <div>
+      <div class="fila">
+        <h3 x-text="doc.carrera + ' · ' + doc.nombre + ' · ciclo ' + doc.ciclo"></h3>
+        <span class="suave" x-text="doc.version ? 'Versión base v' + doc.version + ' (' + doc.usuario + ', ' + fecha(doc.fecha) + ')' : 'Sin plan guardado'"></span>
+        <span class="marca lectura" x-show="doc.modo === 'lectura'"
+              x-text="/^Solo lectura/.test(doc.motivo) ? doc.motivo : 'Solo lectura · ' + doc.motivo"></span>
+        <span class="marca" x-show="doc.modo === 'edicion'" x-text="'Bloqueo hasta ' + doc.vence.slice(11, 16)"></span>
+      </div>
+      <div class="fila">
+        <button class="primario" x-show="doc.modo === 'edicion'" :disabled="ocupado || !!vistaVersion" @click="guardar()"
+                x-text="ocupado === 'guardar' ? 'Guardando…' : 'Guardar'"></button>
+        <button :disabled="!!ocupado" @click="salir()" x-text="ocupado === 'salir' ? 'Saliendo…' : 'Salir'"></button>
+        <button :disabled="!!ocupado" @click="historial()" x-text="ocupado === 'historial' ? 'Buscando…' : 'Historial'"></button>
+        <span class="aviso" x-show="cambios">Hay cambios sin guardar.</span>
+      </div>
+
+      <div class="panel" x-show="verHistorial">
+        <div class="fila"><strong>Historial</strong><button class="chico" @click="verHistorial = false">Cerrar</button></div>
+        <p class="suave" x-show="!versiones.length">Este plan aún no tiene versiones.</p>
+        <table x-show="versiones.length">
+          <thead><tr><th>Versión</th><th>Guardada por</th><th>Fecha</th><th>Resumen</th><th></th></tr></thead>
+          <tbody>
+            <template x-for="v in versiones" :key="v.version">
+              <tr>
+                <td x-text="'v' + v.version"></td><td x-text="v.usuario"></td><td x-text="fecha(v.fecha)"></td><td x-text="v.resumen"></td>
+                <td><button class="chico" :disabled="!!ocupado" @click="version(v.version)" x-text="ocupado === 'version ' + v.version ? 'Abriendo…' : 'Ver'"></button>
+                  <button class="chico" x-show="puedeEditarActual" :disabled="!!ocupado" @click="restaurar(v.version)"
+                          x-text="ocupado === 'restaurar ' + v.version ? 'Restaurando…' : 'Restaurar'"></button></td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+
+      <template x-if="vistaVersion">
+        <p class="aviso fila"><strong x-text="'Versión ' + vistaVersion.version + ' · solo lectura'"></strong>
+          <span x-text="vistaVersion.usuario + ', ' + fecha(vistaVersion.fecha)"></span>
+          <button class="chico" @click="vistaVersion = null">Volver</button></p>
+      </template>
+
+      <div class="panel" x-show="editable">
+        <textarea x-model="texto" placeholder="Pega aquí el rango copiado de Excel o Google Sheets (con la fila de cabeceras)"></textarea>
+        <div class="fila">
+          <button :disabled="!!ocupado" @click="interpretar()" x-text="ocupado === 'interpretar' ? 'Interpretando…' : 'Interpretar'"></button>
+          <label>o sube un CSV <input type="file" accept=".csv" :disabled="!!ocupado" @change="leerArchivo($event)"></label>
+          <span class="suave" x-show="lectura" x-text="lectura && (lectura.filas + ' filas leídas, ' + lectura.descartadas + ' descartadas de otra carrera.')"></span>
+        </div>
+        <template x-for="(a, i) in (lectura ? lectura.avisos : [])" :key="i"><p class="aviso" x-text="a"></p></template>
+      </div>
+
+      <!-- Previsualización por semestre (planInterpretar / planAbrir) -->
+      <p class="suave" x-text="totales"></p>
+      <div class="tabla">
+        <table>
+          <thead><tr><th>Código</th><th>Asignatura</th><th>Grupo</th><th class="num">HT</th><th class="num">HP</th><th class="num">TH</th>
+            <th>DPTO</th><th>Observaciones</th><th>Marcas</th><th x-show="editable">Acciones</th></tr></thead>
+          <template x-for="s in semestres" :key="s.clave">
+            <tbody>
+              <tr><th colspan="10" x-text="s.titulo"></th></tr>
+              <template x-for="f in s.filas" :key="f.clave">
+                <tr>
+                  <td x-text="f.asig.codigo"></td><td x-text="f.asig.nombre"></td><td x-text="f.g.n"></td>
+                  <td class="num" x-text="f.g.ht"></td><td class="num" x-text="f.g.hp"></td><td class="num" x-text="f.g.th"></td>
+                  <td x-text="f.asig.dpto"></td>
+                  <td><span x-text="f.g.obs"></span>
+                    <template x-for="(a, i) in f.g.avisos" :key="i"><div class="aviso" x-text="a"></div></template></td>
+                  <td>
+                    <span class="marca des" x-show="f.g.desdoble" x-text="f.g.desdoble ? f.g.desdoble.componente + '×' + f.g.desdoble.n : ''"></span>
+                    <span class="marca fus" x-show="f.g.fusion" x-text="f.g.fusion ? textoFusion(f.asig, f.g) : ''"></span>
+                    <span class="marca fus" x-show="f.g.fusionExterna" x-text="f.g.fusionExterna ? 'FUS – fusionado con ' + f.g.fusionExterna.carrera : ''"></span>
+                  </td>
+                  <td x-show="editable">
+                    <button class="chico" x-show="f.primera" :disabled="!!ocupado" @click="agregarGrupo(f.asig)">+ Grupo</button>
+                    <button class="chico peligro" :disabled="ocupado || f.asig.grupos.length < 2" @click="uiQuitarGrupo(f.asig, f.g)">Quitar</button>
+                    <button class="chico" x-show="!f.g.desdoble" :disabled="!!ocupado" @click="abrirDesdoble(f.asig, f.g)">Desdoblar…</button>
+                    <button class="chico" x-show="f.g.desdoble" :disabled="!!ocupado" @click="quitarDesdoble(f.g)">Quitar desdoble</button>
+                    <button class="chico" x-show="!f.g.fusion" :disabled="ocupado || !f.asig.codigo || !!f.g.fusionExterna"
+                            @click="abrirFusion(f.asig, f.g)">Fusionar…</button>
+                    <button class="chico" x-show="f.g.fusion" :disabled="!!ocupado" @click="deshacerFusion(f.g.fusion.id)">Deshacer fusión</button>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </template>
+        </table>
+      </div>
+    </div>
+  </template>
+
+  <!-- Diálogo de desdoble -->
+  <template x-if="desdobleDe">
+    <div class="dialogo"><div>
+      <h3 x-text="'Desdoblar ' + desdobleDe.titulo"></h3>
+      <div class="fila">
+        <label>Componente <select x-model="desdobleDe.componente"><option value="P">Práctica (P)</option><option value="T">Teoría (T)</option></select></label>
+        <label>Subgrupos <input type="number" min="2" max="9" x-model.number="desdobleDe.n"></label>
+      </div>
+      <p class="error" x-show="error" x-text="error"></p>
+      <div class="fila"><button class="primario" @click="aplicarDesdoble()">Desdoblar</button><button @click="desdobleDe = null; error = ''">Cancelar</button></div>
+    </div></div>
+  </template>
+
+  <!-- Diálogo de fusión (planCandidatosFusion) -->
+  <template x-if="fusionDe">
+    <div class="dialogo"><div>
+      <h3 x-text="'Fusionar ' + fusionDe.titulo"></h3>
+      <p class="suave">Marca los grupos que se dictan juntos y elige el principal: sus horas son las de la sección.</p>
+      <div class="fila">
+        <input placeholder="Filtrar por carrera, código o asignatura" x-model="fusionDe.filtro">
+        <button :disabled="!!ocupado" @click="candidatosFusion()" x-text="ocupado === 'candidatos' ? 'Buscando…' : 'Buscar en otras carreras'"></button>
+      </div>
+      <div class="tabla">
+        <table>
+          <thead><tr><th>Elegir</th><th>Principal</th><th>Carrera</th><th>Código</th><th>Asignatura</th><th>Grupo</th>
+            <th class="num">HT</th><th class="num">HP</th><th class="num">TH</th><th></th></tr></thead>
+          <tbody>
+            <template x-for="o in opcionesFusion(false)" :key="o.clave">
+              <tr :class="{ suave: o.bloqueo }">
+                <td><input type="checkbox" :value="o.clave" x-model="fusionDe.marcados" :disabled="!!o.bloqueo"></td>
+                <td><input type="radio" name="planPrincipal" :value="o.clave" x-model="fusionDe.principal" :disabled="!fusionDe.marcados.includes(o.clave)"></td>
+                <td x-text="o.carrera"></td><td x-text="o.codigo"></td><td x-text="o.nombre"></td><td x-text="o.grupo"></td>
+                <td class="num" x-text="o.ht"></td><td class="num" x-text="o.hp"></td><td class="num" x-text="o.th"></td><td x-text="o.bloqueo"></td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+      <template x-for="(a, i) in advertenciasDialogo()" :key="i"><p class="aviso" x-text="a"></p></template>
+      <p class="error" x-show="error" x-text="error"></p>
+      <div class="fila"><button class="primario" :disabled="!!ocupado" @click="aplicarFusion()">Fusionar</button><button @click="fusionDe = null; error = ''">Cancelar</button></div>
+    </div></div>
+  </template>
+</section>
+
+<script>
+  document.addEventListener("alpine:init", () => {
+    Alpine.data("planDeCiclo", () => ({
+      listo: false, ocupado: "", error: "", exito: "", avisos: [], ciclos: [], ciclo: "", carreras: [],
+      pantalla: "tabla", doc: null, plan: { asignaturas: [] }, texto: "", lectura: null, cambios: false, actividad: false,
+      temporizador: null, verHistorial: false, versiones: [], vistaVersion: null, desdobleDe: null, fusionDe: null,
+
+      init() {
+        this.$watch("$store.nav.vista", v => { if (v === "plan" && !this.listo) this.inicio(); });
+        if (Alpine.store("nav").vista === "plan") this.inicio();
+        window.addEventListener("pagehide", () => {
+          if (this.doc && this.doc.modo === "edicion" && this.pantalla === "plan") planLlamar("planSalir", this.doc.ciclo, this.doc.carrera).catch(() => {});
+        });
+      },
+
+      /* Llamada al servidor: ocupado = acción mientras dura (vuelve a "" también si falla); devuelve los datos, o null con
+         el mensaje en error. El mantener del latido no cuenta como actividad ni borra el error que se está mostrando. */
+      async llamar(accion, nombre, ...args) {
+        this.ocupado = accion;
+        if (accion !== "mantener") { this.error = ""; this.actividad = true; }
+        try { return await planLlamar(nombre, ...args); }
+        catch (e) { this.error = e.message; return null; }
+        finally { this.ocupado = ""; }
+      },
+
+      async inicio() {
+        const d = await this.llamar("inicio", "planInicio", this.ciclo);
+        if (d) Object.assign(this, { ciclos: d.ciclos, ciclo: d.ciclo, carreras: d.carreras, listo: true });
+      },
+
+      async abrir(sigla) {
+        this.exito = "";
+        this.avisos = [];
+        const d = await this.llamar("abrir " + sigla, "planAbrir", this.ciclo, sigla);
+        if (!d) return;
+        this.cerrar();
+        Object.assign(this, { doc: d, plan: d.plan, texto: "", lectura: null, cambios: false, actividad: false, pantalla: "plan" });
+        if (d.modo === "edicion") this.temporizador = setInterval(() => this.latido(), 5 * 60000);
+      },
+
+      cerrar() {
+        clearInterval(this.temporizador);
+        Object.assign(this, { temporizador: null, pantalla: "tabla", verHistorial: false, versiones: [], vistaVersion: null, desdobleDe: null, fusionDe: null });
+      },
+
+      latido() {
+        if (!this.actividad || this.ocupado) return;
+        this.actividad = false;
+        this.mantener();
+      },
+
+      async mantener() {
+        const d = await this.llamar("mantener", "planMantener", this.doc.ciclo, this.doc.carrera);
+        if (d) this.doc.vence = d.vence;
+        else if (/^Tu bloqueo/.test(this.error)) this.perderBloqueo();
+      },
+
+      async perderBloqueo() {
+        const mensaje = this.error;
+        this.cerrar();
+        await this.inicio();
+        this.error = mensaje;
+      },
+
+      async interpretar() {
+        const d = await this.llamar("interpretar", "planInterpretar", this.texto, this.doc.carrera);
+        if (!d || (this.plan.asignaturas.length && !confirm("Esto reemplaza todo el plan, fusiones incluidas. ¿Continuar?"))) return;
+        const externas = {};
+        this.plan.asignaturas.forEach(a => a.grupos.forEach(g => { if (g.fusionExterna) externas[a.codigo + "|" + g.n] = g.fusionExterna; }));
+        d.asignaturas.forEach(a => a.grupos.forEach(g => { if (externas[a.codigo + "|" + g.n]) g.fusionExterna = externas[a.codigo + "|" + g.n]; }));
+        Object.assign(this, { plan: { asignaturas: d.asignaturas }, lectura: d, cambios: true });
+      },
+
+      async leerArchivo(evento) {
+        const archivo = evento.target.files[0];
+        evento.target.value = "";
+        if (!archivo) return;
+        if (!/\.csv$/i.test(archivo.name)) { this.error = "Solo se aceptan archivos .csv; para .xlsx copia el rango y pégalo."; return; }
+        const bytes = await archivo.arrayBuffer();
+        let texto;
+        try { texto = new TextDecoder("utf-8", { fatal: true }).decode(bytes); }
+        catch (e) { texto = new TextDecoder("windows-1252").decode(bytes); }
+        this.texto = texto.replace(/^\uFEFF/, "");
+        await this.interpretar();
+      },
+
+      async guardar() {
+        const d = await this.llamar("guardar", "planGuardar", this.doc.ciclo, this.doc.carrera, JSON.parse(JSON.stringify(this.plan)), this.doc.version);
+        if (!d) { if (/^Tu bloqueo/.test(this.error)) this.perderBloqueo(); return; }
+        this.cerrar();
+        await this.inicio();
+        Object.assign(this, { exito: "Guardado como v" + d.version + ".", avisos: d.avisos });
+      },
+
+      async salir() {
+        if (this.cambios && !confirm("Hay cambios sin guardar. ¿Salir sin guardar?")) return;
+        if (this.doc.modo === "edicion" && !(await this.llamar("salir", "planSalir", this.doc.ciclo, this.doc.carrera))) return;
+        this.cerrar();
+        await this.inicio();
+      },
+
+      async historial() {
+        const d = await this.llamar("historial", "planHistorial", this.doc.ciclo, this.doc.carrera);
+        if (d) Object.assign(this, { versiones: d.versiones, verHistorial: true });
+      },
+
+      async version(n) {
+        const d = await this.llamar("version " + n, "planVersion", this.doc.ciclo, this.doc.carrera, n);
+        if (d) this.vistaVersion = d;
+      },
+
+      async restaurar(n) {
+        if (!confirm("Se guardará una versión nueva con el contenido de la v" + n + (this.cambios ? "; lo que no guardaste se perderá" : "") + ". ¿Continuar?")) return;
+        const d = await this.llamar("restaurar " + n, "planRestaurar", this.doc.ciclo, this.doc.carrera, n);
+        if (!d) return;
+        await this.abrir(this.doc.carrera);
+        this.exito = "Restaurada la v" + n + " como v" + d.version + ".";
+      },
+
+      /* ---- Lo que muestra la pantalla ---- */
+      get editable() { return !!this.doc && this.doc.modo === "edicion" && !this.vistaVersion; },
+      get puedeEditarActual() { return !!this.doc && this.carreras.some(c => c.sigla === this.doc.carrera && c.puedeEditar); },
+      get mostrado() { return this.vistaVersion ? this.vistaVersion.plan : this.plan; },
+      get totales() { const a = this.mostrado.asignaturas; return a.length + " asignaturas, " + a.reduce((n, x) => n + x.grupos.length, 0) + " grupos"; },
+      get semestres() {
+        const lista = [], porTitulo = {};
+        this.mostrado.asignaturas.forEach(a => {
+          const titulo = a.semestre === null ? "Sin semestre" : "Semestre " + a.semestre;
+          if (!porTitulo[titulo]) lista.push(porTitulo[titulo] = { clave: titulo, titulo, asignaturas: 0, filas: [] });
+          porTitulo[titulo].asignaturas++;
+          a.grupos.forEach((g, i) => porTitulo[titulo].filas.push({ asig: a, g, primera: i === 0, clave: a.codigo + "|" + a.nombre + "|" + g.n }));
+        });
+        lista.forEach(s => { s.titulo += " · " + s.asignaturas + " asignaturas, " + s.filas.length + " grupos"; });
+        return lista;
+      },
+      fecha(f) { return f ? f.slice(0, 10) + " " + f.slice(11, 16) : ""; },
+      textoFusion(asig, g) {
+        const f = g.fusion, yo = { carrera: this.doc.carrera, codigo: asig.codigo, grupo: g.n };
+        const otros = f.miembros.filter(m => !this.mismo(m, yo)).map(m => m.carrera + " " + m.codigo + "-" + m.grupo + (this.mismo(m, f.principal) ? " (principal)" : ""));
+        return "FUS " + (this.mismo(yo, f.principal) ? "principal · " : "") + "con " + otros.join(", ");
+      },
+      mismo(a, b) { return a.carrera === b.carrera && a.codigo === b.codigo && a.grupo === b.grupo; },
+      normalizar(s) { return String(s).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/\s+/g, " ").trim(); },
+      buscarGrupo(codigo, n) {
+        for (const a of this.plan.asignaturas) for (const g of a.grupos) if (a.codigo === codigo && g.n === n) return { a, g };
+        return null;
+      },
+      enFusionLocal(r) { return this.plan.asignaturas.some(a => a.grupos.some(g => g.fusion && g.fusion.miembros.some(m => this.mismo(m, r)))); },
+      marcar() { this.cambios = true; this.actividad = true; this.error = ""; },
+
+      /* ---- Operaciones en memoria sobre this.plan ---- */
+      agregarGrupo(asig) {
+        const base = asig.grupos.reduce((m, g) => (g.n < m.n ? g : m)), n = Math.max(...asig.grupos.map(g => g.n)) + 1;
+        asig.grupos.push({ n, ht: base.ht, hp: base.hp, th: base.th, obs: "", avisos: [], desdoble: null, fusion: null });
+        this.marcar();
+        return n;
+      },
+      quitarGrupo(asig, grupo) {
+        if (asig.grupos.length < 2) return false;
+        if (grupo.fusion) this.deshacerFusion(grupo.fusion.id);
+        asig.grupos.splice(asig.grupos.indexOf(grupo), 1);
+        this.marcar();
+        return true;
+      },
+      uiQuitarGrupo(asig, grupo) {
+        const extra = grupo.fusion ? " Está en una fusión: se deshará." :
+          grupo.fusionExterna ? " " + grupo.fusionExterna.carrera + " lo tiene en una fusión que quedará incompleta." : "";
+        if (confirm("¿Quitar el grupo " + grupo.n + " de " + asig.codigo + " " + asig.nombre + "?" + extra)) this.quitarGrupo(asig, grupo);
+      },
+      desdoblar(grupo, componente, n) {
+        const horas = componente === "P" ? grupo.hp : grupo.ht;
+        if (componente !== "P" && componente !== "T") this.error = "Elige práctica (P) o teoría (T).";
+        else if (typeof horas !== "number" || horas <= 0) this.error = "Para desdoblar la " + (componente === "P" ? "práctica el grupo necesita HP" : "teoría el grupo necesita HT") + " mayor que 0.";
+        else if (!Number.isInteger(n) || n < 2 || n > 9) this.error = "El desdoble va de 2 a 9 subgrupos.";
+        else { grupo.desdoble = { componente, n }; this.marcar(); return true; }
+        return false;
+      },
+      quitarDesdoble(grupo) { grupo.desdoble = null; this.marcar(); },
+      abrirDesdoble(asig, g) {
+        this.error = "";
+        this.desdobleDe = { titulo: asig.codigo + "-" + g.n + " " + asig.nombre, grupo: g, n: 2, componente: typeof g.hp === "number" && g.hp > 0 ? "P" : "T" };
+      },
+      aplicarDesdoble() { if (this.desdoblar(this.desdobleDe.grupo, this.desdobleDe.componente, Number(this.desdobleDe.n))) this.desdobleDe = null; },
+
+      /* seleccion: refs {carrera, codigo, grupo}; las de otras carreras traen sus datos de planCandidatosFusion.
+         Devuelve las advertencias (o null si no se pudo fusionar). */
+      fusionar(seleccion, principal) {
+        const carrera = this.doc.carrera, miembros = [];
+        for (const r of seleccion) {
+          if (miembros.some(m => this.mismo(m, r))) continue;
+          const local = r.carrera === carrera, x = local ? this.buscarGrupo(r.codigo, r.grupo) : null;
+          if (local && (!x || x.g.fusion || x.g.fusionExterna)) { this.error = "El grupo " + r.codigo + "-" + r.grupo + " no existe o ya está fusionado."; return null; }
+          if (!local && (r.fusionadoEn || this.enFusionLocal(r))) { this.error = r.carrera + " " + r.codigo + "-" + r.grupo + " ya está fusionado."; return null; }
+          const d = local ? { nombre: x.a.nombre, ht: x.g.ht, hp: x.g.hp, th: x.g.th } : r;
+          miembros.push({ carrera: r.carrera, codigo: r.codigo, grupo: r.grupo, nombre: d.nombre, ht: d.ht, hp: d.hp, th: d.th });
+        }
+        if (miembros.length < 2) { this.error = "Elige al menos dos grupos."; return null; }
+        if (!miembros.some(m => m.carrera === carrera)) { this.error = "La fusión debe incluir al menos un grupo de " + carrera + "."; return null; }
+        const p = principal ? miembros.find(m => this.mismo(m, principal)) : null;
+        if (!p) { this.error = "Elige el grupo principal entre los elegidos."; return null; }
+        let mayor = 0;
+        this.plan.asignaturas.forEach(a => a.grupos.forEach(g => { if (g.fusion) mayor = Math.max(mayor, Number(g.fusion.id.slice(1))); }));
+        const fusion = { id: "F" + (mayor + 1), principal: { carrera: p.carrera, codigo: p.codigo, grupo: p.grupo }, miembros };
+        miembros.filter(m => m.carrera === carrera).forEach(m => { this.buscarGrupo(m.codigo, m.grupo).g.fusion = JSON.parse(JSON.stringify(fusion)); });
+        this.marcar();
+        return this.advertenciasFusion(miembros, p);
+      },
+      advertenciasFusion(miembros, p) {
+        return miembros.filter(m => m !== p).map(m => {
+          const dif = [];
+          if (this.normalizar(m.nombre) !== this.normalizar(p.nombre)) dif.push("otro nombre («" + m.nombre + "»)");
+          if (m.codigo !== p.codigo) dif.push("otro código");
+          if (m.ht !== p.ht || m.hp !== p.hp || m.th !== p.th) dif.push("otras horas (HT " + m.ht + ", HP " + m.hp + ", TH " + m.th + ")");
+          return dif.length ? m.carrera + " " + m.codigo + "-" + m.grupo + ": " + dif.join(", ") + "." : "";
+        }).filter(String);
+      },
+      deshacerFusion(id) {
+        this.plan.asignaturas.forEach(a => a.grupos.forEach(g => { if (g.fusion && g.fusion.id === id) g.fusion = null; }));
+        this.marcar();
+      },
+
+      /* ---- Diálogo de fusión ---- */
+      abrirFusion(asig, g) {
+        const clave = this.doc.carrera + "|" + asig.codigo + "|" + g.n;
+        this.error = "";
+        this.fusionDe = { titulo: asig.codigo + "-" + g.n + " " + asig.nombre, marcados: [clave], principal: clave, filtro: "", externos: [] };
+      },
+      async candidatosFusion() {
+        const d = await this.llamar("candidatos", "planCandidatosFusion", this.doc.ciclo, this.doc.carrera);
+        if (d && this.fusionDe) this.fusionDe.externos = d.candidatos;
+      },
+      /* Grupos locales con código (los sin código no se pueden fusionar) y candidatos externos; bloqueo dice por qué no se eligen. */
+      opcionesFusion(todas) {
+        const carrera = this.doc.carrera, f = this.fusionDe, filtro = this.normalizar(f.filtro), lista = [];
+        this.plan.asignaturas.forEach(a => a.codigo && a.grupos.forEach(g => lista.push({
+          carrera, codigo: a.codigo, nombre: a.nombre, grupo: g.n, ht: g.ht, hp: g.hp, th: g.th,
+          bloqueo: g.fusion ? "en la fusión " + g.fusion.id : g.fusionExterna ? "fusionado con " + g.fusionExterna.carrera : "" })));
+        f.externos.forEach(c => lista.push(Object.assign({}, c, {
+          bloqueo: c.fusionadoEn ? "ya fusionado en " + c.fusionadoEn : this.enFusionLocal(c) ? "en una fusión de este plan" : "" })));
+        lista.forEach(o => { o.clave = o.carrera + "|" + o.codigo + "|" + o.grupo; });
+        return lista.filter(o => todas || !filtro || f.marcados.includes(o.clave) || this.normalizar(o.carrera + " " + o.codigo + " " + o.nombre).includes(filtro));
+      },
+      seleccionFusion() {
+        const sel = this.opcionesFusion(true).filter(o => this.fusionDe.marcados.includes(o.clave));
+        return { sel, p: sel.find(o => o.clave === this.fusionDe.principal) || null };
+      },
+      advertenciasDialogo(s = this.seleccionFusion()) { return s.sel.length > 1 && s.p ? this.advertenciasFusion(s.sel, s.p) : []; },
+      aplicarFusion() {
+        const s = this.seleccionFusion(), adv = this.advertenciasDialogo(s);
+        if (adv.length && !confirm("Los grupos no coinciden en todo:\n" + adv.join("\n") + "\n¿Fusionar de todos modos?")) return;
+        if (this.fusionar(s.sel, s.p)) this.fusionDe = null;
+      }
+    }));
+  });
+
+  /* google.script.run con promesa: resuelve con datos si ok; si no, rechaza con el error. */
+  function planLlamar(nombre, ...args) {
+    return new Promise((resolver, rechazar) => {
+      google.script.run
+        .withSuccessHandler(r => (r && r.ok ? resolver(r.datos) : rechazar(new Error((r && r.error) || "Respuesta vacía del servidor."))))
+        .withFailureHandler(e => rechazar(new Error((e && e.message) || String(e))))[nombre](...args);
+    });
+  }
+</script>

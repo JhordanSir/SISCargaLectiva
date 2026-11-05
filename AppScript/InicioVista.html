@@ -1,0 +1,23 @@
+<!-- Vista Inicio (sin backend).
+     Botones: «Registrar plan de ciclo» (CU-001) y «Carga docente» (CU-002). El del rol de quien
+     usa la página se resalta; el otro abre su vista en solo lectura.
+     Alpine: usa $store.usuario (IndexVista.html) y cambia $store.nav.vista. -->
+<section x-show="$store.nav.vista === 'inicio'" x-cloak>
+  <h2>Carga lectiva</h2>
+  <p class="suave" x-show="$store.usuario.cargando">Comprobando tu cuenta…</p>
+  <p class="error" x-show="$store.usuario.error" x-text="$store.usuario.error"></p>
+  <div class="inicio" x-show="$store.usuario.acceso">
+    <button :class="{ primario: $store.usuario.rol === 'coordinador' }" @click="$store.nav.vista = 'plan'">
+      Registrar plan de ciclo
+      <small x-text="$store.usuario.rol === 'coordinador'
+        ? 'Edita el plan de ' + ($store.usuario.carreras.join(', ') || 'tus carreras')
+        : 'Solo lectura'"></small>
+    </button>
+    <button :class="{ primario: $store.usuario.rol === 'director' }" @click="$store.nav.vista = 'carga'">
+      Carga docente
+      <small x-text="$store.usuario.rol === 'director'
+        ? 'Asigna docentes a las carreras de ' + ($store.usuario.departamento || 'tu departamento')
+        : 'Solo lectura'"></small>
+    </button>
+  </div>
+</section>
