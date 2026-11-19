@@ -14,7 +14,7 @@ import java.util.List;
 public class CatalogoService {
 
     /** Los nombres que acepta GET /api/catalogos/{tipo}. */
-    public static final String TIPOS_VALIDOS = "carreras, facultades, planesEstudio, lineasInvestigacion";
+    public static final String TIPOS_VALIDOS = "carreras, facultades, planesEstudio";
 
     private final CatalogoRepository repositorio;
 
@@ -22,13 +22,12 @@ public class CatalogoService {
         this.repositorio = repositorio;
     }
 
-    /** GET /api/catalogos: los cuatro catálogos en un solo objeto. */
+    /** GET /api/catalogos: los tres catálogos en un solo objeto. */
     public Catalogos todos() {
         return new Catalogos(
                 repositorio.findCarreras(),
                 repositorio.findFacultades(),
-                repositorio.findPlanesEstudio(),
-                repositorio.findLineasInvestigacion());
+                repositorio.findPlanesEstudio());
     }
 
     /**
@@ -40,7 +39,6 @@ public class CatalogoService {
             case "carreras" -> repositorio.findCarreras();
             case "facultades" -> repositorio.findFacultades();
             case "planesEstudio" -> repositorio.findPlanesEstudio();
-            case "lineasInvestigacion" -> repositorio.findLineasInvestigacion();
             default -> throw new NoEncontradoException(
                     "No existe el catálogo \"" + tipo + "\". Tipos válidos: " + TIPOS_VALIDOS + ".");
         };

@@ -253,7 +253,7 @@ export function hojasBase() {
 
 /**
  * El servicio REST de Spring Boot (backend/) en memoria, con los mismos datos, rutas, validaciones y mensajes
- * (una muestra de los planes de estudio y las líneas de investigación). Lo usa el UrlFetchApp falso de crearEntorno.
+ * (una muestra de los planes de estudio). Lo usa el UrlFetchApp falso de crearEntorno.
  *   const api = apiFalsa();
  *   api("GET", "https://x/api/parametros")                     → { codigo: 200, cuerpo: [...] }
  *   api("PUT", "https://x/api/parametros/MAX_HORAS_DOCENTE", { valor: "42", usuario: "…" })
@@ -293,13 +293,7 @@ export function apiFalsa() {
       ["ING-2023", "ING", "Plan de estudios 2023 · Ingeniería de Software", 2023, true, 220, 10],
       ["DER-2018", "DER", "Plan de estudios 2018 · Derecho", 2018, false, 236, 12],
       ["DER-2023", "DER", "Plan de estudios 2023 · Derecho", 2023, true, 244, 12]
-    ].map(([id, carreraId, nombre, anio, vigente, creditosTotales, cantidadSemestres]) => ({ id, carreraId, nombre, anio, vigente, creditosTotales, cantidadSemestres })),
-    lineasInvestigacion: [
-      ["LI-ING-01", "ING", "Ingeniería de software y calidad", "Procesos de desarrollo, pruebas y mantenimiento de software."],
-      ["LI-ING-02", "ING", "Inteligencia artificial y ciencia de datos", "Aprendizaje automático, análisis de datos y sistemas inteligentes."],
-      ["LI-DER-01", "DER", "Derecho constitucional y derechos humanos", "Garantías constitucionales y protección de derechos fundamentales."],
-      ["LI-DER-02", "DER", "Derecho empresarial", "Regulación de sociedades, contratos y competencia."]
-    ].map(([id, carreraId, nombre, descripcion]) => ({ id, carreraId, nombre, descripcion }))
+    ].map(([id, carreraId, nombre, anio, vigente, creditosTotales, cantidadSemestres]) => ({ id, carreraId, nombre, anio, vigente, creditosTotales, cantidadSemestres }))
   };
   const error = (codigo, mensaje) => ({ codigo, cuerpo: { error: mensaje } });
   return (metodo, url, cuerpo) => {
@@ -309,7 +303,7 @@ export function apiFalsa() {
     if (metodo === "GET" && ruta === "/api/catalogos") return { codigo: 200, cuerpo: catalogos };
     if (metodo === "GET" && (m = /^\/api\/catalogos\/([^/]+)$/.exec(ruta)))
       return catalogos[m[1]] ? { codigo: 200, cuerpo: catalogos[m[1]] }
-        : error(404, "No existe el catálogo \"" + m[1] + "\". Tipos válidos: carreras, facultades, planesEstudio, lineasInvestigacion.");
+        : error(404, "No existe el catálogo \"" + m[1] + "\". Tipos válidos: carreras, facultades, planesEstudio.");
     if (metodo === "PUT" && (m = /^\/api\/parametros\/([^/]+)$/.exec(ruta))) {
       const clave = m[1], p = parametros.find(x => x.clave === clave);
       if (!p) return error(404, "No existe el parámetro " + clave + ".");

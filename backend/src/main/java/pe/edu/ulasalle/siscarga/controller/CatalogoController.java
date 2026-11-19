@@ -13,14 +13,14 @@ import java.util.List;
 
 /**
  * Endpoints de los catálogos de datos.
- *   GET /api/catalogos          → { carreras, facultades, planesEstudio, lineasInvestigacion }
+ *   GET /api/catalogos          → { carreras, facultades, planesEstudio }
  *   GET /api/catalogos/{tipo}   → solo la lista de ese tipo
  * ⬅ VIENE DE Apps Script (Parametros.js → paramCatalogos / paramCatalogo), Postman o Swagger.
  * ➡ SIGUE EN CatalogoService.
  */
 @RestController
 @RequestMapping("/api/catalogos")
-@Tag(name = "Catálogos", description = "Carreras, facultades, planes de estudio y líneas de investigación")
+@Tag(name = "Catálogos", description = "Carreras, facultades y planes de estudio")
 public class CatalogoController {
 
     private final CatalogoService servicio;
@@ -29,7 +29,7 @@ public class CatalogoController {
         this.servicio = servicio;
     }
 
-    /** GET /api/catalogos → 200 con los cuatro catálogos. */
+    /** GET /api/catalogos → 200 con los tres catálogos. */
     @GetMapping
     @Operation(summary = "Devuelve todos los catálogos")
     public Catalogos todos() {
@@ -38,7 +38,7 @@ public class CatalogoController {
 
     /** GET /api/catalogos/{tipo} → 200 con la lista · 404 si el tipo no existe. */
     @GetMapping("/{tipo}")
-    @Operation(summary = "Devuelve un catálogo: carreras, facultades, planesEstudio o lineasInvestigacion")
+    @Operation(summary = "Devuelve un catálogo: carreras, facultades o planesEstudio")
     public List<?> porTipo(@PathVariable String tipo) {
         return servicio.porTipo(tipo);
     }

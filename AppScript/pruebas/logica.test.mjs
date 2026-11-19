@@ -1959,7 +1959,7 @@ describe("Parámetros · Parametros.js y ParametrosVista.html (servicio REST de 
   test("paramCatalogos y paramCatalogo: GET /api/catalogos y GET /api/catalogos/{tipo}", () => {
     const e = entorno(COORD);
     const todos = datos(e.llamar("paramCatalogos"));
-    assert.deepEqual(Object.keys(todos), ["carreras", "facultades", "planesEstudio", "lineasInvestigacion"]);
+    assert.deepEqual(Object.keys(todos), ["carreras", "facultades", "planesEstudio"]);
     assert.deepEqual(todos.carreras.map(c => c.id), ["ING", "IND", "ARQ", "ICO", "ADM", "DER", "COM", "PSI"]);
     assert.deepEqual(todos.carreras[0], { id: "ING", nombre: "Ingeniería de Software", facultadId: "FIA", departamento: "DIMA", duracionSemestres: 10 });
     const uno = datos(e.llamar("paramCatalogo", "facultades"));
@@ -1968,7 +1968,7 @@ describe("Parámetros · Parametros.js y ParametrosVista.html (servicio REST de 
     assert.deepEqual(e.peticiones.map(p => [p.metodo, p.url]), [
       ["GET", e.ctx.PARAM_API_URL + "/api/catalogos"], ["GET", e.ctx.PARAM_API_URL + "/api/catalogos/facultades"]]);
     assert.equal(error(e.llamar("paramCatalogo", "cursos")),
-      "No existe el catálogo \"cursos\". Tipos válidos: carreras, facultades, planesEstudio, lineasInvestigacion.");
+      "No existe el catálogo \"cursos\". Tipos válidos: carreras, facultades, planesEstudio.");
     assert.equal(error(e.llamar("paramCatalogo", "../parametros")), "Elige un catálogo.");
     assert.equal(error(e.llamar("paramCatalogo", "")), "Elige un catálogo.");
     assert.equal(e.peticiones.length, 3);

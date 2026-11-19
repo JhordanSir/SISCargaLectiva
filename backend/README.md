@@ -1,6 +1,6 @@
 # SISCargaLectiva · backend REST (Spring Boot)
 
-Servicios REST que consume la aplicación de Apps Script de SISCargaLectiva: **parámetros del sistema** (consulta y actualización) y **catálogos de datos** (carreras, facultades, planes de estudio y líneas de investigación). No hay base de datos: los datos son listas fijas en memoria, y un cambio hecho con el `PUT` dura hasta que se reinicia el contenedor.
+Servicios REST que consume la aplicación de Apps Script de SISCargaLectiva: **parámetros del sistema** (consulta y actualización) y **catálogos de datos** (carreras, facultades y planes de estudio). No hay base de datos: los datos son listas fijas en memoria, y un cambio hecho con el `PUT` dura hasta que se reinicia el contenedor.
 
 Java 21 · Spring Boot 3.3.5 · Maven · Swagger UI (springdoc).
 
@@ -10,8 +10,8 @@ Java 21 · Spring Boot 3.3.5 · Maven · Swagger UI (springdoc).
 |---|---|---|---|
 | GET | `/api/parametros` | Lista los 13 parámetros | 200 |
 | PUT | `/api/parametros/{clave}` | Cambia el valor de uno. Cuerpo: `{ "valor": "42", "usuario": "correo" }` | 200 parámetro actualizado · 400 valor inválido o solo lectura · 404 clave inexistente |
-| GET | `/api/catalogos` | Los cuatro catálogos juntos | 200 |
-| GET | `/api/catalogos/{tipo}` | Un catálogo: `carreras`, `facultades`, `planesEstudio`, `lineasInvestigacion` | 200 · 404 tipo inexistente |
+| GET | `/api/catalogos` | Los tres catálogos juntos | 200 |
+| GET | `/api/catalogos/{tipo}` | Un catálogo: `carreras`, `facultades`, `planesEstudio` | 200 · 404 tipo inexistente |
 
 Los errores llegan como `{ "error": "mensaje" }`.
 
@@ -44,7 +44,6 @@ Validación del `PUT`: ENTERO = entero ≥ 0; FECHA = `AAAA-MM-DD` que exista; C
 | `carreras` | `id` (sigla), `nombre`, `facultadId`, `departamento`, `duracionSemestres` | 8: ING, IND, ARQ, ICO, ADM, DER, COM, PSI (las de la pestaña Carreras) |
 | `facultades` | `id`, `sigla`, `nombre`, `departamento` | 4: FIA, FCE, FDE, FHU |
 | `planesEstudio` | `id`, `carreraId`, `nombre`, `anio`, `vigente`, `creditosTotales`, `cantidadSemestres` | 16: 2018 y 2023 por carrera |
-| `lineasInvestigacion` | `id`, `carreraId`, `nombre`, `descripcion` | 16: dos por carrera |
 
 ## Probar
 
@@ -94,7 +93,7 @@ src/main/java/pe/edu/ulasalle/siscarga/
   controller/   ParametroController, CatalogoController (rutas HTTP) · ManejadorErrores (excepción → 400/404)
   service/      ParametroService (validación del PUT) · CatalogoService · NoEncontradoException · ValorInvalidoException
   repository/   ParametroRepository, CatalogoRepository (los datos en listas en memoria)
-  model/        Parametro, Carrera, Facultad, PlanEstudio, LineaInvestigacion, Catalogos
+  model/        Parametro, Carrera, Facultad, PlanEstudio, Catalogos
   dto/          ActualizarParametroRequest (cuerpo del PUT) · ErrorRespuesta ({ "error" })
 src/test/java/.../ApiTest.java   pruebas de los 4 endpoints y sus errores (MockMvc)
 ```

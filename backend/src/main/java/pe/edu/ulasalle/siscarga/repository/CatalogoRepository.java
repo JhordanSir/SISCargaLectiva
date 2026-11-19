@@ -3,7 +3,6 @@ package pe.edu.ulasalle.siscarga.repository;
 import org.springframework.stereotype.Repository;
 import pe.edu.ulasalle.siscarga.model.Carrera;
 import pe.edu.ulasalle.siscarga.model.Facultad;
-import pe.edu.ulasalle.siscarga.model.LineaInvestigacion;
 import pe.edu.ulasalle.siscarga.model.PlanEstudio;
 
 import java.util.List;
@@ -55,47 +54,9 @@ public class CatalogoRepository {
             new PlanEstudio("PSI-2023", "PSI", "Plan de estudios 2023 · Psicología", 2023, true, 220, 10)
     );
 
-    /** Dos líneas de investigación por carrera. */
-    private final List<LineaInvestigacion> lineasInvestigacion = List.of(
-            new LineaInvestigacion("LI-ING-01", "ING", "Ingeniería de software y calidad",
-                    "Procesos de desarrollo, pruebas y mantenimiento de software."),
-            new LineaInvestigacion("LI-ING-02", "ING", "Inteligencia artificial y ciencia de datos",
-                    "Aprendizaje automático, análisis de datos y sistemas inteligentes."),
-            new LineaInvestigacion("LI-IND-01", "IND", "Gestión de operaciones y logística",
-                    "Optimización de procesos productivos y cadenas de suministro."),
-            new LineaInvestigacion("LI-IND-02", "IND", "Seguridad y salud en el trabajo",
-                    "Prevención de riesgos y ergonomía en entornos industriales."),
-            new LineaInvestigacion("LI-ARQ-01", "ARQ", "Urbanismo y ciudad sostenible",
-                    "Planificación urbana y espacio público en ciudades intermedias."),
-            new LineaInvestigacion("LI-ARQ-02", "ARQ", "Patrimonio y arquitectura en sillar",
-                    "Conservación y puesta en valor del patrimonio edificado de Arequipa."),
-            new LineaInvestigacion("LI-ICO-01", "ICO", "Marketing y comportamiento del consumidor",
-                    "Estrategias comerciales y decisiones de compra."),
-            new LineaInvestigacion("LI-ICO-02", "ICO", "Comercio electrónico",
-                    "Modelos de negocio digitales y canales de venta en línea."),
-            new LineaInvestigacion("LI-ADM-01", "ADM", "Comercio exterior y negocios internacionales",
-                    "Exportaciones, acuerdos comerciales y mercados internacionales."),
-            new LineaInvestigacion("LI-ADM-02", "ADM", "Emprendimiento e innovación",
-                    "Creación y crecimiento de empresas en la región sur."),
-            new LineaInvestigacion("LI-DER-01", "DER", "Derecho constitucional y derechos humanos",
-                    "Garantías constitucionales y protección de derechos fundamentales."),
-            new LineaInvestigacion("LI-DER-02", "DER", "Derecho empresarial",
-                    "Regulación de sociedades, contratos y competencia."),
-            new LineaInvestigacion("LI-COM-01", "COM", "Comunicación digital y medios",
-                    "Redes sociales, periodismo digital y audiencias."),
-            new LineaInvestigacion("LI-COM-02", "COM", "Comunicación organizacional",
-                    "Comunicación interna, imagen institucional y relaciones públicas."),
-            new LineaInvestigacion("LI-PSI-01", "PSI", "Psicología clínica y de la salud",
-                    "Evaluación, prevención e intervención en salud mental."),
-            new LineaInvestigacion("LI-PSI-02", "PSI", "Psicología educativa",
-                    "Aprendizaje, desarrollo y convivencia en la escuela.")
-    );
-
     public List<Facultad> findFacultades() { return facultades; }
 
     public List<Carrera> findCarreras() { return carreras; }
 
     public List<PlanEstudio> findPlanesEstudio() { return planesEstudio; }
-
-    public List<LineaInvestigacion> findLineasInvestigacion() { return lineasInvestigacion; }
 }

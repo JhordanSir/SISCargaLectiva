@@ -72,7 +72,7 @@
     </div>
   </template>
 
-  <!-- CATÁLOGOS. Al abrir la vista llegan los cuatro (paramCatalogos). Cambiar el selector → catalogo() → paramCatalogo(tipo)
+  <!-- CATÁLOGOS. Al abrir la vista llegan los tres (paramCatalogos). Cambiar el selector → catalogo() → paramCatalogo(tipo)
        y repinta la tabla con lo que devolvió el servicio. Las columnas salen de los campos del primer elemento.
        ALPINE · x-for con datos del servidor: x-for="e in elementos" (los dejan inicio(), PASO 4, y catalogo(), PASO 4). -->
   <div class="panel" x-show="listo">
@@ -119,8 +119,7 @@
       tipos: [
         { id: "carreras", nombre: "Carreras" },
         { id: "facultades", nombre: "Facultades" },
-        { id: "planesEstudio", nombre: "Planes de estudio" },
-        { id: "lineasInvestigacion", nombre: "Líneas de investigación" }
+        { id: "planesEstudio", nombre: "Planes de estudio" }
       ],
       tipo: "carreras", elementos: [],
 
@@ -153,7 +152,7 @@
       titulo(col) {
         const t = { id: "ID", sigla: "Sigla", nombre: "Nombre", departamento: "Departamento", facultadId: "Facultad",
           duracionSemestres: "Semestres", carreraId: "Carrera", anio: "Año", vigente: "Vigente",
-          creditosTotales: "Créditos", cantidadSemestres: "Semestres", descripcion: "Descripción" };
+          creditosTotales: "Créditos", cantidadSemestres: "Semestres" };
         return t[col] || col;
       },
       /* celda(v): verdadero/falso como "Sí"/"No"; lo demás, tal cual. */

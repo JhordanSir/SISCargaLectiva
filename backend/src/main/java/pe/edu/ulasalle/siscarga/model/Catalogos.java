@@ -4,10 +4,9 @@ import java.util.List;
 
 /**
  * Todos los catálogos juntos: es lo que devuelve GET /api/catalogos.
- * JSON: { "carreras": [...], "facultades": [...], "planesEstudio": [...], "lineasInvestigacion": [...] }
+ * JSON: { "carreras": [...], "facultades": [...], "planesEstudio": [...] }
  */
 public record Catalogos(List<Carrera> carreras,
                         List<Facultad> facultades,
-                        List<PlanEstudio> planesEstudio,
-                        List<LineaInvestigacion> lineasInvestigacion) {
+                        List<PlanEstudio> planesEstudio) {
 }

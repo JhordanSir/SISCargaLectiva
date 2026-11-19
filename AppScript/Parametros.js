@@ -158,9 +158,9 @@ function paramActualizar(clave, valor) {
    ===================================================================== */
 
 /**
- * Los cuatro catálogos de la aplicación: carreras, facultades, planes de estudio y líneas de investigación.
+ * Los tres catálogos de la aplicación: carreras, facultades y planes de estudio.
  * ⬅ VIENE DE: ParametrosVista.html → inicio() (después de paramConsultar).
- * ↩ RESPUESTA: { carreras: [...], facultades: [...], planesEstudio: [...], lineasInvestigacion: [...] }.
+ * ↩ RESPUESTA: { carreras: [...], facultades: [...], planesEstudio: [...] }.
  * @returns {ParamRespuesta}
  */
 function paramCatalogos() {
@@ -182,7 +182,7 @@ function paramCatalogos() {
       respuesta = UrlFetchApp.fetch(PARAM_API_URL + "/api/catalogos", { method: "get", muteHttpExceptions: true });
     } catch (e) { fallo("No se pudo conectar con el servicio de parámetros (" + PARAM_API_URL + "): " + (e && e.message ? e.message : e)); }
 
-    /* PASO 3 · ¿Respondió bien? 200 = un objeto con las cuatro listas. */
+    /* PASO 3 · ¿Respondió bien? 200 = un objeto con las tres listas. */
     const codigo = respuesta.getResponseCode(), cuerpo = json(respuesta.getContentText());
     /* El mensaje propio del servicio ({ error: "…" }) se muestra tal cual. Una página de error, o el error genérico de
        Spring ({ status, error: "Not Found", … }), se avisa con el código. */
@@ -207,7 +207,7 @@ function paramCatalogos() {
  * Un solo catálogo, pedido por su tipo al servicio REST.
  * ⬅ VIENE DE: ParametrosVista.html → catalogo() (al cambiar el selector).
  * ↩ RESPUESTA: { tipo, elementos: [...] }. Un tipo que el servicio no conoce llega como error (404).
- * @param {string} tipo "carreras", "facultades", "planesEstudio" o "lineasInvestigacion".
+ * @param {string} tipo "carreras", "facultades" o "planesEstudio".
  * @returns {ParamRespuesta}
  */
 function paramCatalogo(tipo) {

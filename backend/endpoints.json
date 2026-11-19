@@ -97,13 +97,6 @@
           }
         },
         {
-          "name": "Líneas de investigación",
-          "request": {
-            "method": "GET",
-            "url": { "raw": "{{baseUrl}}/api/catalogos/lineasInvestigacion", "host": ["{{baseUrl}}"], "path": ["api", "catalogos", "lineasInvestigacion"] }
-          }
-        },
-        {
           "name": "Error: tipo inexistente (404)",
           "request": {
             "method": "GET",

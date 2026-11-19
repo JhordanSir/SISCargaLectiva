@@ -91,7 +91,7 @@ class ApiTest {
                 .andExpect(jsonPath("$.carreras", hasSize(8)))
                 .andExpect(jsonPath("$.facultades", hasSize(4)))
                 .andExpect(jsonPath("$.planesEstudio", hasSize(16)))
-                .andExpect(jsonPath("$.lineasInvestigacion", hasSize(16)))
+                .andExpect(jsonPath("$.length()").value(3))
                 .andExpect(jsonPath("$.carreras[0].id").value("ING"));
     }
 
@@ -102,6 +102,8 @@ class ApiTest {
                 .andExpect(jsonPath("$", hasSize(4)))
                 .andExpect(jsonPath("$[0].nombre").value("Facultad de Ingenierías y Arquitectura"));
         mvc.perform(get("/api/catalogos/cursos"))
-                .andExpect(status().isNotFound());
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value(
+                        "No existe el catálogo \"cursos\". Tipos válidos: carreras, facultades, planesEstudio."));
     }
 }
