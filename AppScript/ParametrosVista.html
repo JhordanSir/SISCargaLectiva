@@ -73,7 +73,7 @@
   </template>
 
   <!-- CATÁLOGOS. Al abrir la vista llegan los tres (paramCatalogos). Cambiar el selector → catalogo() → paramCatalogo(tipo)
-       y repinta la tabla con lo que devolvió el servicio. Las columnas salen de los campos del primer elemento.
+       y repinta la tabla con lo que devolvió el servicio. Las columnas van en el orden fijo de columnas() (abajo).
        ALPINE · x-for con datos del servidor: x-for="e in elementos" (los dejan inicio(), PASO 4, y catalogo(), PASO 4). -->
   <div class="panel" x-show="listo">
     <div class="fila" style="margin-top: 0">
@@ -146,8 +146,18 @@
       },
       /* fechaCorta: "2026-11-04T21:56:12-05:00" → "2026-11-04 21:56". */
       fechaCorta(f) { return f ? f.slice(0, 10) + " " + f.slice(11, 16) : ""; },
-      /* columnas(): los campos del primer elemento del catálogo (id, nombre, carreraId…). */
-      columnas() { return this.elementos.length ? Object.keys(this.elementos[0]) : []; },
+      /* columnas(): los campos del catálogo en un orden fijo. Hace falta porque google.script.run no conserva el orden
+         de los campos de un objeto (en la app publicada llegaban desordenados). Un campo que no esté en la lista va al final. */
+      columnas() {
+        if (!this.elementos.length) return [];
+        const orden = {
+          carreras: ["id", "nombre", "facultadId", "departamento", "duracionSemestres"],
+          facultades: ["id", "sigla", "nombre", "departamento"],
+          planesEstudio: ["id", "carreraId", "nombre", "anio", "vigente", "creditosTotales", "cantidadSemestres"]
+        }[this.tipo] || [];
+        const campos = Object.keys(this.elementos[0]);
+        return orden.filter(k => campos.indexOf(k) >= 0).concat(campos.filter(k => orden.indexOf(k) < 0));
+      },
       /* titulo(col): encabezado legible de una columna. */
       titulo(col) {
         const t = { id: "ID", sigla: "Sigla", nombre: "Nombre", departamento: "Departamento", facultadId: "Facultad",

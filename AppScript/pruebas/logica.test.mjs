@@ -2052,9 +2052,20 @@ describe("Parámetros · Parametros.js y ParametrosVista.html (servicio REST de 
     await c.catalogo();
     assert.equal(c.error, "");
     assert.deepEqual(plano(c.elementos.map(p => p.id)), ["ING-2018", "ING-2023", "DER-2018", "DER-2023"]);
+    assert.deepEqual(plano(c.columnas()), ["id", "carreraId", "nombre", "anio", "vigente", "creditosTotales", "cantidadSemestres"]);
     assert.equal(c.celda(c.elementos[1].vigente), "Sí");
     assert.equal(c.celda(c.elementos[0].vigente), "No");
     assert.equal(e.peticiones.at(-1).url, e.ctx.PARAM_API_URL + "/api/catalogos/planesEstudio");
+
+    /* google.script.run no conserva el orden de los campos: las columnas salen igual aunque lleguen desordenados,
+       y un campo desconocido va al final. */
+    c.elementos = [{ duracionSemestres: 10, extra: "x", departamento: "DIMA", id: "ING", facultadId: "FIA", nombre: "Ingeniería de Software" }];
+    c.tipo = "carreras";
+    assert.deepEqual(plano(c.columnas()), ["id", "nombre", "facultadId", "departamento", "duracionSemestres", "extra"]);
+    c.tipo = "planesEstudio";
+    c.elementos = [{ vigente: true, id: "ING-2023", anio: 2023, nombre: "P", carreraId: "ING", cantidadSemestres: 10, creditosTotales: 220 }];
+    assert.deepEqual(plano(c.columnas()), ["id", "carreraId", "nombre", "anio", "vigente", "creditosTotales", "cantidadSemestres"]);
+    c.elementos = [1, 2, 3, 4].map(n => ({ id: "P" + n }));
 
     /* Con otra llamada en curso, el selector no hace nada y la tabla queda como estaba. */
     c.ocupado = "inicio";
