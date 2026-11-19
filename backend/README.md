@@ -101,4 +101,7 @@ src/test/java/.../ApiTest.java   pruebas de los 4 endpoints y sus errores (MockM
 
 ## Quién lo usa
 
-La vista "Parámetros" de la app de Apps Script (`AppScript/Parametros.js`) hace las 4 llamadas con `UrlFetchApp`: al abrir la vista trae parámetros y catálogos, el botón "Guardar" de cada parámetro hace el `PUT` (solo el director) y el desplegable de catálogos pide uno por tipo.
+La vista "Parámetros" de la app de Apps Script (`AppScript/Parametros.js`) hace las 4 llamadas con `UrlFetchApp`: al abrir la vista trae parámetros y catálogos, el botón "Guardar" de cada parámetro hace el `PUT` (solo el director) y el desplegable de catálogos pide uno por tipo. La dirección del servicio está en la constante `PARAM_API_URL` de ese archivo.
+
+- **Permiso nuevo en Apps Script.** `UrlFetchApp` necesita el scope `script.external_request` (ya está en `appsscript.json`). Después del `clasp push`, la cuenta que despliega tiene que abrir el editor, ejecutar una vez una función (por ejemplo `paramConsultar`) y aceptar "Conectarse a un servicio externo". Si no, la vista muestra "No se pudo conectar con el servicio de parámetros".
+- **Sin autenticación.** Por decisión del equipo, los endpoints son públicos: la regla "solo el director actualiza" la aplica Apps Script, pero cualquiera con la URL (o desde Swagger) puede hacer el `PUT` y poner el `usuario` que quiera. Como los datos están en memoria, un reinicio del contenedor devuelve los valores iniciales.

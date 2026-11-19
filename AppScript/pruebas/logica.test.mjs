@@ -1,7 +1,7 @@
 /* Pruebas de la lógica de la aplicación: node --test AppScript/pruebas/logica.test.mjs
    Cargan los .js en un contexto vm con Apps Script falso (recorrido.mjs → crearEntorno) y los
-   <script> de las vistas con un Alpine falso. Cuatro bloques: la carcasa, CU-001, CU-002 y los comentarios (que
-   las pestañas del Sheet que nombran sean las que usa el código). */
+   <script> de las vistas con un Alpine falso. Cinco bloques: la carcasa, CU-001, CU-002, los comentarios (que
+   las pestañas del Sheet que nombran sean las que usa el código) y Parámetros (UrlFetchApp al servicio REST falso). */
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -12,24 +12,24 @@ import { RAIZ, crearEntorno, hojasBase, hojaEjemplo, aTsv } from "./recorrido.mj
 describe("Carcasa · Index.js, IndexVista.html e InicioVista.html", () => {
   const leer = n => fs.readFileSync(path.join(RAIZ, n), "utf8");
   const scripts = html => [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)].map(m => m[1]);
-  const VISTAS = ["IndexVista.html", "InicioVista.html", "PlanDeCicloVista.html", "CargaDocenteVista.html"];
+  const VISTAS = ["IndexVista.html", "InicioVista.html", "PlanDeCicloVista.html", "CargaDocenteVista.html", "ParametrosVista.html"];
 
-  test("los tres .js se cargan juntos en un mismo ámbito global, como en Apps Script", () => {
+  test("los cuatro .js se cargan juntos en un mismo ámbito global, como en Apps Script", () => {
     const e = crearEntorno({ usuario: "mfloresl@ulasalle.edu.pe" });
     /* Date es el reloj falso del entorno, no de la app. */
     const publicas = Object.keys(e.ctx).filter(k => typeof e.ctx[k] === "function" && !/_$/.test(k) && k !== "Date").sort();
     assert.deepEqual(publicas, ["cargaAbrir", "cargaBuscarDocentes", "cargaGuardar", "cargaHistorial", "cargaInicio",
       "cargaInterpretar", "cargaMantener", "cargaRestaurar", "cargaSalir", "cargaVersion", "doGet", "include", "indexUsuario",
-      "planAbrir", "planCandidatosFusion", "planGuardar", "planHistorial", "planInicio", "planInterpretar", "planMantener",
+      "paramActualizar", "paramCatalogo", "paramCatalogos", "paramConsultar", "planAbrir", "planCandidatosFusion", "planGuardar", "planHistorial", "planInicio", "planInterpretar", "planMantener",
       "planRestaurar", "planSalir", "planVersion"]);
   });
 
-  test("ninguna función ni variable se usa entre PlanDeCiclo.* y CargaDocente.*", () => {
+  test("ninguna función ni variable se usa entre PlanDeCiclo.*, CargaDocente.* y Parametros.*", () => {
     const nombres = (js, html) => {
       const deJs = [...js.matchAll(/^(?:function|const|let|var)\s+([A-Za-z_$][\w$]*)/gm)].map(m => m[1]);
       /* En las vistas solo cuentan los nombres globales, que llevan el prefijo de su archivo. */
       const deHtml = scripts(html).flatMap(s => [...s.matchAll(/\b(?:function|const|let|var)\s+([A-Za-z_$][\w$]*)/g)].map(m => m[1]))
-        .concat([...html.matchAll(/Alpine\.(?:data|store)\("(\w+)"/g)].map(m => m[1])).filter(n => /^(plan|carga|index)/i.test(n));
+        .concat([...html.matchAll(/Alpine\.(?:data|store)\("(\w+)"/g)].map(m => m[1])).filter(n => /^(plan|carga|index|param)/i.test(n));
       return [...new Set(deJs.concat(deHtml))];
     };
     const p = { js: leer("PlanDeCiclo.js"), html: leer("PlanDeCicloVista.html") };
@@ -39,6 +39,11 @@ describe("Carcasa · Index.js, IndexVista.html e InicioVista.html", () => {
     for (const n of nombres(c.js, c.html)) assert.ok(!usa(p.js + p.html, n), "PlanDeCiclo usa \"" + n + "\" de CargaDocente");
     for (const n of nombres(leer("Index.js"), leer("IndexVista.html")))
       assert.ok(!usa(p.js + p.html + c.js + c.html, n), "una vista usa \"" + n + "\" de la carcasa");
+    const q = { js: leer("Parametros.js"), html: leer("ParametrosVista.html") };
+    for (const n of nombres(q.js, q.html))
+      assert.ok(!usa(p.js + p.html + c.js + c.html + leer("Index.js") + leer("IndexVista.html"), n), "otro archivo usa \"" + n + "\" de Parametros");
+    for (const n of nombres(p.js, p.html).concat(nombres(c.js, c.html), nombres(leer("Index.js"), leer("IndexVista.html"))))
+      assert.ok(!usa(q.js + q.html, n), "Parametros usa \"" + n + "\" de otro archivo");
   });
 
   test("indexUsuario: rol y carreras, o \"Acceso denegado\" con el motivo", () => {
@@ -54,11 +59,11 @@ describe("Carcasa · Index.js, IndexVista.html e InicioVista.html", () => {
     assert.equal(motivo("alguien@gmail.com").acceso, false);
   });
 
-  test("doGet arma la página con Alpine del CDN y las tres vistas", () => {
+  test("doGet arma la página con Alpine del CDN y las cuatro vistas", () => {
     const e = crearEntorno({ usuario: "mfloresl@ulasalle.edu.pe" });
     const html = e.ctx.doGet().getContent();
     assert.match(html, /<script defer src="https:\/\/cdn\.jsdelivr\.net\/npm\/alpinejs@3\.17\.5\/dist\/cdn\.min\.js"><\/script>/);
-    for (const v of ['x-data="planDeCiclo"', 'x-data="cargaDocente"', "$store.nav.vista === 'inicio'", "$store.nav.vista === 'denegado'"])
+    for (const v of ['x-data="planDeCiclo"', 'x-data="cargaDocente"', 'x-data="parametros"', "$store.nav.vista === 'inicio'", "$store.nav.vista === 'denegado'"])
       assert.ok(html.includes(v), "falta " + v);
     assert.ok(!html.includes("<?"), "queda un scriptlet sin evaluar");
   });
@@ -82,7 +87,7 @@ describe("Carcasa · Index.js, IndexVista.html e InicioVista.html", () => {
 
   test("la navegación usa $store.nav y la barra marca la vista activa", () => {
     const html = leer("IndexVista.html") + leer("InicioVista.html");
-    for (const v of ["plan", "carga", "inicio"]) {
+    for (const v of ["plan", "carga", "inicio", "param"]) {
       assert.ok(html.includes("@click=\"$store.nav.vista = '" + v + "'\""), "falta el botón de " + v);
       assert.ok(html.includes("activo: $store.nav.vista === '" + v + "'"), "falta :class activo de " + v);
     }
@@ -187,7 +192,7 @@ describe("CU-001 · PlanDeCiclo.js y PlanDeCicloVista.html", () => {
     assert.deepEqual(nombres.filter(n => !/^plan/i.test(n)), []);
     assert.deepEqual(nombres.filter(n => !n.endsWith("_")).sort(), [...PUBLICAS].sort());
     assert.doesNotMatch(fuente, /^(class|let|if|for)\b/m);
-    const ajenas = ["console", "Date", "Session", "SpreadsheetApp", "LockService", "HtmlService", "Utilities"];
+    const ajenas = ["console", "Date", "Session", "SpreadsheetApp", "LockService", "HtmlService", "Utilities", "UrlFetchApp"];
     assert.deepEqual(Object.keys(e.ctx).filter(k => !ajenas.includes(k) && !/^plan/.test(k)), []);
     for (const n of PUBLICAS) assert.equal(typeof e.ctx[n], "function", n);
     /* Llamadas a funciones de Index.js o CargaDocente.js; un método como ".indexOf(" no cuenta. */
@@ -1715,8 +1720,9 @@ describe("CU-002 · CargaDocente.js y CargaDocenteVista.html", () => {
 
 describe("Comentarios · las pestañas del Sheet que nombran son las que usa el código", () => {
   const leer = n => fs.readFileSync(path.join(RAIZ, n), "utf8");
-  const SERVIDOR = ["Index.js", "PlanDeCiclo.js", "CargaDocente.js"];
-  const VISTAS = { "IndexVista.html": "Index.js", "PlanDeCicloVista.html": "PlanDeCiclo.js", "CargaDocenteVista.html": "CargaDocente.js" };
+  const SERVIDOR = ["Index.js", "PlanDeCiclo.js", "CargaDocente.js", "Parametros.js"];
+  const VISTAS = { "IndexVista.html": "Index.js", "PlanDeCicloVista.html": "PlanDeCiclo.js", "CargaDocenteVista.html": "CargaDocente.js",
+    "ParametrosVista.html": "Parametros.js" };
   const sinComentarios = t => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/<!--[\s\S]*?-->/g, "");
   const ordenado = o => ({ lee: [...o.lee].sort(), escribe: [...o.escribe].sort(), borra: [...o.borra].sort(), candado: o.candado });
 
@@ -1808,5 +1814,272 @@ describe("Comentarios · las pestañas del Sheet que nombran son las que usa el 
       const nombra = new Set([...html.matchAll(/📡 → SERVIDOR:? \w+\.js → (\w+)/g)].map(m => m[1]));
       assert.deepEqual([...nombra].sort(), [...llama].sort(), vista);
     }
+  });
+});
+
+describe("Parámetros · Parametros.js y ParametrosVista.html (servicio REST de Spring Boot)", () => {
+  /* El servicio REST lo atiende apiFalsa (recorrido.mjs) a través del UrlFetchApp falso; e.peticiones anota cada llamada
+     ({ url, metodo, opciones, cuerpo }). Con api se puede simular un servidor caído o una respuesta rara. */
+  const leer = n => fs.readFileSync(path.join(RAIZ, n), "utf8");
+  const COORD = "mfloresl@ulasalle.edu.pe", DIRECTOR = "fmaresg@ulasalle.edu.pe";
+  const PUBLICAS = ["paramConsultar", "paramActualizar", "paramCatalogos", "paramCatalogo"];
+  const ARGUMENTOS = { paramConsultar: [], paramActualizar: ["MAX_HORAS_DOCENTE", "42"], paramCatalogos: [], paramCatalogo: ["carreras"] };
+  const entorno = (usuario = DIRECTOR, api) => crearEntorno({ usuario, archivos: ["Parametros.js"], api });
+  const datos = r => { assert.equal(r.ok, true, "falló: " + r.error); return r.datos; };
+  const error = r => { assert.equal(r.ok, false, "debía fallar"); assert.deepEqual(Object.keys(r).sort(), ["error", "ok"]); return r.error; };
+  /* Lo que sale del componente (otro contexto vm) se compara como JSON: sus arreglos tienen otro prototipo. */
+  const plano = x => JSON.parse(JSON.stringify(x));
+
+  /* ---------- La vista en vm, con google.script.run atendido por el entorno (de forma asíncrona, como el real) ---------- */
+  const HTML = leer("ParametrosVista.html");
+  const SCRIPTS = [...HTML.matchAll(/<script(\s[^>]*)?>([\s\S]*?)<\/script>/g)].filter(m => !/\bsrc=/.test(m[1] || "")).map(m => m[2]);
+  function componente(e) {
+    let fabrica;
+    const run = () => {
+      let exito = () => {}, falla = () => {};
+      const p = new Proxy({}, {
+        get: (_, k) => {
+          if (k === "withSuccessHandler") return f => { exito = f; return p; };
+          if (k === "withFailureHandler") return f => { falla = f; return p; };
+          return (...args) => setTimeout(() => { let r; try { r = e.llamar(k, ...args); } catch (err) { return falla(err); } exito(r); }, 0);
+        }
+      });
+      return p;
+    };
+    const ctx = vm.createContext({
+      console, setTimeout, window: { addEventListener() {} },
+      document: { addEventListener: (n, cb) => { if (n === "alpine:init") cb(); } },
+      Alpine: { data: (n, f) => { if (n === "parametros") fabrica = f; }, store: () => ({ vista: "inicio" }) },
+      google: { script: { get run() { return run(); } } }
+    });
+    SCRIPTS.forEach(s => vm.runInContext(s, ctx));
+    return fabrica();
+  }
+
+  /* ===================== Estructura ===================== */
+
+  test("Parametros.js: prefijo param, las 4 públicas con JSDoc, la dirección del servicio y el permiso en el manifiesto", () => {
+    const fuente = leer("Parametros.js");
+    const declaradas = [...fuente.matchAll(/^(?:function\s+|(?:const|let|var)\s+)([\w$]+)/gm)].map(m => m[1]);
+    assert.deepEqual(declaradas.filter(n => !/^param/i.test(n)), [], "identificadores sin prefijo \"param\"");
+    const funciones = [...fuente.matchAll(/^function\s+([\w$]+)/gm)].map(m => m[1]);
+    assert.deepEqual(funciones, PUBLICAS, "las públicas, en este orden");
+    /* Cada función lleva su propio JSDoc (/** … *\/ justo antes, sin otro comentario en medio) con @param y @returns. */
+    const conJsdoc = [];
+    for (const m of fuente.matchAll(/\/\*\*((?:(?!\*\/)[\s\S])*)\*\/\r?\nfunction\s+(\w+)\(([^)]*)\)/g)) {
+      conJsdoc.push(m[2]);
+      assert.match(m[1], /@returns/, m[2] + " sin @returns");
+      m[3].split(",").map(s => s.trim()).filter(Boolean).forEach(p => assert.match(m[1], new RegExp("@param \\{.*\\} " + p + "\\b"), m[2] + " sin @param " + p));
+    }
+    assert.deepEqual(conJsdoc, funciones, "alguna función no tiene JSDoc");
+    assert.doesNotMatch(fuente, /(?<![.\w$])(index|plan|carga)[A-Z]\w*\(/, "no usa funciones de otros archivos");
+    /* Cada función hace UNA llamada al servicio, con muteHttpExceptions (un 400/404 se lee, no lanza). */
+    assert.equal((fuente.match(/UrlFetchApp\.fetch\(/g) || []).length, 4);
+    assert.equal((fuente.match(/muteHttpExceptions: true/g) || []).length, 4);
+    const e = entorno();
+    assert.match(e.ctx.PARAM_API_URL, /^https:\/\/[^/]+[^/]$/, "PARAM_API_URL: https y sin \"/\" final");
+    assert.ok(JSON.parse(leer("appsscript.json")).oauthScopes.includes("https://www.googleapis.com/auth/script.external_request"),
+      "sin el scope script.external_request, UrlFetchApp no tiene permiso");
+  });
+
+  test("ParametrosVista.html: scripts válidos, sin \"//\" ni \"<?\", sin nombrar otras vistas, booleanos bien ligados", () => {
+    assert.ok(SCRIPTS.length >= 1);
+    SCRIPTS.forEach(s => { new vm.Script(s); assert.ok(!s.includes("//"), "\"//\" en el JavaScript del navegador"); });
+    assert.ok(!HTML.includes("<?"), "\"<?\" en la vista");
+    assert.doesNotMatch(HTML, /\b(plan|carga)[A-Z]\w*|\bindex(?!Of\b)[A-Z]\w*|planDeCiclo|cargaDocente/);
+    assert.match(HTML, /x-show="\$store\.nav\.vista === 'param'" x-data="parametros"/);
+    const booleanos = [...HTML.matchAll(/(?:x-bind)?:(disabled|checked|selected|readonly|required|hidden)="([^"]*)"/g)];
+    assert.ok(booleanos.length >= 4);
+    booleanos.forEach(m => assert.match(m[2], /^!!|===|!==/, "\":" + m[1] + "\" ligado a un valor que puede ser \"\": " + m[2]));
+    for (const n of ["ocupado === 'guardar' && pedida === p.clave ? 'Guardando…'", "ocupado === 'inicio' ? 'Cargando…'",
+      'x-for="g in grupos()"', 'x-for="p in g.lista"', 'x-for="(e, i) in elementos"', 'x-model="valores[p.clave]"', '@change="catalogo()"'])
+      assert.ok(HTML.includes(n), "falta " + n);
+    const c = componente(entorno());
+    for (const m of ["init", "inicio", "actualizar", "catalogo", "grupos", "columnas", "titulo", "celda", "fechaCorta"])
+      assert.equal(typeof c[m], "function", "falta el método " + m);
+  });
+
+  /* ===================== Servidor ===================== */
+
+  test("paramConsultar: GET /api/parametros; los dos roles ven los 13 parámetros y solo el director puede editar", () => {
+    const e = entorno(COORD);
+    const d = datos(e.llamar("paramConsultar"));
+    assert.equal(d.servidor, e.ctx.PARAM_API_URL);
+    assert.equal(d.puedeEditar, false);
+    assert.equal(d.parametros.length, 13);
+    assert.deepEqual(d.parametros.find(p => p.clave === "MAX_HORAS_DOCENTE"), {
+      clave: "MAX_HORAS_DOCENTE", valor: "40", tipo: "ENTERO", unidad: "horas", grupo: "HORAS",
+      descripcion: "Máxima cantidad de horas lectivas que puede dictar un docente (regla A07: más de esto impide guardar).",
+      editable: true, actualizadoPor: "sistema", fechaActualizacion: "2026-11-01T08:00:00-05:00" });
+    assert.deepEqual(e.peticiones.map(p => [p.metodo, p.url]), [["GET", e.ctx.PARAM_API_URL + "/api/parametros"]]);
+    assert.equal(e.peticiones[0].opciones.muteHttpExceptions, true);
+    assert.equal(datos(e.como(DIRECTOR).llamar("paramConsultar")).puedeEditar, true);
+  });
+
+  test("paramActualizar: el director hace PUT con { valor, usuario } y recibe el parámetro cambiado", () => {
+    const e = entorno(DIRECTOR);
+    const r = datos(e.llamar("paramActualizar", "MAX_HORAS_DOCENTE", " 42 "));
+    assert.equal(r.clave, "MAX_HORAS_DOCENTE");
+    assert.equal(r.valor, "42");
+    assert.equal(r.actualizadoPor, DIRECTOR);
+    const p = e.peticiones[0];
+    assert.equal(p.metodo, "PUT");
+    assert.equal(p.url, e.ctx.PARAM_API_URL + "/api/parametros/MAX_HORAS_DOCENTE");
+    assert.equal(p.opciones.contentType, "application/json");
+    assert.equal(p.opciones.muteHttpExceptions, true);
+    assert.deepEqual(p.cuerpo, { valor: "42", usuario: DIRECTOR });
+    /* El cambio queda en el servicio: la siguiente consulta lo trae. */
+    assert.equal(datos(e.llamar("paramConsultar")).parametros.find(x => x.clave === "MAX_HORAS_DOCENTE").valor, "42");
+  });
+
+  test("paramActualizar: el coordinador no puede y ni siquiera se llama al servicio", () => {
+    const e = entorno(COORD);
+    assert.equal(error(e.llamar("paramActualizar", "MAX_HORAS_DOCENTE", "42")), "Solo el director de departamento puede actualizar parámetros.");
+    assert.equal(e.peticiones.length, 0);
+  });
+
+  test("paramActualizar: los 400/404 del servicio llegan con su mensaje; clave y valor se revisan antes de llamar", () => {
+    const e = entorno(DIRECTOR);
+    assert.equal(error(e.llamar("paramActualizar", "MAX_HORAS_DOCENTE", "cuarenta")), "MAX_HORAS_DOCENTE debe ser un número entero mayor o igual a 0.");
+    assert.equal(error(e.llamar("paramActualizar", "MIN_HORAS_DOCENTE", "50")), "MIN_HORAS_DOCENTE no puede ser mayor que MAX_HORAS_DOCENTE (40).");
+    assert.equal(error(e.llamar("paramActualizar", "CICLO_VIGENTE", "2027-3")), "CICLO_VIGENTE debe tener el formato AAAA-1 o AAAA-2 (por ejemplo 2027-1).");
+    assert.equal(error(e.llamar("paramActualizar", "FECHA_LIMITE_PLAN", "2026-02-30")), "FECHA_LIMITE_PLAN debe ser una fecha válida con formato AAAA-MM-DD.");
+    assert.equal(error(e.llamar("paramActualizar", "DOMINIO_PERMITIDO", "@gmail.com")), "El parámetro DOMINIO_PERMITIDO es de solo lectura.");
+    assert.equal(error(e.llamar("paramActualizar", "NO_EXISTE", "1")), "No existe el parámetro NO_EXISTE.");
+    assert.equal(e.peticiones.length, 6);
+    /* Sin llamar al servicio: valor vacío, demasiado largo, o una clave que armaría otra ruta. */
+    assert.equal(error(e.llamar("paramActualizar", "MAX_HORAS_DOCENTE", "   ")), "Escribe un valor para MAX_HORAS_DOCENTE.");
+    assert.match(error(e.llamar("paramActualizar", "NOMBRE_INSTITUCION", "x".repeat(201))), /demasiado largo/);
+    assert.match(error(e.llamar("paramActualizar", "../catalogos", "1")), /^Clave de parámetro inválida/);
+    assert.equal(e.peticiones.length, 6);
+    /* La clave se pasa a mayúsculas. */
+    assert.equal(datos(e.llamar("paramActualizar", "minutos_bloqueo", "45")).valor, "45");
+  });
+
+  test("paramCatalogos y paramCatalogo: GET /api/catalogos y GET /api/catalogos/{tipo}", () => {
+    const e = entorno(COORD);
+    const todos = datos(e.llamar("paramCatalogos"));
+    assert.deepEqual(Object.keys(todos), ["carreras", "facultades", "planesEstudio", "lineasInvestigacion"]);
+    assert.deepEqual(todos.carreras.map(c => c.id), ["ING", "IND", "ARQ", "ICO", "ADM", "DER", "COM", "PSI"]);
+    assert.deepEqual(todos.carreras[0], { id: "ING", nombre: "Ingeniería de Software", facultadId: "FIA", departamento: "DIMA", duracionSemestres: 10 });
+    const uno = datos(e.llamar("paramCatalogo", "facultades"));
+    assert.equal(uno.tipo, "facultades");
+    assert.deepEqual(uno.elementos.map(f => f.id), ["FIA", "FCE", "FDE", "FHU"]);
+    assert.deepEqual(e.peticiones.map(p => [p.metodo, p.url]), [
+      ["GET", e.ctx.PARAM_API_URL + "/api/catalogos"], ["GET", e.ctx.PARAM_API_URL + "/api/catalogos/facultades"]]);
+    assert.equal(error(e.llamar("paramCatalogo", "cursos")),
+      "No existe el catálogo \"cursos\". Tipos válidos: carreras, facultades, planesEstudio, lineasInvestigacion.");
+    assert.equal(error(e.llamar("paramCatalogo", "../parametros")), "Elige un catálogo.");
+    assert.equal(error(e.llamar("paramCatalogo", "")), "Elige un catálogo.");
+    assert.equal(e.peticiones.length, 3);
+  });
+
+  test("acceso denegado en las 4 funciones (sin correo, otro dominio, sin rol) y sin llamar al servicio", () => {
+    const e = entorno();
+    for (const f of PUBLICAS) {
+      assert.match(error(e.como("").llamar(f, ...ARGUMENTOS[f])), /^Acceso denegado: cuenta no identificada/, f);
+      assert.match(error(e.como("alguien@gmail.com").llamar(f, ...ARGUMENTOS[f])), /^Acceso denegado: cuenta fuera del dominio/, f);
+      assert.match(error(e.como("sinrol@ulasalle.edu.pe").llamar(f, ...ARGUMENTOS[f])), /^Acceso denegado: cuenta sin rol/, f);
+      assert.match(error(e.como("nadie@ulasalle.edu.pe").llamar(f, ...ARGUMENTOS[f])), /^Acceso denegado: cuenta sin rol/, f);
+    }
+    assert.equal(e.peticiones.length, 0);
+    delete e.hojas.Usuarios;
+    assert.equal(error(e.como(DIRECTOR).llamar("paramConsultar")), "Falta la pestaña \"Usuarios\" en la hoja.");
+  });
+
+  test("servicio caído, página de error o respuesta que no es la esperada: mensaje claro en las 4 funciones", () => {
+    const caido = entorno(DIRECTOR, () => { throw new Error("DNS error: bcp.example"); });
+    for (const f of PUBLICAS)
+      assert.match(error(caido.llamar(f, ...ARGUMENTOS[f])), /^No se pudo conectar con el servicio de parámetros \(https:\/\/[^)]+\): DNS error/, f);
+    const proxy = entorno(DIRECTOR, () => ({ codigo: 502, cuerpo: "<html>Bad Gateway</html>" }));
+    for (const f of PUBLICAS)
+      assert.equal(error(proxy.llamar(f, ...ARGUMENTOS[f])), "El servicio de parámetros respondió con el código 502.", f);
+    /* El error genérico de Spring (ruta que no existe, 405, 500) no es un mensaje del servicio: se avisa con el código. */
+    const spring = entorno(DIRECTOR, () => ({ codigo: 404, cuerpo: { timestamp: "2026-11-18T10:00:00Z", status: 404, error: "Not Found", path: "/api/x" } }));
+    for (const f of PUBLICAS)
+      assert.equal(error(spring.llamar(f, ...ARGUMENTOS[f])), "El servicio de parámetros respondió con el código 404.", f);
+    const raro = entorno(DIRECTOR, () => ({ codigo: 200, cuerpo: "hola" }));
+    assert.equal(error(raro.llamar("paramConsultar")), "El servicio de parámetros no devolvió una lista.");
+    assert.equal(error(raro.llamar("paramCatalogos")), "El servicio de parámetros no devolvió los catálogos.");
+    assert.equal(error(raro.llamar("paramCatalogo", "carreras")), "El servicio de parámetros no devolvió una lista.");
+    assert.equal(error(raro.llamar("paramActualizar", "MAX_HORAS_DOCENTE", "42")), "El servicio de parámetros devolvió una respuesta inesperada.");
+  });
+
+  /* ===================== Vista ===================== */
+
+  test("la vista: abrirla trae parámetros y catálogo; el director guarda; un error del servicio se ve en rojo", async () => {
+    const e = entorno(DIRECTOR);
+    const c = componente(e);
+    await c.inicio();
+    assert.equal(c.error, "");
+    assert.equal(c.ocupado, "");
+    assert.equal(c.listo, true);
+    assert.equal(c.puedeEditar, true);
+    assert.equal(c.servidor, e.ctx.PARAM_API_URL);
+    assert.deepEqual(plano(c.grupos().map(g => [g.titulo, g.lista.length])), [["Horas docentes", 5], ["Ciclo y plazos", 4], ["Sistema", 4]]);
+    assert.equal(c.valores.CICLO_VIGENTE, "2026-2");
+    assert.equal(c.elementos.length, 8);
+    assert.deepEqual(plano(c.columnas().map(k => c.titulo(k))), ["ID", "Nombre", "Facultad", "Departamento", "Semestres"]);
+    assert.deepEqual(e.peticiones.map(p => p.url.replace(e.ctx.PARAM_API_URL, "")), ["/api/parametros", "/api/catalogos"]);
+
+    /* Sin cambiar el valor, o en un parámetro fijo, "Guardar" (o Enter en el campo) no llama al servidor. */
+    await c.actualizar(c.parametros.find(x => x.clave === "MAX_HORAS_DOCENTE"));
+    c.valores.DOMINIO_PERMITIDO = "@gmail.com";
+    await c.actualizar(c.parametros.find(x => x.clave === "DOMINIO_PERMITIDO"));
+    assert.equal(e.peticiones.length, 2, "no hubo PUT");
+    assert.equal(c.exito, "");
+    assert.ok(HTML.includes('@keydown.enter="actualizar(p)"'), "Enter pasa por las mismas condiciones de actualizar(p)");
+
+    /* Guardar con un valor válido: la fila se reemplaza con lo que devolvió el servicio y sale el aviso verde. */
+    c.valores.MAX_HORAS_DOCENTE = "42";
+    await c.actualizar(c.parametros.find(x => x.clave === "MAX_HORAS_DOCENTE"));
+    assert.equal(c.error, "");
+    assert.equal(c.exito, "MAX_HORAS_DOCENTE actualizado a 42 horas.");
+    assert.equal(c.parametros.find(x => x.clave === "MAX_HORAS_DOCENTE").valor, "42");
+    assert.equal(c.parametros.find(x => x.clave === "MAX_HORAS_DOCENTE").actualizadoPor, DIRECTOR);
+    assert.equal(c.ocupado, "");
+    assert.equal(c.pedida, "");
+
+    /* Guardar con un valor inválido: el mensaje del servicio en rojo y la fila sin cambios. */
+    c.valores.MAX_HORAS_DOCENTE = "cuarenta";
+    await c.actualizar(c.parametros.find(x => x.clave === "MAX_HORAS_DOCENTE"));
+    assert.equal(c.error, "MAX_HORAS_DOCENTE debe ser un número entero mayor o igual a 0.");
+    assert.equal(c.exito, "");
+    assert.equal(c.parametros.find(x => x.clave === "MAX_HORAS_DOCENTE").valor, "42");
+
+    /* El selector de catálogo pide uno por tipo. */
+    c.tipo = "planesEstudio";
+    await c.catalogo();
+    assert.equal(c.error, "");
+    assert.deepEqual(plano(c.elementos.map(p => p.id)), ["ING-2018", "ING-2023", "DER-2018", "DER-2023"]);
+    assert.equal(c.celda(c.elementos[1].vigente), "Sí");
+    assert.equal(c.celda(c.elementos[0].vigente), "No");
+    assert.equal(e.peticiones.at(-1).url, e.ctx.PARAM_API_URL + "/api/catalogos/planesEstudio");
+
+    /* Con otra llamada en curso, el selector no hace nada y la tabla queda como estaba. */
+    c.ocupado = "inicio";
+    c.tipo = "carreras";
+    await c.catalogo();
+    assert.equal(c.elementos.length, 4);
+  });
+
+  test("la vista: el coordinador ve todo en solo lectura; si el servicio no responde, error y se reintenta al volver", async () => {
+    const coord = componente(entorno(COORD));
+    await coord.inicio();
+    assert.equal(coord.puedeEditar, false);
+    assert.equal(coord.parametros.length, 13);
+    /* Aunque escriba en el campo y pulse Enter, no se llama al servidor. */
+    coord.valores.MAX_HORAS_DOCENTE = "42";
+    await coord.actualizar(coord.parametros.find(x => x.clave === "MAX_HORAS_DOCENTE"));
+    assert.equal(coord.error, "");
+    assert.equal(coord.parametros.find(x => x.clave === "MAX_HORAS_DOCENTE").valor, "40");
+    assert.ok(HTML.includes('x-show="puedeEditar && p.editable"'), "el botón Guardar solo se ve para el director");
+
+    const caido = componente(entorno(DIRECTOR, () => { throw new Error("timeout"); }));
+    await caido.inicio();
+    assert.match(caido.error, /^No se pudo conectar con el servicio de parámetros/);
+    assert.equal(caido.listo, false, "listo sigue en false: al volver a la vista se pide de nuevo");
+    assert.equal(caido.ocupado, "");
+    assert.deepEqual(plano(caido.parametros), []);
   });
 });

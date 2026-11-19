@@ -4,17 +4,17 @@
      ---------------------------------------------------------------------
      CÓMO SE ARMA LA PÁGINA
        1. Al abrir la URL, Index.js → doGet() toma este archivo como plantilla.
-       2. Las tres marcas de inclusión del <main> (más abajo) pegan, en el servidor, InicioVista.html,
-          PlanDeCicloVista.html y CargaDocenteVista.html: el navegador recibe UNA sola página.
+       2. Las cuatro marcas de inclusión del <main> (más abajo) pegan, en el servidor, InicioVista.html,
+          PlanDeCicloVista.html, CargaDocenteVista.html y ParametrosVista.html: el navegador recibe UNA sola página.
        3. Se carga Alpine.js (la etiqueta del CDN, aquí abajo) y corre el bloque de JavaScript del
           final de este archivo: crea la memoria compartida ($store.nav y $store.usuario) y pregunta
           "¿quién soy?" al servidor (Index.js → indexUsuario).
      DÓNDE MIRAR
        "ALPINE ·" marca lo que pidió el docente con Alpine.js (navegación, en espera, x-for con datos del
-       servidor) en las cuatro vistas. "SHEET ·" marca en los .js cada lectura y escritura del Sheet, y la
+       servidor) en las cinco vistas. "SHEET ·" marca en los .js cada lectura y escritura del Sheet, y la
        línea "Sheet:" de cada 📡 dice qué pestañas toca esa llamada.
      QUÉ DISPARA CADA BOTÓN DE LA BARRA
-       Inicio / Registrar plan de ciclo / Carga docente → solo cambian $store.nav.vista (no llaman al
+       Inicio / Registrar plan de ciclo / Carga docente / Parámetros → solo cambian $store.nav.vista (no llaman al
        servidor). Cada sección se muestra u oculta con su x-show. La primera vez que se ve una
        sección, su componente pide sus datos (ver el init() de cada vista).
      ===================================================================== -->
@@ -84,6 +84,7 @@
         <button :class="{ activo: $store.nav.vista === 'inicio' }" @click="$store.nav.vista = 'inicio'">Inicio</button>
         <button :class="{ activo: $store.nav.vista === 'plan' }" @click="$store.nav.vista = 'plan'">Registrar plan de ciclo</button>
         <button :class="{ activo: $store.nav.vista === 'carga' }" @click="$store.nav.vista = 'carga'">Carga docente</button>
+        <button :class="{ activo: $store.nav.vista === 'param' }" @click="$store.nav.vista = 'param'">Parámetros</button>
       </span>
     </template>
     <!-- "correo · rol" arriba a la derecha: sale de $store.usuario, que llena cargar() (abajo) con la respuesta de indexUsuario. -->
@@ -100,10 +101,11 @@
       <p class="suave">Si crees que es un error, pide que agreguen tu cuenta a la pestaña Usuarios.</p>
     </section>
 
-    <!-- Las tres vistas, pegadas en el servidor durante doGet (Index.js). Cada una es una <section> con su x-show. -->
+    <!-- Las cuatro vistas, pegadas en el servidor durante doGet (Index.js). Cada una es una <section> con su x-show. -->
     <?!= include("InicioVista") ?>
     <?!= include("PlanDeCicloVista") ?>
     <?!= include("CargaDocenteVista") ?>
+    <?!= include("ParametrosVista") ?>
   </main>
 
   <script>
@@ -112,7 +114,7 @@
        Corre una sola vez, cuando Alpine arranca (evento alpine:init).
        ================================================================= */
     document.addEventListener("alpine:init", () => {
-      /* ALPINE · navegación. $store.nav.vista = qué sección se ve: "inicio", "plan", "carga" o "denegado".
+      /* ALPINE · navegación. $store.nav.vista = qué sección se ve: "inicio", "plan", "carga", "param" o "denegado".
          La cambian los botones de la barra y de Inicio; cada <section> la mira con x-show. */
       Alpine.store("nav", { vista: "inicio" });
 

@@ -9,8 +9,9 @@
    navegador con el protocolo DevTools (WebSocket de Node), sin dependencias.
 
    También exporta lo que usa logica.test.mjs: crearEntorno (Apps Script falso en memoria con
-   Index.js, PlanDeCiclo.js y CargaDocente.js cargados en un mismo ámbito global, como en Apps
-   Script), leerXlsx y aTsv (los Excel de ejemplo de docs/archivos como texto copiado de Excel)
+   Index.js, PlanDeCiclo.js, CargaDocente.js y Parametros.js cargados en un mismo ámbito global, como
+   en Apps Script), apiFalsa (el servicio REST de Spring Boot de backend/, en memoria, que atiende
+   UrlFetchApp), leerXlsx y aTsv (los Excel de ejemplo de docs/archivos como texto copiado de Excel)
    e iniciarServidorLocal (la página con google.script.run atendido por el entorno falso). */
 import { spawn } from "node:child_process";
 import fs from "node:fs";
@@ -23,7 +24,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 export const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 export const ARCHIVOS = path.resolve(RAIZ, "..", "docs", "archivos");
-export const ARCHIVOS_JS = ["Index.js", "PlanDeCiclo.js", "CargaDocente.js"];
+export const ARCHIVOS_JS = ["Index.js", "PlanDeCiclo.js", "CargaDocente.js", "Parametros.js"];
 
 /* ===================== Excel de ejemplo ===================== */
 
@@ -251,13 +252,105 @@ export function hojasBase() {
 }
 
 /**
+ * El servicio REST de Spring Boot (backend/) en memoria, con los mismos datos, rutas, validaciones y mensajes
+ * (una muestra de los planes de estudio y las líneas de investigación). Lo usa el UrlFetchApp falso de crearEntorno.
+ *   const api = apiFalsa();
+ *   api("GET", "https://x/api/parametros")                     → { codigo: 200, cuerpo: [...] }
+ *   api("PUT", "https://x/api/parametros/MAX_HORAS_DOCENTE", { valor: "42", usuario: "…" })
+ * @returns {(metodo: string, url: string, cuerpo?: Object) => {codigo: number, cuerpo: *}}
+ */
+export function apiFalsa() {
+  const P = (clave, valor, tipo, unidad, grupo, descripcion, editable = true) =>
+    ({ clave, valor, tipo, unidad, grupo, descripcion, editable, actualizadoPor: "sistema", fechaActualizacion: "2026-11-01T08:00:00-05:00" });
+  const parametros = [
+    P("MIN_HORAS_DOCENTE", "8", "ENTERO", "horas", "HORAS", "Mínima cantidad de horas lectivas que debe dictar un docente en el ciclo."),
+    P("MAX_HORAS_DOCENTE", "40", "ENTERO", "horas", "HORAS", "Máxima cantidad de horas lectivas que puede dictar un docente (regla A07: más de esto impide guardar)."),
+    P("MAX_HORAS_ORDINARIO", "24", "ENTERO", "horas", "HORAS", "Horas a partir de las cuales se advierte que un docente ordinario tiene demasiada carga (regla A09)."),
+    P("MAX_HORAS_CON_CARGO", "24", "ENTERO", "horas", "HORAS", "Horas máximas de un docente con cargo; por encima se exige un motivo (regla A12)."),
+    P("AVISO_HORAS_CON_CARGO", "20", "ENTERO", "horas", "HORAS", "Horas a partir de las cuales se avisa que un docente con cargo se acerca al máximo (regla A12)."),
+    P("CICLO_VIGENTE", "2026-2", "CICLO", "", "CICLO", "Ciclo académico actual (formato AAAA-1 o AAAA-2)."),
+    P("FECHA_INICIO_CICLO", "2026-08-17", "FECHA", "", "CICLO", "Fecha de inicio de clases del ciclo vigente."),
+    P("FECHA_LIMITE_PLAN", "2026-07-10", "FECHA", "", "CICLO", "Último día para que el Coordinador registre el plan de ciclo (CU-001)."),
+    P("FECHA_LIMITE_CARGA", "2026-07-31", "FECHA", "", "CICLO", "Último día para que el Director asigne docentes al plan de ciclo (CU-002)."),
+    P("MINUTOS_BLOQUEO", "30", "ENTERO", "minutos", "SISTEMA", "Minutos sin actividad tras los que vence el bloqueo de edición de una carrera."),
+    P("NOMBRE_INSTITUCION", "Universidad La Salle", "TEXTO", "", "SISTEMA", "Nombre de la institución que se muestra en la aplicación."),
+    P("DOMINIO_PERMITIDO", "@ulasalle.edu.pe", "TEXTO", "", "SISTEMA", "Dominio de las cuentas de Google que pueden entrar a la aplicación.", false),
+    P("MAX_CARACTERES_CELDA", "50000", "ENTERO", "caracteres", "SISTEMA", "Límite de Google Sheets para una celda: cada versión de un plan o carga debe caber en él.", false)
+  ];
+  const catalogos = {
+    carreras: [
+      ["ING", "Ingeniería de Software", "FIA", "DIMA", 10], ["IND", "Ingeniería Industrial", "FIA", "DIMA", 10],
+      ["ARQ", "Arquitectura", "FIA", "DIMA", 10], ["ICO", "Ingeniería Comercial", "FIA", "DIMA", 10],
+      ["ADM", "Administración de Negocios Internacionales", "FCE", "DACTE", 10], ["DER", "Derecho", "FDE", "DACJ", 12],
+      ["COM", "Ciencias de la Comunicación", "FHU", "DAHUC", 10], ["PSI", "Psicología", "FHU", "DAHUC", 10]
+    ].map(([id, nombre, facultadId, departamento, duracionSemestres]) => ({ id, nombre, facultadId, departamento, duracionSemestres })),
+    facultades: [
+      ["FIA", "Facultad de Ingenierías y Arquitectura", "DIMA"], ["FCE", "Facultad de Ciencias Empresariales", "DACTE"],
+      ["FDE", "Facultad de Derecho", "DACJ"], ["FHU", "Facultad de Humanidades", "DAHUC"]
+    ].map(([id, nombre, departamento]) => ({ id, sigla: id, nombre, departamento })),
+    planesEstudio: [
+      ["ING-2018", "ING", "Plan de estudios 2018 · Ingeniería de Software", 2018, false, 210, 10],
+      ["ING-2023", "ING", "Plan de estudios 2023 · Ingeniería de Software", 2023, true, 220, 10],
+      ["DER-2018", "DER", "Plan de estudios 2018 · Derecho", 2018, false, 236, 12],
+      ["DER-2023", "DER", "Plan de estudios 2023 · Derecho", 2023, true, 244, 12]
+    ].map(([id, carreraId, nombre, anio, vigente, creditosTotales, cantidadSemestres]) => ({ id, carreraId, nombre, anio, vigente, creditosTotales, cantidadSemestres })),
+    lineasInvestigacion: [
+      ["LI-ING-01", "ING", "Ingeniería de software y calidad", "Procesos de desarrollo, pruebas y mantenimiento de software."],
+      ["LI-ING-02", "ING", "Inteligencia artificial y ciencia de datos", "Aprendizaje automático, análisis de datos y sistemas inteligentes."],
+      ["LI-DER-01", "DER", "Derecho constitucional y derechos humanos", "Garantías constitucionales y protección de derechos fundamentales."],
+      ["LI-DER-02", "DER", "Derecho empresarial", "Regulación de sociedades, contratos y competencia."]
+    ].map(([id, carreraId, nombre, descripcion]) => ({ id, carreraId, nombre, descripcion }))
+  };
+  const error = (codigo, mensaje) => ({ codigo, cuerpo: { error: mensaje } });
+  return (metodo, url, cuerpo) => {
+    const ruta = decodeURIComponent(new URL(url).pathname);
+    let m;
+    if (metodo === "GET" && ruta === "/api/parametros") return { codigo: 200, cuerpo: parametros };
+    if (metodo === "GET" && ruta === "/api/catalogos") return { codigo: 200, cuerpo: catalogos };
+    if (metodo === "GET" && (m = /^\/api\/catalogos\/([^/]+)$/.exec(ruta)))
+      return catalogos[m[1]] ? { codigo: 200, cuerpo: catalogos[m[1]] }
+        : error(404, "No existe el catálogo \"" + m[1] + "\". Tipos válidos: carreras, facultades, planesEstudio, lineasInvestigacion.");
+    if (metodo === "PUT" && (m = /^\/api\/parametros\/([^/]+)$/.exec(ruta))) {
+      const clave = m[1], p = parametros.find(x => x.clave === clave);
+      if (!p) return error(404, "No existe el parámetro " + clave + ".");
+      if (!p.editable) return error(400, "El parámetro " + clave + " es de solo lectura.");
+      if (!cuerpo) return error(400, "El cuerpo debe ser un JSON como { \"valor\": \"42\", \"usuario\": \"correo\" }.");
+      let valor = String(cuerpo.valor ?? "").trim();
+      if (!valor) return error(400, "Falta el valor de " + clave + ".");
+      if (p.tipo === "ENTERO") {
+        /* Como Integer.parseInt de Java: signo opcional y dentro de un int de 32 bits; luego, mayor o igual a 0. */
+        const n = /^[+-]?\d+$/.test(valor) ? Number(valor) : NaN;
+        if (!(n >= 0 && n <= 2147483647)) return error(400, clave + " debe ser un número entero mayor o igual a 0.");
+        valor = String(n);
+      }
+      if (p.tipo === "FECHA" && (!/^\d{4}-\d\d-\d\d$/.test(valor) || isNaN(Date.parse(valor + "T00:00:00Z")) ||
+        new Date(valor + "T00:00:00Z").toISOString().slice(0, 10) !== valor))
+        return error(400, clave + " debe ser una fecha válida con formato AAAA-MM-DD.");
+      if (p.tipo === "CICLO" && !/^\d{4}-[12]$/.test(valor))
+        return error(400, clave + " debe tener el formato AAAA-1 o AAAA-2 (por ejemplo 2027-1).");
+      const num = k => Number(parametros.find(x => x.clave === k).valor);
+      if (clave === "MIN_HORAS_DOCENTE" && Number(valor) > num("MAX_HORAS_DOCENTE"))
+        return error(400, "MIN_HORAS_DOCENTE no puede ser mayor que MAX_HORAS_DOCENTE (" + num("MAX_HORAS_DOCENTE") + ").");
+      if (clave === "MAX_HORAS_DOCENTE" && Number(valor) < num("MIN_HORAS_DOCENTE"))
+        return error(400, "MAX_HORAS_DOCENTE no puede ser menor que MIN_HORAS_DOCENTE (" + num("MIN_HORAS_DOCENTE") + ").");
+      Object.assign(p, { valor, actualizadoPor: String(cuerpo.usuario || "").trim() || "desconocido", fechaActualizacion: "2026-11-18T10:00:00-05:00" });
+      return { codigo: 200, cuerpo: p };
+    }
+    return { codigo: 404, cuerpo: "<html>Not Found</html>" };
+  };
+}
+
+/**
  * Apps Script falso con los .js de la app cargados en un mismo ámbito global.
  *   const e = crearEntorno({ usuario: "mfloresl@ulasalle.edu.pe" });
  *   e.llamar("planInicio", "2026-1")   como google.script.run (copia el resultado por JSON)
  *   e.como("fmaresg@ulasalle.edu.pe")  cambia la cuenta activa
  *   e.avanzar(31 * 60000)              adelanta el reloj que ve la app
  *   e.hojas.Planes.datos               filas de una pestaña
- * @param {{usuario?: string, hojas?: Object<string, string[][]>, archivos?: string[]}} [op]
+ *   e.peticiones                       lo que la app pidió con UrlFetchApp: [{ url, metodo, opciones, cuerpo }]
+ * op.api reemplaza al servicio REST falso (apiFalsa): (metodo, url, cuerpo) → { codigo, cuerpo }; si lanza, fetch
+ * lanza como cuando el servidor no responde.
+ * @param {{usuario?: string, hojas?: Object<string, string[][]>, archivos?: string[], api?: Function}} [op]
  */
 export function crearEntorno(op = {}) {
   const hojas = {};
@@ -279,7 +372,24 @@ export function crearEntorno(op = {}) {
     return o;
   };
   const leerHtml = n => fs.readFileSync(path.join(RAIZ, n + ".html"), "utf8");
+  /* UrlFetchApp falso: anota cada petición y la atiende el servicio REST falso (o op.api). Como el real, con
+     muteHttpExceptions distinto de true un código 4xx/5xx lanza. */
+  const peticiones = [];
+  const api = op.api || apiFalsa();
+  const UrlFetchApp = {
+    fetch(url, opciones = {}) {
+      const metodo = String(opciones.method || "get").toUpperCase();
+      const cuerpo = opciones.payload === undefined ? undefined : JSON.parse(opciones.payload);
+      peticiones.push({ url, metodo, opciones, cuerpo });
+      const r = api(metodo, url, cuerpo);
+      const textoCuerpo = typeof r.cuerpo === "string" ? r.cuerpo : JSON.stringify(r.cuerpo);
+      if (r.codigo >= 400 && opciones.muteHttpExceptions !== true)
+        throw new Error("Request failed for " + url + " returned code " + r.codigo);
+      return { getResponseCode: () => r.codigo, getContentText: () => textoCuerpo };
+    }
+  };
   const ctx = vm.createContext({
+    UrlFetchApp,
     console,
     Date: FechaFalsa,
     Session: { getActiveUser: () => ({ getEmail: () => estado.usuario }), getEffectiveUser: () => ({ getEmail: () => "dueno@ulasalle.edu.pe" }) },
@@ -305,7 +415,7 @@ export function crearEntorno(op = {}) {
   for (const archivo of op.archivos || ARCHIVOS_JS)
     vm.runInContext(fs.readFileSync(path.join(RAIZ, archivo), "utf8"), ctx, { filename: archivo });
   return {
-    ctx, hojas, estado,
+    ctx, hojas, estado, peticiones,
     como(correo) { estado.usuario = correo; return this; },
     avanzar(ms) { estado.desfase += ms; return this; },
     /** Como google.script.run: solo funciones públicas (sin "_") y el resultado pasa por JSON. */

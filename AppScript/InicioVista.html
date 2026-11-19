@@ -8,8 +8,10 @@
          ➡ SIGUE EN PlanDeCicloVista.html: su init() ve el cambio y pide la tabla (planInicio).
        "Carga docente" → $store.nav.vista = 'carga'
          ➡ SIGUE EN CargaDocenteVista.html: su init() ve el cambio y pide la tabla (cargaInicio).
-     El botón de tu rol sale en azul (clase .primario del CSS de IndexVista.html); el otro abre su
-     vista en solo lectura.
+       "Parámetros" → $store.nav.vista = 'param'
+         ➡ SIGUE EN ParametrosVista.html: su init() ve el cambio y pide parámetros y catálogos (paramConsultar, paramCatalogos).
+     El botón del CU de tu rol sale en azul (clase .primario del CSS de IndexVista.html); el del otro CU abre su
+     vista en solo lectura. "Parámetros" lo pueden editar los directores; los coordinadores lo ven en solo lectura.
      ===================================================================== -->
 <!-- ALPINE · navegación: x-show muestra Inicio cuando $store.nav.vista es 'inicio'. -->
 <section x-show="$store.nav.vista === 'inicio'" x-cloak>
@@ -17,7 +19,7 @@
   <!-- ALPINE · en espera: se ve mientras IndexVista.html espera la respuesta de indexUsuario ($store.usuario.cargando). -->
   <p class="suave" x-show="$store.usuario.cargando">Comprobando tu cuenta…</p>
   <p class="error" x-show="$store.usuario.error" x-text="$store.usuario.error"></p>
-  <!-- Los dos botones aparecen solo cuando el servidor confirmó que tienes acceso. -->
+  <!-- Los tres botones aparecen solo cuando el servidor confirmó que tienes acceso. -->
   <div class="inicio" x-show="$store.usuario.acceso">
     <!-- Azul si eres coordinador. El subtítulo une tus carreras: "Edita el plan de ING, ICO".
          ALPINE · navegación: @click pone $store.nav.vista = 'plan'. -->
@@ -33,6 +35,14 @@
       Carga docente
       <small x-text="$store.usuario.rol === 'director'
         ? 'Asigna docentes a las carreras de ' + ($store.usuario.departamento || 'tu departamento')
+        : 'Solo lectura'"></small>
+    </button>
+    <!-- Parámetros del sistema y catálogos (vienen del servicio REST). El director puede actualizarlos; el coordinador, solo verlos.
+         ALPINE · navegación: @click pone $store.nav.vista = 'param'. -->
+    <button @click="$store.nav.vista = 'param'">
+      Parámetros
+      <small x-text="$store.usuario.rol === 'director'
+        ? 'Actualiza los parámetros del sistema y consulta los catálogos'
         : 'Solo lectura'"></small>
     </button>
   </div>

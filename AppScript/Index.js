@@ -34,7 +34,7 @@ var INDEX_DOMINIO = "@ulasalle.edu.pe";
  */
 function doGet() {
   /* PASO 1 · Se toma IndexVista.html como plantilla: sus marcas <?!= include("…") ?> se ejecutan aquí, en el
-     servidor, y pegan InicioVista, PlanDeCicloVista y CargaDocenteVista dentro (ver include, abajo). */
+     servidor, y pegan InicioVista, PlanDeCicloVista, CargaDocenteVista y ParametrosVista dentro (ver include, abajo). */
   return HtmlService.createTemplateFromFile("IndexVista").evaluate()
     /* PASO 2 · Título de la pestaña del navegador y ajuste para móviles. ↩ RESPUESTA: un solo HTML con todo. */
     .setTitle("SISCargaLectiva · Universidad La Salle")
@@ -43,8 +43,8 @@ function doGet() {
 
 /**
  * Contenido de otro .html del proyecto, para pegarlo dentro de IndexVista.html.
- * ⬅ VIENE DE: las marcas <?!= include("InicioVista") ?> (y las otras dos) de IndexVista.html, durante doGet.
- * @param {string} nombre "InicioVista", "PlanDeCicloVista" o "CargaDocenteVista".
+ * ⬅ VIENE DE: las marcas <?!= include("InicioVista") ?> (y las otras tres) de IndexVista.html, durante doGet.
+ * @param {string} nombre "InicioVista", "PlanDeCicloVista", "CargaDocenteVista" o "ParametrosVista".
  * @returns {string}
  */
 function include(nombre) {

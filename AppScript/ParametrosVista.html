@@ -1,0 +1,269 @@
+<!-- =====================================================================
+     ParametrosVista.html · vista "Parámetros" (su servidor: Parametros.js)
+     ---------------------------------------------------------------------
+     Arriba está el marcado (lo que se ve) y abajo, en el bloque de JavaScript, el componente
+     "parametros" con un método por acción. Los datos NO están en el Google Sheet: Parametros.js los pide al
+     servicio REST de Spring Boot (carpeta backend/ del repositorio) con UrlFetchApp.
+     QUÉ DISPARA CADA BOTÓN (método de abajo → función de Parametros.js → servicio REST)
+       Abrir la vista / "Recargar" ...... inicio()       → paramConsultar  → GET /api/parametros
+                                                         → paramCatalogos  → GET /api/catalogos
+       "Guardar" de un parámetro ........ actualizar(p)  → paramActualizar → PUT /api/parametros/{clave}
+       Selector "Catálogo" .............. catalogo()     → paramCatalogo   → GET /api/catalogos/{tipo}
+       Escribir un valor solo cambia valores[clave] en el navegador (✎ SOLO MEMORIA) hasta pulsar "Guardar" (o Enter
+       en el campo, con las mismas condiciones que el botón).
+     QUIÉN PUEDE QUÉ
+       Coordinador y director ven todo. Solo el director puede "Guardar" (lo comprueba también Parametros.js).
+       Los parámetros con editable = false (DOMINIO_PERMITIDO, MAX_CARACTERES_CELDA) son fijos para todos.
+     DÓNDE MIRAR
+       La línea "Sheet:" de cada comentario 📡 dice qué pestañas lee esa llamada (solo Usuarios, para saber tu rol).
+       Lo que pidió el docente con Alpine: busca "ALPINE ·".
+     ===================================================================== -->
+<!-- ALPINE · navegación: x-show muestra esta sección cuando $store.nav.vista es 'param' (la cambian la barra y
+     el botón de Inicio). x-data="parametros" es el componente del bloque de JavaScript de abajo. -->
+<section x-show="$store.nav.vista === 'param'" x-data="parametros" x-cloak>
+  <h2>Parámetros del sistema</h2>
+  <!-- "Recargar" → inicio() → paramConsultar y paramCatalogos.
+       ALPINE · en espera: "Cargando…" y el botón deshabilitado mientras dura la llamada. -->
+  <div class="fila">
+    <button :disabled="!!ocupado" @click="inicio()" x-text="ocupado === 'inicio' ? 'Cargando…' : 'Recargar'"></button>
+    <span class="marca lectura" x-show="listo && !puedeEditar">Solo lectura</span>
+    <span class="suave" x-show="listo && !puedeEditar">Solo el director de departamento puede actualizar parámetros.</span>
+    <span class="suave" x-show="servidor" x-text="'Servicio REST: ' + servidor"></span>
+  </div>
+  <!-- Mensajes: rojo = this.error (cualquier método si el servicio responde con error); verde = this.exito (actualizar). -->
+  <p class="error" x-show="error" x-text="error"></p>
+  <p class="exito" x-show="exito" x-text="exito"></p>
+
+  <!-- TABLA DE PARÁMETROS, un bloque por grupo (Horas docentes, Ciclo y plazos, Sistema). Sale de paramConsultar.
+       Cada fila: campo para el valor nuevo (✎ SOLO MEMORIA en valores[clave]) y "Guardar" → actualizar(p) → paramActualizar.
+       ALPINE · x-for con datos del servidor: x-for="g in grupos()" y x-for="p in g.lista" (los deja inicio(), PASO 4). -->
+  <template x-for="g in grupos()" :key="g.grupo">
+    <div class="tabla">
+      <h3 x-text="g.titulo"></h3>
+      <table>
+        <thead>
+          <tr><th>Clave</th><th>Descripción</th><th>Valor</th><th>Unidad</th><th>Tipo</th><th>Última actualización</th><th></th></tr>
+        </thead>
+        <tbody>
+          <template x-for="p in g.lista" :key="p.clave">
+            <tr>
+              <td><code x-text="p.clave"></code></td>
+              <td x-text="p.descripcion"></td>
+              <td>
+                <!-- El tipo del campo depende del tipo del parámetro: número (ENTERO), fecha (FECHA) o texto (CICLO, TEXTO). -->
+                <input x-model="valores[p.clave]" :type="p.tipo === 'ENTERO' ? 'number' : (p.tipo === 'FECHA' ? 'date' : 'text')"
+                       min="0" size="18" :readonly="!!(!puedeEditar || !p.editable)" @keydown.enter="actualizar(p)">
+                <span class="marca lectura" x-show="!p.editable">fijo</span>
+              </td>
+              <td x-text="p.unidad"></td>
+              <td x-text="p.tipo"></td>
+              <td class="suave" x-text="p.actualizadoPor + ' · ' + fechaCorta(p.fechaActualizacion)"></td>
+              <td>
+                <!-- Se habilita si eres director, el parámetro es editable y el valor cambió.
+                     ALPINE · en espera: "Guardando…" solo en la fila que se está guardando. -->
+                <button class="primario chico" x-show="puedeEditar && p.editable"
+                        :disabled="!!ocupado || valores[p.clave] === p.valor" @click="actualizar(p)"
+                        x-text="ocupado === 'guardar' && pedida === p.clave ? 'Guardando…' : 'Guardar'"></button>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+  </template>
+
+  <!-- CATÁLOGOS. Al abrir la vista llegan los cuatro (paramCatalogos). Cambiar el selector → catalogo() → paramCatalogo(tipo)
+       y repinta la tabla con lo que devolvió el servicio. Las columnas salen de los campos del primer elemento.
+       ALPINE · x-for con datos del servidor: x-for="e in elementos" (los dejan inicio(), PASO 4, y catalogo(), PASO 4). -->
+  <div class="panel" x-show="listo">
+    <div class="fila" style="margin-top: 0">
+      <h3 style="margin: 0">Catálogos</h3>
+      <label>Catálogo
+        <select x-model="tipo" @change="catalogo()" :disabled="!!ocupado">
+          <template x-for="t in tipos" :key="t.id"><option :value="t.id" :selected="t.id === tipo" x-text="t.nombre"></option></template>
+        </select>
+      </label>
+      <span class="suave" x-show="ocupado === 'catalogo'">Cargando…</span>
+      <span class="suave" x-show="ocupado !== 'catalogo'" x-text="elementos.length + ' elementos'"></span>
+    </div>
+    <div class="tabla">
+      <table>
+        <thead>
+          <tr><template x-for="col in columnas()" :key="col"><th x-text="titulo(col)"></th></template></tr>
+        </thead>
+        <tbody>
+          <template x-for="(e, i) in elementos" :key="i">
+            <tr><template x-for="col in columnas()" :key="col"><td x-text="celda(e[col])"></td></template></tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<script>
+  /* =====================================================================
+     Componente "parametros": la memoria de esta vista y un método por acción.
+     Cada método que llama al servidor sigue el mismo patrón: ocupado = "acción", 📡 llamada, ⬅ respuesta, finally.
+     (En este bloque los comentarios van con barra y asterisco: HtmlService corta las dos barras.)
+     ===================================================================== */
+  document.addEventListener("alpine:init", () => {
+    Alpine.data("parametros", () => ({
+      /* ---------- Memoria del componente ----------
+         ocupado: acción en curso ("" = ninguna) · error / exito: mensajes · listo: ya se cargó una vez
+         servidor: dirección del servicio REST · puedeEditar: eres director · parametros: la lista del servicio
+         valores: lo escrito en cada campo (clave → texto) · pedida: la clave que se está guardando
+         tipos: las opciones del selector · tipo: el catálogo elegido · elementos: sus filas */
+      ocupado: "", error: "", exito: "", listo: false,
+      servidor: "", puedeEditar: false, parametros: [], valores: {}, pedida: "",
+      tipos: [
+        { id: "carreras", nombre: "Carreras" },
+        { id: "facultades", nombre: "Facultades" },
+        { id: "planesEstudio", nombre: "Planes de estudio" },
+        { id: "lineasInvestigacion", nombre: "Líneas de investigación" }
+      ],
+      tipo: "carreras", elementos: [],
+
+      /* =================================================================
+         ARRANQUE (Alpine lo llama solo, al crear el componente)
+         ================================================================= */
+      init() {
+        /* La primera vez que se muestra esta vista (botón de la barra o de Inicio cambia $store.nav.vista), pide los datos.
+           ➡ SIGUE EN inicio(), abajo. ALPINE · navegación: $watch vigila $store.nav.vista. */
+        this.$watch("$store.nav.vista", v => { if (v === "param" && !this.listo) this.inicio(); });
+        if (Alpine.store("nav").vista === "param") this.inicio();
+      },
+
+      /* =================================================================
+         AYUDAS QUE USA EL MARCADO
+         ================================================================= */
+      /* grupos(): los parámetros separados por grupo, en este orden, con su título. */
+      grupos() {
+        const titulos = { HORAS: "Horas docentes", CICLO: "Ciclo y plazos", SISTEMA: "Sistema" };
+        const orden = ["HORAS", "CICLO", "SISTEMA"];
+        this.parametros.forEach(p => { if (orden.indexOf(p.grupo) < 0) orden.push(p.grupo); });
+        return orden.map(g => ({ grupo: g, titulo: titulos[g] || g, lista: this.parametros.filter(p => p.grupo === g) }))
+          .filter(g => g.lista.length);
+      },
+      /* fechaCorta: "2026-11-04T21:56:12-05:00" → "2026-11-04 21:56". */
+      fechaCorta(f) { return f ? f.slice(0, 10) + " " + f.slice(11, 16) : ""; },
+      /* columnas(): los campos del primer elemento del catálogo (id, nombre, carreraId…). */
+      columnas() { return this.elementos.length ? Object.keys(this.elementos[0]) : []; },
+      /* titulo(col): encabezado legible de una columna. */
+      titulo(col) {
+        const t = { id: "ID", sigla: "Sigla", nombre: "Nombre", departamento: "Departamento", facultadId: "Facultad",
+          duracionSemestres: "Semestres", carreraId: "Carrera", anio: "Año", vigente: "Vigente",
+          creditosTotales: "Créditos", cantidadSemestres: "Semestres", descripcion: "Descripción" };
+        return t[col] || col;
+      },
+      /* celda(v): verdadero/falso como "Sí"/"No"; lo demás, tal cual. */
+      celda(v) { return v === true ? "Sí" : (v === false ? "No" : (v === null || v === undefined ? "" : String(v))); },
+
+      /* =================================================================
+         ACCIÓN · Abrir la vista o "Recargar" → parámetros y catálogos
+         ================================================================= */
+      async inicio() {
+        let p = null, c = null;
+        if (!this.ocupado) {
+          /* PASO 1 · ALPINE · en espera: "Cargando…" y los botones deshabilitados. */
+          this.ocupado = "inicio";
+          this.error = "";
+          this.exito = "";
+          try {
+            /* PASO 2 · 📡 → SERVIDOR: Parametros.js → paramConsultar(). Allí: 🌐 GET /api/parametros al servicio Spring Boot.
+               Sheet: 📥 Usuarios */
+            const r1 = await new Promise((listo, mal) => google.script.run
+              .withSuccessHandler(listo)
+              .withFailureHandler(mal)
+              ["paramConsultar"]());
+            if (!r1 || !r1.ok) throw new Error((r1 && r1.error) || "Respuesta vacía del servidor.");
+            p = r1.datos;
+
+            /* PASO 3 · 📡 → SERVIDOR: Parametros.js → paramCatalogos(). Allí: 🌐 GET /api/catalogos al servicio Spring Boot.
+               Sheet: 📥 Usuarios */
+            const r2 = await new Promise((listo, mal) => google.script.run
+              .withSuccessHandler(listo)
+              .withFailureHandler(mal)
+              ["paramCatalogos"]());
+            if (!r2 || !r2.ok) throw new Error((r2 && r2.error) || "Respuesta vacía del servidor.");
+            c = r2.datos;
+          } catch (e) { this.error = (e && e.message) || String(e); }
+          finally { this.ocupado = ""; }
+        }
+        /* PASO 4 · ⬅ VUELVE: la tabla de parámetros (valores empieza con el valor actual de cada uno) y la tabla del
+           catálogo elegido. ALPINE · x-for con datos del servidor. */
+        if (p) {
+          this.servidor = p.servidor;
+          this.puedeEditar = !!p.puedeEditar;
+          this.parametros = p.parametros;
+          const valores = {};
+          p.parametros.forEach(x => { valores[x.clave] = x.valor; });
+          this.valores = valores;
+          this.listo = true;
+        }
+        if (c) this.elementos = Array.isArray(c[this.tipo]) ? c[this.tipo] : [];
+      },
+
+      /* =================================================================
+         ACCIÓN · Botón "Guardar" de un parámetro (solo director)
+         ================================================================= */
+      async actualizar(p) {
+        /* Las mismas condiciones que habilitan el botón (Enter en el campo también llega aquí): sin otra llamada en curso,
+           eres director, el parámetro es editable y el valor cambió. Si no, no se hace nada. */
+        if (this.ocupado || !this.puedeEditar || !p.editable || this.valores[p.clave] === p.valor) return;
+        let r = null;
+        /* PASO 1 · ALPINE · en espera: "Guardando…" en esa fila (pedida = su clave). */
+        this.ocupado = "guardar";
+        this.pedida = p.clave;
+        this.error = "";
+        this.exito = "";
+        try {
+          /* PASO 2 · 📡 → SERVIDOR: Parametros.js → paramActualizar(clave, valor). Allí: 🌐 PUT /api/parametros/{clave}
+             con { valor, usuario }. El servicio valida el valor y responde 400 con el motivo si no sirve.
+             Sheet: 📥 Usuarios */
+          const respuesta = await new Promise((listo, mal) => google.script.run
+            .withSuccessHandler(listo)
+            .withFailureHandler(mal)
+            ["paramActualizar"](p.clave, String(this.valores[p.clave] === undefined ? "" : this.valores[p.clave])));
+          /* PASO 3 · ⬅ VUELVE con el parámetro ya cambiado (valor, actualizadoPor, fechaActualizacion). */
+          if (!respuesta || !respuesta.ok) throw new Error((respuesta && respuesta.error) || "Respuesta vacía del servidor.");
+          r = respuesta.datos;
+        } catch (e) { this.error = (e && e.message) || String(e); }
+        finally { this.ocupado = ""; this.pedida = ""; }
+        /* PASO 4 · Reemplaza la fila con lo que devolvió el servicio y avisa en verde. */
+        if (r) {
+          this.parametros = this.parametros.map(x => (x.clave === r.clave ? r : x));
+          this.valores[r.clave] = r.valor;
+          this.exito = r.clave + " actualizado a " + r.valor + (r.unidad ? " " + r.unidad : "") + ".";
+        }
+      },
+
+      /* =================================================================
+         ACCIÓN · Selector "Catálogo" → un catálogo por su tipo
+         ================================================================= */
+      async catalogo() {
+        /* Con otra llamada en curso no se hace nada (el selector ya está deshabilitado) y la tabla queda como estaba. */
+        if (this.ocupado) return;
+        let r = null;
+        /* PASO 1 · ALPINE · en espera: "Cargando…" junto al selector. */
+        this.ocupado = "catalogo";
+        this.error = "";
+        try {
+          /* PASO 2 · 📡 → SERVIDOR: Parametros.js → paramCatalogo(tipo). Allí: 🌐 GET /api/catalogos/{tipo}.
+             Sheet: 📥 Usuarios */
+          const respuesta = await new Promise((listo, mal) => google.script.run
+            .withSuccessHandler(listo)
+            .withFailureHandler(mal)
+            ["paramCatalogo"](this.tipo));
+          /* PASO 3 · ⬅ VUELVE con { tipo, elementos }. */
+          if (!respuesta || !respuesta.ok) throw new Error((respuesta && respuesta.error) || "Respuesta vacía del servidor.");
+          r = respuesta.datos;
+        } catch (e) { this.error = (e && e.message) || String(e); }
+        finally { this.ocupado = ""; }
+        /* PASO 4 · La tabla del catálogo (x-for="e in elementos"). Si falló, queda vacía con el error en rojo.
+           ALPINE · x-for con datos del servidor. */
+        this.elementos = r && r.tipo === this.tipo ? r.elementos : [];
+      }
+    }));
+  });
+</script>
