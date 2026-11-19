@@ -1,0 +1,116 @@
+{
+  "info": {
+    "name": "SISCargaLectiva API",
+    "description": "Servicios REST de SISCargaLectiva: parámetros del sistema y catálogos. Cambia la variable baseUrl por la URL del despliegue (sin / final).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" }
+  ],
+  "item": [
+    {
+      "name": "Parámetros",
+      "item": [
+        {
+          "name": "Listar parámetros",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/parametros", "host": ["{{baseUrl}}"], "path": ["api", "parametros"] }
+          }
+        },
+        {
+          "name": "Actualizar MAX_HORAS_DOCENTE (200)",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"valor\": \"42\",\n  \"usuario\": \"director@ulasalle.edu.pe\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/parametros/MAX_HORAS_DOCENTE", "host": ["{{baseUrl}}"], "path": ["api", "parametros", "MAX_HORAS_DOCENTE"] }
+          }
+        },
+        {
+          "name": "Actualizar CICLO_VIGENTE (200)",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"valor\": \"2027-1\",\n  \"usuario\": \"director@ulasalle.edu.pe\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/parametros/CICLO_VIGENTE", "host": ["{{baseUrl}}"], "path": ["api", "parametros", "CICLO_VIGENTE"] }
+          }
+        },
+        {
+          "name": "Error: valor no numérico (400)",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"valor\": \"cuarenta\",\n  \"usuario\": \"director@ulasalle.edu.pe\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/parametros/MAX_HORAS_DOCENTE", "host": ["{{baseUrl}}"], "path": ["api", "parametros", "MAX_HORAS_DOCENTE"] }
+          }
+        },
+        {
+          "name": "Error: parámetro de solo lectura (400)",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"valor\": \"@gmail.com\",\n  \"usuario\": \"director@ulasalle.edu.pe\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/parametros/DOMINIO_PERMITIDO", "host": ["{{baseUrl}}"], "path": ["api", "parametros", "DOMINIO_PERMITIDO"] }
+          }
+        },
+        {
+          "name": "Error: clave inexistente (404)",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"valor\": \"1\",\n  \"usuario\": \"director@ulasalle.edu.pe\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/parametros/NO_EXISTE", "host": ["{{baseUrl}}"], "path": ["api", "parametros", "NO_EXISTE"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Catálogos",
+      "item": [
+        {
+          "name": "Todos los catálogos",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/catalogos", "host": ["{{baseUrl}}"], "path": ["api", "catalogos"] }
+          }
+        },
+        {
+          "name": "Carreras",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/catalogos/carreras", "host": ["{{baseUrl}}"], "path": ["api", "catalogos", "carreras"] }
+          }
+        },
+        {
+          "name": "Facultades",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/catalogos/facultades", "host": ["{{baseUrl}}"], "path": ["api", "catalogos", "facultades"] }
+          }
+        },
+        {
+          "name": "Planes de estudio",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/catalogos/planesEstudio", "host": ["{{baseUrl}}"], "path": ["api", "catalogos", "planesEstudio"] }
+          }
+        },
+        {
+          "name": "Líneas de investigación",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/catalogos/lineasInvestigacion", "host": ["{{baseUrl}}"], "path": ["api", "catalogos", "lineasInvestigacion"] }
+          }
+        },
+        {
+          "name": "Error: tipo inexistente (404)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/catalogos/cursos", "host": ["{{baseUrl}}"], "path": ["api", "catalogos", "cursos"] }
+          }
+        }
+      ]
+    }
+  ]
+}
